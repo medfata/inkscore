@@ -1,65 +1,225 @@
-import Image from "next/image";
+"use client";
+
+import React, { useState, useEffect } from 'react';
+import { useAccount, useConnect, useDisconnect } from 'wagmi';
+import { Landing } from './components/Landing';
+import { Dashboard } from './components/Dashboard';
+import { Menu, X, ExternalLink } from './components/Icons';
+import { Logo } from './components/Logo';
+
+enum View {
+  LANDING,
+  DASHBOARD
+}
 
 export default function Home() {
+  const [currentView, setCurrentView] = useState<View>(View.LANDING);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isDemo, setIsDemo] = useState(false);
+  const [showConnectModal, setShowConnectModal] = useState(false);
+
+  const { address, isConnected } = useAccount();
+  const { connect, connectors, isPending } = useConnect();
+  const { disconnect } = useDisconnect();
+
+  // Auto-switch to dashboard when connected
+  useEffect(() => {
+    if (isConnected && address && !isDemo) {
+      setCurrentView(View.DASHBOARD);
+    }
+  }, [isConnected, address, isDemo]);
+
+  const handleConnect = () => {
+    setShowConnectModal(true);
+  };
+
+  const handleConnectorSelect = (connector: typeof connectors[number]) => {
+    connect({ connector });
+    setShowConnectModal(false);
+  };
+
+  const startDemo = () => {
+    setIsDemo(true);
+    setCurrentView(View.DASHBOARD);
+  };
+
+  const handleDisconnect = () => {
+    disconnect();
+    setIsDemo(false);
+    setCurrentView(View.LANDING);
+  };
+
+  const displayAddress = isDemo 
+    ? "0xDEMO...USER" 
+    : address 
+      ? `${address.slice(0, 6)}...${address.slice(-4)}`
+      : null;
+
+  const fullAddress = isDemo ? "" : address || "";
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+    <div className="bg-ink-950 min-h-screen text-slate-200 font-sans selection:bg-ink-purple selection:text-white overflow-x-hidden">
+      {/* Navigation */}
+      <nav className="fixed top-0 w-full z-50 border-b border-white/5 bg-ink-950/80 backdrop-blur-md transition-all duration-300">
+        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+          <div
+            className="cursor-pointer hover:opacity-90 transition-opacity"
+            onClick={() => {
+              if (!isConnected && !isDemo) {
+                setCurrentView(View.LANDING);
+              }
+            }}
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            <Logo size="sm" />
+          </div>
+
+          {/* Desktop Nav */}
+          <div className="hidden md:flex items-center gap-8">
+            <a href="#" className="text-sm font-medium text-slate-400 hover:text-white transition-colors relative group">
+              How it Works
+              <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-ink-purple group-hover:w-full transition-all duration-300"></span>
+            </a>
+            <a href="#" className="text-sm font-medium text-slate-400 hover:text-white transition-colors relative group">
+              Leaderboard
+              <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-ink-purple group-hover:w-full transition-all duration-300"></span>
+            </a>
+            <a href="/admin" className="text-sm font-medium text-slate-400 hover:text-white transition-colors relative group">
+              Admin
+              <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-ink-purple group-hover:w-full transition-all duration-300"></span>
+            </a>
+
+            {(isConnected || isDemo) ? (
+              <div className="flex items-center gap-4 animate-fade-in-up">
+                <div className="text-sm font-mono bg-slate-900/80 border border-slate-700 px-3 py-1.5 rounded-lg text-slate-400 flex items-center gap-2">
+                  <div className={`w-2 h-2 rounded-full animate-pulse ${isDemo ? 'bg-yellow-500' : 'bg-green-500'}`}></div>
+                  {displayAddress}
+                </div>
+                <button
+                  onClick={handleDisconnect}
+                  className="text-sm font-medium text-red-400 hover:text-red-300 transition-colors"
+                >
+                  Disconnect
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={handleConnect}
+                disabled={isPending}
+                className="group relative px-5 py-2.5 rounded-lg text-sm font-medium transition-all overflow-hidden disabled:opacity-50"
+              >
+                <div className="absolute inset-0 bg-white/5 border border-white/10 group-hover:bg-white/10 transition-colors"></div>
+                <span className="relative z-10 text-white">
+                  {isPending ? 'Connecting...' : 'Connect Wallet'}
+                </span>
+              </button>
+            )}
+          </div>
+
+          {/* Mobile Menu Toggle */}
+          <button
+            className="md:hidden text-slate-400 hover:text-white"
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
           >
-            Documentation
-          </a>
+            {isMobileMenuOpen ? <X /> : <Menu />}
+          </button>
         </div>
+
+        {/* Mobile Menu */}
+        {isMobileMenuOpen && (
+          <div className="md:hidden bg-ink-900 border-b border-slate-800 p-6 space-y-4 animate-fade-in-up">
+            <a href="#" className="block text-slate-300">How it Works</a>
+            <a href="#" className="block text-slate-300">Leaderboard</a>
+            <a href="/admin" className="block text-slate-300">Admin</a>
+            {(isConnected || isDemo) ? (
+              <button onClick={handleDisconnect} className="block w-full text-left text-red-400">Disconnect</button>
+            ) : (
+              <button onClick={handleConnect} className="block w-full text-left text-ink-purple font-semibold">Connect Wallet</button>
+            )}
+          </div>
+        )}
+      </nav>
+
+      <main>
+        {currentView === View.LANDING ? (
+          <Landing onConnect={handleConnect} onDemo={startDemo} />
+        ) : (
+          <Dashboard walletAddress={fullAddress} isDemo={isDemo} />
+        )}
       </main>
+
+      {/* Footer */}
+      <footer className="border-t border-slate-800 bg-ink-950 py-12 px-6 mt-auto relative z-10">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
+          <div className="flex items-center gap-2 opacity-50 grayscale hover:grayscale-0 transition-all duration-500">
+            <Logo size="sm" showText={false} />
+            <span className="text-slate-500 text-sm">
+              &copy; 2024 INKSCORE.
+            </span>
+          </div>
+          <div className="flex gap-6">
+            <a href="#" className="text-slate-500 hover:text-white transition-colors">Documentation</a>
+            <a href="#" className="text-slate-500 hover:text-white transition-colors">Twitter</a>
+            <a href="#" className="text-slate-500 hover:text-white transition-colors">Discord</a>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-slate-600 border border-slate-800 px-3 py-1 rounded-full bg-slate-900/50">
+            <span>Powered by InkChain</span>
+            <ExternalLink size={10} />
+          </div>
+        </div>
+      </footer>
+
+      {/* Connect Wallet Modal */}
+      {showConnectModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md p-6 animate-fade-in-up">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-semibold text-white">Connect Wallet</h2>
+              <button
+                onClick={() => setShowConnectModal(false)}
+                className="text-slate-400 hover:text-white transition-colors"
+              >
+                <X />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {connectors.map((connector) => (
+                <button
+                  key={connector.uid}
+                  onClick={() => handleConnectorSelect(connector)}
+                  disabled={isPending}
+                  className="w-full flex items-center gap-4 p-4 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl transition-colors disabled:opacity-50"
+                >
+                  <div className="w-10 h-10 bg-slate-700 rounded-lg flex items-center justify-center">
+                    {connector.name === 'MetaMask' && (
+                      <span className="text-2xl">🦊</span>
+                    )}
+                    {connector.name === 'WalletConnect' && (
+                      <span className="text-2xl">🔗</span>
+                    )}
+                    {connector.name === 'Injected' && (
+                      <span className="text-2xl">💉</span>
+                    )}
+                    {!['MetaMask', 'WalletConnect', 'Injected'].includes(connector.name) && (
+                      <span className="text-2xl">👛</span>
+                    )}
+                  </div>
+                  <div className="text-left">
+                    <div className="font-medium text-white">{connector.name}</div>
+                    <div className="text-sm text-slate-400">
+                      {connector.name === 'Injected' ? 'Browser Wallet' : 'Connect'}
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            <p className="text-xs text-slate-500 text-center mt-6">
+              By connecting, you agree to our Terms of Service
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

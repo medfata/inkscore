@@ -1,166 +1,205 @@
-import {
-  createPublicClient,
-  http,
-  decodeFunctionData,
-  type Abi,
-  type Log,
-  type Transaction,
-} from 'viem';
-import { config, CONTRACTS_TO_INDEX, type ContractConfig } from './config.js';
-import { getCursor, upsertCursor } from './db/cursor.js';
+import { createPublicClient, http, decodeEventLog, type PublicClient } from 'viem';
+import { config, CONTRACTS_TO_INDEX, RPC_ENDPOINTS, type ContractConfig } from './config.js';
+import { getOrCreateRanges, updateRangeProgress, areAllRangesComplete, type IndexerRange } from './db/ranges.js';
 import { insertInteractions, type Interaction } from './db/interactions.js';
 
-const client = createPublicClient({
-  transport: http(config.rpcUrl),
-});
+// Create multiple RPC clients for load balancing
+const clients: PublicClient[] = RPC_ENDPOINTS.map((url) =>
+  createPublicClient({ transport: http(url) })
+);
 
-const CHUNK_SIZE = 10000n; // Larger chunks for getLogs
-const PARALLEL_CHUNKS = 4; // Process multiple chunks in parallel
+// Round-robin client selector
+let clientIndex = 0;
+function getNextClient(): PublicClient {
+  const client = clients[clientIndex];
+  clientIndex = (clientIndex + 1) % clients.length;
+  return client;
+}
+
+// Default client for block number queries
+const defaultClient = clients[0];
+
+// Performance tuning - reduced workers to avoid rate limiting
+const LOGS_CHUNK_SIZE = 5000n; // Blocks per getLogs call
+const NUM_WORKERS = 4; // Number of parallel range workers (reduced to avoid rate limits)
+
+// Stats tracking
+let totalTxProcessed = 0;
+let startTime = Date.now();
+
+function logStats(workerId: number, batchCount: number, progress: string) {
+  const elapsed = (Date.now() - startTime) / 1000;
+  const txPerSec = elapsed > 0 ? (totalTxProcessed / elapsed).toFixed(1) : '0';
+  console.log(
+    `  [Worker ${workerId}] +${batchCount} txs | Total: ${totalTxProcessed} | ${txPerSec} tx/sec | ${progress}%`
+  );
+}
 
 export async function indexContract(contract: ContractConfig) {
   const { address, deployBlock, abi, name } = contract;
-  const cursor = await getCursor(address);
-  const latestBlock = await client.getBlockNumber();
+  const latestBlock = await defaultClient.getBlockNumber();
 
-  const startBlock = cursor
-    ? BigInt(cursor.last_indexed_block + 1)
-    : BigInt(deployBlock);
+  console.log(`\n========================================`);
+  console.log(`Indexing ${name} (${address})`);
+  console.log(`Deploy block: ${deployBlock}, Latest: ${latestBlock}`);
+  console.log(`Total blocks: ${Number(latestBlock) - deployBlock}`);
+  console.log(`Workers: ${NUM_WORKERS}`);
+  console.log(`========================================\n`);
 
-  if (startBlock > latestBlock) {
-    console.log(`${name} is up to date at block ${latestBlock}`);
+  // Get or create parallel ranges
+  const ranges = await getOrCreateRanges(address, deployBlock, Number(latestBlock), NUM_WORKERS);
+
+  const incompleteRanges = ranges.filter((r) => !r.is_complete);
+  console.log(`Found ${ranges.length} ranges, ${incompleteRanges.length} incomplete\n`);
+
+  if (incompleteRanges.length === 0) {
+    console.log(`${name} is fully indexed!`);
     return;
   }
 
-  const totalBlocks = latestBlock - startBlock;
-  console.log(`Indexing ${name} (${address})`);
-  console.log(`  From block ${startBlock} to ${latestBlock} (${totalBlocks} blocks)`);
+  startTime = Date.now();
+  totalTxProcessed = 0;
 
-  // Process in parallel chunks
-  let currentBlock = startBlock;
+  // Process all incomplete ranges in parallel
+  await Promise.all(
+    incompleteRanges.map((range, idx) => processRange(range, idx, abi, address))
+  );
 
-  while (currentBlock <= latestBlock) {
-    const chunkPromises: Promise<void>[] = [];
-    const chunksToProcess: { from: bigint; to: bigint }[] = [];
-
-    // Prepare parallel chunks
-    for (let i = 0; i < PARALLEL_CHUNKS && currentBlock <= latestBlock; i++) {
-      const fromBlock = currentBlock;
-      const toBlock =
-        currentBlock + CHUNK_SIZE - 1n > latestBlock
-          ? latestBlock
-          : currentBlock + CHUNK_SIZE - 1n;
-
-      chunksToProcess.push({ from: fromBlock, to: toBlock });
-      currentBlock = toBlock + 1n;
-    }
-
-    // Process chunks in parallel
-    const results = await Promise.all(
-      chunksToProcess.map((chunk) =>
-        processChunkWithLogs(address, abi, chunk.from, chunk.to)
-      )
-    );
-
-    // Insert all interactions
-    const allInteractions = results.flat();
-    if (allInteractions.length > 0) {
-      await insertInteractions(allInteractions);
-      console.log(`  Inserted ${allInteractions.length} interactions`);
-    }
-
-    // Update cursor to the last processed block
-    const lastProcessedBlock = chunksToProcess[chunksToProcess.length - 1].to;
-    await upsertCursor(
-      address,
-      Number(lastProcessedBlock),
-      deployBlock,
-      lastProcessedBlock >= latestBlock
-    );
-
-    const progress = ((Number(lastProcessedBlock - startBlock) / Number(totalBlocks)) * 100).toFixed(1);
-    console.log(`  Progress: ${progress}% (block ${lastProcessedBlock})`);
+  const isComplete = await areAllRangesComplete(address);
+  if (isComplete) {
+    console.log(`\n✓ ${name} indexing complete!`);
   }
-
-  console.log(`  ✓ ${name} indexing complete!`);
 }
 
-async function processChunkWithLogs(
-  contractAddress: `0x${string}`,
-  abi: Abi,
-  fromBlock: bigint,
-  toBlock: bigint
-): Promise<Interaction[]> {
+async function processRange(
+  range: IndexerRange,
+  workerId: number,
+  abi: ContractConfig['abi'],
+  contractAddress: `0x${string}`
+) {
+  const rangeStart = BigInt(range.range_start);
+  const rangeEnd = BigInt(range.range_end);
+  let currentBlock = BigInt(range.current_block);
+
+  const totalRangeBlocks = rangeEnd - rangeStart;
+
+  console.log(`[Worker ${workerId}] Starting range ${rangeStart}-${rangeEnd} (from ${currentBlock})`);
+
+  while (currentBlock <= rangeEnd) {
+    const fromBlock = currentBlock;
+    const toBlock = currentBlock + LOGS_CHUNK_SIZE - 1n > rangeEnd
+      ? rangeEnd
+      : currentBlock + LOGS_CHUNK_SIZE - 1n;
+
+    try {
+      // Use round-robin RPC client for load balancing
+      const rpcClient = getNextClient();
+      const logs = await rpcClient.getLogs({
+        address: contractAddress,
+        fromBlock,
+        toBlock,
+      });
+
+      if (logs.length > 0) {
+        const interactions = processLogs(logs, abi, contractAddress);
+
+        if (interactions.length > 0) {
+          await insertInteractions(interactions);
+          totalTxProcessed += interactions.length;
+
+          const progress = ((Number(currentBlock - rangeStart) / Number(totalRangeBlocks)) * 100).toFixed(1);
+          logStats(workerId, interactions.length, progress);
+        }
+      }
+
+      // Update progress
+      const isComplete = toBlock >= rangeEnd;
+      await updateRangeProgress(range.id, Number(toBlock), isComplete);
+
+      currentBlock = toBlock + 1n;
+    } catch (err) {
+      console.error(`[Worker ${workerId}] Error at block ${fromBlock}:`, err);
+      // Wait and retry
+      await sleep(2000);
+    }
+  }
+
+  console.log(`[Worker ${workerId}] ✓ Range complete!`);
+}
+
+function processLogs(
+  logs: Awaited<ReturnType<PublicClient['getLogs']>>,
+  abi: ContractConfig['abi'],
+  contractAddress: `0x${string}`
+): Interaction[] {
   const interactions: Interaction[] = [];
 
-  try {
-    // Get all logs (events) from the contract - this catches all activity
-    const logs = await client.getLogs({
-      address: contractAddress,
-      fromBlock,
-      toBlock,
-    });
+  // Get min/max blocks for timestamp estimation
+  let minBlock = logs[0]?.blockNumber || 0n;
+  let maxBlock = logs[0]?.blockNumber || 0n;
 
-    // Get unique transaction hashes from logs
-    const txHashes = [...new Set(logs.map((log) => log.transactionHash))];
-
-    if (txHashes.length === 0) {
-      return [];
+  for (const log of logs) {
+    if (log.blockNumber) {
+      if (log.blockNumber < minBlock) minBlock = log.blockNumber;
+      if (log.blockNumber > maxBlock) maxBlock = log.blockNumber;
     }
+  }
 
-    // Fetch transactions in parallel (batch of 10)
-    const batchSize = 10;
-    for (let i = 0; i < txHashes.length; i += batchSize) {
-      const batch = txHashes.slice(i, i + batchSize);
+  // Estimate base timestamp (roughly 1 second per block on Ink)
+  const baseTimestamp = BigInt(Math.floor(Date.now() / 1000)) - (32000000n - minBlock);
 
-      const txResults = await Promise.all(
-        batch.map(async (hash) => {
-          try {
-            const tx = await client.getTransaction({ hash: hash as `0x${string}` });
-            const block = await client.getBlock({ blockNumber: tx.blockNumber! });
-            return { tx, timestamp: block.timestamp };
-          } catch {
-            return null;
-          }
-        })
-      );
+  for (const log of logs) {
+    if (!log.blockNumber || !log.transactionHash) continue;
 
-      for (const result of txResults) {
-        if (!result || !result.tx) continue;
-        const { tx, timestamp } = result;
+    let walletAddress: string | null = null;
+    let functionName: string | null = null;
 
-        if (!tx.input || tx.input === '0x') continue;
+    try {
+      const decoded = decodeEventLog({
+        abi,
+        data: log.data,
+        topics: log.topics,
+      });
 
-        const functionSelector = tx.input.slice(0, 10);
-        let functionName: string | null = null;
-
-        try {
-          const decoded = decodeFunctionData({ abi, data: tx.input });
-          functionName = decoded.functionName;
-        } catch {
-          // Unknown function, just store selector
-        }
-
-        interactions.push({
-          wallet_address: tx.from,
-          contract_address: contractAddress,
-          function_selector: functionSelector,
-          function_name: functionName,
-          tx_hash: tx.hash,
-          block_number: Number(tx.blockNumber),
-          block_timestamp: new Date(Number(timestamp) * 1000),
-        });
+      if (decoded.args && typeof decoded.args === 'object' && 'user' in decoded.args) {
+        walletAddress = (decoded.args as { user: string }).user;
       }
+      functionName = decoded.eventName === 'GM' ? 'gm' : (decoded.eventName ?? null);
+    } catch {
+      // Extract from indexed topic
+      if (log.topics[1]) {
+        walletAddress = '0x' + log.topics[1].slice(26);
+      }
+      functionName = 'gm';
     }
-  } catch (err) {
-    console.error(`Error processing blocks ${fromBlock}-${toBlock}:`, err);
+
+    if (!walletAddress) continue;
+
+    // Estimate timestamp based on block number
+    const estimatedTs = baseTimestamp + (log.blockNumber - minBlock);
+
+    interactions.push({
+      wallet_address: walletAddress,
+      contract_address: contractAddress,
+      function_selector: log.topics[0]?.slice(0, 10) || '0x',
+      function_name: functionName,
+      tx_hash: log.transactionHash,
+      block_number: Number(log.blockNumber),
+      block_timestamp: new Date(Number(estimatedTs) * 1000),
+    });
   }
 
   return interactions;
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export async function runIndexer() {
-  console.log('Starting indexer...');
-  console.log(`Processing ${CONTRACTS_TO_INDEX.length} contracts with ${PARALLEL_CHUNKS} parallel workers`);
+  console.log('Starting parallel indexer...');
+  console.log(`Config: ${NUM_WORKERS} workers, ${LOGS_CHUNK_SIZE} blocks/chunk`);
+  console.log(`RPC endpoints: ${RPC_ENDPOINTS.length} (load balanced)\n`);
 
   for (const contract of CONTRACTS_TO_INDEX) {
     try {

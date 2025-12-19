@@ -11,25 +11,35 @@ export interface Interaction {
   block_timestamp: Date;
 }
 
+const BATCH_SIZE = 500; // Max rows per insert to avoid Postgres parameter limit
+
 export async function insertInteractions(interactions: Interaction[]): Promise<void> {
   if (interactions.length === 0) return;
 
+  // Split into batches to avoid Postgres parameter limit (max ~65535 params)
+  for (let i = 0; i < interactions.length; i += BATCH_SIZE) {
+    const batch = interactions.slice(i, i + BATCH_SIZE);
+    await insertBatch(batch);
+  }
+}
+
+async function insertBatch(interactions: Interaction[]): Promise<void> {
   const values: unknown[] = [];
   const placeholders: string[] = [];
 
-  interactions.forEach((i, idx) => {
+  interactions.forEach((interaction, idx) => {
     const offset = idx * 8;
     placeholders.push(
       `($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5}, $${offset + 6}, $${offset + 7}, $${offset + 8})`
     );
     values.push(
-      i.wallet_address.toLowerCase(),
-      i.contract_address.toLowerCase(),
-      i.function_selector,
-      i.function_name,
-      i.tx_hash,
-      i.block_number,
-      i.block_timestamp,
+      interaction.wallet_address.toLowerCase(),
+      interaction.contract_address.toLowerCase(),
+      interaction.function_selector,
+      interaction.function_name,
+      interaction.tx_hash,
+      interaction.block_number,
+      interaction.block_timestamp,
       config.chainId
     );
   });
