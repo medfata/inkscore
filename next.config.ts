@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Disable Turbopack for builds (use Webpack instead)
+  // This fixes issues with pino/thread-stream bundling
+  turbopack: false,
+  
   // Exclude server-only packages from client bundle
   webpack: (config, { isServer }) => {
     if (!isServer) {
