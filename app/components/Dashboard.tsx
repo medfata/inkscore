@@ -588,7 +588,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                 <div className="text-slate-400 text-sm">{item.label}</div>
                 <div className="text-xl font-bold font-display text-white">
                   {item.isLoading ? (
-                    <span className="inline-block w-16 h-6 bg-slate-700 rounded animate-pulse"></span>
+                    <span className="inline-block w-24 h-7 bg-slate-700/50 rounded animate-pulse"></span>
                   ) : item.value}
                 </div>
               </div>
@@ -717,17 +717,39 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                 )}
               </>
             ) : (
-              <div className="flex-1 flex items-center justify-center">
-                <div className="text-center text-slate-500">
-                  {isDemo ? (
-                    <>
+              <div className="flex-1 flex flex-col">
+                {isDemo ? (
+                  <div className="flex-1 flex items-center justify-center">
+                    <div className="text-center text-slate-500">
                       <div className="text-3xl font-bold font-display text-purple-400 mb-2">$12,450.00</div>
                       <div className="text-xs">Demo Bridge Volume</div>
-                    </>
-                  ) : (
-                    <div className="animate-pulse">Loading bridge data...</div>
-                  )}
-                </div>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <div className="h-9 w-32 bg-slate-700/50 rounded animate-pulse"></div>
+                        <div className="h-3 w-28 bg-slate-700/30 rounded mt-1 animate-pulse"></div>
+                      </div>
+                      <div className="text-right">
+                        <div className="h-8 w-16 bg-slate-700/50 rounded animate-pulse ml-auto"></div>
+                        <div className="h-3 w-20 bg-slate-700/30 rounded mt-1 animate-pulse ml-auto"></div>
+                      </div>
+                    </div>
+                    <div className="flex-1 pt-3 border-t border-slate-700/50 flex flex-col min-h-0">
+                      <div className="h-3 w-20 bg-slate-700/30 rounded animate-pulse mb-2"></div>
+                      <div className="space-y-2">
+                        {[1, 2, 3].map((i) => (
+                          <div key={i} className="flex justify-between items-center">
+                            <div className="h-4 w-20 bg-slate-700/40 rounded animate-pulse"></div>
+                            <div className="h-4 w-24 bg-slate-700/40 rounded animate-pulse"></div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -822,17 +844,39 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                 )}
               </>
             ) : (
-              <div className="flex-1 flex items-center justify-center">
-                <div className="text-center text-slate-500">
-                  {isDemo ? (
-                    <>
+              <div className="flex-1 flex flex-col">
+                {isDemo ? (
+                  <div className="flex-1 flex items-center justify-center">
+                    <div className="text-center text-slate-500">
                       <div className="text-3xl font-bold font-display text-cyan-400 mb-2">$8,750.00</div>
                       <div className="text-xs">Demo Swap Volume</div>
-                    </>
-                  ) : (
-                    <div className="animate-pulse">Loading swap data...</div>
-                  )}
-                </div>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <div className="h-9 w-32 bg-slate-700/50 rounded animate-pulse"></div>
+                        <div className="h-3 w-24 bg-slate-700/30 rounded mt-1 animate-pulse"></div>
+                      </div>
+                      <div className="text-right">
+                        <div className="h-8 w-16 bg-slate-700/50 rounded animate-pulse ml-auto"></div>
+                        <div className="h-3 w-12 bg-slate-700/30 rounded mt-1 animate-pulse ml-auto"></div>
+                      </div>
+                    </div>
+                    <div className="flex-1 pt-3 border-t border-slate-700/50 flex flex-col min-h-0">
+                      <div className="h-3 w-20 bg-slate-700/30 rounded animate-pulse mb-2"></div>
+                      <div className="space-y-2">
+                        {[1, 2, 3].map((i) => (
+                          <div key={i} className="flex justify-between items-center">
+                            <div className="h-4 w-20 bg-slate-700/40 rounded animate-pulse"></div>
+                            <div className="h-4 w-24 bg-slate-700/40 rounded animate-pulse"></div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -859,25 +903,40 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
               </div>
             </div>
 
-            <div className="flex items-center justify-between flex-1">
-              <div>
-                <div className="text-2xl font-bold font-display text-white">
-                  {!isDemo && realGmData ? realGmData.count : data.stats.gmInteractionCount} <span className="text-sm font-normal text-slate-400">txs</span>
+            {!isDemo && !realGmData ? (
+              <div className="flex items-center justify-between flex-1">
+                <div>
+                  <div className="h-8 w-20 bg-slate-700/50 rounded animate-pulse"></div>
+                  <div className="h-3 w-24 bg-slate-700/30 rounded mt-1 animate-pulse"></div>
                 </div>
-                <div className="text-xs text-slate-500">Total Interactions</div>
-              </div>
-              <div className="text-right">
-                <div className="text-2xl font-bold font-display text-yellow-500">
-                  +{((!isDemo && realGmData ? realGmData.count : data.stats.gmInteractionCount) * 2)}
+                <div className="text-right">
+                  <div className="h-8 w-16 bg-slate-700/50 rounded animate-pulse ml-auto"></div>
+                  <div className="h-3 w-20 bg-slate-700/30 rounded mt-1 animate-pulse ml-auto"></div>
                 </div>
-                <div className="text-xs text-slate-500">Points Earned</div>
               </div>
-            </div>
-            {((!isDemo && realGmData ? realGmData.count : data.stats.gmInteractionCount) > 0) && (
-              <div className="mt-auto text-xs text-yellow-500/80 flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-yellow-500 animate-pulse"></span>
-                Active GM Participant
-              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between flex-1">
+                  <div>
+                    <div className="text-2xl font-bold font-display text-white">
+                      {!isDemo && realGmData ? realGmData.count : data.stats.gmInteractionCount} <span className="text-sm font-normal text-slate-400">txs</span>
+                    </div>
+                    <div className="text-xs text-slate-500">Total Interactions</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-2xl font-bold font-display text-yellow-500">
+                      +{((!isDemo && realGmData ? realGmData.count : data.stats.gmInteractionCount) * 2)}
+                    </div>
+                    <div className="text-xs text-slate-500">Points Earned</div>
+                  </div>
+                </div>
+                {((!isDemo && realGmData ? realGmData.count : data.stats.gmInteractionCount) > 0) && (
+                  <div className="mt-auto text-xs text-yellow-500/80 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-yellow-500 animate-pulse"></span>
+                    Active GM Participant
+                  </div>
+                )}
+              </>
             )}
           </div>
 
@@ -900,27 +959,42 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
               </div>
             </div>
 
-            <div className="flex items-center justify-between flex-1">
-              <div>
-                <div className="text-2xl font-bold font-display text-cyan-400">
-                  ${!isDemo && inkySwapVolume
-                    ? inkySwapVolume.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                    : '5,230.00'}
+            {!isDemo && !inkySwapVolume ? (
+              <div className="flex items-center justify-between flex-1">
+                <div>
+                  <div className="h-8 w-24 bg-slate-700/50 rounded animate-pulse"></div>
+                  <div className="h-3 w-20 bg-slate-700/30 rounded mt-1 animate-pulse"></div>
                 </div>
-                <div className="text-xs text-slate-500">Total Volume</div>
-              </div>
-              <div className="text-right">
-                <div className="text-2xl font-bold font-display text-white">
-                  {!isDemo && inkySwapVolume ? inkySwapVolume.totalCount.toLocaleString() : '42'}
+                <div className="text-right">
+                  <div className="h-8 w-14 bg-slate-700/50 rounded animate-pulse ml-auto"></div>
+                  <div className="h-3 w-20 bg-slate-700/30 rounded mt-1 animate-pulse ml-auto"></div>
                 </div>
-                <div className="text-xs text-slate-500">Transactions</div>
               </div>
-            </div>
-            {((!isDemo && inkySwapVolume ? inkySwapVolume.totalCount : 42) > 0) && (
-              <div className="mt-auto text-xs text-cyan-400 opacity-80 flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
-                Active Swapper
-              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between flex-1">
+                  <div>
+                    <div className="text-2xl font-bold font-display text-cyan-400">
+                      ${!isDemo && inkySwapVolume
+                        ? inkySwapVolume.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                        : '5,230.00'}
+                    </div>
+                    <div className="text-xs text-slate-500">Total Volume</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-2xl font-bold font-display text-white">
+                      {!isDemo && inkySwapVolume ? inkySwapVolume.totalCount.toLocaleString() : '42'}
+                    </div>
+                    <div className="text-xs text-slate-500">Transactions</div>
+                  </div>
+                </div>
+                {((!isDemo && inkySwapVolume ? inkySwapVolume.totalCount : 42) > 0) && (
+                  <div className="mt-auto text-xs text-cyan-400 opacity-80 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
+                    Active Swapper
+                  </div>
+                )}
+              </>
             )}
           </div>
 
@@ -943,50 +1017,78 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
               </div>
             </div>
 
-            <div className="flex-1 flex flex-col justify-center space-y-4">
-              {/* Supply Row */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center">
-                    <Landmark size={14} className="text-green-400" />
-                  </div>
-                  <div>
-                    <div className="text-xs text-slate-400">Supply</div>
-                    <div className="text-xs text-slate-500">
-                      {!isDemo && realTydroData ? realTydroData.supplyCount : data.stats.tydroSupplyCount} txns
+            {!isDemo && !realTydroData ? (
+              <div className="flex-1 flex flex-col justify-center space-y-4">
+                {/* Supply Row Skeleton */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-slate-700/50 animate-pulse"></div>
+                    <div>
+                      <div className="h-3 w-12 bg-slate-700/40 rounded animate-pulse"></div>
+                      <div className="h-3 w-16 bg-slate-700/30 rounded mt-1 animate-pulse"></div>
                     </div>
                   </div>
+                  <div className="h-6 w-20 bg-slate-700/50 rounded animate-pulse"></div>
                 </div>
-                <div className="text-xl font-bold font-display text-green-400">
-                  ${!isDemo && realTydroData
-                    ? realTydroData.supplyVolume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                    : (data.stats.tydroSupplyCount * 100).toFixed(2)}
-                </div>
-              </div>
-
-              {/* Divider */}
-              <div className="border-t border-slate-700/50"></div>
-
-              {/* Borrow Row */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center">
-                    <Zap size={14} className="text-orange-400" />
-                  </div>
-                  <div>
-                    <div className="text-xs text-slate-400">Borrow</div>
-                    <div className="text-xs text-slate-500">
-                      {!isDemo && realTydroData ? realTydroData.borrowCount : data.stats.tydroBorrowCount} txns
+                <div className="border-t border-slate-700/50"></div>
+                {/* Borrow Row Skeleton */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-slate-700/50 animate-pulse"></div>
+                    <div>
+                      <div className="h-3 w-12 bg-slate-700/40 rounded animate-pulse"></div>
+                      <div className="h-3 w-16 bg-slate-700/30 rounded mt-1 animate-pulse"></div>
                     </div>
                   </div>
-                </div>
-                <div className="text-xl font-bold font-display text-orange-400">
-                  ${!isDemo && realTydroData
-                    ? realTydroData.borrowVolume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                    : (data.stats.tydroBorrowCount * 200).toFixed(2)}
+                  <div className="h-6 w-20 bg-slate-700/50 rounded animate-pulse"></div>
                 </div>
               </div>
-            </div>
+            ) : (
+              <div className="flex-1 flex flex-col justify-center space-y-4">
+                {/* Supply Row */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center">
+                      <Landmark size={14} className="text-green-400" />
+                    </div>
+                    <div>
+                      <div className="text-xs text-slate-400">Supply</div>
+                      <div className="text-xs text-slate-500">
+                        {!isDemo && realTydroData ? realTydroData.supplyCount : data.stats.tydroSupplyCount} txns
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-xl font-bold font-display text-green-400">
+                    ${!isDemo && realTydroData
+                      ? realTydroData.supplyVolume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                      : (data.stats.tydroSupplyCount * 100).toFixed(2)}
+                  </div>
+                </div>
+
+                {/* Divider */}
+                <div className="border-t border-slate-700/50"></div>
+
+                {/* Borrow Row */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center">
+                      <Zap size={14} className="text-orange-400" />
+                    </div>
+                    <div>
+                      <div className="text-xs text-slate-400">Borrow</div>
+                      <div className="text-xs text-slate-500">
+                        {!isDemo && realTydroData ? realTydroData.borrowCount : data.stats.tydroBorrowCount} txns
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-xl font-bold font-display text-orange-400">
+                    ${!isDemo && realTydroData
+                      ? realTydroData.borrowVolume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                      : (data.stats.tydroBorrowCount * 200).toFixed(2)}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* NFT Trading Card */}
@@ -1015,50 +1117,71 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
             </div>
 
             {!isDemo ? (
-              <>
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <div className="text-3xl font-bold font-display text-pink-400">
-                      {(nftTrading?.total_count || 0).toLocaleString()}
+              nftTrading ? (
+                <>
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <div className="text-3xl font-bold font-display text-pink-400">
+                        {(nftTrading?.total_count || 0).toLocaleString()}
+                      </div>
+                      <div className="text-xs text-slate-500">Total NFTs Traded</div>
                     </div>
-                    <div className="text-xs text-slate-500">Total NFTs Traded</div>
                   </div>
-                </div>
 
-                <div className="flex-1 pt-3 border-t border-slate-700/50 flex items-center justify-center">
-                  <div className="flex items-center justify-center gap-6">
-                    {Object.entries(NFT_PLATFORMS).map(([contractAddress, platformInfo], i) => {
-                      const contractData = nftTrading?.by_contract.find(
-                        (c) => c.contract_address.toLowerCase() === contractAddress.toLowerCase()
-                      );
-                      const count = contractData?.count || 0;
+                  <div className="flex-1 pt-3 border-t border-slate-700/50 flex items-center justify-center">
+                    <div className="flex items-center justify-center gap-6">
+                      {Object.entries(NFT_PLATFORMS).map(([contractAddress, platformInfo], i) => {
+                        const contractData = nftTrading?.by_contract.find(
+                          (c) => c.contract_address.toLowerCase() === contractAddress.toLowerCase()
+                        );
+                        const count = contractData?.count || 0;
 
-                      return (
-                        <div key={i} className="relative group" title={platformInfo.name}>
-                          <img
-                            src={platformInfo.logo}
-                            alt={platformInfo.name}
-                            className="w-10 h-10 rounded-full object-cover border-2 border-slate-700 group-hover:border-pink-500/50 transition-all bg-slate-800"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${platformInfo.name.charAt(0)}&background=334155&color=94a3b8&size=40`;
-                            }}
-                          />
-                          <div className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-pink-500 text-white text-[10px] font-bold flex items-center justify-center shadow-lg">
-                            {count}
+                        return (
+                          <div key={i} className="relative group" title={platformInfo.name}>
+                            <img
+                              src={platformInfo.logo}
+                              alt={platformInfo.name}
+                              className="w-10 h-10 rounded-full object-cover border-2 border-slate-700 group-hover:border-pink-500/50 transition-all bg-slate-800"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${platformInfo.name.charAt(0)}&background=334155&color=94a3b8&size=40`;
+                              }}
+                            />
+                            <div className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-pink-500 text-white text-[10px] font-bold flex items-center justify-center shadow-lg">
+                              {count}
+                            </div>
                           </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
 
-                {(nftTrading?.total_count || 0) > 0 && (
-                  <div className="mt-auto text-xs text-pink-400 opacity-80 flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-pink-400 animate-pulse"></span>
-                    Active NFT Trader
+                  {(nftTrading?.total_count || 0) > 0 && (
+                    <div className="mt-auto text-xs text-pink-400 opacity-80 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-pink-400 animate-pulse"></span>
+                      Active NFT Trader
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <div className="h-9 w-16 bg-slate-700/50 rounded animate-pulse"></div>
+                      <div className="h-3 w-24 bg-slate-700/30 rounded mt-1 animate-pulse"></div>
+                    </div>
                   </div>
-                )}
-              </>
+                  <div className="flex-1 pt-3 border-t border-slate-700/50 flex items-center justify-center">
+                    <div className="flex items-center justify-center gap-6">
+                      {[1, 2, 3].map((i) => (
+                        <div key={i} className="relative">
+                          <div className="w-10 h-10 rounded-full bg-slate-700/50 animate-pulse"></div>
+                          <div className="absolute -top-1 -right-1 w-[18px] h-[18px] rounded-full bg-slate-600/50 animate-pulse"></div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )
             ) : (
               <div className="flex-1 flex items-center justify-center">
                 <div className="text-center text-slate-500">

@@ -190,24 +190,27 @@ export default function Home() {
                   disabled={isPending}
                   className="w-full flex items-center gap-4 p-4 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl transition-colors disabled:opacity-50"
                 >
-                  <div className="w-10 h-10 bg-slate-700 rounded-lg flex items-center justify-center">
-                    {connector.name === 'MetaMask' && (
+                  <div className="w-10 h-10 bg-slate-700 rounded-lg flex items-center justify-center overflow-hidden">
+                    {connector.icon ? (
+                      <img src={connector.icon} alt={connector.name} className="w-8 h-8" />
+                    ) : connector.name === 'MetaMask' ? (
                       <span className="text-2xl">🦊</span>
-                    )}
-                    {connector.name === 'WalletConnect' && (
-                      <span className="text-2xl">🔗</span>
-                    )}
-                    {connector.name === 'Injected' && (
+                    ) : connector.name === 'WalletConnect' ? (
+                      <img src="https://walletconnect.com/static/favicon.png" alt="WalletConnect" className="w-8 h-8" />
+                    ) : connector.name === 'Injected' ? (
                       <span className="text-2xl">💉</span>
-                    )}
-                    {!['MetaMask', 'WalletConnect', 'Injected'].includes(connector.name) && (
+                    ) : (
                       <span className="text-2xl">👛</span>
                     )}
                   </div>
                   <div className="text-left">
                     <div className="font-medium text-white">{connector.name}</div>
                     <div className="text-sm text-slate-400">
-                      {connector.name === 'Injected' ? 'Browser Wallet' : 'Connect'}
+                      {connector.name === 'WalletConnect' 
+                        ? 'Scan with mobile wallet' 
+                        : connector.name === 'Injected' 
+                          ? 'Browser Wallet' 
+                          : 'Connect'}
                     </div>
                   </div>
                 </button>
