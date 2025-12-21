@@ -13,6 +13,17 @@ const nextConfig: NextConfig = {
         worker_threads: false,
       };
     }
+    
+    // Handle optional wagmi connector dependencies
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      '@base-org/account': false,
+      '@coinbase/wallet-sdk': false,
+      '@gemini-wallet/core': false,
+      '@metamask/sdk': false,
+      'porto': false,
+    };
+    
     return config;
   },
 };
