@@ -21,7 +21,8 @@ import {
   Image,
   Coins,
   Sun,
-  Landmark
+  Landmark,
+  ArrowLeftRight
 } from 'lucide-react';
 
 export {
@@ -45,5 +46,6 @@ export {
   Image,
   Coins,
   Sun,
-  Landmark
+  Landmark,
+  ArrowLeftRight
 };

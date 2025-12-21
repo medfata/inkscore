@@ -10,11 +10,78 @@ import {
   Radar,
   Tooltip
 } from 'recharts';
-import { Sparkles, ShieldCheck, Activity, Wallet, Award, Clock, Image, ExternalLink, Coins, Sun, Landmark, Zap } from './Icons';
+import { Sparkles, ShieldCheck, Activity, Wallet, Award, Clock, Image, ExternalLink, Coins, Sun, Landmark, Zap, ArrowLeftRight } from './Icons';
 import { ScoreData, WalletStats, ScoreTier, AiAnalysisResult, NftHolding, TokenHolding } from '../types';
 import { Logo } from './Logo';
-import { AnalyticsCards } from './AnalyticsCards';
 import { HoldingsSection } from './HoldingsSection';
+
+// Bridge platform logos
+const BRIDGE_PLATFORM_LOGOS: Record<string, string> = {
+  'Owlto': 'https://owlto.finance/favicon.ico',
+  'Orbiter': 'https://www.orbiter.finance/favicon.ico',
+  'Gas.zip': 'https://www.gas.zip/favicon.ico',
+  'Relay': 'https://relay.link/favicon.ico',
+  'Ink Official': 'https://inkonchain.com/favicon.ico',
+};
+
+// DEX platform logos and info (keyed by lowercase contract address)
+const DEX_PLATFORMS: Record<string, { name: string; logo: string }> = {
+  '0x9b17690de96fcfa80a3acaefe11d936629cd7a77': {
+    name: 'DyorSwap',
+    logo: 'https://dyorswap.finance/favicon.ico',
+  },
+  '0x551134e92e537ceaa217c2ef63210af3ce96a065': {
+    name: 'InkySwap',
+    logo: 'https://inkyswap.com/logo-mobile.svg',
+  },
+  '0x01d40099fcd87c018969b0e8d4ab1633fb34763c': {
+    name: 'Velodrome',
+    logo: 'https://velodrome.finance/images/VELO/favicon.ico',
+  },
+  '0xd7e72f3615aa65b92a4dbdc211e296a35512988b': {
+    name: 'Curve',
+    logo: 'https://cdn.jsdelivr.net/gh/curvefi/curve-assets/branding/logo.png',
+  },
+};
+
+// Fallback name mapping for platform names from the API
+const DEX_NAME_OVERRIDES: Record<string, string> = {
+  'Unknown DEX': 'Curve',
+  'Velodrome UniversalRouter': 'Velodrome',
+  'DyorRouterV2': 'DyorSwap',
+};
+
+// Bridge volume response type
+interface BridgeVolumeResponse {
+  totalEth: number;
+  totalUsd: number;
+  txCount: number;
+  byPlatform: Array<{
+    platform: string;
+    subPlatform?: string;
+    ethValue: number;
+    usdValue: number;
+    txCount: number;
+  }>;
+}
+
+// InkySwap volume response type
+interface InkySwapVolumeData {
+  totalValue: number;
+  totalCount: number;
+}
+
+// Swap volume response type (for DyorSwap and other DEXes)
+interface SwapVolumeResponse {
+  totalUsd: number;
+  txCount: number;
+  byPlatform: Array<{
+    platform: string;
+    contractAddress: string;
+    usdValue: number;
+    txCount: number;
+  }>;
+}
 
 interface DashboardProps {
   walletAddress: string;
@@ -187,6 +254,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
     borrowVolume: number;
     borrowCount: number;
   } | null>(null);
+  const [bridgeVolume, setBridgeVolume] = useState<BridgeVolumeResponse | null>(null);
+  const [inkySwapVolume, setInkySwapVolume] = useState<InkySwapVolumeData | null>(null);
+  const [swapVolume, setSwapVolume] = useState<SwapVolumeResponse | null>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -257,9 +327,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
           console.log('Analytics data:', data); // Debug log
           const supplyMetric = data.metrics?.find((m: { slug: string }) => m.slug === 'tydro_usd_supply');
           const borrowMetric = data.metrics?.find((m: { slug: string }) => m.slug === 'Tydro_usd_borrow');
-          
+
           console.log('Tydro metrics:', { supplyMetric, borrowMetric }); // Debug log
-          
+
           setRealTydroData({
             supplyVolume: parseFloat(supplyMetric?.total_value || '0'),
             supplyCount: supplyMetric?.total_count || 0,
@@ -273,6 +343,81 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
     };
 
     fetchTydroData();
+  }, [walletAddress, isDemo]);
+
+  // Fetch bridge volume when not in demo mode
+  useEffect(() => {
+    if (isDemo || !walletAddress || walletAddress.length < 10) return;
+
+    const fetchBridgeVolume = async () => {
+      try {
+        const res = await fetch(`/api/wallet/${walletAddress}/bridge`);
+        if (res.ok) {
+          const data = await res.json();
+          setBridgeVolume(data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch bridge volume:', err);
+      }
+    };
+
+    fetchBridgeVolume();
+  }, [walletAddress, isDemo]);
+
+  // Fetch InkySwap volume when not in demo mode
+  useEffect(() => {
+    if (isDemo || !walletAddress || walletAddress.length < 10) return;
+
+    const fetchInkySwapVolume = async () => {
+      try {
+        const res = await fetch(`/api/analytics/${walletAddress}`);
+        if (res.ok) {
+          const data = await res.json();
+          const inkySwapMetric = data.metrics?.find((m: { slug: string }) =>
+            m.slug.toLowerCase().includes('inkyswap')
+          );
+          if (inkySwapMetric) {
+            setInkySwapVolume({
+              totalValue: parseFloat(inkySwapMetric.total_value || '0'),
+              totalCount: inkySwapMetric.total_count || 0,
+            });
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch InkySwap volume:', err);
+      }
+    };
+
+    fetchInkySwapVolume();
+  }, [walletAddress, isDemo]);
+
+  // Fetch swap volume (DyorSwap and other DEXes) when not in demo mode
+  useEffect(() => {
+    if (isDemo || !walletAddress || walletAddress.length < 10) return;
+
+    const fetchSwapVolume = async () => {
+      try {
+        // Use the fast dedicated swap endpoint (like bridge endpoint)
+        const res = await fetch(`/api/wallet/${walletAddress}/swap`);
+        if (res.ok) {
+          const data = await res.json();
+          setSwapVolume({
+            totalUsd: data.totalUsd || 0,
+            txCount: data.txCount || 0,
+            byPlatform: data.byPlatform?.map((p: { platform: string; contractAddress: string; usdValue: number; txCount: number }) => ({
+              platform: p.platform,
+              contractAddress: p.contractAddress,
+              usdValue: p.usdValue,
+              txCount: p.txCount,
+            })) || [],
+          });
+        }
+      } catch (err) {
+        console.error('Failed to fetch swap volume:', err);
+      }
+    };
+
+    fetchSwapVolume();
   }, [walletAddress, isDemo]);
 
   const handleAiAnalysis = async () => {
@@ -323,15 +468,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
         {/* Header Info */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8 animate-fade-in-up">
           <div>
-            <h1 className="text-2xl font-display font-bold text-white flex items-center gap-2">
-              <span className="w-1 h-8 bg-ink-purple rounded-full"></span>
-              Wallet Overview
+            <h1 className="text-3xl font-display font-bold text-white flex items-center gap-3">
+              Your Journey on the Ink Chain
+              <span className="px-3 py-1 rounded-full bg-slate-800 text-sm font-normal border border-slate-700 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                INK Mainnet
+              </span>
             </h1>
-            <div className="flex items-center gap-2 text-slate-400 font-mono text-sm mt-1 ml-3">
-              <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-              {walletAddress}
-              <span className="px-2 py-0.5 rounded bg-slate-800 text-xs border border-slate-700">INK Mainnet</span>
-            </div>
           </div>
           <div className="flex gap-3">
             {isDemo && <div className="px-4 py-2 bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 rounded-lg text-sm font-medium animate-pulse">Demo Mode</div>}
@@ -402,6 +545,357 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
           ))}
         </div>
 
+        {/* Row 2: Total INKSCORE (50%) + Bridge Volume (25%) + Swap Volume (25%) */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          {/* Total INKSCORE Card - 50% width (2 columns) */}
+          <div className="lg:col-span-2 glass-card p-8 rounded-2xl animate-fade-in-up h-[360px] flex flex-col" style={{ animationDelay: '0.5s' }}>
+            <div className="flex flex-col md:flex-row items-center justify-between gap-6 flex-1">
+              <div className="text-center md:text-left relative flex-shrink-0">
+                <div className="absolute -top-20 -left-20 w-40 h-40 bg-ink-purple/20 blur-3xl rounded-full"></div>
+                <h2 className="text-slate-400 mb-2 relative z-10">Total INKSCORE</h2>
+                <div className="text-6xl font-display font-bold text-white tracking-tighter mb-2 relative z-10 drop-shadow-[0_0_15px_rgba(124,58,237,0.3)]">
+                  {data.score.totalScore}
+                </div>
+                <div className="inline-block px-4 py-1 rounded-full bg-gradient-to-r from-ink-blue to-ink-purple text-white text-sm font-semibold shadow-lg shadow-purple-900/40 relative z-10">
+                  {data.score.tier}
+                </div>
+                <p className="mt-3 text-slate-400 text-sm max-w-xs relative z-10">
+                  Top 5% of active InkChain addresses.
+                </p>
+              </div>
+
+              <div className="h-[250px] w-full md:w-[280px] flex-shrink-0">
+                <ResponsiveContainer width="100%" height="100%">
+                  <RadarChart cx="50%" cy="50%" outerRadius="70%" data={chartData}>
+                    <PolarGrid stroke="#334155" />
+                    <PolarAngleAxis dataKey="subject" tick={{ fill: '#94a3b8', fontSize: 11 }} />
+                    <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
+                    <Radar name="You" dataKey="A" stroke="#7c3aed" strokeWidth={2} fill="#7c3aed" fillOpacity={0.4} />
+                    <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px', color: '#fff' }} itemStyle={{ color: '#a855f7' }} />
+                  </RadarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </div>
+
+          {/* Bridge Volume Card - 25% width (1 column) */}
+          <div className="lg:col-span-1 glass-card p-6 rounded-2xl animate-fade-in-up border border-purple-500/20 bg-purple-500/5 h-[360px] flex flex-col" style={{ animationDelay: '0.55s' }}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                <ArrowLeftRight size={20} className="text-purple-400" />
+                Bridge Volume
+              </h3>
+              <div className="text-xs font-bold px-2 py-1 rounded border bg-purple-900/30 border-purple-500/30 text-purple-400">
+                USD
+              </div>
+            </div>
+
+            {!isDemo && bridgeVolume ? (
+              <>
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <div className="text-3xl font-bold font-display text-purple-400">
+                      ${bridgeVolume.totalUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                    <div className="text-xs text-slate-500">Total Bridged To Ink Chain</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-2xl font-bold font-display text-white">
+                      {bridgeVolume.txCount.toLocaleString()}
+                    </div>
+                    <div className="text-xs text-slate-500">Transactions</div>
+                  </div>
+                </div>
+
+                {bridgeVolume.byPlatform.length > 0 && (
+                  <div className="flex-1 pt-3 border-t border-slate-700/50 flex flex-col min-h-0">
+                    <span className="text-xs text-slate-500 uppercase tracking-wider mb-2">By Platform</span>
+                    <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar max-h-[140px]">
+                      {bridgeVolume.byPlatform.map((platform, i) => {
+                        const displayName = platform.subPlatform || platform.platform;
+                        const logoUrl = BRIDGE_PLATFORM_LOGOS[displayName] || BRIDGE_PLATFORM_LOGOS[platform.platform];
+
+                        return (
+                          <div key={i} className="flex justify-between items-center text-xs py-0.5">
+                            <span className="text-slate-400 flex items-center gap-1.5">
+                              {logoUrl && (
+                                <img
+                                  src={logoUrl}
+                                  alt={displayName}
+                                  className="w-3.5 h-3.5 rounded"
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).style.display = 'none';
+                                  }}
+                                />
+                              )}
+                              {displayName}
+                            </span>
+                            <div className="text-right">
+                              <span className="font-mono text-white text-xs">
+                                ${platform.usdValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </span>
+                              <span className="text-slate-500 text-[10px] ml-1.5">
+                                ({platform.txCount})
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {bridgeVolume.txCount > 0 && (
+                  <div className="mt-3 text-xs text-purple-400 opacity-80 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse"></span>
+                    Active Bridger
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="flex-1 flex items-center justify-center">
+                <div className="text-center text-slate-500">
+                  {isDemo ? (
+                    <>
+                      <div className="text-3xl font-bold font-display text-purple-400 mb-2">$12,450.00</div>
+                      <div className="text-xs">Demo Bridge Volume</div>
+                    </>
+                  ) : (
+                    <div className="animate-pulse">Loading bridge data...</div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Swap Volume Card - 25% width (1 column) */}
+          <div className="lg:col-span-1 glass-card p-6 rounded-2xl animate-fade-in-up border border-cyan-500/20 bg-cyan-500/5 h-[360px] flex flex-col" style={{ animationDelay: '0.6s' }}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                <ArrowLeftRight size={20} className="text-cyan-400" />
+                Swap Volume
+              </h3>
+              <div className="text-xs font-bold px-2 py-1 rounded border bg-cyan-900/30 border-cyan-500/30 text-cyan-400">
+                USD
+              </div>
+            </div>
+
+            {!isDemo && swapVolume ? (
+              <>
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <div className="text-3xl font-bold font-display text-cyan-400">
+                      ${swapVolume.totalUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                    <div className="text-xs text-slate-500">Total Swapped</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-2xl font-bold font-display text-white">
+                      {swapVolume.txCount.toLocaleString()}
+                    </div>
+                    <div className="text-xs text-slate-500">Swaps</div>
+                  </div>
+                </div>
+
+                {swapVolume.byPlatform.length > 0 && (
+                  <div className="flex-1 pt-3 border-t border-slate-700/50 flex flex-col min-h-0">
+                    <span className="text-xs text-slate-500 uppercase tracking-wider mb-2">By Platform</span>
+                    <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar max-h-[140px]">
+                      {swapVolume.byPlatform.map((platform, i) => {
+                        const platformInfo = DEX_PLATFORMS[platform.contractAddress.toLowerCase()];
+                        const logoUrl = platformInfo?.logo;
+                        // Use platform info name, then check name overrides, then fall back to API name
+                        const displayName = platformInfo?.name || DEX_NAME_OVERRIDES[platform.platform] || platform.platform;
+
+                        return (
+                          <div key={i} className="flex justify-between items-center text-xs py-0.5">
+                            <span className="text-slate-400 flex items-center gap-1.5">
+                              {logoUrl && (
+                                <img
+                                  src={logoUrl}
+                                  alt={displayName}
+                                  className="w-3.5 h-3.5 rounded"
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).style.display = 'none';
+                                  }}
+                                />
+                              )}
+                              {displayName}
+                            </span>
+                            <div className="text-right">
+                              <span className="font-mono text-white text-xs">
+                                ${platform.usdValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </span>
+                              <span className="text-slate-500 text-[10px] ml-1.5">
+                                ({platform.txCount})
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {swapVolume.txCount > 0 && (
+                  <div className="mt-3 text-xs text-cyan-400 opacity-80 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
+                    Active Trader
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="flex-1 flex items-center justify-center">
+                <div className="text-center text-slate-500">
+                  {isDemo ? (
+                    <>
+                      <div className="text-3xl font-bold font-display text-cyan-400 mb-2">$8,750.00</div>
+                      <div className="text-xs">Demo Swap Volume</div>
+                    </>
+                  ) : (
+                    <div className="animate-pulse">Loading swap data...</div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Row 3: GM Activity + InkySwap Volume + Tydro DeFi Activity (same height) */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* GM Activity Card */}
+          <div className="glass-card p-6 rounded-xl animate-fade-in-up border border-yellow-500/20 bg-yellow-500/5 h-[200px] flex flex-col" style={{ animationDelay: '0.6s' }}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                <Sun className="text-yellow-500" size={20} />
+                GM Activity
+              </h3>
+              <div className="text-xs font-mono text-slate-500 bg-slate-900/50 px-2 py-1 rounded">
+                {GM_CONTRACT_ADDRESS.substring(0, 6)}...{GM_CONTRACT_ADDRESS.substring(GM_CONTRACT_ADDRESS.length - 4)}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between flex-1">
+              <div>
+                <div className="text-2xl font-bold font-display text-white">
+                  {!isDemo && realGmData ? realGmData.count : data.stats.gmInteractionCount} <span className="text-sm font-normal text-slate-400">txs</span>
+                </div>
+                <div className="text-xs text-slate-500">Total Interactions</div>
+              </div>
+              <div className="text-right">
+                <div className="text-2xl font-bold font-display text-yellow-500">
+                  +{((!isDemo && realGmData ? realGmData.count : data.stats.gmInteractionCount) * 2)}
+                </div>
+                <div className="text-xs text-slate-500">Points Earned</div>
+              </div>
+            </div>
+            {((!isDemo && realGmData ? realGmData.count : data.stats.gmInteractionCount) > 0) && (
+              <div className="mt-auto text-xs text-yellow-500/80 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-yellow-500 animate-pulse"></span>
+                Active GM Participant
+              </div>
+            )}
+          </div>
+
+          {/* InkySwap Volume Card */}
+          <div className="glass-card p-6 rounded-xl animate-fade-in-up border border-cyan-500/20 bg-cyan-500/5 h-[200px] flex flex-col" style={{ animationDelay: '0.65s' }}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                <img
+                  src="https://inkyswap.com/logo-mobile.svg"
+                  alt="InkySwap"
+                  className="w-6 h-6 rounded"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = 'none';
+                  }}
+                />
+                InkySwap Volume
+              </h3>
+              <div className="text-xs font-bold px-2 py-1 rounded border bg-cyan-900/30 border-cyan-500/30 text-cyan-400">
+                USD
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between flex-1">
+              <div>
+                <div className="text-2xl font-bold font-display text-cyan-400">
+                  ${!isDemo && inkySwapVolume
+                    ? inkySwapVolume.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                    : '5,230.00'}
+                </div>
+                <div className="text-xs text-slate-500">Total Volume</div>
+              </div>
+              <div className="text-right">
+                <div className="text-2xl font-bold font-display text-white">
+                  {!isDemo && inkySwapVolume ? inkySwapVolume.totalCount.toLocaleString() : '42'}
+                </div>
+                <div className="text-xs text-slate-500">Transactions</div>
+              </div>
+            </div>
+            {((!isDemo && inkySwapVolume ? inkySwapVolume.totalCount : 42) > 0) && (
+              <div className="mt-auto text-xs text-cyan-400 opacity-80 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
+                Active Swapper
+              </div>
+            )}
+          </div>
+
+          {/* Tydro DeFi Card */}
+          <div className="glass-card p-6 rounded-xl animate-fade-in-up border border-emerald-500/20 bg-emerald-500/5 h-[200px] flex flex-col" style={{ animationDelay: '0.7s' }}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                <img
+                  src="https://app.tydro.com/tydro-logo.svg"
+                  alt="Tydro"
+                  className="w-6 h-6 rounded"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = 'none';
+                  }}
+                />
+                Tydro DeFi
+              </h3>
+              {((!isDemo && realTydroData && (realTydroData.supplyCount > 0 || realTydroData.borrowCount > 0)) ||
+                (isDemo && (data.stats.tydroSupplyCount > 0 || data.stats.tydroBorrowCount > 0))) && (
+                  <div className="flex items-center gap-1.5 text-xs text-emerald-400 bg-emerald-900/30 px-2 py-1 rounded border border-emerald-500/30">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    Active
+                  </div>
+                )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 flex-1">
+              <div className="bg-slate-900/50 rounded-lg p-3 border border-green-500/10">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <Landmark size={12} className="text-green-400" />
+                  <span className="text-[10px] font-medium text-slate-400 uppercase">Supply</span>
+                </div>
+                <div className="text-lg font-bold font-display text-green-400">
+                  ${!isDemo && realTydroData
+                    ? realTydroData.supplyVolume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                    : (data.stats.tydroSupplyCount * 100).toFixed(2)}
+                </div>
+                <div className="text-[10px] text-slate-500">
+                  <span className="text-white font-mono">{!isDemo && realTydroData ? realTydroData.supplyCount : data.stats.tydroSupplyCount}</span> txns
+                </div>
+              </div>
+
+              <div className="bg-slate-900/50 rounded-lg p-3 border border-orange-500/10">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <Zap size={12} className="text-orange-400" />
+                  <span className="text-[10px] font-medium text-slate-400 uppercase">Borrow</span>
+                </div>
+                <div className="text-lg font-bold font-display text-orange-400">
+                  ${!isDemo && realTydroData
+                    ? realTydroData.borrowVolume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                    : (data.stats.tydroBorrowCount * 200).toFixed(2)}
+                </div>
+                <div className="text-[10px] text-slate-500">
+                  <span className="text-white font-mono">{!isDemo && realTydroData ? realTydroData.borrowCount : data.stats.tydroBorrowCount}</span> txns
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
         {/* Holdings Section - Tokens & NFTs */}
         {!isDemo && realWalletStats && (
           <HoldingsSection
@@ -410,442 +904,262 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
             nativeEthUsd={realWalletStats.balanceUsd}
           />
         )}
-
-        {/* Main Content Split */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column: Score & Chart */}
-          <div className="lg:col-span-2 space-y-6">
-            <div className="glass-card p-8 rounded-2xl animate-fade-in-up" style={{ animationDelay: '0.5s' }}>
-              <div className="flex flex-col md:flex-row items-center justify-between gap-8">
-                <div className="text-center md:text-left relative">
-                  <div className="absolute -top-20 -left-20 w-40 h-40 bg-ink-purple/20 blur-3xl rounded-full"></div>
-                  <h2 className="text-slate-400 mb-2 relative z-10">Total INKSCORE</h2>
-                  <div className="text-7xl font-display font-bold text-white tracking-tighter mb-2 relative z-10 drop-shadow-[0_0_15px_rgba(124,58,237,0.3)]">
-                    {data.score.totalScore}
-                  </div>
-                  <div className="inline-block px-4 py-1 rounded-full bg-gradient-to-r from-ink-blue to-ink-purple text-white text-sm font-semibold shadow-lg shadow-purple-900/40 relative z-10">
-                    {data.score.tier}
-                  </div>
-                  <p className="mt-4 text-slate-400 text-sm max-w-xs relative z-10">
-                    Your score is in the top 5% of active InkChain addresses.
-                  </p>
-                </div>
-
-                <div className="h-[300px] w-full md:w-[400px] flex-shrink-0">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <RadarChart cx="50%" cy="50%" outerRadius="70%" data={chartData}>
-                      <PolarGrid stroke="#334155" />
-                      <PolarAngleAxis dataKey="subject" tick={{ fill: '#94a3b8', fontSize: 12 }} />
-                      <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
-                      <Radar name="You" dataKey="A" stroke="#7c3aed" strokeWidth={2} fill="#7c3aed" fillOpacity={0.4} />
-                      <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px', color: '#fff' }} itemStyle={{ color: '#a855f7' }} />
-                    </RadarChart>
-                  </ResponsiveContainer>
-                </div>
+        {/* Row 4: Token & NFT Portfolio Impact */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Token Portfolio Impact Section */}
+          <div className="glass-card glass-card-hover p-6 rounded-2xl animate-fade-in-up" style={{ animationDelay: '0.75s' }}>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 rounded-lg bg-blue-500/20 text-blue-500 flex items-center justify-center">
+                <Coins size={20} />
+              </div>
+              <div>
+                <h3 className="text-xl font-display font-semibold text-white">Token Holdings Impact</h3>
+                <div className="text-sm text-slate-400">Total Contribution: <span className="text-ink-accent font-mono font-bold">+{data.stats.tokenTotalScore} Points</span></div>
               </div>
             </div>
 
-            {/* Token Portfolio Impact Section */}
-            <div className="glass-card glass-card-hover p-6 rounded-2xl animate-fade-in-up" style={{ animationDelay: '0.55s' }}>
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 rounded-lg bg-blue-500/20 text-blue-500 flex items-center justify-center">
-                  <Coins size={20} />
-                </div>
-                <div>
-                  <h3 className="text-xl font-display font-semibold text-white">Token Holdings Impact</h3>
-                  <div className="text-sm text-slate-400">Total Contribution: <span className="text-ink-accent font-mono font-bold">+{data.stats.tokenTotalScore} Points</span></div>
-                </div>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-700 text-slate-400">
-                      <th className="pb-3 pl-2 font-medium">Token</th>
-                      <th className="pb-3 font-medium">Contract</th>
-                      <th className="pb-3 font-medium text-right">Balance</th>
-                      <th className="pb-3 font-medium text-right">Value (USD)</th>
-                      <th className="pb-3 font-medium text-right">Points</th>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b border-slate-700 text-slate-400">
+                    <th className="pb-3 pl-2 font-medium">Token</th>
+                    <th className="pb-3 font-medium">Contract</th>
+                    <th className="pb-3 font-medium text-right">Balance</th>
+                    <th className="pb-3 font-medium text-right">Value (USD)</th>
+                    <th className="pb-3 font-medium text-right">Points</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800">
+                  {data.stats.tokenHoldings.map((token, i) => (
+                    <tr key={i} className="hover:bg-slate-800/30 transition-colors group">
+                      <td className="py-4 pl-2 font-medium text-white flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-300 ring-2 ring-transparent group-hover:ring-ink-blue transition-all">
+                          {token.symbol.substring(0, 3)}
+                        </div>
+                        <div>
+                          <div className="leading-none">{token.symbol}</div>
+                          <div className="text-[10px] text-slate-500 font-normal">{token.name}</div>
+                        </div>
+                      </td>
+                      <td className="py-4 text-slate-500 font-mono text-xs">
+                        <div className="flex items-center gap-1 group-hover:text-slate-300 transition-colors">
+                          {token.contractAddress.substring(0, 6)}...{token.contractAddress.substring(token.contractAddress.length - 4)}
+                          <ExternalLink size={10} className="hover:text-white cursor-pointer" />
+                        </div>
+                      </td>
+                      <td className="py-4 text-right font-mono text-slate-300">
+                        {token.balance.toLocaleString(undefined, { maximumFractionDigits: 4 })}
+                      </td>
+                      <td className="py-4 text-right font-mono text-slate-300">
+                        ${token.usdValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                      </td>
+                      <td className="py-4 text-right">
+                        <div className="inline-flex items-center gap-1 font-mono font-bold">
+                          <span className={token.points > 0 ? "text-green-400" : "text-slate-600"}>
+                            {token.points > 0 ? `+${token.points}` : 0}
+                          </span>
+                        </div>
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800">
-                    {data.stats.tokenHoldings.map((token, i) => (
-                      <tr key={i} className="hover:bg-slate-800/30 transition-colors group">
-                        <td className="py-4 pl-2 font-medium text-white flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-300 ring-2 ring-transparent group-hover:ring-ink-blue transition-all">
-                            {token.symbol.substring(0, 3)}
-                          </div>
-                          <div>
-                            <div className="leading-none">{token.symbol}</div>
-                            <div className="text-[10px] text-slate-500 font-normal">{token.name}</div>
-                          </div>
-                        </td>
-                        <td className="py-4 text-slate-500 font-mono text-xs">
-                          <div className="flex items-center gap-1 group-hover:text-slate-300 transition-colors">
-                            {token.contractAddress.substring(0, 6)}...{token.contractAddress.substring(token.contractAddress.length - 4)}
-                            <ExternalLink size={10} className="hover:text-white cursor-pointer" />
-                          </div>
-                        </td>
-                        <td className="py-4 text-right font-mono text-slate-300">
-                          {token.balance.toLocaleString(undefined, { maximumFractionDigits: 4 })}
-                        </td>
-                        <td className="py-4 text-right font-mono text-slate-300">
-                          ${token.usdValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                        </td>
-                        <td className="py-4 text-right">
-                          <div className="inline-flex items-center gap-1 font-mono font-bold">
-                            <span className={token.points > 0 ? "text-green-400" : "text-slate-600"}>
-                              {token.points > 0 ? `+${token.points}` : 0}
-                            </span>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                <div className="mt-4 pt-4 border-t border-slate-700/50 flex justify-between items-center text-xs text-slate-500">
-                  <span>* Prices fetched from Oracle</span>
-                  <span>Hold &gt;$500 per token for max points</span>
-                </div>
-              </div>
-            </div>
-
-            {/* NFT Portfolio Impact Section */}
-            <div className="glass-card glass-card-hover p-6 rounded-2xl animate-fade-in-up" style={{ animationDelay: '0.6s' }}>
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 rounded-lg bg-pink-500/20 text-pink-500 flex items-center justify-center">
-                  <Image size={20} />
-                </div>
-                <div>
-                  <h3 className="text-xl font-display font-semibold text-white">NFT Portfolio Impact</h3>
-                  <div className="text-sm text-slate-400">Total Contribution: <span className="text-ink-accent font-mono font-bold">+{data.stats.nftTotalScore} Points</span></div>
-                </div>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-700 text-slate-400">
-                      <th className="pb-3 pl-2 font-medium">Collection</th>
-                      <th className="pb-3 font-medium">Contract</th>
-                      <th className="pb-3 font-medium text-right">Held</th>
-                      <th className="pb-3 font-medium text-right">Points</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800">
-                    {data.stats.nftHoldings.map((nft, i) => (
-                      <tr key={i} className="hover:bg-slate-800/30 transition-colors group">
-                        <td className="py-4 pl-2 font-medium text-white flex items-center gap-3">
-                          <div className="relative">
-                            <img
-                              src={`https://unavatar.io/twitter/${nft.twitterHandle}`}
-                              alt={nft.name}
-                              className="w-8 h-8 rounded-md object-cover bg-slate-700 ring-2 ring-transparent group-hover:ring-ink-purple transition-all"
-                              onError={(e) => {
-                                (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${nft.name}&background=334155&color=94a3b8`;
-                              }}
-                            />
-                          </div>
-                          {nft.name}
-                        </td>
-                        <td className="py-4 text-slate-500 font-mono text-xs">
-                          <div className="flex items-center gap-1 group-hover:text-slate-300 transition-colors">
-                            {nft.contractAddress.substring(0, 6)}...{nft.contractAddress.substring(nft.contractAddress.length - 4)}
-                            <ExternalLink size={10} className="hover:text-white cursor-pointer" />
-                          </div>
-                        </td>
-                        <td className="py-4 text-right">
-                          {nft.count > 0 ? (
-                            <span className="px-2 py-1 rounded bg-slate-800 text-white font-mono">{nft.count}</span>
-                          ) : (
-                            <span className="text-slate-600">-</span>
-                          )}
-                        </td>
-                        <td className="py-4 text-right font-mono text-green-400 font-bold">
-                          {nft.totalPoints > 0 ? `+${nft.totalPoints}` : 0}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                <div className="mt-4 pt-4 border-t border-slate-700/50 flex justify-between items-center text-xs text-slate-500">
-                  <span>* Points calculated based on InkChain snapshot</span>
-                  <span>Hold more verified NFTs to increase score</span>
-                </div>
-              </div>
-            </div>
-
-            {/* AI Analysis Section */}
-            <div className="glass-card p-1 rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700 animate-fade-in-up" style={{ animationDelay: '0.7s' }}>
-              <div className="bg-slate-950/80 rounded-xl p-6 backdrop-blur-sm h-full relative overflow-hidden">
-                <div className="absolute -top-10 -right-10 w-40 h-40 bg-ink-accent/10 blur-3xl rounded-full"></div>
-
-                <div className="flex items-center justify-between mb-6 relative z-10">
-                  <div className="flex items-center gap-3">
-                    <Sparkles className="text-ink-accent animate-pulse" />
-                    <h3 className="text-xl font-display font-semibold">AI Reputation Audit</h3>
-                  </div>
-                  {!aiAnalysis && (
-                    <button
-                      onClick={handleAiAnalysis}
-                      disabled={analyzing}
-                      className="px-4 py-2 bg-ink-purple hover:bg-purple-700 disabled:bg-slate-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2 shadow-lg shadow-purple-900/20"
-                    >
-                      {analyzing ? (
-                        <>
-                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                          Analyzing...
-                        </>
-                      ) : "Generate Insight"}
-                    </button>
-                  )}
-                </div>
-
-                {!aiAnalysis && !analyzing && (
-                  <div className="text-center py-8 text-slate-500">
-                    <p>Unlock deep insights into your score using Gemini AI.</p>
-                    <p className="text-sm mt-2">Analyzes patterns, consistency, and growth potential.</p>
-                  </div>
-                )}
-
-                {aiAnalysis && (
-                  <div className="space-y-6 animate-fade-in">
-                    <div className="p-4 bg-slate-900/50 rounded-lg border border-slate-800 border-l-4 border-l-ink-purple">
-                      <p className="text-slate-300 italic">&quot;{aiAnalysis.summary}&quot;</p>
-                    </div>
-
-                    <div className="grid md:grid-cols-2 gap-6">
-                      <div>
-                        <h4 className="text-green-400 text-sm font-bold uppercase tracking-wider mb-3">Key Strengths</h4>
-                        <ul className="space-y-2">
-                          {aiAnalysis.strengths.map((s, i) => (
-                            <li key={i} className="flex items-start gap-2 text-sm text-slate-300">
-                              <ShieldCheck className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
-                              {s}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                      <div>
-                        <h4 className="text-orange-400 text-sm font-bold uppercase tracking-wider mb-3">Improvements</h4>
-                        <ul className="space-y-2">
-                          {aiAnalysis.weaknesses.map((w, i) => (
-                            <li key={i} className="flex items-start gap-2 text-sm text-slate-300">
-                              <div className="w-4 h-4 rounded-full border border-orange-500/50 flex items-center justify-center mt-0.5 flex-shrink-0 text-[10px] text-orange-500">!</div>
-                              {w}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    </div>
-
-                    <div className="mt-4 pt-4 border-t border-slate-800">
-                      <h4 className="text-ink-purple text-sm font-bold uppercase tracking-wider mb-2">Recommendation</h4>
-                      <p className="text-slate-400 text-sm">{aiAnalysis.recommendation}</p>
-                    </div>
-                  </div>
-                )}
+                  ))}
+                </tbody>
+              </table>
+              <div className="mt-4 pt-4 border-t border-slate-700/50 flex justify-between items-center text-xs text-slate-500">
+                <span>* Prices fetched from Oracle</span>
+                <span>Hold {'>'} $500 per token for max points</span>
               </div>
             </div>
           </div>
 
-          {/* Right Column: Benefits & Details */}
-          <div className="space-y-6">
-            {/* Real Analytics Cards (only when connected, not demo) */}
-            {!isDemo && walletAddress && (
-              <AnalyticsCards walletAddress={walletAddress} />
-            )}
+          {/* NFT Portfolio Impact Section */}
+          <div className="glass-card glass-card-hover p-6 rounded-2xl animate-fade-in-up" style={{ animationDelay: '0.8s' }}>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 rounded-lg bg-pink-500/20 text-pink-500 flex items-center justify-center">
+                <Image size={20} />
+              </div>
+              <div>
+                <h3 className="text-xl font-display font-semibold text-white">NFT Portfolio Impact</h3>
+                <div className="text-sm text-slate-400">Total Contribution: <span className="text-ink-accent font-mono font-bold">+{data.stats.nftTotalScore} Points</span></div>
+              </div>
+            </div>
 
-            {/* GM Activity Card */}
-            <div className="glass-card p-6 rounded-xl animate-fade-in-up border border-yellow-500/20 bg-yellow-500/5" style={{ animationDelay: '0.8s' }}>
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                  <Sun className="text-yellow-500" size={20} />
-                  GM Activity
-                </h3>
-                <div className="text-xs font-mono text-slate-500 bg-slate-900/50 px-2 py-1 rounded">
-                  {GM_CONTRACT_ADDRESS.substring(0, 6)}...{GM_CONTRACT_ADDRESS.substring(GM_CONTRACT_ADDRESS.length - 4)}
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b border-slate-700 text-slate-400">
+                    <th className="pb-3 pl-2 font-medium">Collection</th>
+                    <th className="pb-3 font-medium">Contract</th>
+                    <th className="pb-3 font-medium text-right">Held</th>
+                    <th className="pb-3 font-medium text-right">Points</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800">
+                  {data.stats.nftHoldings.map((nft, i) => (
+                    <tr key={i} className="hover:bg-slate-800/30 transition-colors group">
+                      <td className="py-4 pl-2 font-medium text-white flex items-center gap-3">
+                        <div className="relative">
+                          <img
+                            src={`https://unavatar.io/twitter/${nft.twitterHandle}`}
+                            alt={nft.name}
+                            className="w-8 h-8 rounded-md object-cover bg-slate-700 ring-2 ring-transparent group-hover:ring-ink-purple transition-all"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${nft.name}&background=334155&color=94a3b8`;
+                            }}
+                          />
+                        </div>
+                        {nft.name}
+                      </td>
+                      <td className="py-4 text-slate-500 font-mono text-xs">
+                        <div className="flex items-center gap-1 group-hover:text-slate-300 transition-colors">
+                          {nft.contractAddress.substring(0, 6)}...{nft.contractAddress.substring(nft.contractAddress.length - 4)}
+                          <ExternalLink size={10} className="hover:text-white cursor-pointer" />
+                        </div>
+                      </td>
+                      <td className="py-4 text-right">
+                        {nft.count > 0 ? (
+                          <span className="px-2 py-1 rounded bg-slate-800 text-white font-mono">{nft.count}</span>
+                        ) : (
+                          <span className="text-slate-600">-</span>
+                        )}
+                      </td>
+                      <td className="py-4 text-right font-mono text-green-400 font-bold">
+                        {nft.totalPoints > 0 ? `+${nft.totalPoints}` : 0}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div className="mt-4 pt-4 border-t border-slate-700/50 flex justify-between items-center text-xs text-slate-500">
+                <span>* Points calculated based on InkChain snapshot</span>
+                <span>Hold more verified NFTs to increase score</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Row 5: AI Analysis + Tier Benefits + Latest Activity */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* AI Analysis Section */}
+          <div className="lg:col-span-2 glass-card p-1 rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700 animate-fade-in-up" style={{ animationDelay: '0.85s' }}>
+            <div className="bg-slate-950/80 rounded-xl p-6 backdrop-blur-sm h-full relative overflow-hidden">
+              <div className="absolute -top-10 -right-10 w-40 h-40 bg-ink-accent/10 blur-3xl rounded-full"></div>
+
+              <div className="flex items-center justify-between mb-6 relative z-10">
+                <div className="flex items-center gap-3">
+                  <Sparkles className="text-ink-accent animate-pulse" />
+                  <h3 className="text-xl font-display font-semibold">AI Reputation Audit</h3>
                 </div>
+                {!aiAnalysis && (
+                  <button
+                    onClick={handleAiAnalysis}
+                    disabled={analyzing}
+                    className="px-4 py-2 bg-ink-purple hover:bg-purple-700 disabled:bg-slate-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2 shadow-lg shadow-purple-900/20"
+                  >
+                    {analyzing ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                        Analyzing...
+                      </>
+                    ) : "Generate Insight"}
+                  </button>
+                )}
               </div>
 
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-2xl font-bold font-display text-white">
-                    {!isDemo && realGmData ? realGmData.count : data.stats.gmInteractionCount} <span className="text-sm font-normal text-slate-400">txs</span>
-                  </div>
-                  <div className="text-xs text-slate-500">Total Interactions</div>
+              {!aiAnalysis && !analyzing && (
+                <div className="text-center py-8 text-slate-500">
+                  <p>Unlock deep insights into your score using Gemini AI.</p>
+                  <p className="text-sm mt-2">Analyzes patterns, consistency, and growth potential.</p>
                 </div>
-                <div className="text-right">
-                  <div className="text-2xl font-bold font-display text-yellow-500">
-                    +{((!isDemo && realGmData ? realGmData.count : data.stats.gmInteractionCount) * 2)}
+              )}
+
+              {aiAnalysis && (
+                <div className="space-y-6 animate-fade-in">
+                  <div className="p-4 bg-slate-900/50 rounded-lg border border-slate-800 border-l-4 border-l-ink-purple">
+                    <p className="text-slate-300 italic">{'"'}{aiAnalysis.summary}{'"'}</p>
                   </div>
-                  <div className="text-xs text-slate-500">Points Earned</div>
-                </div>
-              </div>
-              {((!isDemo && realGmData ? realGmData.count : data.stats.gmInteractionCount) > 0) && (
-                <div className="mt-3 text-xs text-yellow-500/80 flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-yellow-500 animate-pulse"></span>
-                  Active GM Participant
+
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div>
+                      <h4 className="text-green-400 text-sm font-bold uppercase tracking-wider mb-3">Key Strengths</h4>
+                      <ul className="space-y-2">
+                        {aiAnalysis.strengths.map((s, i) => (
+                          <li key={i} className="flex items-start gap-2 text-sm text-slate-300">
+                            <ShieldCheck className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                            {s}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div>
+                      <h4 className="text-orange-400 text-sm font-bold uppercase tracking-wider mb-3">Improvements</h4>
+                      <ul className="space-y-2">
+                        {aiAnalysis.weaknesses.map((w, i) => (
+                          <li key={i} className="flex items-start gap-2 text-sm text-slate-300">
+                            <div className="w-4 h-4 rounded-full border border-orange-500/50 flex items-center justify-center mt-0.5 flex-shrink-0 text-[10px] text-orange-500">{'!'}</div>
+                            {w}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 pt-4 border-t border-slate-800">
+                    <h4 className="text-ink-purple text-sm font-bold uppercase tracking-wider mb-2">Recommendation</h4>
+                    <p className="text-slate-400 text-sm">{aiAnalysis.recommendation}</p>
+                  </div>
                 </div>
               )}
             </div>
+          </div>
+        </div>
 
-            {/* Tydro DeFi Card - Combined Supply & Borrow */}
-            {!isDemo && realTydroData && (
-              <div className="glass-card p-6 rounded-xl animate-fade-in-up border border-emerald-500/20 bg-emerald-500/5" style={{ animationDelay: '0.82s' }}>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                    <img
-                      src="https://app.tydro.com/tydro-logo.svg"
-                      alt="Tydro"
-                      className="w-6 h-6 rounded"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = 'none';
-                      }}
-                    />
-                    Tydro DeFi Activity
-                  </h3>
-                  <div className="text-xs font-bold text-emerald-400 bg-emerald-900/30 px-2 py-1 rounded border border-emerald-500/30">
-                    USD
-                  </div>
-                </div>
-
-                {/* Supply Section */}
-                <div className="mb-4 pb-4 border-b border-slate-700/50">
-                  <div className="text-xs text-slate-400 uppercase tracking-wider mb-2">Supply Volume</div>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="text-2xl font-bold font-display text-green-400">
-                        ${realTydroData.supplyVolume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </div>
-                      <div className="text-xs text-slate-500">Total Supplied</div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-2xl font-bold font-display text-white">
-                        {realTydroData.supplyCount.toLocaleString()}
-                      </div>
-                      <div className="text-xs text-slate-500">Transactions</div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Borrow Section */}
+        {/* Right Column: Tier Benefits + Latest Activity */}
+        <div className="space-y-6">
+          <div className="glass-card p-6 rounded-xl animate-fade-in-up" style={{ animationDelay: '0.9s' }}>
+            <h3 className="text-lg font-semibold mb-4">Tier Benefits</h3>
+            <div className="space-y-3">
+              <div className="flex items-center gap-3 p-2.5 rounded-lg bg-slate-800/50 border border-slate-700 hover:border-green-500/30 transition-colors">
+                <div className="w-7 h-7 rounded-full bg-green-500/20 text-green-500 flex items-center justify-center"><ShieldCheck size={14} /></div>
                 <div>
-                  <div className="text-xs text-slate-400 uppercase tracking-wider mb-2">Borrow Volume</div>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="text-2xl font-bold font-display text-orange-400">
-                        ${realTydroData.borrowVolume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </div>
-                      <div className="text-xs text-slate-500">Total Borrowed</div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-2xl font-bold font-display text-white">
-                        {realTydroData.borrowCount.toLocaleString()}
-                      </div>
-                      <div className="text-xs text-slate-500">Transactions</div>
-                    </div>
-                  </div>
-                </div>
-
-                {(realTydroData.supplyCount > 0 || realTydroData.borrowCount > 0) && (
-                  <div className="mt-3 text-xs text-emerald-400 opacity-80 flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                    Active Tydro User
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Demo mode fallback for Tydro */}
-            {isDemo && (
-              <div className="glass-card p-6 rounded-xl animate-fade-in-up border border-emerald-500/20 bg-emerald-500/5" style={{ animationDelay: '0.82s' }}>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                    <img
-                      src="https://app.tydro.com/tydro-logo.svg"
-                      alt="Tydro"
-                      className="w-6 h-6 rounded"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = 'none';
-                      }}
-                    />
-                    Tydro DeFi
-                  </h3>
-                  <div className="text-xs font-bold text-emerald-400 bg-emerald-900/30 px-2 py-1 rounded border border-emerald-500/30">
-                    PROTOCOL
-                  </div>
-                </div>
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-slate-400">Supply tx <span className="text-slate-500">({data.stats.tydroSupplyCount})</span></span>
-                    <span className="font-mono text-white">+{data.stats.tydroSupplyCount * 10} pts</span>
-                  </div>
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-slate-400">Borrow tx <span className="text-slate-500">({data.stats.tydroBorrowCount})</span></span>
-                    <span className="font-mono text-white">+{data.stats.tydroBorrowCount * 20} pts</span>
-                  </div>
-                  {(data.stats.tydroSupplyCount > 0 && data.stats.tydroBorrowCount > 0) && (
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-slate-400 flex items-center gap-1"><Zap size={12} className="text-ink-accent" /> Power User Bonus</span>
-                      <span className="font-mono text-ink-accent font-bold">+50 pts</span>
-                    </div>
-                  )}
-                  <div className="h-px bg-slate-700/50 my-2"></div>
-                  <div className="flex justify-between items-center font-bold">
-                    <span className="text-white">Total DeFi Score</span>
-                    <span className="text-emerald-400 font-display text-lg">{data.stats.tydroScore} pts</span>
-                  </div>
+                  <div className="font-medium text-sm">Airdrop Multiplier</div>
+                  <div className="text-xs text-green-400">1.5x Boost Active</div>
                 </div>
               </div>
-            )}
-
-            <div className="glass-card p-6 rounded-xl animate-fade-in-up" style={{ animationDelay: '0.85s' }}>
-              <h3 className="text-lg font-semibold mb-4">Tier Benefits</h3>
-              <div className="space-y-4">
-                <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-800/50 border border-slate-700 hover:border-green-500/30 transition-colors">
-                  <div className="w-8 h-8 rounded-full bg-green-500/20 text-green-500 flex items-center justify-center"><ShieldCheck size={16} /></div>
-                  <div>
-                    <div className="font-medium text-sm">Airdrop Multiplier</div>
-                    <div className="text-xs text-green-400">1.5x Boost Active</div>
-                  </div>
+              <div className="flex items-center gap-3 p-2.5 rounded-lg bg-slate-800/50 border border-slate-700 hover:border-blue-500/30 transition-colors">
+                <div className="w-7 h-7 rounded-full bg-blue-500/20 text-blue-500 flex items-center justify-center"><Activity size={14} /></div>
+                <div>
+                  <div className="font-medium text-sm">Priority Access</div>
+                  <div className="text-xs text-slate-400">Launchpad Whitelist</div>
                 </div>
-                <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-800/50 border border-slate-700 hover:border-blue-500/30 transition-colors">
-                  <div className="w-8 h-8 rounded-full bg-blue-500/20 text-blue-500 flex items-center justify-center"><Activity size={16} /></div>
-                  <div>
-                    <div className="font-medium text-sm">Priority Access</div>
-                    <div className="text-xs text-slate-400">Launchpad Whitelist</div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-800/50 border border-slate-700 opacity-50">
-                  <div className="w-8 h-8 rounded-full bg-purple-500/20 text-purple-500 flex items-center justify-center"><Award size={16} /></div>
-                  <div>
-                    <div className="font-medium text-sm">Governance Power</div>
-                    <div className="text-xs text-slate-400">Unlocks at 800+ Score</div>
-                  </div>
+              </div>
+              <div className="flex items-center gap-3 p-2.5 rounded-lg bg-slate-800/50 border border-slate-700 opacity-50">
+                <div className="w-7 h-7 rounded-full bg-purple-500/20 text-purple-500 flex items-center justify-center"><Award size={14} /></div>
+                <div>
+                  <div className="font-medium text-sm">Governance Power</div>
+                  <div className="text-xs text-slate-400">Unlocks at 800+ Score</div>
                 </div>
               </div>
             </div>
+          </div>
 
-            <div className="glass-card p-6 rounded-xl animate-fade-in-up" style={{ animationDelay: '0.9s' }}>
-              <h3 className="text-lg font-semibold mb-4">Latest Activity</h3>
-              <div className="relative border-l border-slate-700 ml-2 space-y-6">
-                {[
-                  { action: 'Liquidity Added', prot: 'InkSwap', time: '2h ago' },
-                  { action: 'GM Interaction', prot: 'GM Contract', time: '4h ago' },
-                  { action: 'NFT Purchased', prot: 'InkSea', time: '1d ago' },
-                  { action: 'Governance Vote', prot: 'InkDAO', time: '3d ago' }
-                ].map((item, i) => (
-                  <div key={i} className="pl-6 relative group">
-                    <span className="absolute -left-[5px] top-1.5 w-2.5 h-2.5 rounded-full bg-slate-600 border border-slate-900 group-hover:bg-ink-purple group-hover:scale-125 transition-all"></span>
-                    <div className="text-sm font-medium text-slate-200 group-hover:text-white transition-colors">{item.action}</div>
-                    <div className="flex justify-between text-xs mt-1">
-                      <span className="text-ink-purple">{item.prot}</span>
-                      <span className="text-slate-500">{item.time}</span>
-                    </div>
+          <div className="glass-card p-6 rounded-xl animate-fade-in-up" style={{ animationDelay: '0.95s' }}>
+            <h3 className="text-lg font-semibold mb-4">Latest Activity</h3>
+            <div className="relative border-l border-slate-700 ml-2 space-y-4">
+              {[
+                { action: 'Liquidity Added', prot: 'InkSwap', time: '2h ago' },
+                { action: 'GM Interaction', prot: 'GM Contract', time: '4h ago' },
+                { action: 'NFT Purchased', prot: 'InkSea', time: '1d ago' },
+                { action: 'Governance Vote', prot: 'InkDAO', time: '3d ago' }
+              ].map((item, i) => (
+                <div key={i} className="pl-5 relative group">
+                  <span className="absolute -left-[5px] top-1.5 w-2.5 h-2.5 rounded-full bg-slate-600 border border-slate-900 group-hover:bg-ink-purple group-hover:scale-125 transition-all"></span>
+                  <div className="text-sm font-medium text-slate-200 group-hover:text-white transition-colors">{item.action}</div>
+                  <div className="flex justify-between text-xs mt-0.5">
+                    <span className="text-ink-purple">{item.prot}</span>
+                    <span className="text-slate-500">{item.time}</span>
                   </div>
-                ))}
-              </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>

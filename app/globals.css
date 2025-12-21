@@ -155,6 +155,24 @@ body {
   background: rgba(124, 58, 237, 0.5);
 }
 
+/* Thin scrollbar for compact containers */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(124, 58, 237, 0.2);
+  border-radius: 2px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(124, 58, 237, 0.4);
+}
+
 /* Selection */
 ::selection {
   background: rgba(124, 58, 237, 0.5);

@@ -371,7 +371,8 @@ export class AnalyticsService {
     // Get ETH price for USD conversion
     const ethPrice = await priceService.getCurrentPrice();
 
-    // Check if any functions need value extraction from input data
+    // Check if any functions need value extraction from input data (DeFi functions only, not swaps)
+    // Swap functions are handled by the dedicated /api/wallet/[address]/swap endpoint
     const functionsNeedingInputData = functionNames.filter(fn => DEFI_FUNCTIONS[fn] || ETH_PARAM_FUNCTIONS[fn]);
 
     // Map to store USD values from input data: tx_hash -> usd_value
@@ -392,6 +393,7 @@ export class AnalyticsService {
       const txHashes = txHashRows.map(r => r.tx_hash);
 
       if (txHashes.length > 0) {
+        // DeFi or ETH param function
         const values = await this.getDefiUsdValues(txHashes, funcName, ethPrice);
         values.forEach((value, hash) => inputDataUsdValues.set(hash, value));
       }
