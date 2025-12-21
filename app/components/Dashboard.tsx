@@ -51,6 +51,25 @@ const DEX_NAME_OVERRIDES: Record<string, string> = {
   'DyorRouterV2': 'DyorSwap',
 };
 
+// NFT Marketplace platform logos and info (keyed by lowercase contract address)
+const NFT_PLATFORMS: Record<string, { name: string; logo: string; url: string }> = {
+  '0xd00c96804e9ff35f10c7d2a92239c351ff3f94e5': {
+    name: 'Net Protocol',
+    logo: 'https://www.netprotocol.app/favicon.ico',
+    url: 'https://www.netprotocol.app/',
+  },
+  '0xbd6a027b85fd5285b1623563bbef6fadbe396afb': {
+    name: 'Mintiq',
+    logo: 'https://i.ibb.co/bMN9ppS7/mmm.png',
+    url: 'https://mintiq.market/',
+  },
+  '0x9ebf93fdba9f32accab3d6716322dccd617a78f3': {
+    name: 'Squid Market',
+    logo: 'https://www.squidmarket.xyz/favicon.ico',
+    url: 'https://www.squidmarket.xyz/',
+  },
+};
+
 // Bridge volume response type
 interface BridgeVolumeResponse {
   totalEth: number;
@@ -80,6 +99,15 @@ interface SwapVolumeResponse {
     contractAddress: string;
     usdValue: number;
     txCount: number;
+  }>;
+}
+
+// NFT Trading response type
+interface NftTradingResponse {
+  total_count: number;
+  by_contract: Array<{
+    contract_address: string;
+    count: number;
   }>;
 }
 
@@ -257,6 +285,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
   const [bridgeVolume, setBridgeVolume] = useState<BridgeVolumeResponse | null>(null);
   const [inkySwapVolume, setInkySwapVolume] = useState<InkySwapVolumeData | null>(null);
   const [swapVolume, setSwapVolume] = useState<SwapVolumeResponse | null>(null);
+  const [nftTrading, setNftTrading] = useState<NftTradingResponse | null>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -420,6 +449,28 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
     fetchSwapVolume();
   }, [walletAddress, isDemo]);
 
+  // Fetch NFT trading data when not in demo mode
+  useEffect(() => {
+    if (isDemo || !walletAddress || walletAddress.length < 10) return;
+
+    const fetchNftTrading = async () => {
+      try {
+        const res = await fetch(`/api/analytics/${walletAddress}/nft_traded`);
+        if (res.ok) {
+          const data = await res.json();
+          setNftTrading({
+            total_count: data.total_count || 0,
+            by_contract: data.by_contract || [],
+          });
+        }
+      } catch (err) {
+        console.error('Failed to fetch NFT trading data:', err);
+      }
+    };
+
+    fetchNftTrading();
+  }, [walletAddress, isDemo]);
+
   const handleAiAnalysis = async () => {
     if (!data) return;
     setAnalyzing(true);
@@ -548,7 +599,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
         {/* Row 2: Total INKSCORE (50%) + Bridge Volume (25%) + Swap Volume (25%) */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Total INKSCORE Card - 50% width (2 columns) */}
-          <div className="lg:col-span-2 glass-card p-8 rounded-2xl animate-fade-in-up h-[360px] flex flex-col" style={{ animationDelay: '0.5s' }}>
+          <div className="lg:col-span-2 glass-card p-8 rounded-2xl animate-fade-in-up h-[300px] flex flex-col" style={{ animationDelay: '0.5s' }}>
             <div className="flex flex-col md:flex-row items-center justify-between gap-6 flex-1">
               <div className="text-center md:text-left relative flex-shrink-0">
                 <div className="absolute -top-20 -left-20 w-40 h-40 bg-ink-purple/20 blur-3xl rounded-full"></div>
@@ -564,7 +615,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                 </p>
               </div>
 
-              <div className="h-[250px] w-full md:w-[280px] flex-shrink-0">
+              <div className="h-[200px] w-full md:w-[240px] flex-shrink-0">
                 <ResponsiveContainer width="100%" height="100%">
                   <RadarChart cx="50%" cy="50%" outerRadius="70%" data={chartData}>
                     <PolarGrid stroke="#334155" />
@@ -579,10 +630,23 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
           </div>
 
           {/* Bridge Volume Card - 25% width (1 column) */}
-          <div className="lg:col-span-1 glass-card p-6 rounded-2xl animate-fade-in-up border border-purple-500/20 bg-purple-500/5 h-[360px] flex flex-col" style={{ animationDelay: '0.55s' }}>
+          <div className="lg:col-span-1 glass-card p-6 rounded-2xl animate-fade-in-up border border-purple-500/20 bg-purple-500/5 h-[300px] flex flex-col" style={{ animationDelay: '0.55s' }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                <ArrowLeftRight size={20} className="text-purple-400" />
+                <div className="flex items-center -space-x-3">
+                  {Object.entries(BRIDGE_PLATFORM_LOGOS).slice(0, 3).map(([name, logo], i) => (
+                    <img
+                      key={i}
+                      src={logo}
+                      alt={name}
+                      className="w-7 h-7 rounded-full object-cover border-2 border-purple-500 bg-slate-800"
+                      style={{ zIndex: 3 - i }}
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${name.charAt(0)}&background=334155&color=94a3b8&size=28`;
+                      }}
+                    />
+                  ))}
+                </div>
                 Bridge Volume
               </h3>
               <div className="text-xs font-bold px-2 py-1 rounded border bg-purple-900/30 border-purple-500/30 text-purple-400">
@@ -669,10 +733,23 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
           </div>
 
           {/* Swap Volume Card - 25% width (1 column) */}
-          <div className="lg:col-span-1 glass-card p-6 rounded-2xl animate-fade-in-up border border-cyan-500/20 bg-cyan-500/5 h-[360px] flex flex-col" style={{ animationDelay: '0.6s' }}>
+          <div className="lg:col-span-1 glass-card p-6 rounded-2xl animate-fade-in-up border border-cyan-500/20 bg-cyan-500/5 h-[300px] flex flex-col" style={{ animationDelay: '0.6s' }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                <ArrowLeftRight size={20} className="text-cyan-400" />
+                <div className="flex items-center -space-x-3">
+                  {Object.values(DEX_PLATFORMS).slice(0, 3).map((platform, i) => (
+                    <img
+                      key={i}
+                      src={platform.logo}
+                      alt={platform.name}
+                      className="w-7 h-7 rounded-full object-cover border-2 border-cyan-500 bg-slate-800"
+                      style={{ zIndex: 3 - i }}
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${platform.name.charAt(0)}&background=334155&color=94a3b8&size=28`;
+                      }}
+                    />
+                  ))}
+                </div>
                 Swap Volume
               </h3>
               <div className="text-xs font-bold px-2 py-1 rounded border bg-cyan-900/30 border-cyan-500/30 text-cyan-400">
@@ -761,17 +838,24 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
           </div>
         </div>
 
-        {/* Row 3: GM Activity + InkySwap Volume + Tydro DeFi Activity (same height) */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Row 3: GM Activity + InkySwap Volume + Tydro DeFi Activity + NFT Trading (same height) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {/* GM Activity Card */}
           <div className="glass-card p-6 rounded-xl animate-fade-in-up border border-yellow-500/20 bg-yellow-500/5 h-[200px] flex flex-col" style={{ animationDelay: '0.6s' }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                <Sun className="text-yellow-500" size={20} />
+                <img
+                  src="https://gm.inkonchain.com/favicon.ico"
+                  alt="GM"
+                  className="w-6 h-6 rounded"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = 'none';
+                  }}
+                />
                 GM Activity
               </h3>
-              <div className="text-xs font-mono text-slate-500 bg-slate-900/50 px-2 py-1 rounded">
-                {GM_CONTRACT_ADDRESS.substring(0, 6)}...{GM_CONTRACT_ADDRESS.substring(GM_CONTRACT_ADDRESS.length - 4)}
+              <div className="text-xs font-bold px-2 py-1 rounded border bg-yellow-900/30 border-yellow-500/30 text-yellow-400">
+                COUNT
               </div>
             </div>
 
@@ -854,46 +938,135 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                 />
                 Tydro DeFi
               </h3>
-              {((!isDemo && realTydroData && (realTydroData.supplyCount > 0 || realTydroData.borrowCount > 0)) ||
-                (isDemo && (data.stats.tydroSupplyCount > 0 || data.stats.tydroBorrowCount > 0))) && (
-                  <div className="flex items-center gap-1.5 text-xs text-emerald-400 bg-emerald-900/30 px-2 py-1 rounded border border-emerald-500/30">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                    Active
-                  </div>
-                )}
+              <div className="text-xs font-bold px-2 py-1 rounded border bg-emerald-900/30 border-emerald-500/30 text-emerald-400">
+                USD
+              </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 flex-1">
-              <div className="bg-slate-900/50 rounded-lg p-3 border border-green-500/10">
-                <div className="flex items-center gap-1.5 mb-2">
-                  <Landmark size={12} className="text-green-400" />
-                  <span className="text-[10px] font-medium text-slate-400 uppercase">Supply</span>
+            <div className="flex-1 flex flex-col justify-center space-y-4">
+              {/* Supply Row */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center">
+                    <Landmark size={14} className="text-green-400" />
+                  </div>
+                  <div>
+                    <div className="text-xs text-slate-400">Supply</div>
+                    <div className="text-xs text-slate-500">
+                      {!isDemo && realTydroData ? realTydroData.supplyCount : data.stats.tydroSupplyCount} txns
+                    </div>
+                  </div>
                 </div>
-                <div className="text-lg font-bold font-display text-green-400">
+                <div className="text-xl font-bold font-display text-green-400">
                   ${!isDemo && realTydroData
                     ? realTydroData.supplyVolume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                     : (data.stats.tydroSupplyCount * 100).toFixed(2)}
                 </div>
-                <div className="text-[10px] text-slate-500">
-                  <span className="text-white font-mono">{!isDemo && realTydroData ? realTydroData.supplyCount : data.stats.tydroSupplyCount}</span> txns
-                </div>
               </div>
 
-              <div className="bg-slate-900/50 rounded-lg p-3 border border-orange-500/10">
-                <div className="flex items-center gap-1.5 mb-2">
-                  <Zap size={12} className="text-orange-400" />
-                  <span className="text-[10px] font-medium text-slate-400 uppercase">Borrow</span>
+              {/* Divider */}
+              <div className="border-t border-slate-700/50"></div>
+
+              {/* Borrow Row */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center">
+                    <Zap size={14} className="text-orange-400" />
+                  </div>
+                  <div>
+                    <div className="text-xs text-slate-400">Borrow</div>
+                    <div className="text-xs text-slate-500">
+                      {!isDemo && realTydroData ? realTydroData.borrowCount : data.stats.tydroBorrowCount} txns
+                    </div>
+                  </div>
                 </div>
-                <div className="text-lg font-bold font-display text-orange-400">
+                <div className="text-xl font-bold font-display text-orange-400">
                   ${!isDemo && realTydroData
                     ? realTydroData.borrowVolume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                     : (data.stats.tydroBorrowCount * 200).toFixed(2)}
                 </div>
-                <div className="text-[10px] text-slate-500">
-                  <span className="text-white font-mono">{!isDemo && realTydroData ? realTydroData.borrowCount : data.stats.tydroBorrowCount}</span> txns
-                </div>
               </div>
             </div>
+          </div>
+
+          {/* NFT Trading Card */}
+          <div className="glass-card p-6 rounded-xl animate-fade-in-up border border-pink-500/20 bg-pink-500/5 h-[200px] flex flex-col" style={{ animationDelay: '0.75s' }}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                <div className="flex items-center -space-x-3">
+                  {Object.values(NFT_PLATFORMS).slice(0, 3).map((platform, i) => (
+                    <img
+                      key={i}
+                      src={platform.logo}
+                      alt={platform.name}
+                      className="w-7 h-7 rounded-full object-cover border-2 border-pink-500 bg-slate-800"
+                      style={{ zIndex: 3 - i }}
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${platform.name.charAt(0)}&background=334155&color=94a3b8&size=28`;
+                      }}
+                    />
+                  ))}
+                </div>
+                NFT Trading
+              </h3>
+              <div className="text-xs font-bold px-2 py-1 rounded border bg-pink-900/30 border-pink-500/30 text-pink-400">
+                COUNT
+              </div>
+            </div>
+
+            {!isDemo ? (
+              <>
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <div className="text-3xl font-bold font-display text-pink-400">
+                      {(nftTrading?.total_count || 0).toLocaleString()}
+                    </div>
+                    <div className="text-xs text-slate-500">Total NFTs Traded</div>
+                  </div>
+                </div>
+
+                <div className="flex-1 pt-3 border-t border-slate-700/50 flex items-center justify-center">
+                  <div className="flex items-center justify-center gap-6">
+                    {Object.entries(NFT_PLATFORMS).map(([contractAddress, platformInfo], i) => {
+                      const contractData = nftTrading?.by_contract.find(
+                        (c) => c.contract_address.toLowerCase() === contractAddress.toLowerCase()
+                      );
+                      const count = contractData?.count || 0;
+
+                      return (
+                        <div key={i} className="relative group" title={platformInfo.name}>
+                          <img
+                            src={platformInfo.logo}
+                            alt={platformInfo.name}
+                            className="w-10 h-10 rounded-full object-cover border-2 border-slate-700 group-hover:border-pink-500/50 transition-all bg-slate-800"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${platformInfo.name.charAt(0)}&background=334155&color=94a3b8&size=40`;
+                            }}
+                          />
+                          <div className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-pink-500 text-white text-[10px] font-bold flex items-center justify-center shadow-lg">
+                            {count}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {(nftTrading?.total_count || 0) > 0 && (
+                  <div className="mt-auto text-xs text-pink-400 opacity-80 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-pink-400 animate-pulse"></span>
+                    Active NFT Trader
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="flex-1 flex items-center justify-center">
+                <div className="text-center text-slate-500">
+                  <div className="text-3xl font-bold font-display text-pink-400 mb-2">24</div>
+                  <div className="text-xs">Demo NFT Trades</div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
         {/* Holdings Section - Tokens & NFTs */}
@@ -909,8 +1082,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
           {/* Token Portfolio Impact Section */}
           <div className="glass-card glass-card-hover p-6 rounded-2xl animate-fade-in-up" style={{ animationDelay: '0.75s' }}>
             <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 rounded-lg bg-blue-500/20 text-blue-500 flex items-center justify-center">
-                <Coins size={20} />
+              <div className="flex items-center -space-x-3">
+                {SUPPORTED_TOKENS.slice(0, 3).map((token, i) => (
+                  <div
+                    key={i}
+                    className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-300 border-2 border-blue-500"
+                    style={{ zIndex: 3 - i }}
+                  >
+                    {token.symbol.substring(0, 3)}
+                  </div>
+                ))}
               </div>
               <div>
                 <h3 className="text-xl font-display font-semibold text-white">Token Holdings Impact</h3>
@@ -974,8 +1155,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
           {/* NFT Portfolio Impact Section */}
           <div className="glass-card glass-card-hover p-6 rounded-2xl animate-fade-in-up" style={{ animationDelay: '0.8s' }}>
             <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 rounded-lg bg-pink-500/20 text-pink-500 flex items-center justify-center">
-                <Image size={20} />
+              <div className="flex items-center -space-x-3">
+                {SUPPORTED_COLLECTIONS.slice(0, 3).map((collection, i) => (
+                  <img
+                    key={i}
+                    src={`https://unavatar.io/twitter/${collection.twitterHandle}`}
+                    alt={collection.name}
+                    className="w-8 h-8 rounded-full object-cover bg-slate-700 border-2 border-pink-500"
+                    style={{ zIndex: 3 - i }}
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${collection.name.charAt(0)}&background=334155&color=94a3b8&size=32`;
+                    }}
+                  />
+                ))}
               </div>
               <div>
                 <h3 className="text-xl font-display font-semibold text-white">NFT Portfolio Impact</h3>

@@ -7021,6 +7021,14 @@ export const CONTRACTS_TO_INDEX: ContractConfig[] = [
     fetchTransactions: true,
     abi: [],
   },
+  //https://www.squidmarket.xyz/ func : buyItem
+  {
+    address: '0x9eBf93fdBA9F32aCCAb3D6716322dcCd617a78F3',
+    name: 'squidmarket',
+    deployBlock: 25314960, // Set to actual deploy block for faster backfill
+    fetchTransactions: true,
+    abi: [],
+  }
 ];
 
 // Bridge platform hot wallets on Ink chain

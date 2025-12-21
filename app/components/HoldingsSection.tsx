@@ -62,7 +62,20 @@ export const HoldingsSection: React.FC<HoldingsSectionProps> = ({
       <div className="glass-card p-6 rounded-xl">
         <div className="flex items-center justify-between mb-5">
           <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-            <Coins size={20} className="text-blue-400" />
+            <div className="flex items-center -space-x-3">
+              {tokenHoldings.slice(0, 3).map((token, i) => (
+                <img
+                  key={i}
+                  src={token.logo}
+                  alt={token.symbol}
+                  className="w-7 h-7 rounded-full object-cover border-2 border-blue-500 bg-slate-800"
+                  style={{ zIndex: 3 - i }}
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${token.symbol.charAt(0)}&background=334155&color=94a3b8&size=28`;
+                  }}
+                />
+              ))}
+            </div>
             Token Holdings
           </h3>
           <span className="text-xs text-slate-500 bg-slate-800 px-2 py-1 rounded">
@@ -112,7 +125,20 @@ export const HoldingsSection: React.FC<HoldingsSectionProps> = ({
       <div className="glass-card p-6 rounded-xl">
         <div className="flex items-center justify-between mb-5">
           <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-            <Image size={20} className="text-pink-400" />
+            <div className="flex items-center -space-x-3">
+              {nftCollections.slice(0, 3).map((collection, i) => (
+                <img
+                  key={i}
+                  src={collection.logo}
+                  alt={collection.name}
+                  className="w-7 h-7 rounded-full object-cover border-2 border-pink-500 bg-slate-800"
+                  style={{ zIndex: 3 - i }}
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${collection.name.charAt(0)}&background=334155&color=94a3b8&size=28`;
+                  }}
+                />
+              ))}
+            </div>
             NFT Collections
           </h3>
           <span className="text-xs text-slate-500 bg-slate-800 px-2 py-1 rounded">
