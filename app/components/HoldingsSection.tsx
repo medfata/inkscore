@@ -1,0 +1,152 @@
+"use client";
+
+import React from 'react';
+import { Coins, Image } from './Icons';
+
+type TokenType = 'meme' | 'stablecoin' | 'native' | 'defi' | 'governance' | 'utility' | null;
+
+interface TokenHolding {
+  name: string;
+  symbol: string;
+  address: string;
+  logo: string;
+  balance: number;
+  usdValue: number;
+  tokenType?: TokenType;
+}
+
+interface NftCollectionHolding {
+  name: string;
+  address: string;
+  logo: string;
+  count: number;
+}
+
+interface HoldingsSectionProps {
+  tokenHoldings: TokenHolding[];
+  nftCollections: NftCollectionHolding[];
+  nativeEthUsd: number;
+}
+
+// Token type badge styles
+const tokenTypeBadgeStyles: Record<string, { bg: string; text: string; label: string }> = {
+  meme: { bg: 'bg-yellow-500/20', text: 'text-yellow-400', label: 'MEME' },
+  stablecoin: { bg: 'bg-green-500/20', text: 'text-green-400', label: 'STABLE' },
+  native: { bg: 'bg-blue-500/20', text: 'text-blue-400', label: 'NATIVE' },
+  defi: { bg: 'bg-purple-500/20', text: 'text-purple-400', label: 'DEFI' },
+  governance: { bg: 'bg-orange-500/20', text: 'text-orange-400', label: 'GOV' },
+  utility: { bg: 'bg-cyan-500/20', text: 'text-cyan-400', label: 'UTILITY' },
+};
+
+const TokenTypeBadge: React.FC<{ type: TokenType }> = ({ type }) => {
+  if (!type) return null;
+  
+  const style = tokenTypeBadgeStyles[type];
+  if (!style) return null;
+
+  return (
+    <span className={`${style.bg} ${style.text} text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider`}>
+      {style.label}
+    </span>
+  );
+};
+
+export const HoldingsSection: React.FC<HoldingsSectionProps> = ({
+  tokenHoldings,
+  nftCollections,
+  nativeEthUsd,
+}) => {
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-fade-in-up" style={{ animationDelay: '0.3s' }}>
+      {/* Token Holdings Card */}
+      <div className="glass-card p-6 rounded-xl">
+        <div className="flex items-center justify-between mb-5">
+          <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+            <Coins size={20} className="text-blue-400" />
+            Token Holdings
+          </h3>
+          <span className="text-xs text-slate-500 bg-slate-800 px-2 py-1 rounded">
+            {tokenHoldings.length} tokens
+          </span>
+        </div>
+        <div className="space-y-3 max-h-[280px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
+          {tokenHoldings.map((token) => {
+            const displayUsdValue = token.symbol === 'ETH' ? nativeEthUsd : token.usdValue;
+            return (
+              <div
+                key={token.address}
+                className="flex items-center justify-between p-3 rounded-lg bg-slate-800/30 hover:bg-slate-800/50 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <img
+                    src={token.logo}
+                    alt={token.symbol}
+                    className="w-10 h-10 rounded-lg object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(token.symbol)}&background=334155&color=94a3b8`;
+                    }}
+                  />
+                  <div>
+                    <div className="font-medium text-white flex items-center gap-2">
+                      {token.symbol}
+                      <TokenTypeBadge type={token.tokenType || null} />
+                    </div>
+                    <div className="text-xs text-slate-500">{token.name}</div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="font-bold text-white font-display">
+                    ${displayUsdValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </div>
+                  <div className="text-xs text-slate-500">
+                    {token.balance.toLocaleString(undefined, { maximumFractionDigits: 4 })} {token.symbol}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* NFT Collections Card */}
+      <div className="glass-card p-6 rounded-xl">
+        <div className="flex items-center justify-between mb-5">
+          <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+            <Image size={20} className="text-pink-400" />
+            NFT Collections
+          </h3>
+          <span className="text-xs text-slate-500 bg-slate-800 px-2 py-1 rounded">
+            {nftCollections.filter(c => c.count > 0).length} held
+          </span>
+        </div>
+        <div className="space-y-3 max-h-[280px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
+          {nftCollections.map((collection) => (
+            <div
+              key={collection.address}
+              className="flex items-center justify-between p-3 rounded-lg bg-slate-800/30 hover:bg-slate-800/50 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <img
+                  src={collection.logo}
+                  alt={collection.name}
+                  className="w-10 h-10 rounded-lg object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(collection.name)}&background=334155&color=94a3b8`;
+                  }}
+                />
+                <div className="font-medium text-white">{collection.name}</div>
+              </div>
+              <div className={`px-3 py-1 rounded-lg font-bold font-display ${
+                collection.count > 0 
+                  ? 'bg-pink-500/10 text-pink-400' 
+                  : 'bg-slate-800 text-slate-500'
+              }`}>
+                {collection.count}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};

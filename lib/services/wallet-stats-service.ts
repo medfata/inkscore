@@ -1,5 +1,6 @@
 const INK_CHAIN_ID = '57073';
 const ROUTESCAN_BASE_URL = 'https://cdn-canary.routescan.io/api';
+const DEXSCREENER_API = 'https://api.dexscreener.com/latest/dex/tokens';
 
 // Special NFT collections to track
 export const SPECIAL_NFT_COLLECTIONS = [
@@ -37,8 +38,18 @@ export interface NftCollectionHolding {
   count: number;
 }
 
+export type TokenType = 'meme' | 'stablecoin' | 'native' | 'defi' | 'governance' | 'utility' | null;
+
 // Special ERC-20 tokens to track
-export const SPECIAL_TOKENS = [
+export const SPECIAL_TOKENS: Array<{
+  name: string;
+  symbol: string;
+  address: string;
+  logo: string;
+  decimals: number;
+  isStablecoin: boolean;
+  tokenType: TokenType;
+}> = [
   {
     name: 'ETH',
     symbol: 'ETH',
@@ -46,6 +57,7 @@ export const SPECIAL_TOKENS = [
     logo: 'https://pbs.twimg.com/profile_images/1878738447067652096/tXQbWfpf_400x400.jpg',
     decimals: 18,
     isStablecoin: false,
+    tokenType: 'native',
   },
   {
     name: 'USDT0',
@@ -54,6 +66,7 @@ export const SPECIAL_TOKENS = [
     logo: 'https://pbs.twimg.com/profile_images/1879546764971188224/SQISVYwX_400x400.jpg',
     decimals: 6,
     isStablecoin: true,
+    tokenType: 'stablecoin',
   },
   {
     name: 'USDC0',
@@ -62,6 +75,7 @@ export const SPECIAL_TOKENS = [
     logo: 'https://pbs.twimg.com/profile_images/1916937910928211968/CKblfanr_400x400.png',
     decimals: 6,
     isStablecoin: true,
+    tokenType: 'stablecoin',
   },
   {
     name: 'Global Dollar',
@@ -70,6 +84,35 @@ export const SPECIAL_TOKENS = [
     logo: 'https://pbs.twimg.com/profile_images/1853549476360638464/IlD_0g8Y_400x400.png',
     decimals: 18,
     isStablecoin: true,
+    tokenType: 'stablecoin',
+  },
+  // Meme coins
+  {
+    name: 'ANITA',
+    symbol: 'ANITA',
+    address: '0x0606FC632ee812bA970af72F8489baAa443C4B98',
+    logo: 'https://pbs.twimg.com/profile_images/1948708709263089665/sCal-1rw_400x400.jpg',
+    decimals: 18,
+    isStablecoin: false,
+    tokenType: 'meme',
+  },
+  {
+    name: 'Cat on Ink',
+    symbol: 'CAT',
+    address: '0x20C69C12abf2B6F8D8ca33604DD25C700c7e70A5',
+    logo: 'https://pbs.twimg.com/profile_images/1880778671398809601/DV_dS5E9_400x400.png',
+    decimals: 18,
+    isStablecoin: false,
+    tokenType: 'meme',
+  },
+  {
+    name: 'Purple',
+    symbol: 'PURPLE',
+    address: '0xD642B49d10cc6e1BC1c6945725667c35e0875f22',
+    logo: 'https://pbs.twimg.com/profile_images/1887019906102853632/lbS2Mm4V_400x400.jpg',
+    decimals: 18,
+    isStablecoin: false,
+    tokenType: 'meme',
   },
 ];
 
@@ -80,7 +123,17 @@ export interface TokenHolding {
   logo: string;
   balance: number;
   usdValue: number;
+  tokenType: TokenType;
 }
+
+// Cache for meme coin prices (5 minute TTL)
+interface PriceCache {
+  prices: Map<string, number>;
+  timestamp: number;
+}
+
+let memeCoinPriceCache: PriceCache | null = null;
+const PRICE_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 export interface WalletStatsData {
   balanceUsd: number;
@@ -231,9 +284,69 @@ export class WalletStatsService {
     });
   }
 
+  // Fetch meme coin prices from DexScreener
+  async getMemeCoinPrices(): Promise<Map<string, number>> {
+    // Check cache first
+    if (memeCoinPriceCache && Date.now() - memeCoinPriceCache.timestamp < PRICE_CACHE_TTL) {
+      return memeCoinPriceCache.prices;
+    }
+
+    const prices = new Map<string, number>();
+    
+    // Get meme coin addresses (non-stablecoin, non-ETH tokens)
+    const memeCoins = SPECIAL_TOKENS.filter(t => !t.isStablecoin && t.symbol !== 'ETH');
+    
+    if (memeCoins.length === 0) {
+      return prices;
+    }
+
+    try {
+      // DexScreener accepts comma-separated addresses
+      const addresses = memeCoins.map(t => t.address).join(',');
+      const response = await fetch(`${DEXSCREENER_API}/${addresses}`);
+      
+      if (!response.ok) {
+        console.error(`DexScreener API error: ${response.status}`);
+        return prices;
+      }
+
+      const data = await response.json();
+      
+      // DexScreener returns pairs, we need to find the best price for each token
+      if (data.pairs && Array.isArray(data.pairs)) {
+        for (const pair of data.pairs) {
+          // Only consider pairs on Ink chain (chainId: ink)
+          if (pair.chainId !== 'ink') continue;
+          
+          const tokenAddress = pair.baseToken?.address?.toLowerCase();
+          const priceUsd = parseFloat(pair.priceUsd || '0');
+          
+          if (tokenAddress && priceUsd > 0) {
+            // Keep the highest liquidity pair's price
+            const existingPrice = prices.get(tokenAddress);
+            if (!existingPrice || priceUsd > existingPrice) {
+              prices.set(tokenAddress, priceUsd);
+            }
+          }
+        }
+      }
+
+      // Update cache
+      memeCoinPriceCache = {
+        prices,
+        timestamp: Date.now(),
+      };
+
+      return prices;
+    } catch (error) {
+      console.error('Failed to fetch meme coin prices:', error);
+      return prices;
+    }
+  }
+
   // Get ERC-20 token holdings on Ink chain (paginated to get all)
   async getTokenHoldings(walletAddress: string): Promise<TokenHolding[]> {
-    // Map to store balance and USD value per token address
+    // Map to store balance, USD value, and decimals per token address
     const tokenDataMap = new Map<string, { balance: string; usdValue: number; decimals: number }>();
     let nextToken: string | null = null;
 
@@ -256,7 +369,9 @@ export class WalletStatsService {
             tokenAddress: string;
             holderBalance: string;
             valueInUsd?: number;
-            token?: { decimals?: number };
+            token?: { 
+              decimals?: number;
+            };
           }>;
           link?: { nextToken?: string };
         } = await response.json();
@@ -291,13 +406,26 @@ export class WalletStatsService {
         hasMore = !!nextToken;
       }
 
+      // Fetch meme coin prices for tokens without USD value
+      const memeCoinPrices = await this.getMemeCoinPrices();
+
       // Map special tokens to their holdings
       return SPECIAL_TOKENS.map((token) => {
         const tokenData = tokenDataMap.get(token.address.toLowerCase());
         const rawBalance = tokenData?.balance || '0';
         const decimals = tokenData?.decimals || token.decimals;
         const balance = parseFloat(rawBalance) / Math.pow(10, decimals);
-        const usdValue = tokenData?.usdValue || 0;
+        
+        // Use Routescan USD value if available, otherwise calculate from DexScreener price
+        let usdValue = tokenData?.usdValue || 0;
+        
+        if (usdValue === 0 && balance > 0) {
+          // Try to get price from DexScreener for meme coins
+          const dexPrice = memeCoinPrices.get(token.address.toLowerCase());
+          if (dexPrice) {
+            usdValue = balance * dexPrice;
+          }
+        }
 
         return {
           name: token.name,
@@ -306,11 +434,12 @@ export class WalletStatsService {
           logo: token.logo,
           balance,
           usdValue,
+          tokenType: token.tokenType, // Always use config's tokenType
         };
       });
     } catch (error) {
       console.error('Failed to fetch token holdings:', error);
-      // Return empty holdings for all tokens
+      // Return empty holdings for all tokens with their configured types
       return SPECIAL_TOKENS.map((token) => ({
         name: token.name,
         symbol: token.symbol,
@@ -318,6 +447,7 @@ export class WalletStatsService {
         logo: token.logo,
         balance: 0,
         usdValue: 0,
+        tokenType: token.tokenType,
       }));
     }
   }

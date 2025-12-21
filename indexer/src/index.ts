@@ -1,6 +1,7 @@
-import { config, CONTRACTS_TO_INDEX } from './config.js';
+import { config, CONTRACTS_TO_INDEX, BRIDGE_HOT_WALLETS } from './config.js';
 import { indexContract } from './indexer.js';
 import { indexContractTransactions, pollNewTransactions } from './txIndexer.js';
+import { runBridgeIndexer, pollBridgeTransfers } from './bridge-indexer.js';
 import { pool } from './db/index.js';
 
 // Separate contracts by indexing method
@@ -38,6 +39,16 @@ async function main() {
     }
   }
 
+  // 3. Index bridge transfers (tracks ETH transfers FROM bridge hot wallets TO users)
+  if (BRIDGE_HOT_WALLETS.length > 0) {
+    console.log(`\n=== Starting Bridge Transfers Indexing for ${BRIDGE_HOT_WALLETS.length} platforms ===\n`);
+    try {
+      await runBridgeIndexer();
+    } catch (err) {
+      console.error('Bridge Indexer error:', err);
+    }
+  }
+
   console.log('\nBackfill complete! Switching to polling mode (15s)...\n');
 
   // Polling for real-time updates (15 seconds)
@@ -54,6 +65,12 @@ async function main() {
       for (const contract of txContracts) {
         await pollNewTransactions(contract);
         await sleep(500); // Rate limit: 2 req/sec
+      }
+
+      // Poll bridge transfers
+      for (const wallet of BRIDGE_HOT_WALLETS) {
+        await pollBridgeTransfers(wallet);
+        await sleep(500);
       }
     } catch (err) {
       console.error('Indexer error:', err);

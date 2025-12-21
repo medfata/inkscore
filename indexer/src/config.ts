@@ -923,6 +923,13 @@ export const CONTRACTS_TO_INDEX: ContractConfig[] = [
       }
     ],
   },
+  { // https://app.tydro.com/ - Tydro Pool contract for Borrow transactions
+    address: '0x2816cf15F6d2A220E789aA011D5EE4eB6c47FEbA',
+    name: 'TydroPool',
+    deployBlock: 19954047, // Set to actual deploy block for faster backfill
+    fetchTransactions: true,
+    abi: [],
+  },
   { //https://velodrome.finance/swap func being called: execute
     address: '0x01D40099fCD87C018969B0e8D4aB1633Fb34763C',
     name: 'UniversalRouter',
@@ -7013,5 +7020,50 @@ export const CONTRACTS_TO_INDEX: ContractConfig[] = [
     deployBlock: 23378839, // Set to actual deploy block for faster backfill
     fetchTransactions: true,
     abi: [],
+  },
+];
+
+// Bridge platform hot wallets on Ink chain
+// These wallets send bridged funds to users - we track transfers FROM these addresses
+export interface BridgeHotWallet {
+  platform: string;
+  walletAddress: `0x${string}`;
+  website: string;
+  logo?: string;
+  // Optional: method selectors to distinguish sub-platforms (e.g., Relay vs Ink Official)
+  methodSelectors?: {
+    selector: string;
+    subPlatform: string;
+  }[];
+}
+
+export const BRIDGE_HOT_WALLETS: BridgeHotWallet[] = [
+  {
+    platform: 'Owlto',
+    walletAddress: '0x74F665BE90ffcd9ce9dcA68cB5875570B711CEca',
+    website: 'https://owlto.finance/',
+    logo: 'https://owlto.finance/favicon.ico',
+  },
+  {
+    platform: 'Orbiter',
+    walletAddress: '0x3bDB03ad7363152DFBc185Ee23eBC93F0CF93fd1',
+    website: 'https://www.orbiter.finance/',
+    logo: 'https://www.orbiter.finance/favicon.ico',
+  },
+  {
+    platform: 'Gas.zip',
+    walletAddress: '0x8C826F795466E39acbfF1BB4eEeB759609377ba1',
+    website: 'https://www.gas.zip/',
+    logo: 'https://www.gas.zip/favicon.ico',
+  },
+  {
+    platform: 'Relay', // Shared wallet for Relay and Ink Official bridge
+    walletAddress: '0xf70da97812CB96acDF810712Aa562db8dfA3dbEF',
+    website: 'https://relay.link/',
+    logo: 'https://relay.link/favicon.ico',
+    methodSelectors: [
+      { selector: '0x0c6d9703', subPlatform: 'Ink Official' },
+      { selector: '0xce033e52', subPlatform: 'Relay' },
+    ],
   },
 ];

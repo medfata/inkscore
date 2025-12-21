@@ -7,6 +7,35 @@ interface AnalyticsCardsProps {
   walletAddress: string;
 }
 
+// Bridge volume response type
+interface BridgeVolumeResponse {
+  totalEth: number;
+  totalUsd: number;
+  txCount: number;
+  byPlatform: Array<{
+    platform: string;
+    subPlatform?: string;
+    ethValue: number;
+    usdValue: number;
+    txCount: number;
+  }>;
+}
+
+// Platform logos/icons
+const BRIDGE_PLATFORM_LOGOS: Record<string, string> = {
+  'Owlto': 'https://owlto.finance/favicon.ico',
+  'Orbiter': 'https://www.orbiter.finance/favicon.ico',
+  'Gas.zip': 'https://www.gas.zip/favicon.ico',
+  'Relay': 'https://relay.link/favicon.ico',
+  'Ink Official': 'https://inkonchain.com/favicon.ico',
+};
+
+// Metric logos (for metrics with custom branding)
+const METRIC_LOGOS: Record<string, string> = {
+  'InkySwap_usd_volume': 'https://inkyswap.com/logo-mobile.svg',
+  'inkyswap_usd_volume': 'https://inkyswap.com/logo-mobile.svg',
+};
+
 // Icon components matching the dashboard style
 const BridgeIcon = ({ size = 20, className = "" }: { size?: number; className?: string }) => (
   <svg className={className} width={size} height={size} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -45,6 +74,8 @@ const getIconComponent = (slug: string | null) => {
       return BridgeIcon;
     case 'swap':
     case 'swap_volume':
+    case 'InkySwap_usd_volume':
+    case 'inkyswap_usd_volume':
       return SwapIcon;
     case 'gm':
     case 'gm_count':
@@ -67,7 +98,9 @@ const getColorClasses = (slug: string | null) => {
       return { border: 'border-purple-500/20', bg: 'bg-purple-500/5', text: 'text-purple-400', badge: 'bg-purple-900/30 border-purple-500/30 text-purple-400' };
     case 'swap':
     case 'swap_volume':
-      return { border: 'border-blue-500/20', bg: 'bg-blue-500/5', text: 'text-blue-400', badge: 'bg-blue-900/30 border-blue-500/30 text-blue-400' };
+    case 'InkySwap_usd_volume':
+    case 'inkyswap_usd_volume':
+      return { border: 'border-cyan-500/20', bg: 'bg-cyan-500/5', text: 'text-cyan-400', badge: 'bg-cyan-900/30 border-cyan-500/30 text-cyan-400' };
     case 'gm':
     case 'gm_count':
       return { border: 'border-yellow-500/20', bg: 'bg-yellow-500/5', text: 'text-yellow-500', badge: 'bg-yellow-900/30 border-yellow-500/30 text-yellow-400' };
@@ -95,9 +128,11 @@ const formatValue = (value: string, currency: string) => {
 
 export const AnalyticsCards: React.FC<AnalyticsCardsProps> = ({ walletAddress }) => {
   const [analytics, setAnalytics] = useState<UserAnalyticsResponse | null>(null);
+  const [bridgeVolume, setBridgeVolume] = useState<BridgeVolumeResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [bridgeLoading, setBridgeLoading] = useState(true);
 
+  // Fetch general analytics
   useEffect(() => {
     const fetchAnalytics = async () => {
       if (!walletAddress || walletAddress.length < 10) {
@@ -107,9 +142,8 @@ export const AnalyticsCards: React.FC<AnalyticsCardsProps> = ({ walletAddress })
 
       try {
         setLoading(true);
-        setError(null);
         const res = await fetch(`/api/analytics/${walletAddress}`);
-        
+
         if (!res.ok) {
           throw new Error('Failed to fetch analytics');
         }
@@ -118,7 +152,6 @@ export const AnalyticsCards: React.FC<AnalyticsCardsProps> = ({ walletAddress })
         setAnalytics(data);
       } catch (err) {
         console.error('Failed to fetch analytics:', err);
-        setError('Failed to load analytics data');
       } finally {
         setLoading(false);
       }
@@ -127,7 +160,33 @@ export const AnalyticsCards: React.FC<AnalyticsCardsProps> = ({ walletAddress })
     fetchAnalytics();
   }, [walletAddress]);
 
-  if (loading) {
+  // Fetch bridge volume separately
+  useEffect(() => {
+    const fetchBridgeVolume = async () => {
+      if (!walletAddress || walletAddress.length < 10) {
+        setBridgeLoading(false);
+        return;
+      }
+
+      try {
+        setBridgeLoading(true);
+        const res = await fetch(`/api/wallet/${walletAddress}/bridge`);
+
+        if (res.ok) {
+          const data = await res.json();
+          setBridgeVolume(data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch bridge volume:', err);
+      } finally {
+        setBridgeLoading(false);
+      }
+    };
+
+    fetchBridgeVolume();
+  }, [walletAddress]);
+
+  if (loading && bridgeLoading) {
     return (
       <div className="space-y-6">
         {[1, 2].map((i) => (
@@ -140,25 +199,104 @@ export const AnalyticsCards: React.FC<AnalyticsCardsProps> = ({ walletAddress })
     );
   }
 
-  if (error || !analytics || analytics.metrics.length === 0) {
-    return null; // Don't show anything if no data
-  }
-
   // Exclude metrics that have dedicated cards in the Dashboard
-  const excludedSlugs = ['gm_count', 'tydro_defi'];
-  const filteredMetrics = analytics.metrics.filter(m => !excludedSlugs.includes(m.slug));
+  const excludedSlugs = ['gm_count', 'tydro_defi', 'bridge_volume', 'bridge', 'tydro_usd_supply', 'Tydro_usd_borrow'];
+  const filteredMetrics = analytics?.metrics.filter(m => !excludedSlugs.includes(m.slug)) || [];
 
-  if (filteredMetrics.length === 0) {
+  // Check if we have anything to show
+  const hasBridgeData = bridgeVolume && bridgeVolume.txCount > 0;
+  const hasAnalyticsData = filteredMetrics.length > 0;
+
+  if (!hasBridgeData && !hasAnalyticsData) {
     return null;
   }
 
   return (
     <>
+      {/* Bridge Volume Card - Always show first if has data */}
+      {hasBridgeData && (
+        <div
+          className="glass-card p-6 rounded-xl animate-fade-in-up border border-purple-500/20 bg-purple-500/5"
+          style={{ animationDelay: '0.75s' }}
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+              <BridgeIcon size={20} className="text-purple-400" />
+              Bridge Volume
+            </h3>
+            <div className="text-xs font-bold px-2 py-1 rounded border bg-purple-900/30 border-purple-500/30 text-purple-400">
+              USD
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-2xl font-bold font-display text-purple-400">
+                ${bridgeVolume.totalUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+              <div className="text-xs text-slate-500">Total Bridged To Ink Chain</div>
+            </div>
+            <div className="text-right">
+              <div className="text-2xl font-bold font-display text-white">
+                {bridgeVolume.txCount.toLocaleString()}
+              </div>
+              <div className="text-xs text-slate-500">Transactions</div>
+            </div>
+          </div>
+
+          {/* Platform breakdown */}
+          {bridgeVolume.byPlatform.length > 0 && (
+            <div className="mt-4 pt-3 border-t border-slate-700/50 space-y-2">
+              <span className="text-xs text-slate-500 uppercase tracking-wider">By Platform</span>
+              {bridgeVolume.byPlatform.map((platform, i) => {
+                const displayName = platform.subPlatform || platform.platform;
+                const logoUrl = BRIDGE_PLATFORM_LOGOS[displayName] || BRIDGE_PLATFORM_LOGOS[platform.platform];
+
+                return (
+                  <div key={i} className="flex justify-between items-center text-sm">
+                    <span className="text-slate-400 flex items-center gap-2">
+                      {logoUrl && (
+                        <img
+                          src={logoUrl}
+                          alt={displayName}
+                          className="w-4 h-4 rounded"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = 'none';
+                          }}
+                        />
+                      )}
+                      {displayName}
+                    </span>
+                    <div className="text-right">
+                      <span className="font-mono text-white">
+                        ${platform.usdValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                      <span className="text-slate-500 text-xs ml-2">
+                        ({platform.txCount} txs)
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {bridgeVolume.txCount > 0 && (
+            <div className="mt-3 text-xs text-purple-400 opacity-80 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse"></span>
+              Active Bridger
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Other Analytics Cards */}
       {filteredMetrics.map((metric, index) => {
         const IconComponent = getIconComponent(metric.slug);
         const colors = getColorClasses(metric.slug);
         const hasSubAggregates = metric.sub_aggregates && metric.sub_aggregates.length > 0;
         const hasByFunction = metric.sub_aggregates.some(s => s.by_function && Object.keys(s.by_function).length > 0);
+        const metricLogo = METRIC_LOGOS[metric.slug];
 
         return (
           <div
@@ -168,7 +306,18 @@ export const AnalyticsCards: React.FC<AnalyticsCardsProps> = ({ walletAddress })
           >
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                <IconComponent size={20} className={colors.text} />
+                {metricLogo ? (
+                  <img
+                    src={metricLogo}
+                    alt={metric.name}
+                    className="w-6 h-6 rounded"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none';
+                    }}
+                  />
+                ) : (
+                  <IconComponent size={20} className={colors.text} />
+                )}
                 {metric.name}
               </h3>
               <div className={`text-xs font-bold px-2 py-1 rounded border ${colors.badge}`}>
@@ -200,7 +349,7 @@ export const AnalyticsCards: React.FC<AnalyticsCardsProps> = ({ walletAddress })
                       {sub.contract_name || `${sub.contract_address.slice(0, 6)}...${sub.contract_address.slice(-4)}`}
                     </span>
                     <span className="font-mono text-white">
-                      {metric.currency === 'COUNT' 
+                      {metric.currency === 'COUNT'
                         ? `${sub.count.toLocaleString()} txs`
                         : formatValue(sub.usd_value, 'USD')}
                     </span>
@@ -209,11 +358,11 @@ export const AnalyticsCards: React.FC<AnalyticsCardsProps> = ({ walletAddress })
               </div>
             )}
 
-            {/* By function breakdown */}
-            {hasByFunction && (
+            {/* By function breakdown - skip for InkySwap */}
+            {hasByFunction && !metric.slug.toLowerCase().includes('inkyswap') && (
               <div className="mt-3 pt-3 border-t border-slate-700/50 space-y-2">
                 <span className="text-xs text-slate-500 uppercase tracking-wider">By Function</span>
-                {metric.sub_aggregates.map((sub) => 
+                {metric.sub_aggregates.map((sub) =>
                   sub.by_function && Object.entries(sub.by_function).slice(0, 4).map(([func, funcData]) => (
                     <div key={func} className="flex justify-between items-center text-sm">
                       <span className="text-slate-400 font-mono text-xs">{func}()</span>
@@ -224,12 +373,6 @@ export const AnalyticsCards: React.FC<AnalyticsCardsProps> = ({ walletAddress })
               </div>
             )}
 
-            {metric.total_count > 0 && (
-              <div className={`mt-3 text-xs ${colors.text} opacity-80 flex items-center gap-1`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${colors.text.replace('text-', 'bg-')} animate-pulse`}></span>
-                Active User
-              </div>
-            )}
           </div>
         );
       })}

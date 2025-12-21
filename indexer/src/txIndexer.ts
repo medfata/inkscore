@@ -7,7 +7,7 @@ import { pool } from './db/index.js';
 const INK_CHAIN_ID = '57073';
 const ROUTESCAN_BASE_URL = `https://cdn-canary.routescan.io/api/evm/${INK_CHAIN_ID}/transactions`;
 const PAGE_LIMIT = 50;
-const REQUEST_DELAY_MS = 500; // 2 requests per second max
+const REQUEST_DELAY_MS = 250; // 4 requests per second (increased from 2)
 
 interface RoutescanTransaction {
   chainId: string;

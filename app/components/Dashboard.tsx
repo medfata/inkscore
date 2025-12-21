@@ -14,6 +14,7 @@ import { Sparkles, ShieldCheck, Activity, Wallet, Award, Clock, Image, ExternalL
 import { ScoreData, WalletStats, ScoreTier, AiAnalysisResult, NftHolding, TokenHolding } from '../types';
 import { Logo } from './Logo';
 import { AnalyticsCards } from './AnalyticsCards';
+import { HoldingsSection } from './HoldingsSection';
 
 interface DashboardProps {
   walletAddress: string;
@@ -30,10 +31,10 @@ const SUPPORTED_COLLECTIONS = [
 const SUPPORTED_TOKENS = [
   { name: 'Global Dollar', symbol: 'USDT0', address: '0x0200C29006150606B650577BBE7B6248F58470c1' },
   { name: 'USD Coin', symbol: 'USDC', address: '0xe343167631d89B6Ffc58B88d6b7fB0228795491D' },
-  { name: 'Ethereum', symbol: 'ETH', address: '0x2D270e6886d130D724215A266106e6832161EAEd' },
-  { name: 'Anita', symbol: 'ANITA', address: '0x4200000000000000000000000000000000000006' },
-  { name: 'Cat', symbol: 'CAT', address: '0x0606FC632ee812bA970af72F8489baAa443C4B98' },
-  { name: 'ILA', symbol: 'ILA', address: '0x20C69C12abf2B6F8D8ca33604DD25C700c7e70A5' },
+  { name: 'Ethereum', symbol: 'ETH', address: '0x4200000000000000000000000000000000000006' },
+  { name: 'ANITA', symbol: 'ANITA', address: '0x0606FC632ee812bA970af72F8489baAa443C4B98' },
+  { name: 'Cat on Ink', symbol: 'CAT', address: '0x20C69C12abf2B6F8D8ca33604DD25C700c7e70A5' },
+  { name: 'Purple', symbol: 'PURPLE', address: '0xD642B49d10cc6e1BC1c6945725667c35e0875f22' },
 ];
 
 const GM_CONTRACT_ADDRESS = '0x9F500d075118272B3564ac6Ef2c70a9067Fd2d3F';
@@ -180,6 +181,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
   const [analyzing, setAnalyzing] = useState(false);
   const [realGmData, setRealGmData] = useState<{ count: number; } | null>(null);
   const [realWalletStats, setRealWalletStats] = useState<RealWalletStats | null>(null);
+  const [realTydroData, setRealTydroData] = useState<{
+    supplyVolume: number;
+    supplyCount: number;
+    borrowVolume: number;
+    borrowCount: number;
+  } | null>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -199,12 +206,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
         if (res.ok) {
           const stats = await res.json();
           setRealWalletStats({
-            balanceUsd: stats.balanceUsd || 0,
-            totalTxns: stats.totalTxns || 0,
-            nftCount: stats.nftCount || 0,
-            ageDays: stats.ageDays || 0,
+            balanceUsd: Number(stats.balanceUsd) || 0,
+            totalTxns: Number(stats.totalTxns) || 0,
+            nftCount: Number(stats.nftCount) || 0,
+            ageDays: Number(stats.ageDays) || 0,
             nftCollections: stats.nftCollections || [],
-            tokenHoldings: stats.tokenHoldings || [],
+            tokenHoldings: (stats.tokenHoldings || []).map((t: { name: string; symbol: string; address: string; logo: string; balance: number; usdValue: number }) => ({
+              ...t,
+              balance: Number(t.balance) || 0,
+              usdValue: Number(t.usdValue) || 0,
+            })),
           });
         }
       } catch (err) {
@@ -232,6 +243,36 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
     };
 
     fetchGmData();
+  }, [walletAddress, isDemo]);
+
+  // Fetch real Tydro data when not in demo mode
+  useEffect(() => {
+    if (isDemo || !walletAddress || walletAddress.length < 10) return;
+
+    const fetchTydroData = async () => {
+      try {
+        const res = await fetch(`/api/analytics/${walletAddress}`);
+        if (res.ok) {
+          const data = await res.json();
+          console.log('Analytics data:', data); // Debug log
+          const supplyMetric = data.metrics?.find((m: { slug: string }) => m.slug === 'tydro_usd_supply');
+          const borrowMetric = data.metrics?.find((m: { slug: string }) => m.slug === 'Tydro_usd_borrow');
+          
+          console.log('Tydro metrics:', { supplyMetric, borrowMetric }); // Debug log
+          
+          setRealTydroData({
+            supplyVolume: parseFloat(supplyMetric?.total_value || '0'),
+            supplyCount: supplyMetric?.total_count || 0,
+            borrowVolume: parseFloat(borrowMetric?.total_value || '0'),
+            borrowCount: borrowMetric?.total_count || 0,
+          });
+        }
+      } catch (err) {
+        console.error('Failed to fetch Tydro data:', err);
+      }
+    };
+
+    fetchTydroData();
   }, [walletAddress, isDemo]);
 
   const handleAiAnalysis = async () => {
@@ -300,43 +341,43 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
         {/* Top Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {[
-            { 
-              label: 'Net Worth Estimate', 
-              value: !isDemo && realWalletStats 
-                ? `$${(realWalletStats.balanceUsd + realWalletStats.tokenHoldings.reduce((sum, t) => sum + t.usdValue, 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` 
-                : `$${data.stats.tokenHoldingsUsd.toLocaleString()}`, 
-              icon: Wallet, 
-              color: 'blue', 
+            {
+              label: 'Net Worth Estimate',
+              value: !isDemo && realWalletStats
+                ? `$${(realWalletStats.balanceUsd + realWalletStats.tokenHoldings.filter(t => t.symbol !== 'ETH').reduce((sum, t) => sum + t.usdValue, 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                : `$${data.stats.tokenHoldingsUsd.toLocaleString()}`,
+              icon: Wallet,
+              color: 'blue',
               delay: '0.1s',
               isLoading: !isDemo && !realWalletStats
             },
-            { 
-              label: 'Total Txns', 
-              value: !isDemo && realWalletStats 
-                ? realWalletStats.totalTxns.toLocaleString() 
-                : data.stats.transactionCount.toLocaleString(), 
-              icon: Activity, 
-              color: 'purple', 
+            {
+              label: 'Total Txns',
+              value: !isDemo && realWalletStats
+                ? realWalletStats.totalTxns.toLocaleString()
+                : data.stats.transactionCount.toLocaleString(),
+              icon: Activity,
+              color: 'purple',
               delay: '0.2s',
               isLoading: !isDemo && !realWalletStats
             },
-            { 
-              label: 'NFTs Held', 
-              value: !isDemo && realWalletStats 
-                ? realWalletStats.nftCount.toLocaleString() 
-                : data.stats.nftCount.toLocaleString(), 
-              icon: Award, 
-              color: 'pink', 
+            {
+              label: 'NFTs Held',
+              value: !isDemo && realWalletStats
+                ? realWalletStats.nftCount.toLocaleString()
+                : data.stats.nftCount.toLocaleString(),
+              icon: Award,
+              color: 'pink',
               delay: '0.3s',
               isLoading: !isDemo && !realWalletStats
             },
-            { 
-              label: 'On-Chain Age', 
-              value: !isDemo && realWalletStats 
-                ? `${realWalletStats.ageDays} Days` 
-                : `${data.stats.ageDays} Days`, 
-              icon: Clock, 
-              color: 'emerald', 
+            {
+              label: 'On-Chain Age',
+              value: !isDemo && realWalletStats
+                ? `${realWalletStats.ageDays} Days`
+                : `${data.stats.ageDays} Days`,
+              icon: Clock,
+              color: 'emerald',
               delay: '0.4s',
               isLoading: !isDemo && !realWalletStats
             }
@@ -361,62 +402,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
           ))}
         </div>
 
-        {/* Special Token Holdings */}
-        {!isDemo && realWalletStats && realWalletStats.tokenHoldings && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            {realWalletStats.tokenHoldings.map((token, i) => {
-              // For ETH token, use native balance from balanceUsd
-              const displayUsdValue = token.symbol === 'ETH' ? realWalletStats.balanceUsd : token.usdValue;
-              return (
-                <div
-                  key={token.address}
-                  className="glass-card glass-card-hover p-6 rounded-xl flex items-center gap-4 animate-fade-in-up group"
-                  style={{ animationDelay: `${0.45 + i * 0.05}s` }}
-                >
-                  <img
-                    src={token.logo}
-                    alt={token.symbol}
-                    className="w-12 h-12 rounded-lg object-cover group-hover:scale-110 transition-transform"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(token.symbol)}&background=334155&color=94a3b8`;
-                    }}
-                  />
-                  <div>
-                    <div className="text-slate-400 text-sm">{token.symbol}</div>
-                    <div className="text-xl font-bold font-display text-white">
-                      ${displayUsdValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Special NFT Collections */}
-        {!isDemo && realWalletStats && realWalletStats.nftCollections && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
-            {realWalletStats.nftCollections.map((collection, i) => (
-              <div
-                key={collection.address}
-                className="glass-card glass-card-hover p-6 rounded-xl flex items-center gap-4 animate-fade-in-up group"
-                style={{ animationDelay: `${0.65 + i * 0.05}s` }}
-              >
-                <img
-                  src={collection.logo}
-                  alt={collection.name}
-                  className="w-12 h-12 rounded-lg object-cover group-hover:scale-110 transition-transform"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(collection.name)}&background=334155&color=94a3b8`;
-                  }}
-                />
-                <div>
-                  <div className="text-slate-400 text-sm">{collection.name}</div>
-                  <div className="text-xl font-bold font-display text-white">{collection.count}</div>
-                </div>
-              </div>
-            ))}
-          </div>
+        {/* Holdings Section - Tokens & NFTs */}
+        {!isDemo && realWalletStats && (
+          <HoldingsSection
+            tokenHoldings={realWalletStats.tokenHoldings}
+            nftCollections={realWalletStats.nftCollections}
+            nativeEthUsd={realWalletStats.balanceUsd}
+          />
         )}
 
         {/* Main Content Split */}
@@ -698,42 +690,115 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
               )}
             </div>
 
-            {/* Tydro DeFi Activity Card */}
-            <div className="glass-card p-6 rounded-xl animate-fade-in-up border border-blue-500/20 bg-blue-500/5" style={{ animationDelay: '0.82s' }}>
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                  <Landmark className="text-blue-400" size={20} />
-                  DeFi Activity (Tydro)
-                </h3>
-                <div className="text-xs font-bold text-blue-400 bg-blue-900/30 px-2 py-1 rounded border border-blue-500/30">
-                  PROTOCOL
+            {/* Tydro DeFi Card - Combined Supply & Borrow */}
+            {!isDemo && realTydroData && (
+              <div className="glass-card p-6 rounded-xl animate-fade-in-up border border-emerald-500/20 bg-emerald-500/5" style={{ animationDelay: '0.82s' }}>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                    <img
+                      src="https://app.tydro.com/tydro-logo.svg"
+                      alt="Tydro"
+                      className="w-6 h-6 rounded"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
+                    Tydro DeFi Activity
+                  </h3>
+                  <div className="text-xs font-bold text-emerald-400 bg-emerald-900/30 px-2 py-1 rounded border border-emerald-500/30">
+                    USD
+                  </div>
                 </div>
-              </div>
 
-              <div className="space-y-3">
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-slate-400">Supply tx <span className="text-slate-500">({data.stats.tydroSupplyCount})</span></span>
-                  <span className="font-mono text-white">+{data.stats.tydroSupplyCount * 10} pts</span>
+                {/* Supply Section */}
+                <div className="mb-4 pb-4 border-b border-slate-700/50">
+                  <div className="text-xs text-slate-400 uppercase tracking-wider mb-2">Supply Volume</div>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-2xl font-bold font-display text-green-400">
+                        ${realTydroData.supplyVolume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </div>
+                      <div className="text-xs text-slate-500">Total Supplied</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-2xl font-bold font-display text-white">
+                        {realTydroData.supplyCount.toLocaleString()}
+                      </div>
+                      <div className="text-xs text-slate-500">Transactions</div>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-slate-400">Borrow tx <span className="text-slate-500">({data.stats.tydroBorrowCount})</span></span>
-                  <span className="font-mono text-white">+{data.stats.tydroBorrowCount * 20} pts</span>
+
+                {/* Borrow Section */}
+                <div>
+                  <div className="text-xs text-slate-400 uppercase tracking-wider mb-2">Borrow Volume</div>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-2xl font-bold font-display text-orange-400">
+                        ${realTydroData.borrowVolume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </div>
+                      <div className="text-xs text-slate-500">Total Borrowed</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-2xl font-bold font-display text-white">
+                        {realTydroData.borrowCount.toLocaleString()}
+                      </div>
+                      <div className="text-xs text-slate-500">Transactions</div>
+                    </div>
+                  </div>
                 </div>
-                {(data.stats.tydroSupplyCount > 0 && data.stats.tydroBorrowCount > 0) && (
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-slate-400 flex items-center gap-1"><Zap size={12} className="text-ink-accent"/> Power User Bonus</span>
-                    <span className="font-mono text-ink-accent font-bold">+50 pts</span>
+
+                {(realTydroData.supplyCount > 0 || realTydroData.borrowCount > 0) && (
+                  <div className="mt-3 text-xs text-emerald-400 opacity-80 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    Active Tydro User
                   </div>
                 )}
+              </div>
+            )}
 
-                <div className="h-px bg-slate-700/50 my-2"></div>
-
-                <div className="flex justify-between items-center font-bold">
-                  <span className="text-white">Total DeFi Score</span>
-                  <span className="text-blue-400 font-display text-lg">{data.stats.tydroScore} pts</span>
+            {/* Demo mode fallback for Tydro */}
+            {isDemo && (
+              <div className="glass-card p-6 rounded-xl animate-fade-in-up border border-emerald-500/20 bg-emerald-500/5" style={{ animationDelay: '0.82s' }}>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                    <img
+                      src="https://app.tydro.com/tydro-logo.svg"
+                      alt="Tydro"
+                      className="w-6 h-6 rounded"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
+                    Tydro DeFi
+                  </h3>
+                  <div className="text-xs font-bold text-emerald-400 bg-emerald-900/30 px-2 py-1 rounded border border-emerald-500/30">
+                    PROTOCOL
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-slate-400">Supply tx <span className="text-slate-500">({data.stats.tydroSupplyCount})</span></span>
+                    <span className="font-mono text-white">+{data.stats.tydroSupplyCount * 10} pts</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-slate-400">Borrow tx <span className="text-slate-500">({data.stats.tydroBorrowCount})</span></span>
+                    <span className="font-mono text-white">+{data.stats.tydroBorrowCount * 20} pts</span>
+                  </div>
+                  {(data.stats.tydroSupplyCount > 0 && data.stats.tydroBorrowCount > 0) && (
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-slate-400 flex items-center gap-1"><Zap size={12} className="text-ink-accent" /> Power User Bonus</span>
+                      <span className="font-mono text-ink-accent font-bold">+50 pts</span>
+                    </div>
+                  )}
+                  <div className="h-px bg-slate-700/50 my-2"></div>
+                  <div className="flex justify-between items-center font-bold">
+                    <span className="text-white">Total DeFi Score</span>
+                    <span className="text-emerald-400 font-display text-lg">{data.stats.tydroScore} pts</span>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
             <div className="glass-card p-6 rounded-xl animate-fade-in-up" style={{ animationDelay: '0.85s' }}>
               <h3 className="text-lg font-semibold mb-4">Tier Benefits</h3>
