@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { platformsService } from '@/lib/services/platforms-service';
-import { IndexingProgressResponse } from '@/lib/types/platforms';
+import { IndexingProgressResponse, IndexingStatus } from '@/lib/types/platforms';
 import { query } from '@/lib/db';
 
 // GET /api/admin/indexing/progress - Get indexing progress for all platforms
@@ -62,7 +62,14 @@ export async function GET() {
       id: platform.id,
       name: platform.name,
       logo_url: platform.logo_url,
-      contracts: contractsByPlatform.get(platform.id) || [],
+      contracts: (contractsByPlatform.get(platform.id) || []).map(c => ({
+        address: c.address,
+        name: c.name,
+        indexing_status: c.indexing_status as IndexingStatus,
+        progress_percent: Number(c.progress_percent),
+        current_block: Number(c.current_block),
+        total_blocks: Number(c.total_blocks),
+      })),
     }));
 
     const response: IndexingProgressResponse = {
