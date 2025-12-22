@@ -10,6 +10,8 @@ import {
   Award,
   TrendingUp,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   BarChart3,
   Lock,
   Search,
@@ -22,7 +24,10 @@ import {
   Coins,
   Sun,
   Landmark,
-  ArrowLeftRight
+  ArrowLeftRight,
+  Trophy,
+  Star,
+  RefreshCw
 } from 'lucide-react';
 
 export {
@@ -35,6 +40,8 @@ export {
   Award,
   TrendingUp,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   BarChart3,
   Lock,
   Search,
@@ -47,5 +54,8 @@ export {
   Coins,
   Sun,
   Landmark,
-  ArrowLeftRight
+  ArrowLeftRight,
+  Trophy,
+  Star,
+  RefreshCw
 };

@@ -9,6 +9,8 @@ const ROUTESCAN_BASE_URL = `https://cdn-canary.routescan.io/api/evm/${INK_CHAIN_
 const ROUTESCAN_PAGE_LIMIT = 50;
 const ROUTESCAN_DELAY_MS = 200; // 5 requests per second
 const CONCURRENT_REQUESTS = 3; // Fetch 3 pages concurrently
+const CONCURRENT_BATCHES = 3; // Number of concurrent RPC batches
+const RPC_BATCH_SIZE = 1000; // Blocks per RPC batch
 
 interface RoutescanTransaction {
   chainId: string;

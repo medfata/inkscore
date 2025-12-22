@@ -14,6 +14,7 @@ import { Sparkles, ShieldCheck, Activity, Wallet, Award, Clock, Image, ExternalL
 import { ScoreData, WalletStats, ScoreTier, AiAnalysisResult, NftHolding, TokenHolding } from '../types';
 import { Logo } from './Logo';
 import { HoldingsSection } from './HoldingsSection';
+import { WalletScoreResponse } from '../../lib/types/platforms';
 
 // Bridge platform logos
 const BRIDGE_PLATFORM_LOGOS: Record<string, string> = {
@@ -286,6 +287,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
   const [inkySwapVolume, setInkySwapVolume] = useState<InkySwapVolumeData | null>(null);
   const [swapVolume, setSwapVolume] = useState<SwapVolumeResponse | null>(null);
   const [nftTrading, setNftTrading] = useState<NftTradingResponse | null>(null);
+  const [walletScore, setWalletScore] = useState<WalletScoreResponse | null>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -471,6 +473,25 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
     fetchNftTrading();
   }, [walletAddress, isDemo]);
 
+  // Fetch wallet score when not in demo mode
+  useEffect(() => {
+    if (isDemo || !walletAddress || walletAddress.length < 10) return;
+
+    const fetchWalletScore = async () => {
+      try {
+        const res = await fetch(`/api/wallet/${walletAddress}/score`);
+        if (res.ok) {
+          const data = await res.json();
+          setWalletScore(data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch wallet score:', err);
+      }
+    };
+
+    fetchWalletScore();
+  }, [walletAddress, isDemo]);
+
   const handleAiAnalysis = async () => {
     if (!data) return;
     setAnalyzing(true);
@@ -502,14 +523,87 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
     );
   }
 
-  const chartData = [
-    { subject: 'NFTs', A: data.score.breakdown.nftPower, fullMark: 100 },
-    { subject: 'Tokens', A: data.score.breakdown.tokenWeight, fullMark: 100 },
-    { subject: 'DeFi', A: data.score.breakdown.defiUsage, fullMark: 100 },
-    { subject: 'Activity', A: data.score.breakdown.txActivity, fullMark: 100 },
-    { subject: 'Age', A: data.score.breakdown.longevity, fullMark: 100 },
-    { subject: 'Loyalty', A: data.score.breakdown.ecosystemLoyalty, fullMark: 100 },
-  ];
+  const chartData = (() => {
+    const MIN_EDGES = 5; // Minimum edges for a good radar chart visualization
+
+    // If we have real wallet score data, build chart from breakdown
+    if (!isDemo && walletScore) {
+      const items: { subject: string; A: number; fullMark: number }[] = [];
+
+      // Add native metrics
+      const nativeLabels: Record<string, string> = {
+        wallet_age: 'Age',
+        total_tx: 'TXs',
+        nft_collections: 'NFTs',
+        erc20_tokens: 'Tokens'
+      };
+
+      Object.entries(walletScore.breakdown.native).forEach(([key, data]) => {
+        if (data) {
+          items.push({
+            subject: nativeLabels[key] || key,
+            A: data.points,
+            fullMark: Math.max(data.points, 100)
+          });
+        }
+      });
+
+      // Add platform metrics
+      Object.entries(walletScore.breakdown.platforms).forEach(([slug, data]) => {
+        // Shorten platform names for radar chart
+        const shortName = slug.length > 8 ? slug.substring(0, 7) + '.' : slug;
+        items.push({
+          subject: shortName.charAt(0).toUpperCase() + shortName.slice(1),
+          A: data.points,
+          fullMark: Math.max(data.points, 100)
+        });
+      });
+
+      // If no data, return default empty chart
+      if (items.length === 0) {
+        return [
+          { subject: 'Age', A: 0, fullMark: 100 },
+          { subject: 'TXs', A: 0, fullMark: 100 },
+          { subject: 'NFTs', A: 0, fullMark: 100 },
+          { subject: 'Tokens', A: 0, fullMark: 100 },
+          { subject: 'DeFi', A: 0, fullMark: 100 },
+        ];
+      }
+
+      // Pad with empty entries if we have fewer than MIN_EDGES
+      const placeholderLabels = ['Activity', 'DeFi', 'Bridge', 'Swap', 'Social', 'Loyalty'];
+      let placeholderIndex = 0;
+      while (items.length < MIN_EDGES && placeholderIndex < placeholderLabels.length) {
+        const label = placeholderLabels[placeholderIndex];
+        // Only add if this label doesn't already exist
+        if (!items.some(item => item.subject.toLowerCase() === label.toLowerCase())) {
+          items.push({
+            subject: label,
+            A: 0,
+            fullMark: 100
+          });
+        }
+        placeholderIndex++;
+      }
+
+      // Calculate max for normalization
+      const maxPoints = Math.max(...items.map(i => i.A), 100);
+      return items.map(item => ({
+        ...item,
+        fullMark: maxPoints
+      }));
+    }
+
+    // Demo/fallback data
+    return [
+      { subject: 'NFTs', A: data.score.breakdown.nftPower, fullMark: 100 },
+      { subject: 'Tokens', A: data.score.breakdown.tokenWeight, fullMark: 100 },
+      { subject: 'DeFi', A: data.score.breakdown.defiUsage, fullMark: 100 },
+      { subject: 'Activity', A: data.score.breakdown.txActivity, fullMark: 100 },
+      { subject: 'Age', A: data.score.breakdown.longevity, fullMark: 100 },
+      { subject: 'Loyalty', A: data.score.breakdown.ecosystemLoyalty, fullMark: 100 },
+    ];
+  })();
 
   return (
     <div className="min-h-screen pt-24 pb-12 px-4 sm:px-6 relative">
@@ -604,14 +698,44 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
               <div className="text-center md:text-left relative flex-shrink-0">
                 <div className="absolute -top-20 -left-20 w-40 h-40 bg-ink-purple/20 blur-3xl rounded-full"></div>
                 <h2 className="text-slate-400 mb-2 relative z-10">Total INKSCORE</h2>
-                <div className="text-6xl font-display font-bold text-white tracking-tighter mb-2 relative z-10 drop-shadow-[0_0_15px_rgba(124,58,237,0.3)]">
-                  {data.score.totalScore}
-                </div>
-                <div className="inline-block px-4 py-1 rounded-full bg-gradient-to-r from-ink-blue to-ink-purple text-white text-sm font-semibold shadow-lg shadow-purple-900/40 relative z-10">
-                  {data.score.tier}
-                </div>
+                {!isDemo && walletScore ? (
+                  <>
+                    <div className="text-6xl font-display font-bold text-white tracking-tighter mb-2 relative z-10 drop-shadow-[0_0_15px_rgba(124,58,237,0.3)]">
+                      {walletScore.total_points.toLocaleString()}
+                    </div>
+                    <div
+                      className="inline-block px-4 py-1 rounded-full text-white text-sm font-semibold shadow-lg relative z-10"
+                      style={{
+                        background: walletScore.rank?.color
+                          ? `linear-gradient(135deg, ${walletScore.rank.color}80, ${walletScore.rank.color})`
+                          : 'linear-gradient(to right, var(--ink-blue), var(--ink-purple))',
+                        boxShadow: walletScore.rank?.color
+                          ? `0 4px 14px ${walletScore.rank.color}40`
+                          : '0 4px 14px rgba(124, 58, 237, 0.4)'
+                      }}
+                    >
+                      {walletScore.rank?.name || 'New User'}
+                    </div>
+                  </>
+                ) : !isDemo && !walletScore ? (
+                  <>
+                    <div className="h-16 w-32 bg-slate-700/50 rounded animate-pulse mb-2 relative z-10"></div>
+                    <div className="h-7 w-24 bg-slate-700/50 rounded-full animate-pulse relative z-10"></div>
+                  </>
+                ) : (
+                  <>
+                    <div className="text-6xl font-display font-bold text-white tracking-tighter mb-2 relative z-10 drop-shadow-[0_0_15px_rgba(124,58,237,0.3)]">
+                      {data.score.totalScore}
+                    </div>
+                    <div className="inline-block px-4 py-1 rounded-full bg-gradient-to-r from-ink-blue to-ink-purple text-white text-sm font-semibold shadow-lg shadow-purple-900/40 relative z-10">
+                      {data.score.tier}
+                    </div>
+                  </>
+                )}
                 <p className="mt-3 text-slate-400 text-sm max-w-xs relative z-10">
-                  Top 5% of active InkChain addresses.
+                  {!isDemo && walletScore && walletScore.total_points > 0
+                    ? 'Points based on your on-chain activity.'
+                    : 'Top 5% of active InkChain addresses.'}
                 </p>
               </div>
 
@@ -620,9 +744,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                   <RadarChart cx="50%" cy="50%" outerRadius="70%" data={chartData}>
                     <PolarGrid stroke="#334155" />
                     <PolarAngleAxis dataKey="subject" tick={{ fill: '#94a3b8', fontSize: 11 }} />
-                    <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
-                    <Radar name="You" dataKey="A" stroke="#7c3aed" strokeWidth={2} fill="#7c3aed" fillOpacity={0.4} />
-                    <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px', color: '#fff' }} itemStyle={{ color: '#a855f7' }} />
+                    <PolarRadiusAxis angle={30} domain={[0, 'dataMax']} tick={false} axisLine={false} />
+                    <Radar name="Points" dataKey="A" stroke="#7c3aed" strokeWidth={2} fill="#7c3aed" fillOpacity={0.4} />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px', color: '#fff' }}
+                      itemStyle={{ color: '#a855f7' }}
+                      formatter={(value) => [`${value} pts`, 'Points']}
+                    />
                   </RadarChart>
                 </ResponsiveContainer>
               </div>

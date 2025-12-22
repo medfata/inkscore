@@ -1,63 +1,192 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { MetricWithRelations, ContractMetadata, ContractFunction } from '@/lib/types/analytics';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { MetricWithRelations, ContractFunction } from '@/lib/types/analytics';
+import {
+  Platform,
+  ContractWithPlatforms,
+  PlatformType,
+  IndexingStatus,
+  PointsRuleWithRelations,
+  Rank,
+  NativeMetric,
+  PointRange,
+  CalculationMode,
+} from '@/lib/types/platforms';
+
+type TabType = 'metrics' | 'platforms' | 'contracts' | 'indexing' | 'rules' | 'ranks';
+
+interface IndexingProgress {
+  platforms: Array<{
+    id: number;
+    name: string;
+    logo_url: string | null;
+    contracts: Array<{
+      address: string;
+      name: string;
+      indexing_status: IndexingStatus;
+      progress_percent: number;
+      current_block: number;
+      total_blocks: number;
+    }>;
+  }>;
+  global_stats: {
+    total_contracts: number;
+    contracts_complete: number;
+    contracts_indexing: number;
+    total_transactions: number;
+    total_unique_wallets: number;
+  };
+}
 
 export default function AdminPage() {
+  const [activeTab, setActiveTab] = useState<TabType>('platforms');
+  
+  // Metrics state
   const [metrics, setMetrics] = useState<MetricWithRelations[]>([]);
-  const [contracts, setContracts] = useState<ContractMetadata[]>([]);
+  const [legacyContracts, setLegacyContracts] = useState<{ address: string; name: string }[]>([]);
+  
+  // Platforms state
+  const [platforms, setPlatforms] = useState<Platform[]>([]);
+  const [contracts, setContracts] = useState<ContractWithPlatforms[]>([]);
+  const [rules, setRules] = useState<PointsRuleWithRelations[]>([]);
+  const [ranks, setRanks] = useState<Rank[]>([]);
+  const [nativeMetrics, setNativeMetrics] = useState<NativeMetric[]>([]);
+  const [indexingProgress, setIndexingProgress] = useState<IndexingProgress | null>(null);
+  
   const [loading, setLoading] = useState(true);
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [editingMetric, setEditingMetric] = useState<MetricWithRelations | null>(null);
-  const [editingContract, setEditingContract] = useState<ContractMetadata | null>(null);
 
-  useEffect(() => {
-    loadData();
+  // Modal states
+  const [showMetricModal, setShowMetricModal] = useState(false);
+  const [showPlatformModal, setShowPlatformModal] = useState(false);
+  const [showContractModal, setShowContractModal] = useState(false);
+  const [showRuleModal, setShowRuleModal] = useState(false);
+  const [showRankModal, setShowRankModal] = useState(false);
+  
+  const [editingMetric, setEditingMetric] = useState<MetricWithRelations | null>(null);
+  const [editingPlatform, setEditingPlatform] = useState<Platform | null>(null);
+  const [editingContract, setEditingContract] = useState<ContractWithPlatforms | null>(null);
+  const [editingRule, setEditingRule] = useState<PointsRuleWithRelations | null>(null);
+  const [editingRank, setEditingRank] = useState<Rank | null>(null);
+
+  // Individual load functions for each data type
+  const loadMetrics = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/metrics');
+      const data = await res.json();
+      setMetrics(data.metrics || []);
+    } catch (error) {
+      console.error('Failed to load metrics:', error);
+    }
   }, []);
 
-  const loadData = async () => {
+  const loadLegacyContracts = useCallback(async () => {
     try {
-      const [metricsRes, contractsRes] = await Promise.all([
-        fetch('/api/admin/metrics'),
-        fetch('/api/admin/contracts'),
-      ]);
-
-      const metricsData = await metricsRes.json();
-      const contractsData = await contractsRes.json();
-
-      setMetrics(metricsData.metrics || []);
-      setContracts(contractsData.contracts || []);
+      const res = await fetch('/api/admin/contracts');
+      const data = await res.json();
+      setLegacyContracts(data.contracts || []);
     } catch (error) {
-      console.error('Failed to load data:', error);
-    } finally {
-      setLoading(false);
+      console.error('Failed to load legacy contracts:', error);
     }
-  };
+  }, []);
 
-  const handleDelete = async (metricId: number) => {
-    if (!confirm('Are you sure you want to delete this metric?')) return;
-    
+  const loadPlatforms = useCallback(async () => {
     try {
-      await fetch(`/api/admin/metrics/${metricId}`, { method: 'DELETE' });
-      loadData();
+      const res = await fetch('/api/admin/platforms');
+      const data = await res.json();
+      setPlatforms(data.platforms || []);
     } catch (error) {
-      console.error('Delete failed:', error);
-      alert('Delete failed');
+      console.error('Failed to load platforms:', error);
     }
-  };
+  }, []);
 
-  const handleToggleActive = async (metric: MetricWithRelations) => {
+  const loadContracts = useCallback(async () => {
     try {
-      await fetch(`/api/admin/metrics/${metric.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ is_active: !metric.is_active }),
-      });
-      loadData();
+      const res = await fetch('/api/admin/platforms/contracts');
+      const data = await res.json();
+      setContracts(data.contracts || []);
     } catch (error) {
-      console.error('Toggle failed:', error);
+      console.error('Failed to load contracts:', error);
     }
-  };
+  }, []);
+
+  const loadRules = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/points/rules');
+      const data = await res.json();
+      setRules(data.rules || []);
+    } catch (error) {
+      console.error('Failed to load rules:', error);
+    }
+  }, []);
+
+  const loadRanks = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/points/ranks');
+      const data = await res.json();
+      setRanks(data.ranks || []);
+    } catch (error) {
+      console.error('Failed to load ranks:', error);
+    }
+  }, []);
+
+  const loadNativeMetrics = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/points/native-metrics');
+      const data = await res.json();
+      setNativeMetrics(data.metrics || []);
+    } catch (error) {
+      console.error('Failed to load native metrics:', error);
+    }
+  }, []);
+
+  const loadIndexingProgress = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/indexing/progress');
+      const data = await res.json();
+      setIndexingProgress(data);
+    } catch (error) {
+      console.error('Failed to load indexing progress:', error);
+    }
+  }, []);
+
+  // Initial load - fetch all data once
+  useEffect(() => {
+    const loadAllData = async () => {
+      try {
+        await Promise.all([
+          loadMetrics(),
+          loadLegacyContracts(),
+          loadPlatforms(),
+          loadContracts(),
+          loadRules(),
+          loadRanks(),
+          loadNativeMetrics(),
+          loadIndexingProgress(),
+        ]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadAllData();
+  }, [loadMetrics, loadLegacyContracts, loadPlatforms, loadContracts, loadRules, loadRanks, loadNativeMetrics, loadIndexingProgress]);
+
+  // Auto-refresh indexing progress
+  useEffect(() => {
+    if (activeTab === 'indexing') {
+      const interval = setInterval(loadIndexingProgress, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [activeTab, loadIndexingProgress]);
+
+  const tabs: { id: TabType; label: string; count?: number }[] = [
+    { id: 'platforms', label: 'Platforms', count: platforms.length },
+    { id: 'contracts', label: 'Contracts', count: contracts.length },
+    { id: 'indexing', label: 'Indexing' },
+    { id: 'metrics', label: 'Metrics', count: metrics.length },
+    { id: 'rules', label: 'Points Rules', count: rules.length },
+    { id: 'ranks', label: 'Ranks', count: ranks.length },
+  ];
 
   if (loading) {
     return (
@@ -71,103 +200,416 @@ export default function AdminPage() {
     <div className="min-h-screen bg-slate-950 text-white p-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold">Analytics Admin</h1>
-            <p className="text-slate-400 mt-1">Manage metrics for real-time analytics</p>
-          </div>
-          <div className="flex gap-4">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold">Admin Dashboard</h1>
+          <p className="text-slate-400 mt-1">Manage platforms, contracts, metrics, and points system</p>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex gap-2 mb-6 border-b border-slate-800 pb-2 overflow-x-auto">
+          {tabs.map((tab) => (
             <button
-              onClick={() => setShowCreateModal(true)}
-              className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg font-medium transition-colors"
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`px-4 py-2 rounded-t-lg font-medium transition-colors whitespace-nowrap flex items-center gap-2 ${
+                activeTab === tab.id
+                  ? 'bg-slate-800 text-white'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+              }`}
             >
-              + Create Metric
+              {tab.label}
+              {tab.count !== undefined && (
+                <span className="text-xs bg-slate-700 px-1.5 py-0.5 rounded">{tab.count}</span>
+              )}
             </button>
-          </div>
+          ))}
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
-            <div className="text-slate-400 text-sm">Total Metrics</div>
-            <div className="text-3xl font-bold mt-1">{metrics.length}</div>
-          </div>
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
-            <div className="text-slate-400 text-sm">Active Metrics</div>
-            <div className="text-3xl font-bold mt-1 text-green-400">
-              {metrics.filter(m => m.is_active).length}
-            </div>
-          </div>
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
-            <div className="text-slate-400 text-sm">Indexed Contracts</div>
-            <div className="text-3xl font-bold mt-1">{contracts.length}</div>
-          </div>
-        </div>
+        {/* Tab Content */}
+        {activeTab === 'platforms' && (
+          <PlatformsTab
+            platforms={platforms}
+            contracts={contracts}
+            onCreatePlatform={() => { setEditingPlatform(null); setShowPlatformModal(true); }}
+            onEditPlatform={(p) => { setEditingPlatform(p); setShowPlatformModal(true); }}
+            onRefresh={loadPlatforms}
+          />
+        )}
 
-        {/* Metrics List */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
-          <div className="p-4 border-b border-slate-800">
-            <h2 className="text-xl font-semibold">Metrics</h2>
+        {activeTab === 'contracts' && (
+          <ContractsTab
+            contracts={contracts}
+            platforms={platforms}
+            onCreateContract={() => { setEditingContract(null); setShowContractModal(true); }}
+            onEditContract={(c) => { setEditingContract(c); setShowContractModal(true); }}
+            onRefresh={loadContracts}
+          />
+        )}
+
+        {activeTab === 'indexing' && (
+          <IndexingTab progress={indexingProgress} />
+        )}
+
+        {activeTab === 'metrics' && (
+          <MetricsTab
+            metrics={metrics}
+            legacyContracts={legacyContracts}
+            onCreateMetric={() => { setEditingMetric(null); setShowMetricModal(true); }}
+            onEditMetric={(m) => { setEditingMetric(m); setShowMetricModal(true); }}
+            onRefresh={loadMetrics}
+          />
+        )}
+
+        {activeTab === 'rules' && (
+          <RulesTab
+            rules={rules}
+            platforms={platforms}
+            nativeMetrics={nativeMetrics}
+            onCreateRule={() => { setEditingRule(null); setShowRuleModal(true); }}
+            onEditRule={(r) => { setEditingRule(r); setShowRuleModal(true); }}
+            onRefresh={loadRules}
+          />
+        )}
+
+        {activeTab === 'ranks' && (
+          <RanksTab
+            ranks={ranks}
+            onCreateRank={() => { setEditingRank(null); setShowRankModal(true); }}
+            onEditRank={(r) => { setEditingRank(r); setShowRankModal(true); }}
+            onRefresh={loadRanks}
+          />
+        )}
+      </div>
+
+      {/* Modals */}
+      {showMetricModal && (
+        <MetricModal
+          metric={editingMetric}
+          contracts={legacyContracts}
+          onClose={() => setShowMetricModal(false)}
+          onSave={() => { setShowMetricModal(false); loadMetrics(); }}
+        />
+      )}
+
+      {showPlatformModal && (
+        <PlatformModal
+          platform={editingPlatform}
+          onClose={() => setShowPlatformModal(false)}
+          onSave={() => { setShowPlatformModal(false); loadPlatforms(); }}
+        />
+      )}
+
+      {showContractModal && (
+        <ContractModal
+          contract={editingContract}
+          platforms={platforms}
+          onClose={() => setShowContractModal(false)}
+          onSave={() => { setShowContractModal(false); loadContracts(); }}
+        />
+      )}
+
+      {showRuleModal && (
+        <RuleModal
+          rule={editingRule}
+          platforms={platforms}
+          nativeMetrics={nativeMetrics}
+          onClose={() => setShowRuleModal(false)}
+          onSave={() => { setShowRuleModal(false); loadRules(); }}
+        />
+      )}
+
+      {showRankModal && (
+        <RankModal
+          rank={editingRank}
+          onClose={() => setShowRankModal(false)}
+          onSave={() => { setShowRankModal(false); loadRanks(); }}
+        />
+      )}
+    </div>
+  );
+}
+
+
+// ============================================================================
+// METRICS TAB
+// ============================================================================
+
+function MetricsTab({
+  metrics,
+  legacyContracts,
+  onCreateMetric,
+  onEditMetric,
+  onRefresh,
+}: {
+  metrics: MetricWithRelations[];
+  legacyContracts: { address: string; name: string }[];
+  onCreateMetric: () => void;
+  onEditMetric: (m: MetricWithRelations) => void;
+  onRefresh: () => void;
+}) {
+  const handleDelete = async (metricId: number) => {
+    if (!confirm('Are you sure you want to delete this metric?')) return;
+    try {
+      await fetch(`/api/admin/metrics/${metricId}`, { method: 'DELETE' });
+      onRefresh();
+    } catch (error) {
+      console.error('Delete failed:', error);
+      alert('Delete failed');
+    }
+  };
+
+  const handleToggleActive = async (metric: MetricWithRelations) => {
+    try {
+      await fetch(`/api/admin/metrics/${metric.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_active: !metric.is_active }),
+      });
+      onRefresh();
+    } catch (error) {
+      console.error('Toggle failed:', error);
+    }
+  };
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-4">
+        <div className="text-slate-400">
+          {metrics.length} metrics • {metrics.filter(m => m.is_active).length} active
+        </div>
+        <button
+          onClick={onCreateMetric}
+          className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg font-medium transition-colors"
+        >
+          + Create Metric
+        </button>
+      </div>
+
+      <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+        {metrics.length === 0 ? (
+          <div className="p-8 text-center text-slate-500">
+            No metrics configured. Create your first metric to get started.
           </div>
-          
-          {metrics.length === 0 ? (
-            <div className="p-8 text-center text-slate-500">
-              No metrics configured. Create your first metric to get started.
-            </div>
-          ) : (
-            <div className="divide-y divide-slate-800">
-              {metrics.map((metric) => (
-                <div key={metric.id} className="p-4 hover:bg-slate-800/50 transition-colors">
+        ) : (
+          <div className="divide-y divide-slate-800">
+            {metrics.map((metric) => (
+              <div key={metric.id} className="p-4 hover:bg-slate-800/50 transition-colors">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3">
+                      <h3 className="font-semibold text-lg">{metric.name}</h3>
+                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                        metric.is_active ? 'bg-green-500/20 text-green-400' : 'bg-slate-700 text-slate-400'
+                      }`}>
+                        {metric.is_active ? 'Active' : 'Inactive'}
+                      </span>
+                      <span className="px-2 py-0.5 rounded text-xs font-medium bg-blue-500/20 text-blue-400">
+                        {metric.currency}
+                      </span>
+                    </div>
+                    <p className="text-slate-400 text-sm mt-1">
+                      Slug: <code className="bg-slate-800 px-1 rounded">{metric.slug}</code>
+                      {' • '}
+                      Type: <code className="bg-slate-800 px-1 rounded">{metric.aggregation_type}</code>
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <span className="text-xs text-slate-500">Contracts:</span>
+                      {metric.contracts.map((c) => (
+                        <span key={c.contract_address} className="text-xs bg-slate-800 px-2 py-0.5 rounded font-mono">
+                          {c.contract_address.slice(0, 6)}...{c.contract_address.slice(-4)}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="mt-1 flex flex-wrap gap-2">
+                      <span className="text-xs text-slate-500">Functions:</span>
+                      {metric.functions.map((f) => (
+                        <span key={f.function_name} className="text-xs bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded">
+                          {f.function_name}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleToggleActive(metric)}
+                      className="px-3 py-1 text-sm bg-slate-700 hover:bg-slate-600 rounded transition-colors"
+                    >
+                      {metric.is_active ? 'Disable' : 'Enable'}
+                    </button>
+                    <button
+                      onClick={() => onEditMetric(metric)}
+                      className="px-3 py-1 text-sm bg-slate-700 hover:bg-slate-600 rounded transition-colors"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => handleDelete(metric.id)}
+                      className="px-3 py-1 text-sm bg-red-600 hover:bg-red-700 rounded transition-colors"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
+// ============================================================================
+// PLATFORMS TAB
+// ============================================================================
+
+function PlatformsTab({
+  platforms,
+  contracts,
+  onCreatePlatform,
+  onEditPlatform,
+  onRefresh,
+}: {
+  platforms: Platform[];
+  contracts: ContractWithPlatforms[];
+  onCreatePlatform: () => void;
+  onEditPlatform: (p: Platform) => void;
+  onRefresh: () => void;
+}) {
+  const handleDelete = async (id: number) => {
+    if (!confirm('Are you sure you want to delete this platform?')) return;
+    try {
+      await fetch(`/api/admin/platforms/${id}`, { method: 'DELETE' });
+      onRefresh();
+    } catch (error) {
+      console.error('Delete failed:', error);
+      alert('Delete failed');
+    }
+  };
+
+  const handleToggleActive = async (platform: Platform) => {
+    try {
+      await fetch(`/api/admin/platforms/${platform.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_active: !platform.is_active }),
+      });
+      onRefresh();
+    } catch (error) {
+      console.error('Toggle failed:', error);
+    }
+  };
+
+  const getContractsForPlatform = (platformId: number) => {
+    return contracts.filter(c => c.platforms?.some(p => p.id === platformId));
+  };
+
+  const platformTypeColors: Record<string, string> = {
+    dex: 'bg-blue-500/20 text-blue-400',
+    defi: 'bg-purple-500/20 text-purple-400',
+    bridge: 'bg-green-500/20 text-green-400',
+    social: 'bg-pink-500/20 text-pink-400',
+    launchpad: 'bg-orange-500/20 text-orange-400',
+    nft: 'bg-cyan-500/20 text-cyan-400',
+    other: 'bg-slate-500/20 text-slate-400',
+  };
+
+  const getPlatformTypeColor = (type: string) => {
+    return platformTypeColors[type] || 'bg-indigo-500/20 text-indigo-400';
+  };
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-4">
+        <div className="text-slate-400">
+          {platforms.length} platforms • {platforms.filter(p => p.is_active).length} active
+        </div>
+        <button
+          onClick={onCreatePlatform}
+          className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg font-medium transition-colors"
+        >
+          + Add Platform
+        </button>
+      </div>
+
+      <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+        {platforms.length === 0 ? (
+          <div className="p-8 text-center text-slate-500">
+            No platforms configured. Create your first platform to get started.
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-800">
+            {platforms.map((platform) => {
+              const platformContracts = getContractsForPlatform(platform.id);
+              return (
+                <div key={platform.id} className="p-4 hover:bg-slate-800/50 transition-colors">
                   <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3">
-                        <h3 className="font-semibold text-lg">{metric.name}</h3>
-                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                          metric.is_active ? 'bg-green-500/20 text-green-400' : 'bg-slate-700 text-slate-400'
-                        }`}>
-                          {metric.is_active ? 'Active' : 'Inactive'}
-                        </span>
-                        <span className="px-2 py-0.5 rounded text-xs font-medium bg-blue-500/20 text-blue-400">
-                          {metric.currency}
-                        </span>
-                      </div>
-                      <p className="text-slate-400 text-sm mt-1">
-                        Slug: <code className="bg-slate-800 px-1 rounded">{metric.slug}</code>
-                        {' • '}
-                        Type: <code className="bg-slate-800 px-1 rounded">{metric.aggregation_type}</code>
-                      </p>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        <span className="text-xs text-slate-500">Contracts:</span>
-                        {metric.contracts.map((c) => (
-                          <span key={c.contract_address} className="text-xs bg-slate-800 px-2 py-0.5 rounded font-mono">
-                            {c.contract_address.slice(0, 6)}...{c.contract_address.slice(-4)}
+                    <div className="flex items-start gap-4">
+                      {platform.logo_url ? (
+                        <img
+                          src={platform.logo_url}
+                          alt={platform.name}
+                          className="w-12 h-12 rounded-lg object-cover bg-slate-800"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 rounded-lg bg-slate-800 flex items-center justify-center text-slate-500">
+                          {platform.name.charAt(0)}
+                        </div>
+                      )}
+                      <div>
+                        <div className="flex items-center gap-3">
+                          <h3 className="font-semibold text-lg">{platform.name}</h3>
+                          <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                            platform.is_active ? 'bg-green-500/20 text-green-400' : 'bg-slate-700 text-slate-400'
+                          }`}>
+                            {platform.is_active ? 'Active' : 'Inactive'}
                           </span>
-                        ))}
-                      </div>
-                      <div className="mt-1 flex flex-wrap gap-2">
-                        <span className="text-xs text-slate-500">Functions:</span>
-                        {metric.functions.map((f) => (
-                          <span key={f.function_name} className="text-xs bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded">
-                            {f.function_name}
+                          <span className={`px-2 py-0.5 rounded text-xs font-medium ${getPlatformTypeColor(platform.platform_type)}`}>
+                            {platform.platform_type}
                           </span>
-                        ))}
+                        </div>
+                        <p className="text-slate-400 text-sm mt-1">
+                          Slug: <code className="bg-slate-800 px-1 rounded">{platform.slug}</code>
+                          {platform.website_url && (
+                            <>
+                              {' • '}
+                              <a href={platform.website_url} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">
+                                {platform.website_url}
+                              </a>
+                            </>
+                          )}
+                        </p>
+                        {platform.description && (
+                          <p className="text-slate-500 text-sm mt-1">{platform.description}</p>
+                        )}
+                        {platformContracts.length > 0 && (
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            <span className="text-xs text-slate-500">Contracts:</span>
+                            {platformContracts.map((c) => (
+                              <span key={c.address} className="text-xs bg-slate-800 px-2 py-0.5 rounded font-mono">
+                                {c.name || `${c.address.slice(0, 6)}...${c.address.slice(-4)}`}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
                     <div className="flex gap-2">
                       <button
-                        onClick={() => handleToggleActive(metric)}
+                        onClick={() => handleToggleActive(platform)}
                         className="px-3 py-1 text-sm bg-slate-700 hover:bg-slate-600 rounded transition-colors"
                       >
-                        {metric.is_active ? 'Disable' : 'Enable'}
+                        {platform.is_active ? 'Disable' : 'Enable'}
                       </button>
                       <button
-                        onClick={() => setEditingMetric(metric)}
+                        onClick={() => onEditPlatform(platform)}
                         className="px-3 py-1 text-sm bg-slate-700 hover:bg-slate-600 rounded transition-colors"
                       >
                         Edit
                       </button>
                       <button
-                        onClick={() => handleDelete(metric.id)}
+                        onClick={() => handleDelete(platform.id)}
                         className="px-3 py-1 text-sm bg-red-600 hover:bg-red-700 rounded transition-colors"
                       >
                         Delete
@@ -175,97 +617,543 @@ export default function AdminPage() {
                     </div>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Contracts List */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden mt-8">
-          <div className="p-4 border-b border-slate-800">
-            <h2 className="text-xl font-semibold">Indexed Contracts</h2>
+              );
+            })}
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-slate-800/50">
+        )}
+      </div>
+    </div>
+  );
+}
+
+
+// ============================================================================
+// CONTRACTS TAB
+// ============================================================================
+
+function ContractsTab({
+  contracts,
+  platforms,
+  onCreateContract,
+  onEditContract,
+  onRefresh,
+}: {
+  contracts: ContractWithPlatforms[];
+  platforms: Platform[];
+  onCreateContract: () => void;
+  onEditContract: (c: ContractWithPlatforms) => void;
+  onRefresh: () => void;
+}) {
+  const handleDelete = async (address: string) => {
+    if (!confirm('Are you sure you want to delete this contract?')) return;
+    try {
+      await fetch(`/api/admin/platforms/contracts/${address}`, { method: 'DELETE' });
+      onRefresh();
+    } catch (error) {
+      console.error('Delete failed:', error);
+      alert('Delete failed');
+    }
+  };
+
+  const statusColors: Record<IndexingStatus, string> = {
+    pending: 'bg-yellow-500/20 text-yellow-400',
+    indexing: 'bg-blue-500/20 text-blue-400',
+    complete: 'bg-green-500/20 text-green-400',
+    paused: 'bg-orange-500/20 text-orange-400',
+    error: 'bg-red-500/20 text-red-400',
+  };
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-4">
+        <div className="text-slate-400">
+          {contracts.length} contracts
+        </div>
+        <button
+          onClick={onCreateContract}
+          className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg font-medium transition-colors"
+        >
+          + Add Contract
+        </button>
+      </div>
+
+      <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-slate-800/50">
+              <tr>
+                <th className="text-left p-3 text-sm font-medium text-slate-400">Name</th>
+                <th className="text-left p-3 text-sm font-medium text-slate-400">Address</th>
+                <th className="text-left p-3 text-sm font-medium text-slate-400">Platforms</th>
+                <th className="text-left p-3 text-sm font-medium text-slate-400">Status</th>
+                <th className="text-left p-3 text-sm font-medium text-slate-400">Progress</th>
+                <th className="text-left p-3 text-sm font-medium text-slate-400">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800">
+              {contracts.length === 0 ? (
                 <tr>
-                  <th className="text-left p-3 text-sm font-medium text-slate-400">Name</th>
-                  <th className="text-left p-3 text-sm font-medium text-slate-400">Address</th>
-                  <th className="text-left p-3 text-sm font-medium text-slate-400">Category</th>
-                  <th className="text-left p-3 text-sm font-medium text-slate-400">Website</th>
-                  <th className="text-left p-3 text-sm font-medium text-slate-400">Actions</th>
+                  <td colSpan={6} className="p-8 text-center text-slate-500">
+                    No contracts configured.
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800">
-                {contracts.map((contract) => (
+              ) : (
+                contracts.map((contract) => (
                   <tr key={contract.address} className="hover:bg-slate-800/30">
                     <td className="p-3 font-medium">{contract.name}</td>
                     <td className="p-3 font-mono text-sm text-slate-400">
                       {contract.address.slice(0, 10)}...{contract.address.slice(-8)}
                     </td>
                     <td className="p-3">
-                      {contract.category && (
-                        <span className="px-2 py-0.5 rounded text-xs bg-slate-700">
-                          {contract.category}
-                        </span>
-                      )}
-                    </td>
-                    <td className="p-3 text-sm text-blue-400">
-                      {contract.website_url && (
-                        <a href={contract.website_url} target="_blank" rel="noopener noreferrer">
-                          {contract.website_url}
-                        </a>
-                      )}
+                      <div className="flex flex-wrap gap-1">
+                        {contract.platforms?.map((p) => (
+                          <span key={p.id} className="text-xs bg-slate-700 px-2 py-0.5 rounded">
+                            {p.name}
+                          </span>
+                        ))}
+                        {(!contract.platforms || contract.platforms.length === 0) && (
+                          <span className="text-xs text-slate-500">None</span>
+                        )}
+                      </div>
                     </td>
                     <td className="p-3">
-                      <button
-                        onClick={() => setEditingContract(contract)}
-                        className="px-3 py-1 text-sm bg-slate-700 hover:bg-slate-600 rounded transition-colors"
-                      >
-                        Edit
-                      </button>
+                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${statusColors[contract.indexing_status]}`}>
+                        {contract.indexing_status}
+                      </span>
+                    </td>
+                    <td className="p-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-24 h-2 bg-slate-700 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-purple-500 transition-all"
+                            style={{ width: `${contract.progress_percent}%` }}
+                          />
+                        </div>
+                        <span className="text-xs text-slate-400">{contract.progress_percent}%</span>
+                      </div>
+                    </td>
+                    <td className="p-3">
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => onEditContract(contract)}
+                          className="px-3 py-1 text-sm bg-slate-700 hover:bg-slate-600 rounded transition-colors"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDelete(contract.address)}
+                          className="px-3 py-1 text-sm bg-red-600 hover:bg-red-700 rounded transition-colors"
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
-
-      {/* Create/Edit Metric Modal */}
-      {(showCreateModal || editingMetric) && (
-        <MetricModal
-          metric={editingMetric}
-          contracts={contracts}
-          onClose={() => {
-            setShowCreateModal(false);
-            setEditingMetric(null);
-          }}
-          onSave={() => {
-            setShowCreateModal(false);
-            setEditingMetric(null);
-            loadData();
-          }}
-        />
-      )}
-
-      {/* Edit Contract Modal */}
-      {editingContract && (
-        <ContractModal
-          contract={editingContract}
-          onClose={() => setEditingContract(null)}
-          onSave={() => {
-            setEditingContract(null);
-            loadData();
-          }}
-        />
-      )}
     </div>
   );
 }
 
-// Metric Create/Edit Modal Component
+
+// ============================================================================
+// INDEXING TAB
+// ============================================================================
+
+function IndexingTab({ progress }: { progress: IndexingProgress | null }) {
+  if (!progress) {
+    return (
+      <div className="text-center text-slate-500 py-8">
+        Loading indexing progress...
+      </div>
+    );
+  }
+
+  const statusColors: Record<IndexingStatus, string> = {
+    pending: 'bg-yellow-500/20 text-yellow-400',
+    indexing: 'bg-blue-500/20 text-blue-400',
+    complete: 'bg-green-500/20 text-green-400',
+    paused: 'bg-orange-500/20 text-orange-400',
+    error: 'bg-red-500/20 text-red-400',
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Global Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+          <div className="text-slate-400 text-sm">Total Contracts</div>
+          <div className="text-2xl font-bold mt-1">{progress.global_stats.total_contracts}</div>
+        </div>
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+          <div className="text-slate-400 text-sm">Complete</div>
+          <div className="text-2xl font-bold mt-1 text-green-400">{progress.global_stats.contracts_complete}</div>
+        </div>
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+          <div className="text-slate-400 text-sm">Indexing</div>
+          <div className="text-2xl font-bold mt-1 text-blue-400">{progress.global_stats.contracts_indexing}</div>
+        </div>
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+          <div className="text-slate-400 text-sm">Total Transactions</div>
+          <div className="text-2xl font-bold mt-1">{progress.global_stats.total_transactions.toLocaleString()}</div>
+        </div>
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+          <div className="text-slate-400 text-sm">Unique Wallets</div>
+          <div className="text-2xl font-bold mt-1">{progress.global_stats.total_unique_wallets.toLocaleString()}</div>
+        </div>
+      </div>
+
+      {/* Per-Platform Progress */}
+      <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+        <div className="p-4 border-b border-slate-800">
+          <h2 className="text-xl font-semibold">Indexing Progress by Platform</h2>
+          <p className="text-sm text-slate-400 mt-1">Auto-refreshes every 5 seconds</p>
+        </div>
+
+        {progress.platforms.length === 0 ? (
+          <div className="p-8 text-center text-slate-500">
+            No platforms with contracts to index.
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-800">
+            {progress.platforms.map((platform) => (
+              <div key={platform.id} className="p-4">
+                <div className="flex items-center gap-3 mb-3">
+                  {platform.logo_url ? (
+                    <img src={platform.logo_url} alt={platform.name} className="w-8 h-8 rounded-lg" />
+                  ) : (
+                    <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center text-slate-500">
+                      {platform.name.charAt(0)}
+                    </div>
+                  )}
+                  <h3 className="font-semibold">{platform.name}</h3>
+                  <span className="text-sm text-slate-400">({platform.contracts.length} contracts)</span>
+                </div>
+
+                <div className="space-y-2 ml-11">
+                  {platform.contracts.map((contract) => (
+                    <div key={contract.address} className="flex items-center gap-4">
+                      <div className="w-48 truncate text-sm text-slate-400" title={contract.name}>
+                        {contract.name}
+                      </div>
+                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${statusColors[contract.indexing_status]}`}>
+                        {contract.indexing_status}
+                      </span>
+                      <div className="flex-1 flex items-center gap-2">
+                        <div className="flex-1 h-2 bg-slate-700 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full transition-all ${
+                              contract.indexing_status === 'complete' ? 'bg-green-500' :
+                              contract.indexing_status === 'error' ? 'bg-red-500' : 'bg-purple-500'
+                            }`}
+                            style={{ width: `${contract.progress_percent}%` }}
+                          />
+                        </div>
+                        <span className="text-xs text-slate-400 w-12 text-right">
+                          {contract.progress_percent}%
+                        </span>
+                      </div>
+                      <div className="text-xs text-slate-500 w-40 text-right">
+                        {contract.current_block.toLocaleString()} / {contract.total_blocks.toLocaleString()}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
+// ============================================================================
+// RULES TAB
+// ============================================================================
+
+function RulesTab({
+  rules,
+  platforms,
+  nativeMetrics,
+  onCreateRule,
+  onEditRule,
+  onRefresh,
+}: {
+  rules: PointsRuleWithRelations[];
+  platforms: Platform[];
+  nativeMetrics: NativeMetric[];
+  onCreateRule: () => void;
+  onEditRule: (r: PointsRuleWithRelations) => void;
+  onRefresh: () => void;
+}) {
+  const handleDelete = async (id: number) => {
+    if (!confirm('Are you sure you want to delete this rule?')) return;
+    try {
+      await fetch(`/api/admin/points/rules/${id}`, { method: 'DELETE' });
+      onRefresh();
+    } catch (error) {
+      console.error('Delete failed:', error);
+      alert('Delete failed');
+    }
+  };
+
+  const handleToggleActive = async (rule: PointsRuleWithRelations) => {
+    try {
+      await fetch(`/api/admin/points/rules/${rule.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_active: !rule.is_active }),
+      });
+      onRefresh();
+    } catch (error) {
+      console.error('Toggle failed:', error);
+    }
+  };
+
+  const getPlatformName = (platformId: number | null) => {
+    if (!platformId) return null;
+    return platforms.find(p => p.id === platformId)?.name;
+  };
+
+  const getNativeMetricName = (metricId: number | null) => {
+    if (!metricId) return null;
+    return nativeMetrics.find(m => m.id === metricId)?.name;
+  };
+
+  const modeColors: Record<CalculationMode, string> = {
+    range: 'bg-blue-500/20 text-blue-400',
+    per_item: 'bg-purple-500/20 text-purple-400',
+    threshold: 'bg-green-500/20 text-green-400',
+    multiplier: 'bg-orange-500/20 text-orange-400',
+  };
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-4">
+        <div className="text-slate-400">
+          {rules.length} rules • {rules.filter(r => r.is_active).length} active
+        </div>
+        <button
+          onClick={onCreateRule}
+          className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg font-medium transition-colors"
+        >
+          + Add Rule
+        </button>
+      </div>
+
+      <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+        {rules.length === 0 ? (
+          <div className="p-8 text-center text-slate-500">
+            No points rules configured.
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-800">
+            {rules.map((rule) => (
+              <div key={rule.id} className="p-4 hover:bg-slate-800/50 transition-colors">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3">
+                      <h3 className="font-semibold">{rule.name}</h3>
+                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                        rule.is_active ? 'bg-green-500/20 text-green-400' : 'bg-slate-700 text-slate-400'
+                      }`}>
+                        {rule.is_active ? 'Active' : 'Inactive'}
+                      </span>
+                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                        rule.metric_type === 'platform' ? 'bg-cyan-500/20 text-cyan-400' : 'bg-pink-500/20 text-pink-400'
+                      }`}>
+                        {rule.metric_type}
+                      </span>
+                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${modeColors[rule.calculation_mode]}`}>
+                        {rule.calculation_mode}
+                      </span>
+                    </div>
+                    <p className="text-slate-400 text-sm mt-1">
+                      {rule.metric_type === 'platform' 
+                        ? `Platform: ${getPlatformName(rule.platform_id) || 'Unknown'}`
+                        : `Native Metric: ${getNativeMetricName(rule.native_metric_id) || 'Unknown'}`
+                      }
+                    </p>
+                    {rule.description && (
+                      <p className="text-slate-500 text-sm mt-1">{rule.description}</p>
+                    )}
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <span className="text-xs text-slate-500">Ranges:</span>
+                      {rule.ranges.map((range, idx) => (
+                        <span key={idx} className="text-xs bg-slate-800 px-2 py-0.5 rounded">
+                          {range.min}-{range.max ?? '∞'}: {range.points} pts
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleToggleActive(rule)}
+                      className="px-3 py-1 text-sm bg-slate-700 hover:bg-slate-600 rounded transition-colors"
+                    >
+                      {rule.is_active ? 'Disable' : 'Enable'}
+                    </button>
+                    <button
+                      onClick={() => onEditRule(rule)}
+                      className="px-3 py-1 text-sm bg-slate-700 hover:bg-slate-600 rounded transition-colors"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => handleDelete(rule.id)}
+                      className="px-3 py-1 text-sm bg-red-600 hover:bg-red-700 rounded transition-colors"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
+// ============================================================================
+// RANKS TAB
+// ============================================================================
+
+function RanksTab({
+  ranks,
+  onCreateRank,
+  onEditRank,
+  onRefresh,
+}: {
+  ranks: Rank[];
+  onCreateRank: () => void;
+  onEditRank: (r: Rank) => void;
+  onRefresh: () => void;
+}) {
+  const handleDelete = async (id: number) => {
+    if (!confirm('Are you sure you want to delete this rank?')) return;
+    try {
+      await fetch(`/api/admin/points/ranks/${id}`, { method: 'DELETE' });
+      onRefresh();
+    } catch (error) {
+      console.error('Delete failed:', error);
+      alert('Delete failed');
+    }
+  };
+
+  const handleToggleActive = async (rank: Rank) => {
+    try {
+      await fetch(`/api/admin/points/ranks/${rank.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_active: !rank.is_active }),
+      });
+      onRefresh();
+    } catch (error) {
+      console.error('Toggle failed:', error);
+    }
+  };
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-4">
+        <div className="text-slate-400">
+          {ranks.length} ranks • {ranks.filter(r => r.is_active).length} active
+        </div>
+        <button
+          onClick={onCreateRank}
+          className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg font-medium transition-colors"
+        >
+          + Add Rank
+        </button>
+      </div>
+
+      <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+        {ranks.length === 0 ? (
+          <div className="p-8 text-center text-slate-500">
+            No ranks configured.
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-800">
+            {ranks.map((rank) => (
+              <div key={rank.id} className="p-4 hover:bg-slate-800/50 transition-colors">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    {/* Rank Badge Preview */}
+                    <div
+                      className="w-12 h-12 rounded-lg flex items-center justify-center font-bold text-lg"
+                      style={{
+                        backgroundColor: rank.color ? `${rank.color}20` : '#334155',
+                        color: rank.color || '#94a3b8',
+                        border: `2px solid ${rank.color || '#475569'}`,
+                      }}
+                    >
+                      {rank.logo_url ? (
+                        <img src={rank.logo_url} alt={rank.name} className="w-8 h-8" />
+                      ) : (
+                        rank.name.charAt(0)
+                      )}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-3">
+                        <h3 className="font-semibold">{rank.name}</h3>
+                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                          rank.is_active ? 'bg-green-500/20 text-green-400' : 'bg-slate-700 text-slate-400'
+                        }`}>
+                          {rank.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                      </div>
+                      <p className="text-slate-400 text-sm mt-1">
+                        Points: {rank.min_points.toLocaleString()} - {rank.max_points?.toLocaleString() ?? '∞'}
+                      </p>
+                      {rank.description && (
+                        <p className="text-slate-500 text-sm mt-1">{rank.description}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleToggleActive(rank)}
+                      className="px-3 py-1 text-sm bg-slate-700 hover:bg-slate-600 rounded transition-colors"
+                    >
+                      {rank.is_active ? 'Disable' : 'Enable'}
+                    </button>
+                    <button
+                      onClick={() => onEditRank(rank)}
+                      className="px-3 py-1 text-sm bg-slate-700 hover:bg-slate-600 rounded transition-colors"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => handleDelete(rank.id)}
+                      className="px-3 py-1 text-sm bg-red-600 hover:bg-red-700 rounded transition-colors"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
+// ============================================================================
+// METRIC MODAL
+// ============================================================================
+
 function MetricModal({
   metric,
   contracts,
@@ -273,7 +1161,7 @@ function MetricModal({
   onSave,
 }: {
   metric: MetricWithRelations | null;
-  contracts: ContractMetadata[];
+  contracts: { address: string; name: string }[];
   onClose: () => void;
   onSave: () => void;
 }) {
@@ -298,7 +1186,6 @@ function MetricModal({
   const [availableFunctions, setAvailableFunctions] = useState<ContractFunction[]>([]);
   const [saving, setSaving] = useState(false);
 
-  // Load functions when contracts change
   useEffect(() => {
     const loadFunctions = async () => {
       if (selectedContracts.length === 0) {
@@ -317,7 +1204,6 @@ function MetricModal({
         }
       }
 
-      // Deduplicate by function name
       const uniqueFunctions = allFunctions.reduce((acc, func) => {
         if (!acc.find(f => f.function_name === func.function_name)) {
           acc.push(func);
@@ -381,7 +1267,6 @@ function MetricModal({
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {/* Basic Info */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-400 mb-1">Slug</label>
@@ -455,7 +1340,6 @@ function MetricModal({
             </div>
           </div>
 
-          {/* Contracts Selection */}
           <div>
             <label className="block text-sm font-medium text-slate-400 mb-2">
               Select Contracts ({selectedContracts.length} selected)
@@ -471,7 +1355,6 @@ function MetricModal({
                         setSelectedContracts([...selectedContracts, contract.address]);
                       } else {
                         setSelectedContracts(selectedContracts.filter(a => a !== contract.address));
-                        // Also remove functions that might be from this contract
                       }
                     }}
                     className="rounded bg-slate-700 border-slate-600"
@@ -480,15 +1363,11 @@ function MetricModal({
                     <div className="font-medium">{contract.name}</div>
                     <div className="text-xs text-slate-500 font-mono">{contract.address}</div>
                   </div>
-                  {contract.category && (
-                    <span className="text-xs bg-slate-700 px-2 py-0.5 rounded">{contract.category}</span>
-                  )}
                 </label>
               ))}
             </div>
           </div>
 
-          {/* Functions Selection */}
           <div>
             <label className="block text-sm font-medium text-slate-400 mb-2">
               Select Functions ({selectedFunctions.length} selected)
@@ -531,7 +1410,6 @@ function MetricModal({
             </div>
           </div>
 
-          {/* Actions */}
           <div className="flex justify-end gap-3 pt-4 border-t border-slate-700">
             <button
               type="button"
@@ -555,70 +1433,214 @@ function MetricModal({
 }
 
 
-// Contract Edit Modal Component
-function ContractModal({
-  contract,
+// ============================================================================
+// PLATFORM TYPE AUTOCOMPLETE
+// ============================================================================
+
+function PlatformTypeAutocomplete({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const [inputValue, setInputValue] = useState(value);
+  const [existingTypes, setExistingTypes] = useState<string[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Default types to always show as suggestions
+  const defaultTypes = ['dex', 'defi', 'bridge', 'social', 'launchpad', 'nft', 'other'];
+
+  useEffect(() => {
+    const loadTypes = async () => {
+      try {
+        const res = await fetch('/api/admin/platforms/types');
+        const data = await res.json();
+        setExistingTypes(data.types || []);
+      } catch (error) {
+        console.error('Failed to load platform types:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadTypes();
+  }, []);
+
+  useEffect(() => {
+    setInputValue(value);
+  }, [value]);
+
+  // Close suggestions when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Combine default types with existing types from DB, remove duplicates
+  const allTypes = [...new Set([...defaultTypes, ...existingTypes])].sort();
+
+  // Filter suggestions based on input
+  const filteredSuggestions = inputValue.trim()
+    ? allTypes.filter(type => 
+        type.toLowerCase().includes(inputValue.toLowerCase())
+      )
+    : allTypes;
+
+  // Check if current input is a new type
+  const isNewType = inputValue.trim() && 
+    !allTypes.some(type => type.toLowerCase() === inputValue.toLowerCase().trim());
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value;
+    setInputValue(newValue);
+    setShowSuggestions(true);
+  };
+
+  const handleSelectType = (type: string) => {
+    setInputValue(type);
+    onChange(type);
+    setShowSuggestions(false);
+  };
+
+  const handleInputBlur = (e: React.FocusEvent) => {
+    // Check if the related target is within our container (clicking a suggestion)
+    // If so, don't do anything - let the mousedown handler take care of it
+    if (containerRef.current?.contains(e.relatedTarget as Node)) {
+      return;
+    }
+    // Only update if we're actually leaving the component
+    setTimeout(() => {
+      if (inputValue.trim()) {
+        onChange(inputValue.trim().toLowerCase());
+      }
+      setShowSuggestions(false);
+    }, 100);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (inputValue.trim()) {
+        onChange(inputValue.trim().toLowerCase());
+        setShowSuggestions(false);
+      }
+    } else if (e.key === 'Escape') {
+      setShowSuggestions(false);
+    }
+  };
+
+  return (
+    <div ref={containerRef} className="relative">
+      <input
+        ref={inputRef}
+        type="text"
+        value={inputValue}
+        onChange={handleInputChange}
+        onFocus={() => setShowSuggestions(true)}
+        onBlur={handleInputBlur}
+        onKeyDown={handleKeyDown}
+        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
+        placeholder="Type or select a platform type..."
+        required
+      />
+      
+      {showSuggestions && !loading && (
+        <div className="absolute z-10 w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+          {isNewType && (
+            <button
+              type="button"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                handleSelectType(inputValue.trim().toLowerCase());
+              }}
+              className="w-full px-3 py-2 text-left hover:bg-slate-700 transition-colors flex items-center gap-2 text-green-400"
+            >
+              <span className="text-xs bg-green-500/20 px-1.5 py-0.5 rounded">NEW</span>
+              Create &quot;{inputValue.trim().toLowerCase()}&quot;
+            </button>
+          )}
+          {filteredSuggestions.map((type) => (
+            <button
+              key={type}
+              type="button"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                handleSelectType(type);
+              }}
+              className={`w-full px-3 py-2 text-left hover:bg-slate-700 transition-colors flex items-center justify-between ${
+                type.toLowerCase() === inputValue.toLowerCase() ? 'bg-slate-700' : ''
+              }`}
+            >
+              <span>{type}</span>
+              {existingTypes.includes(type) && !defaultTypes.includes(type) && (
+                <span className="text-xs text-slate-500">custom</span>
+              )}
+            </button>
+          ))}
+          {filteredSuggestions.length === 0 && !isNewType && (
+            <div className="px-3 py-2 text-slate-500 text-sm">No matching types</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+// ============================================================================
+// PLATFORM MODAL
+// ============================================================================
+
+function PlatformModal({
+  platform,
   onClose,
   onSave,
 }: {
-  contract: ContractMetadata;
+  platform: Platform | null;
   onClose: () => void;
   onSave: () => void;
 }) {
   const [formData, setFormData] = useState({
-    name: contract.name || '',
-    website_url: contract.website_url || '',
-    logo_url: contract.logo_url || '',
-    category: contract.category || '',
-    is_active: contract.is_active ?? true,
+    slug: platform?.slug || '',
+    name: platform?.name || '',
+    description: platform?.description || '',
+    logo_url: platform?.logo_url || '',
+    website_url: platform?.website_url || '',
+    platform_type: platform?.platform_type || 'dex',
   });
   const [saving, setSaving] = useState(false);
-  const [categories, setCategories] = useState<string[]>([]);
-  const [showCategorySuggestions, setShowCategorySuggestions] = useState(false);
-
-  // Load categories from database
-  useEffect(() => {
-    const loadCategories = async () => {
-      try {
-        const res = await fetch('/api/admin/contracts/categories');
-        const data = await res.json();
-        setCategories(data.categories || []);
-      } catch (error) {
-        console.error('Failed to load categories:', error);
-      }
-    };
-    loadCategories();
-  }, []);
-
-  // Filter categories based on input
-  const filteredCategories = categories.filter(cat =>
-    cat.toLowerCase().includes(formData.category.toLowerCase())
-  );
-
-  // Check if current input is a new category
-  const isNewCategory = formData.category && 
-    !categories.some(cat => cat.toLowerCase() === formData.category.toLowerCase());
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
 
     try {
-      const res = await fetch(`/api/admin/contracts/${contract.address}`, {
-        method: 'PUT',
+      const url = platform ? `/api/admin/platforms/${platform.id}` : '/api/admin/platforms';
+      const method = platform ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
       });
 
       if (!res.ok) {
         const error = await res.json();
-        throw new Error(error.error || 'Failed to update contract');
+        throw new Error(error.error || 'Failed to save platform');
       }
 
       onSave();
     } catch (error) {
       console.error('Save failed:', error);
-      alert(error instanceof Error ? error.message : 'Failed to update contract');
+      alert(error instanceof Error ? error.message : 'Failed to save platform');
     } finally {
       setSaving(false);
     }
@@ -626,81 +1648,57 @@ function ContractModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-slate-900 border border-slate-700 rounded-xl w-full max-w-lg">
+      <div className="bg-slate-900 border border-slate-700 rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <div className="p-6 border-b border-slate-700">
-          <h2 className="text-xl font-semibold">Edit Contract</h2>
-          <p className="text-sm text-slate-400 font-mono mt-1">{contract.address}</p>
+          <h2 className="text-xl font-semibold">
+            {platform ? 'Edit Platform' : 'Create Platform'}
+          </h2>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-400 mb-1">Name</label>
-            <input
-              type="text"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
-              placeholder="Contract Name"
-              required
-            />
-          </div>
-
-          <div className="relative">
-            <label className="block text-sm font-medium text-slate-400 mb-1">Category</label>
-            <input
-              type="text"
-              value={formData.category}
-              onChange={(e) => {
-                setFormData({ ...formData, category: e.target.value });
-                setShowCategorySuggestions(true);
-              }}
-              onFocus={() => setShowCategorySuggestions(true)}
-              onBlur={() => setTimeout(() => setShowCategorySuggestions(false), 200)}
-              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
-              placeholder="Type to search or add new..."
-            />
-            {isNewCategory && formData.category && (
-              <span className="absolute right-3 top-9 text-xs text-green-400">+ New category</span>
-            )}
-            
-            {/* Autocomplete dropdown */}
-            {showCategorySuggestions && (filteredCategories.length > 0 || isNewCategory) && (
-              <div className="absolute z-10 w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                {filteredCategories.map((cat) => (
-                  <button
-                    key={cat}
-                    type="button"
-                    onClick={() => {
-                      setFormData({ ...formData, category: cat });
-                      setShowCategorySuggestions(false);
-                    }}
-                    className="w-full text-left px-3 py-2 hover:bg-slate-700 text-white transition-colors"
-                  >
-                    {cat}
-                  </button>
-                ))}
-                {isNewCategory && (
-                  <button
-                    type="button"
-                    onClick={() => setShowCategorySuggestions(false)}
-                    className="w-full text-left px-3 py-2 hover:bg-slate-700 text-green-400 border-t border-slate-700 transition-colors"
-                  >
-                    + Create &quot;{formData.category}&quot;
-                  </button>
-                )}
-              </div>
-            )}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-400 mb-1">Slug</label>
+              <input
+                type="text"
+                value={formData.slug}
+                onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
+                placeholder="velodrome"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-400 mb-1">Name</label>
+              <input
+                type="text"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
+                placeholder="Velodrome"
+                required
+              />
+            </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-400 mb-1">Website URL</label>
-            <input
-              type="url"
-              value={formData.website_url}
-              onChange={(e) => setFormData({ ...formData, website_url: e.target.value })}
+            <label className="block text-sm font-medium text-slate-400 mb-1">Description</label>
+            <textarea
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
-              placeholder="https://example.com"
+              rows={2}
+              placeholder="A decentralized exchange..."
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-400 mb-1">Platform Type</label>
+            <PlatformTypeAutocomplete
+              value={formData.platform_type}
+              onChange={(value) => setFormData({ ...formData, platform_type: value as PlatformType })}
+            />
+            <p className="text-xs text-slate-500 mt-1">Select an existing type or enter a new one</p>
           </div>
 
           <div>
@@ -712,18 +1710,204 @@ function ContractModal({
               className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
               placeholder="https://example.com/logo.png"
             />
+            {formData.logo_url && (
+              <div className="mt-2">
+                <img src={formData.logo_url} alt="Preview" className="w-12 h-12 rounded-lg object-cover" />
+              </div>
+            )}
           </div>
 
-          <div className="flex items-center gap-3">
+          <div>
+            <label className="block text-sm font-medium text-slate-400 mb-1">Website URL</label>
             <input
-              type="checkbox"
-              id="is_active"
-              checked={formData.is_active}
-              onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-              className="rounded bg-slate-700 border-slate-600"
+              type="url"
+              value={formData.website_url}
+              onChange={(e) => setFormData({ ...formData, website_url: e.target.value })}
+              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
+              placeholder="https://velodrome.finance"
             />
-            <label htmlFor="is_active" className="text-sm text-slate-400">
-              Active (show in contract selection)
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-700">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-slate-700 rounded-lg transition-colors"
+            >
+              {saving ? 'Saving...' : platform ? 'Update' : 'Create'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+
+// ============================================================================
+// CONTRACT MODAL
+// ============================================================================
+
+function ContractModal({
+  contract,
+  platforms,
+  onClose,
+  onSave,
+}: {
+  contract: ContractWithPlatforms | null;
+  platforms: Platform[];
+  onClose: () => void;
+  onSave: () => void;
+}) {
+  const [formData, setFormData] = useState({
+    address: contract?.address || '',
+    name: contract?.name || '',
+    deploy_block: contract?.deploy_block || 0,
+    fetch_transactions: contract?.fetch_transactions ?? true,
+    indexing_enabled: contract?.indexing_enabled ?? true,
+  });
+  const [selectedPlatforms, setSelectedPlatforms] = useState<number[]>(
+    contract?.platforms?.map(p => p.id) || []
+  );
+  const [saving, setSaving] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+
+    try {
+      const payload = {
+        ...formData,
+        platform_ids: selectedPlatforms,
+      };
+
+      const url = contract 
+        ? `/api/admin/platforms/contracts/${contract.address}` 
+        : '/api/admin/platforms/contracts';
+      const method = contract ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || 'Failed to save contract');
+      }
+
+      onSave();
+    } catch (error) {
+      console.error('Save failed:', error);
+      alert(error instanceof Error ? error.message : 'Failed to save contract');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-slate-900 border border-slate-700 rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="p-6 border-b border-slate-700">
+          <h2 className="text-xl font-semibold">
+            {contract ? 'Edit Contract' : 'Add Contract'}
+          </h2>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-400 mb-1">Contract Address</label>
+            <input
+              type="text"
+              value={formData.address}
+              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono"
+              placeholder="0x..."
+              required
+              disabled={!!contract}
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-400 mb-1">Name</label>
+            <input
+              type="text"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
+              placeholder="Velodrome Router"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-400 mb-1">Deploy Block</label>
+            <input
+              type="number"
+              value={formData.deploy_block}
+              onChange={(e) => setFormData({ ...formData, deploy_block: parseInt(e.target.value) || 0 })}
+              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
+              placeholder="0"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-400 mb-2">
+              Link to Platforms ({selectedPlatforms.length} selected)
+            </label>
+            <div className="bg-slate-800 border border-slate-700 rounded-lg p-3 max-h-48 overflow-y-auto space-y-2">
+              {platforms.map((platform) => (
+                <label key={platform.id} className="flex items-center gap-3 cursor-pointer hover:bg-slate-700/50 p-2 rounded">
+                  <input
+                    type="checkbox"
+                    checked={selectedPlatforms.includes(platform.id)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedPlatforms([...selectedPlatforms, platform.id]);
+                      } else {
+                        setSelectedPlatforms(selectedPlatforms.filter(id => id !== platform.id));
+                      }
+                    }}
+                    className="rounded bg-slate-700 border-slate-600"
+                  />
+                  <div className="flex items-center gap-2">
+                    {platform.logo_url && (
+                      <img src={platform.logo_url} alt="" className="w-5 h-5 rounded" />
+                    )}
+                    <span>{platform.name}</span>
+                  </div>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formData.fetch_transactions}
+                onChange={(e) => setFormData({ ...formData, fetch_transactions: e.target.checked })}
+                className="rounded bg-slate-700 border-slate-600"
+              />
+              <span className="text-sm text-slate-400">Fetch transactions</span>
+            </label>
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formData.indexing_enabled}
+                onChange={(e) => setFormData({ ...formData, indexing_enabled: e.target.checked })}
+                className="rounded bg-slate-700 border-slate-600"
+              />
+              <span className="text-sm text-slate-400">Enable indexing</span>
             </label>
           </div>
 
@@ -740,7 +1924,474 @@ function ContractModal({
               disabled={saving}
               className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-slate-700 rounded-lg transition-colors"
             >
-              {saving ? 'Saving...' : 'Update Contract'}
+              {saving ? 'Saving...' : contract ? 'Update' : 'Create'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+
+// ============================================================================
+// RULE MODAL
+// ============================================================================
+
+function RuleModal({
+  rule,
+  platforms,
+  nativeMetrics,
+  onClose,
+  onSave,
+}: {
+  rule: PointsRuleWithRelations | null;
+  platforms: Platform[];
+  nativeMetrics: NativeMetric[];
+  onClose: () => void;
+  onSave: () => void;
+}) {
+  const [formData, setFormData] = useState({
+    metric_type: rule?.metric_type || 'platform' as 'platform' | 'native',
+    platform_id: rule?.platform_id || null as number | null,
+    native_metric_id: rule?.native_metric_id || null as number | null,
+    name: rule?.name || '',
+    description: rule?.description || '',
+    calculation_mode: rule?.calculation_mode || 'range' as CalculationMode,
+    display_order: rule?.display_order || 0,
+  });
+  const [ranges, setRanges] = useState<PointRange[]>(
+    rule?.ranges || [{ min: 0, max: 10, points: 10 }]
+  );
+  const [saving, setSaving] = useState(false);
+
+  const calculationModes: CalculationMode[] = ['range', 'per_item', 'threshold', 'multiplier'];
+
+  const addRange = () => {
+    const lastRange = ranges[ranges.length - 1];
+    setRanges([...ranges, { 
+      min: lastRange ? (lastRange.max || lastRange.min) + 1 : 0, 
+      max: null, 
+      points: 0 
+    }]);
+  };
+
+  const updateRange = (index: number, field: keyof PointRange, value: number | null) => {
+    const newRanges = [...ranges];
+    newRanges[index] = { ...newRanges[index], [field]: value };
+    setRanges(newRanges);
+  };
+
+  const removeRange = (index: number) => {
+    if (ranges.length > 1) {
+      setRanges(ranges.filter((_, i) => i !== index));
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+
+    try {
+      const payload = {
+        ...formData,
+        ranges,
+      };
+
+      const url = rule ? `/api/admin/points/rules/${rule.id}` : '/api/admin/points/rules';
+      const method = rule ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || 'Failed to save rule');
+      }
+
+      onSave();
+    } catch (error) {
+      console.error('Save failed:', error);
+      alert(error instanceof Error ? error.message : 'Failed to save rule');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-slate-900 border border-slate-700 rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div className="p-6 border-b border-slate-700">
+          <h2 className="text-xl font-semibold">
+            {rule ? 'Edit Points Rule' : 'Create Points Rule'}
+          </h2>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-400 mb-1">Metric Type</label>
+              <select
+                value={formData.metric_type}
+                onChange={(e) => setFormData({ 
+                  ...formData, 
+                  metric_type: e.target.value as 'platform' | 'native',
+                  platform_id: null,
+                  native_metric_id: null,
+                })}
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
+              >
+                <option value="platform">Platform</option>
+                <option value="native">Native Metric</option>
+              </select>
+            </div>
+
+            {formData.metric_type === 'platform' ? (
+              <div>
+                <label className="block text-sm font-medium text-slate-400 mb-1">Platform</label>
+                <select
+                  value={formData.platform_id || ''}
+                  onChange={(e) => setFormData({ ...formData, platform_id: parseInt(e.target.value) || null })}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
+                  required
+                >
+                  <option value="">Select platform...</option>
+                  {platforms.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <div>
+                <label className="block text-sm font-medium text-slate-400 mb-1">Native Metric</label>
+                <select
+                  value={formData.native_metric_id || ''}
+                  onChange={(e) => setFormData({ ...formData, native_metric_id: parseInt(e.target.value) || null })}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
+                  required
+                >
+                  <option value="">Select metric...</option>
+                  {nativeMetrics.map((m) => (
+                    <option key={m.id} value={m.id}>{m.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-400 mb-1">Rule Name</label>
+            <input
+              type="text"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
+              placeholder="Velodrome Swap Points"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-400 mb-1">Description</label>
+            <textarea
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
+              rows={2}
+              placeholder="Points awarded for..."
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-400 mb-1">Calculation Mode</label>
+            <select
+              value={formData.calculation_mode}
+              onChange={(e) => setFormData({ ...formData, calculation_mode: e.target.value as CalculationMode })}
+              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
+            >
+              {calculationModes.map((mode) => (
+                <option key={mode} value={mode}>{mode}</option>
+              ))}
+            </select>
+            <p className="text-xs text-slate-500 mt-1">
+              {formData.calculation_mode === 'range' && 'Points based on value falling within ranges'}
+              {formData.calculation_mode === 'per_item' && 'Points calculated per item (e.g., per token)'}
+              {formData.calculation_mode === 'threshold' && 'Points awarded when threshold is met'}
+              {formData.calculation_mode === 'multiplier' && 'Points multiplied by value'}
+            </p>
+          </div>
+
+          {/* Ranges Editor */}
+          <div>
+            <div className="flex justify-between items-center mb-2">
+              <label className="block text-sm font-medium text-slate-400">Point Ranges</label>
+              <button
+                type="button"
+                onClick={addRange}
+                className="text-sm text-purple-400 hover:text-purple-300"
+              >
+                + Add Range
+              </button>
+            </div>
+            <div className="space-y-2">
+              {ranges.map((range, index) => (
+                <div key={index} className="flex items-center gap-2 bg-slate-800 p-2 rounded-lg">
+                  <input
+                    type="number"
+                    value={range.min}
+                    onChange={(e) => updateRange(index, 'min', parseInt(e.target.value) || 0)}
+                    className="w-24 bg-slate-700 border border-slate-600 rounded px-2 py-1 text-white text-sm"
+                    placeholder="Min"
+                  />
+                  <span className="text-slate-500">to</span>
+                  <input
+                    type="number"
+                    value={range.max ?? ''}
+                    onChange={(e) => updateRange(index, 'max', e.target.value ? parseInt(e.target.value) : null)}
+                    className="w-24 bg-slate-700 border border-slate-600 rounded px-2 py-1 text-white text-sm"
+                    placeholder="∞"
+                  />
+                  <span className="text-slate-500">=</span>
+                  <input
+                    type="number"
+                    value={range.points}
+                    onChange={(e) => updateRange(index, 'points', parseInt(e.target.value) || 0)}
+                    className="w-20 bg-slate-700 border border-slate-600 rounded px-2 py-1 text-white text-sm"
+                    placeholder="Points"
+                  />
+                  <span className="text-slate-500 text-sm">pts</span>
+                  {ranges.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeRange(index)}
+                      className="text-red-400 hover:text-red-300 ml-2"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-700">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-slate-700 rounded-lg transition-colors"
+            >
+              {saving ? 'Saving...' : rule ? 'Update' : 'Create'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+
+// ============================================================================
+// RANK MODAL
+// ============================================================================
+
+function RankModal({
+  rank,
+  onClose,
+  onSave,
+}: {
+  rank: Rank | null;
+  onClose: () => void;
+  onSave: () => void;
+}) {
+  const [formData, setFormData] = useState({
+    name: rank?.name || '',
+    min_points: rank?.min_points || 0,
+    max_points: rank?.max_points || null as number | null,
+    logo_url: rank?.logo_url || '',
+    color: rank?.color || '#8b5cf6',
+    description: rank?.description || '',
+    display_order: rank?.display_order || 0,
+  });
+  const [saving, setSaving] = useState(false);
+
+  const presetColors = [
+    '#8b5cf6', // purple
+    '#3b82f6', // blue
+    '#10b981', // green
+    '#f59e0b', // amber
+    '#ef4444', // red
+    '#ec4899', // pink
+    '#06b6d4', // cyan
+    '#f97316', // orange
+  ];
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+
+    try {
+      const url = rank ? `/api/admin/points/ranks/${rank.id}` : '/api/admin/points/ranks';
+      const method = rank ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || 'Failed to save rank');
+      }
+
+      onSave();
+    } catch (error) {
+      console.error('Save failed:', error);
+      alert(error instanceof Error ? error.message : 'Failed to save rank');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-slate-900 border border-slate-700 rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="p-6 border-b border-slate-700">
+          <h2 className="text-xl font-semibold">
+            {rank ? 'Edit Rank' : 'Create Rank'}
+          </h2>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {/* Preview */}
+          <div className="flex justify-center mb-4">
+            <div
+              className="w-20 h-20 rounded-xl flex items-center justify-center font-bold text-2xl"
+              style={{
+                backgroundColor: formData.color ? `${formData.color}20` : '#334155',
+                color: formData.color || '#94a3b8',
+                border: `3px solid ${formData.color || '#475569'}`,
+              }}
+            >
+              {formData.logo_url ? (
+                <img src={formData.logo_url} alt={formData.name} className="w-12 h-12" />
+              ) : (
+                formData.name.charAt(0) || '?'
+              )}
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-400 mb-1">Rank Name</label>
+            <input
+              type="text"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
+              placeholder="Gold"
+              required
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-400 mb-1">Min Points</label>
+              <input
+                type="number"
+                value={formData.min_points}
+                onChange={(e) => setFormData({ ...formData, min_points: parseInt(e.target.value) || 0 })}
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-400 mb-1">Max Points</label>
+              <input
+                type="number"
+                value={formData.max_points ?? ''}
+                onChange={(e) => setFormData({ ...formData, max_points: e.target.value ? parseInt(e.target.value) : null })}
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
+                placeholder="∞"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-400 mb-1">Color</label>
+            <div className="flex items-center gap-3">
+              <input
+                type="color"
+                value={formData.color || '#8b5cf6'}
+                onChange={(e) => setFormData({ ...formData, color: e.target.value })}
+                className="w-10 h-10 rounded cursor-pointer bg-transparent"
+              />
+              <input
+                type="text"
+                value={formData.color || ''}
+                onChange={(e) => setFormData({ ...formData, color: e.target.value })}
+                className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono"
+                placeholder="#8b5cf6"
+              />
+            </div>
+            <div className="flex gap-2 mt-2">
+              {presetColors.map((color) => (
+                <button
+                  key={color}
+                  type="button"
+                  onClick={() => setFormData({ ...formData, color })}
+                  className="w-6 h-6 rounded-full border-2 border-transparent hover:border-white transition-colors"
+                  style={{ backgroundColor: color }}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-400 mb-1">Logo URL</label>
+            <input
+              type="url"
+              value={formData.logo_url}
+              onChange={(e) => setFormData({ ...formData, logo_url: e.target.value })}
+              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
+              placeholder="https://example.com/badge.png"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-400 mb-1">Description</label>
+            <textarea
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
+              rows={2}
+              placeholder="Achieved by..."
+            />
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-700">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-slate-700 rounded-lg transition-colors"
+            >
+              {saving ? 'Saving...' : rank ? 'Update' : 'Create'}
             </button>
           </div>
         </form>

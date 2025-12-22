@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Empty turbopack config to silence the warning (webpack config kept for Vercel builds)
+  turbopack: {},
   // Exclude server-only packages from client bundle
   webpack: (config, { isServer }) => {
     if (!isServer) {

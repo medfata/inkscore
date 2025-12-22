@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   postgres:
@@ -12,6 +12,10 @@ services:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
+    command: >
+      postgres
+      -c listen_addresses='*'
+      -c password_encryption=scram-sha-256
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ink -d ink_analytics"]
       interval: 5s
@@ -28,6 +32,8 @@ services:
       DATABASE_URL: postgres://ink:${DB_PASSWORD}@postgres:5432/ink_analytics
       RPC_URL: ${RPC_URL}
       POLL_INTERVAL_MS: ${POLL_INTERVAL_MS:-15000}
+    # To use legacy indexer instead, override command:
+    # command: ["node", "dist/index.js"]
 
 volumes:
   postgres_data:
