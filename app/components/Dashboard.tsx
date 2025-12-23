@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   ResponsiveContainer,
   RadarChart,
@@ -10,7 +10,7 @@ import {
   Radar,
   Tooltip
 } from 'recharts';
-import { Sparkles, ShieldCheck, Activity, Wallet, Award, Clock, Image, ExternalLink, Coins, Sun, Landmark, Zap, ArrowLeftRight } from './Icons';
+import { Sparkles, ShieldCheck, Activity, Wallet, Award, Clock, Image, ExternalLink, Coins, Sun, Landmark, Zap, ArrowLeftRight, RefreshCw } from './Icons';
 import { ScoreData, WalletStats, ScoreTier, AiAnalysisResult, NftHolding, TokenHolding } from '../types';
 import { Logo } from './Logo';
 import { HoldingsSection } from './HoldingsSection';
@@ -270,6 +270,8 @@ interface RealWalletStats {
   tokenHoldings: RealTokenHolding[];
 }
 
+const REFRESH_COOLDOWN_MS = 30000; // 30 seconds
+
 export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) => {
   const [data, setData] = useState<{ stats: WalletStats, score: ScoreData } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -289,13 +291,197 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
   const [nftTrading, setNftTrading] = useState<NftTradingResponse | null>(null);
   const [walletScore, setWalletScore] = useState<WalletScoreResponse | null>(null);
 
+  // Refresh state
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [cooldownRemaining, setCooldownRemaining] = useState(0);
+
+  // Cooldown timer effect
+  useEffect(() => {
+    if (cooldownRemaining <= 0) return;
+
+    const timer = setInterval(() => {
+      setCooldownRemaining(prev => {
+        if (prev <= 1000) return 0;
+        return prev - 1000;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [cooldownRemaining]);
+
+  // Refresh all data function
+  const refreshAllData = useCallback(async () => {
+    if (isDemo || isRefreshing || cooldownRemaining > 0) return;
+
+    setIsRefreshing(true);
+
+    // Clear all data to show skeleton UI
+    setRealWalletStats(null);
+    setRealGmData(null);
+    setRealTydroData(null);
+    setBridgeVolume(null);
+    setInkySwapVolume(null);
+    setSwapVolume(null);
+    setNftTrading(null);
+    setWalletScore(null);
+
+    try {
+      const fetchPromises = [];
+
+      // Wallet stats
+      fetchPromises.push(
+        fetch(`/api/wallet/${walletAddress}/stats`)
+          .then(res => res.ok ? res.json() : null)
+          .then(stats => {
+            if (stats) {
+              setRealWalletStats({
+                balanceUsd: Number(stats.balanceUsd) || 0,
+                totalTxns: Number(stats.totalTxns) || 0,
+                nftCount: Number(stats.nftCount) || 0,
+                ageDays: Number(stats.ageDays) || 0,
+                nftCollections: stats.nftCollections || [],
+                tokenHoldings: (stats.tokenHoldings || []).map((t: { name: string; symbol: string; address: string; logo: string; balance: number; usdValue: number }) => ({
+                  ...t,
+                  balance: Number(t.balance) || 0,
+                  usdValue: Number(t.usdValue) || 0,
+                })),
+              });
+            }
+          })
+          .catch(err => console.error('Failed to refresh wallet stats:', err))
+      );
+
+      // GM data
+      fetchPromises.push(
+        fetch(`/api/analytics/${walletAddress}/gm_count`)
+          .then(res => res.ok ? res.json() : null)
+          .then(data => {
+            if (data) setRealGmData({ count: data.total_count || 0 });
+          })
+          .catch(err => console.error('Failed to refresh GM data:', err))
+      );
+
+      // Tydro data
+      fetchPromises.push(
+        fetch(`/api/analytics/${walletAddress}`)
+          .then(res => res.ok ? res.json() : null)
+          .then(data => {
+            if (data) {
+              const supplyMetric = data.metrics?.find((m: { slug: string }) => m.slug === 'tydro_usd_supply');
+              const borrowMetric = data.metrics?.find((m: { slug: string }) => m.slug === 'Tydro_usd_borrow');
+              setRealTydroData({
+                supplyVolume: parseFloat(supplyMetric?.total_value || '0'),
+                supplyCount: supplyMetric?.total_count || 0,
+                borrowVolume: parseFloat(borrowMetric?.total_value || '0'),
+                borrowCount: borrowMetric?.total_count || 0,
+              });
+
+              // InkySwap from same endpoint
+              const inkySwapMetric = data.metrics?.find((m: { slug: string }) =>
+                m.slug.toLowerCase().includes('inkyswap')
+              );
+              if (inkySwapMetric) {
+                setInkySwapVolume({
+                  totalValue: parseFloat(inkySwapMetric.total_value || '0'),
+                  totalCount: inkySwapMetric.total_count || 0,
+                });
+              }
+            }
+          })
+          .catch(err => console.error('Failed to refresh Tydro data:', err))
+      );
+
+      // Bridge volume
+      fetchPromises.push(
+        fetch(`/api/wallet/${walletAddress}/bridge`)
+          .then(res => res.ok ? res.json() : null)
+          .then(data => {
+            if (data) setBridgeVolume(data);
+          })
+          .catch(err => console.error('Failed to refresh bridge volume:', err))
+      );
+
+      // Swap volume
+      fetchPromises.push(
+        fetch(`/api/wallet/${walletAddress}/swap`)
+          .then(res => res.ok ? res.json() : null)
+          .then(data => {
+            if (data) {
+              setSwapVolume({
+                totalUsd: data.totalUsd || 0,
+                txCount: data.txCount || 0,
+                byPlatform: data.byPlatform?.map((p: { platform: string; contractAddress: string; usdValue: number; txCount: number }) => ({
+                  platform: p.platform,
+                  contractAddress: p.contractAddress,
+                  usdValue: p.usdValue,
+                  txCount: p.txCount,
+                })) || [],
+              });
+            }
+          })
+          .catch(err => console.error('Failed to refresh swap volume:', err))
+      );
+
+      // NFT trading
+      fetchPromises.push(
+        fetch(`/api/analytics/${walletAddress}/nft_traded`)
+          .then(res => res.ok ? res.json() : null)
+          .then(data => {
+            if (data) {
+              setNftTrading({
+                total_count: data.total_count || 0,
+                by_contract: data.by_contract || [],
+              });
+            }
+          })
+          .catch(err => console.error('Failed to refresh NFT trading:', err))
+      );
+
+      // Wallet score
+      fetchPromises.push(
+        fetch(`/api/wallet/${walletAddress}/score`)
+          .then(res => res.ok ? res.json() : null)
+          .then(data => {
+            if (data) setWalletScore(data);
+          })
+          .catch(err => console.error('Failed to refresh wallet score:', err))
+      );
+
+      await Promise.all(fetchPromises);
+      setLastUpdated(new Date());
+      setCooldownRemaining(REFRESH_COOLDOWN_MS);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [walletAddress, isDemo, isRefreshing, cooldownRemaining]);
+
+  // Format time ago for last updated
+  const formatLastUpdated = (date: Date | null): string => {
+    if (!date) return '';
+    const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
+    if (seconds < 60) return 'Just now';
+    const minutes = Math.floor(seconds / 60);
+    if (minutes === 1) return '1 min ago';
+    return `${minutes} mins ago`;
+  };
+
+  // Update "time ago" display every minute
+  const [, setTimeUpdate] = useState(0);
+  useEffect(() => {
+    if (!lastUpdated) return;
+    const timer = setInterval(() => setTimeUpdate(prev => prev + 1), 60000);
+    return () => clearInterval(timer);
+  }, [lastUpdated]);
+
   useEffect(() => {
     const timer = setTimeout(() => {
       setData(generateMockData(walletAddress));
       setLoading(false);
+      if (!isDemo) setLastUpdated(new Date());
     }, 1500);
     return () => clearTimeout(timer);
-  }, [walletAddress]);
+  }, [walletAddress, isDemo]);
 
   // Fetch real wallet stats when not in demo mode
   useEffect(() => {
@@ -621,7 +807,46 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
               </span>
             </h1>
           </div>
-          <div className="flex gap-3">
+          <div className="flex items-center gap-3">
+            {/* Refresh Button */}
+            {!isDemo && (
+              <div className="flex items-center gap-3">
+                {lastUpdated && (
+                  <span className="text-xs text-slate-500 hidden sm:block">
+                    {formatLastUpdated(lastUpdated)}
+                  </span>
+                )}
+                <button
+                  onClick={refreshAllData}
+                  disabled={isRefreshing || cooldownRemaining > 0}
+                  className={`
+                    group flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium
+                    transition-all duration-200 border
+                    ${isRefreshing || cooldownRemaining > 0
+                      ? 'bg-slate-800/50 border-slate-700/50 text-slate-500 cursor-not-allowed'
+                      : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700 hover:border-ink-purple/50 hover:text-white'
+                    }
+                  `}
+                  title={cooldownRemaining > 0 ? `Wait ${Math.ceil(cooldownRemaining / 1000)}s` : 'Refresh data'}
+                >
+                  <RefreshCw
+                    size={16}
+                    className={`
+                      transition-transform duration-200
+                      ${isRefreshing ? 'animate-spin-slow' : 'group-hover:rotate-45'}
+                    `}
+                  />
+                  <span className="hidden sm:inline">
+                    {isRefreshing
+                      ? 'Refreshing...'
+                      : cooldownRemaining > 0
+                        ? `${Math.ceil(cooldownRemaining / 1000)}s`
+                        : 'Refresh'
+                    }
+                  </span>
+                </button>
+              </div>
+            )}
             {isDemo && <div className="px-4 py-2 bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 rounded-lg text-sm font-medium animate-pulse">Demo Mode</div>}
           </div>
         </div>
@@ -740,19 +965,36 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
               </div>
 
               <div className="h-[200px] w-full md:w-[240px] flex-shrink-0">
-                <ResponsiveContainer width="100%" height="100%">
-                  <RadarChart cx="50%" cy="50%" outerRadius="70%" data={chartData}>
-                    <PolarGrid stroke="#334155" />
-                    <PolarAngleAxis dataKey="subject" tick={{ fill: '#94a3b8', fontSize: 11 }} />
-                    <PolarRadiusAxis angle={30} domain={[0, 'dataMax']} tick={false} axisLine={false} />
-                    <Radar name="Points" dataKey="A" stroke="#7c3aed" strokeWidth={2} fill="#7c3aed" fillOpacity={0.4} />
-                    <Tooltip
-                      contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px', color: '#fff' }}
-                      itemStyle={{ color: '#a855f7' }}
-                      formatter={(value) => [`${value} pts`, 'Points']}
-                    />
-                  </RadarChart>
-                </ResponsiveContainer>
+                {!isDemo && !walletScore ? (
+                  // Empty radar chart skeleton - 5 edges, no data, no labels
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RadarChart cx="50%" cy="50%" outerRadius="70%" data={[
+                      { subject: '', A: 0, fullMark: 100 },
+                      { subject: '', A: 0, fullMark: 100 },
+                      { subject: '', A: 0, fullMark: 100 },
+                      { subject: '', A: 0, fullMark: 100 },
+                      { subject: '', A: 0, fullMark: 100 },
+                    ]}>
+                      <PolarGrid stroke="#334155" />
+                      <PolarAngleAxis dataKey="subject" tick={false} />
+                      <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
+                    </RadarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RadarChart cx="50%" cy="50%" outerRadius="70%" data={chartData}>
+                      <PolarGrid stroke="#334155" />
+                      <PolarAngleAxis dataKey="subject" tick={{ fill: '#94a3b8', fontSize: 11 }} />
+                      <PolarRadiusAxis angle={30} domain={[0, 'dataMax']} tick={false} axisLine={false} />
+                      <Radar name="Points" dataKey="A" stroke="#7c3aed" strokeWidth={2} fill="#7c3aed" fillOpacity={0.4} />
+                      <Tooltip
+                        contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px', color: '#fff' }}
+                        itemStyle={{ color: '#a855f7' }}
+                        formatter={(value) => [`${value} pts`, 'Points']}
+                      />
+                    </RadarChart>
+                  </ResponsiveContainer>
+                )}
               </div>
             </div>
           </div>
