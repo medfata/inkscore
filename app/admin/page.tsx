@@ -44,7 +44,6 @@ export default function AdminPage() {
   
   // Metrics state
   const [metrics, setMetrics] = useState<MetricWithRelations[]>([]);
-  const [legacyContracts, setLegacyContracts] = useState<{ address: string; name: string }[]>([]);
   
   // Platforms state
   const [platforms, setPlatforms] = useState<Platform[]>([]);
@@ -77,16 +76,6 @@ export default function AdminPage() {
       setMetrics(data.metrics || []);
     } catch (error) {
       console.error('Failed to load metrics:', error);
-    }
-  }, []);
-
-  const loadLegacyContracts = useCallback(async () => {
-    try {
-      const res = await fetch('/api/admin/contracts');
-      const data = await res.json();
-      setLegacyContracts(data.contracts || []);
-    } catch (error) {
-      console.error('Failed to load legacy contracts:', error);
     }
   }, []);
 
@@ -156,7 +145,6 @@ export default function AdminPage() {
       try {
         await Promise.all([
           loadMetrics(),
-          loadLegacyContracts(),
           loadPlatforms(),
           loadContracts(),
           loadRules(),
@@ -169,7 +157,7 @@ export default function AdminPage() {
       }
     };
     loadAllData();
-  }, [loadMetrics, loadLegacyContracts, loadPlatforms, loadContracts, loadRules, loadRanks, loadNativeMetrics, loadIndexingProgress]);
+  }, [loadMetrics, loadPlatforms, loadContracts, loadRules, loadRanks, loadNativeMetrics, loadIndexingProgress]);
 
   // Auto-refresh indexing progress
   useEffect(() => {
@@ -253,7 +241,6 @@ export default function AdminPage() {
         {activeTab === 'metrics' && (
           <MetricsTab
             metrics={metrics}
-            legacyContracts={legacyContracts}
             onCreateMetric={() => { setEditingMetric(null); setShowMetricModal(true); }}
             onEditMetric={(m) => { setEditingMetric(m); setShowMetricModal(true); }}
             onRefresh={loadMetrics}
@@ -285,7 +272,6 @@ export default function AdminPage() {
       {showMetricModal && (
         <MetricModal
           metric={editingMetric}
-          contracts={legacyContracts}
           onClose={() => setShowMetricModal(false)}
           onSave={() => { setShowMetricModal(false); loadMetrics(); }}
         />
@@ -336,13 +322,11 @@ export default function AdminPage() {
 
 function MetricsTab({
   metrics,
-  legacyContracts,
   onCreateMetric,
   onEditMetric,
   onRefresh,
 }: {
   metrics: MetricWithRelations[];
-  legacyContracts: { address: string; name: string }[];
   onCreateMetric: () => void;
   onEditMetric: (m: MetricWithRelations) => void;
   onRefresh: () => void;
@@ -1154,24 +1138,32 @@ function RanksTab({
 // METRIC MODAL
 // ============================================================================
 
+// Helper function to generate slug from name
+function generateSlug(name: string): string {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, '') // Remove special characters
+    .replace(/\s+/g, '_') // Replace spaces with underscores
+    .replace(/-+/g, '_') // Replace dashes with underscores
+    .replace(/_+/g, '_') // Replace multiple underscores with single
+    .replace(/^_|_$/g, ''); // Remove leading/trailing underscores
+}
+
 function MetricModal({
   metric,
-  contracts,
   onClose,
   onSave,
 }: {
   metric: MetricWithRelations | null;
-  contracts: { address: string; name: string }[];
   onClose: () => void;
   onSave: () => void;
 }) {
   const [formData, setFormData] = useState({
     slug: metric?.slug || '',
     name: metric?.name || '',
-    description: metric?.description || '',
     aggregation_type: metric?.aggregation_type || 'count',
     currency: metric?.currency || 'COUNT',
-    icon: metric?.icon || '',
     display_order: metric?.display_order || 0,
   });
   
@@ -1185,37 +1177,139 @@ function MetricModal({
   
   const [availableFunctions, setAvailableFunctions] = useState<ContractFunction[]>([]);
   const [saving, setSaving] = useState(false);
+  
+  // Name validation state
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [checkingName, setCheckingName] = useState(false);
+  
+  // Fetch contracts from the platforms service (up-to-date indexed contracts)
+  const [contracts, setContracts] = useState<{ address: string; name: string }[]>([]);
+  const [loadingContracts, setLoadingContracts] = useState(true);
+  const [contractSearch, setContractSearch] = useState('');
+
+  // Auto-generate slug when name changes (only for new metrics)
+  const handleNameChange = (newName: string) => {
+    setFormData(prev => ({
+      ...prev,
+      name: newName,
+      // Only auto-generate slug for new metrics, not when editing
+      slug: !metric ? generateSlug(newName) : prev.slug,
+    }));
+  };
+
+  // Validate name uniqueness with debounce
+  useEffect(() => {
+    if (!formData.name.trim()) {
+      setNameError(null);
+      return;
+    }
+
+    const checkNameUniqueness = async () => {
+      setCheckingName(true);
+      try {
+        const res = await fetch('/api/admin/metrics');
+        const data = await res.json();
+        const existingMetrics = data.metrics || [];
+        
+        const isDuplicate = existingMetrics.some(
+          (m: { id: number; name: string }) => 
+            m.name.toLowerCase() === formData.name.trim().toLowerCase() &&
+            m.id !== metric?.id // Exclude current metric when editing
+        );
+        
+        setNameError(isDuplicate ? 'A metric with this name already exists' : null);
+      } catch (error) {
+        console.error('Failed to check name uniqueness:', error);
+      } finally {
+        setCheckingName(false);
+      }
+    };
+
+    const timeoutId = setTimeout(checkNameUniqueness, 300);
+    return () => clearTimeout(timeoutId);
+  }, [formData.name, metric?.id]);
+
+  // Load contracts from platforms service on mount
+  useEffect(() => {
+    const loadContracts = async () => {
+      try {
+        const res = await fetch('/api/admin/platforms/contracts');
+        const data = await res.json();
+        const contractsList = (data.contracts || []).map((c: { address: string; name: string }) => ({
+          address: c.address,
+          name: c.name,
+        }));
+        setContracts(contractsList);
+      } catch (error) {
+        console.error('Failed to load contracts:', error);
+      } finally {
+        setLoadingContracts(false);
+      }
+    };
+    loadContracts();
+  }, []);
+
+  // Filter contracts by search term (address or name)
+  const filteredContracts = contracts.filter((contract) => {
+    if (!contractSearch.trim()) return true;
+    const search = contractSearch.toLowerCase();
+    return (
+      contract.address.toLowerCase().includes(search) ||
+      contract.name.toLowerCase().includes(search)
+    );
+  });
+
+  // Extended type to include contract info for display
+  type FunctionWithContract = ContractFunction & {
+    contract_address: string;
+    contract_name: string;
+  };
+
+  const [availableFunctionsWithContract, setAvailableFunctionsWithContract] = useState<FunctionWithContract[]>([]);
 
   useEffect(() => {
     const loadFunctions = async () => {
       if (selectedContracts.length === 0) {
         setAvailableFunctions([]);
+        setAvailableFunctionsWithContract([]);
         return;
       }
 
-      const allFunctions: ContractFunction[] = [];
+      const allFunctions: FunctionWithContract[] = [];
       for (const address of selectedContracts) {
+        // Find contract name from our contracts list
+        const contractInfo = contracts.find(c => c.address.toLowerCase() === address.toLowerCase());
+        const contractName = contractInfo?.name || address.slice(0, 8) + '...';
+        
         try {
           const res = await fetch(`/api/admin/contracts/${address}/functions`);
           const data = await res.json();
-          allFunctions.push(...(data.functions || []));
+          const funcs = (data.functions || []).map((f: ContractFunction) => ({
+            ...f,
+            contract_address: address,
+            contract_name: contractName,
+          }));
+          allFunctions.push(...funcs);
         } catch (error) {
           console.error('Failed to load functions:', error);
         }
       }
 
+      // Keep all functions (don't dedupe) - they may have same name but different contracts
+      setAvailableFunctionsWithContract(allFunctions);
+      
+      // For backward compatibility, also set the unique function names
       const uniqueFunctions = allFunctions.reduce((acc, func) => {
         if (!acc.find(f => f.function_name === func.function_name)) {
           acc.push(func);
         }
         return acc;
       }, [] as ContractFunction[]);
-
       setAvailableFunctions(uniqueFunctions);
     };
 
     loadFunctions();
-  }, [selectedContracts]);
+  }, [selectedContracts, contracts]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1267,104 +1361,46 @@ function MetricModal({
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-400 mb-1">Slug</label>
-              <input
-                type="text"
-                value={formData.slug}
-                onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
-                placeholder="bridge_volume"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-400 mb-1">Name</label>
-              <input
-                type="text"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
-                placeholder="Bridge Volume (USD)"
-                required
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-slate-400 mb-1">Description</label>
-            <textarea
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
-              rows={2}
-              placeholder="Total volume of bridged transactions..."
-            />
-          </div>
-
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-400 mb-1">Aggregation Type</label>
-              <select
-                value={formData.aggregation_type}
-                onChange={(e) => setFormData({ ...formData, aggregation_type: e.target.value as 'sum_eth_value' | 'count' | 'count_by_function' })}
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
-              >
-                <option value="count">Count</option>
-                <option value="sum_eth_value">Sum ETH Value</option>
-                <option value="count_by_function">Count by Function</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-400 mb-1">Currency</label>
-              <select
-                value={formData.currency}
-                onChange={(e) => setFormData({ ...formData, currency: e.target.value as 'USD' | 'ETH' | 'COUNT' })}
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
-              >
-                <option value="COUNT">Count</option>
-                <option value="ETH">ETH</option>
-                <option value="USD">USD</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-400 mb-1">Icon</label>
-              <input
-                type="text"
-                value={formData.icon}
-                onChange={(e) => setFormData({ ...formData, icon: e.target.value })}
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
-                placeholder="bridge"
-              />
-            </div>
-          </div>
-
           <div>
             <label className="block text-sm font-medium text-slate-400 mb-2">
               Select Contracts ({selectedContracts.length} selected)
             </label>
+            <input
+              type="text"
+              value={contractSearch}
+              onChange={(e) => setContractSearch(e.target.value)}
+              placeholder="Search by address or name..."
+              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white mb-2"
+            />
             <div className="bg-slate-800 border border-slate-700 rounded-lg p-3 max-h-48 overflow-y-auto space-y-2">
-              {contracts.map((contract) => (
-                <label key={contract.address} className="flex items-center gap-3 cursor-pointer hover:bg-slate-700/50 p-2 rounded">
-                  <input
-                    type="checkbox"
-                    checked={selectedContracts.includes(contract.address)}
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        setSelectedContracts([...selectedContracts, contract.address]);
-                      } else {
-                        setSelectedContracts(selectedContracts.filter(a => a !== contract.address));
-                      }
-                    }}
-                    className="rounded bg-slate-700 border-slate-600"
-                  />
-                  <div className="flex-1">
-                    <div className="font-medium">{contract.name}</div>
-                    <div className="text-xs text-slate-500 font-mono">{contract.address}</div>
-                  </div>
-                </label>
-              ))}
+              {loadingContracts ? (
+                <div className="text-slate-500 text-sm text-center py-4">Loading contracts...</div>
+              ) : filteredContracts.length === 0 ? (
+                <div className="text-slate-500 text-sm text-center py-4">
+                  {contractSearch ? 'No contracts match your search' : 'No contracts available'}
+                </div>
+              ) : (
+                filteredContracts.map((contract) => (
+                  <label key={contract.address} className="flex items-center gap-3 cursor-pointer hover:bg-slate-700/50 p-2 rounded">
+                    <input
+                      type="checkbox"
+                      checked={selectedContracts.includes(contract.address)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedContracts([...selectedContracts, contract.address]);
+                        } else {
+                          setSelectedContracts(selectedContracts.filter(a => a !== contract.address));
+                        }
+                      }}
+                      className="rounded bg-slate-700 border-slate-600"
+                    />
+                    <div className="flex-1">
+                      <div className="font-medium">{contract.name}</div>
+                      <div className="text-xs text-slate-500 font-mono">{contract.address}</div>
+                    </div>
+                  </label>
+                ))
+              )}
             </div>
           </div>
 
@@ -1376,21 +1412,23 @@ function MetricModal({
               )}
             </label>
             <div className="bg-slate-800 border border-slate-700 rounded-lg p-3 max-h-48 overflow-y-auto space-y-2">
-              {availableFunctions.length === 0 ? (
+              {availableFunctionsWithContract.length === 0 ? (
                 <div className="text-slate-500 text-sm text-center py-4">
                   {selectedContracts.length === 0 
                     ? 'Select contracts to see available functions'
                     : 'No functions found for selected contracts'}
                 </div>
               ) : (
-                availableFunctions.map((func) => (
-                  <label key={func.function_name} className="flex items-center gap-3 cursor-pointer hover:bg-slate-700/50 p-2 rounded">
+                availableFunctionsWithContract.map((func, idx) => (
+                  <label key={`${func.contract_address}-${func.function_name}-${idx}`} className="flex items-center gap-3 cursor-pointer hover:bg-slate-700/50 p-2 rounded">
                     <input
                       type="checkbox"
                       checked={selectedFunctions.includes(func.function_name)}
                       onChange={(e) => {
                         if (e.target.checked) {
-                          setSelectedFunctions([...selectedFunctions, func.function_name]);
+                          if (!selectedFunctions.includes(func.function_name)) {
+                            setSelectedFunctions([...selectedFunctions, func.function_name]);
+                          }
                         } else {
                           setSelectedFunctions(selectedFunctions.filter(f => f !== func.function_name));
                         }
@@ -1398,7 +1436,10 @@ function MetricModal({
                       className="rounded bg-slate-700 border-slate-600"
                     />
                     <div className="flex-1">
-                      <div className="font-medium font-mono">{func.function_name}</div>
+                      <div className="font-medium font-mono">
+                        {func.function_name}
+                        <span className="text-slate-500 font-normal text-xs ml-2">({func.contract_name})</span>
+                      </div>
                       {func.function_selector && (
                         <div className="text-xs text-slate-500">{func.function_selector}</div>
                       )}
@@ -1410,6 +1451,70 @@ function MetricModal({
             </div>
           </div>
 
+          <div>
+            <label className="block text-sm font-medium text-slate-400 mb-1">Name</label>
+            <input
+              type="text"
+              value={formData.name}
+              onChange={(e) => handleNameChange(e.target.value)}
+              className={`w-full bg-slate-800 border rounded-lg px-3 py-2 text-white ${
+                nameError ? 'border-red-500' : 'border-slate-700'
+              }`}
+              placeholder="Bridge Volume (USD)"
+              required
+            />
+            {checkingName && (
+              <p className="text-xs text-slate-500 mt-1">Checking name...</p>
+            )}
+            {nameError && (
+              <p className="text-xs text-red-400 mt-1">{nameError}</p>
+            )}
+            {formData.slug && !nameError && (
+              <p className="text-xs text-slate-500 mt-1">
+                Slug: <code className="bg-slate-800 px-1 rounded">{formData.slug}</code>
+              </p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-400 mb-1">Metric Type</label>
+            <select
+              value={formData.aggregation_type}
+              onChange={(e) => {
+                const newType = e.target.value as 'sum_eth_value' | 'count';
+                setFormData({ 
+                  ...formData, 
+                  aggregation_type: newType,
+                  // Auto-set currency based on type
+                  currency: newType === 'count' ? 'COUNT' : formData.currency === 'COUNT' ? 'USD' : formData.currency,
+                });
+              }}
+              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
+            >
+              <option value="count">Count Transactions</option>
+              <option value="sum_eth_value">Sum Value (ETH/USD)</option>
+            </select>
+            <p className="text-xs text-slate-500 mt-1">
+              {formData.aggregation_type === 'count' 
+                ? 'Counts the number of transactions matching the selected contracts and functions'
+                : 'Sums the ETH value of transactions and converts to selected currency'}
+            </p>
+          </div>
+
+          {formData.aggregation_type === 'sum_eth_value' && (
+            <div>
+              <label className="block text-sm font-medium text-slate-400 mb-1">Display Currency</label>
+              <select
+                value={formData.currency}
+                onChange={(e) => setFormData({ ...formData, currency: e.target.value as 'USD' | 'ETH' })}
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
+              >
+                <option value="USD">USD</option>
+                <option value="ETH">ETH</option>
+              </select>
+            </div>
+          )}
+
           <div className="flex justify-end gap-3 pt-4 border-t border-slate-700">
             <button
               type="button"
@@ -1420,7 +1525,7 @@ function MetricModal({
             </button>
             <button
               type="submit"
-              disabled={saving || selectedContracts.length === 0}
+              disabled={saving || selectedContracts.length === 0 || !!nameError}
               className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-slate-700 rounded-lg transition-colors"
             >
               {saving ? 'Saving...' : metric ? 'Update Metric' : 'Create Metric'}
@@ -1617,6 +1722,52 @@ function PlatformModal({
     platform_type: platform?.platform_type || 'dex',
   });
   const [saving, setSaving] = useState(false);
+  
+  // Name validation state
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [checkingName, setCheckingName] = useState(false);
+
+  // Auto-generate slug when name changes (only for new platforms)
+  const handleNameChange = (newName: string) => {
+    setFormData(prev => ({
+      ...prev,
+      name: newName,
+      // Only auto-generate slug for new platforms, not when editing
+      slug: !platform ? generateSlug(newName) : prev.slug,
+    }));
+  };
+
+  // Validate name uniqueness with debounce
+  useEffect(() => {
+    if (!formData.name.trim()) {
+      setNameError(null);
+      return;
+    }
+
+    const checkNameUniqueness = async () => {
+      setCheckingName(true);
+      try {
+        const res = await fetch('/api/admin/platforms');
+        const data = await res.json();
+        const existingPlatforms = data.platforms || [];
+        
+        const isDuplicate = existingPlatforms.some(
+          (p: { id: number; name: string }) => 
+            p.name.toLowerCase() === formData.name.trim().toLowerCase() &&
+            p.id !== platform?.id // Exclude current platform when editing
+        );
+        
+        setNameError(isDuplicate ? 'A platform with this name already exists' : null);
+      } catch (error) {
+        console.error('Failed to check name uniqueness:', error);
+      } finally {
+        setCheckingName(false);
+      }
+    };
+
+    const timeoutId = setTimeout(checkNameUniqueness, 300);
+    return () => clearTimeout(timeoutId);
+  }, [formData.name, platform?.id]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1656,29 +1807,29 @@ function PlatformModal({
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-400 mb-1">Slug</label>
-              <input
-                type="text"
-                value={formData.slug}
-                onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
-                placeholder="velodrome"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-400 mb-1">Name</label>
-              <input
-                type="text"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
-                placeholder="Velodrome"
-                required
-              />
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-400 mb-1">Name</label>
+            <input
+              type="text"
+              value={formData.name}
+              onChange={(e) => handleNameChange(e.target.value)}
+              className={`w-full bg-slate-800 border rounded-lg px-3 py-2 text-white ${
+                nameError ? 'border-red-500' : 'border-slate-700'
+              }`}
+              placeholder="Velodrome"
+              required
+            />
+            {checkingName && (
+              <p className="text-xs text-slate-500 mt-1">Checking name...</p>
+            )}
+            {nameError && (
+              <p className="text-xs text-red-400 mt-1">{nameError}</p>
+            )}
+            {formData.slug && !nameError && (
+              <p className="text-xs text-slate-500 mt-1">
+                Slug: <code className="bg-slate-800 px-1 rounded">{formData.slug}</code>
+              </p>
+            )}
           </div>
 
           <div>
@@ -1738,7 +1889,7 @@ function PlatformModal({
             </button>
             <button
               type="submit"
-              disabled={saving}
+              disabled={saving || !!nameError}
               className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-slate-700 rounded-lg transition-colors"
             >
               {saving ? 'Saving...' : platform ? 'Update' : 'Create'}
@@ -1824,6 +1975,36 @@ function ContractModal({
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div>
+            <label className="block text-sm font-medium text-slate-400 mb-2">
+              Link to Platforms ({selectedPlatforms.length} selected)
+            </label>
+            <div className="bg-slate-800 border border-slate-700 rounded-lg p-3 max-h-48 overflow-y-auto space-y-2">
+              {platforms.map((platform) => (
+                <label key={platform.id} className="flex items-center gap-3 cursor-pointer hover:bg-slate-700/50 p-2 rounded">
+                  <input
+                    type="checkbox"
+                    checked={selectedPlatforms.includes(platform.id)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedPlatforms([...selectedPlatforms, platform.id]);
+                      } else {
+                        setSelectedPlatforms(selectedPlatforms.filter(id => id !== platform.id));
+                      }
+                    }}
+                    className="rounded bg-slate-700 border-slate-600"
+                  />
+                  <div className="flex items-center gap-2">
+                    {platform.logo_url && (
+                      <img src={platform.logo_url} alt="" className="w-5 h-5 rounded" />
+                    )}
+                    <span>{platform.name}</span>
+                  </div>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div>
             <label className="block text-sm font-medium text-slate-400 mb-1">Contract Address</label>
             <input
               type="text"
@@ -1858,36 +2039,6 @@ function ContractModal({
               placeholder="0"
               required
             />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-slate-400 mb-2">
-              Link to Platforms ({selectedPlatforms.length} selected)
-            </label>
-            <div className="bg-slate-800 border border-slate-700 rounded-lg p-3 max-h-48 overflow-y-auto space-y-2">
-              {platforms.map((platform) => (
-                <label key={platform.id} className="flex items-center gap-3 cursor-pointer hover:bg-slate-700/50 p-2 rounded">
-                  <input
-                    type="checkbox"
-                    checked={selectedPlatforms.includes(platform.id)}
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        setSelectedPlatforms([...selectedPlatforms, platform.id]);
-                      } else {
-                        setSelectedPlatforms(selectedPlatforms.filter(id => id !== platform.id));
-                      }
-                    }}
-                    className="rounded bg-slate-700 border-slate-600"
-                  />
-                  <div className="flex items-center gap-2">
-                    {platform.logo_url && (
-                      <img src={platform.logo_url} alt="" className="w-5 h-5 rounded" />
-                    )}
-                    <span>{platform.name}</span>
-                  </div>
-                </label>
-              ))}
-            </div>
           </div>
 
           <div className="space-y-2">
