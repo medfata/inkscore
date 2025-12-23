@@ -908,8 +908,6 @@ function RulesTab({
 
   const modeColors: Record<CalculationMode, string> = {
     range: 'bg-blue-500/20 text-blue-400',
-    per_item: 'bg-purple-500/20 text-purple-400',
-    threshold: 'bg-green-500/20 text-green-400',
     multiplier: 'bg-orange-500/20 text-orange-400',
   };
 
@@ -962,12 +960,20 @@ function RulesTab({
                       <p className="text-slate-500 text-sm mt-1">{rule.description}</p>
                     )}
                     <div className="mt-2 flex flex-wrap gap-2">
-                      <span className="text-xs text-slate-500">Ranges:</span>
-                      {rule.ranges.map((range, idx) => (
-                        <span key={idx} className="text-xs bg-slate-800 px-2 py-0.5 rounded">
-                          {range.min}-{range.max ?? '∞'}: {range.points} pts
+                      {rule.calculation_mode === 'range' ? (
+                        <>
+                          <span className="text-xs text-slate-500">Ranges:</span>
+                          {rule.ranges.map((range, idx) => (
+                            <span key={idx} className="text-xs bg-slate-800 px-2 py-0.5 rounded">
+                              {range.min}-{range.max ?? '∞'}: {range.points} pts
+                            </span>
+                          ))}
+                        </>
+                      ) : (
+                        <span className="text-xs bg-slate-800 px-2 py-0.5 rounded">
+                          x{rule.ranges[0]?.points || 1} multiplier
                         </span>
-                      ))}
+                      )}
                     </div>
                   </div>
                   <div className="flex gap-2">
@@ -2113,9 +2119,12 @@ function RuleModal({
 
   // For metric-based rules: cascading selection
   const [selectedPlatformIds, setSelectedPlatformIds] = useState<number[]>([]);
+  const [platformSearch, setPlatformSearch] = useState('');
   const [platformContractsMap, setPlatformContractsMap] = useState<Map<number, ContractWithPlatforms[]>>(new Map());
   const [selectedContractAddresses, setSelectedContractAddresses] = useState<string[]>([]);
+  const [contractSearch, setContractSearch] = useState('');
   const [availableMetrics, setAvailableMetrics] = useState<MetricOption[]>([]);
+  const [metricSearch, setMetricSearch] = useState('');
   const [selectedMetricIds, setSelectedMetricIds] = useState<number[]>(
     rule?.metrics?.map(m => m.id) || []
   );
@@ -2126,9 +2135,17 @@ function RuleModal({
   const [ranges, setRanges] = useState<PointRange[]>(
     rule?.ranges || [{ min: 0, max: 10, points: 10 }]
   );
+  const [multiplierValue, setMultiplierValue] = useState<number>(
+    rule?.calculation_mode === 'multiplier' && rule?.ranges?.[0]?.points 
+      ? rule.ranges[0].points 
+      : 1
+  );
   const [saving, setSaving] = useState(false);
 
-  const calculationModes: CalculationMode[] = ['range', 'per_item', 'threshold', 'multiplier'];
+  const calculationModes: { value: CalculationMode; label: string; description: string }[] = [
+    { value: 'range', label: 'Range', description: 'Award points based on value ranges (e.g., 0-100 = 10pts, 100-500 = 50pts)' },
+    { value: 'multiplier', label: 'Multiplier', description: 'Multiply the metric value by a rate (e.g., x2 means $100 volume = 200 points)' },
+  ];
 
   // Initialize selections when editing an existing metric-based rule
   useEffect(() => {
@@ -2300,9 +2317,14 @@ function RuleModal({
     setSaving(true);
 
     try {
+      // For multiplier mode, store the multiplier value in ranges array
+      const finalRanges = formData.calculation_mode === 'multiplier'
+        ? [{ min: 0, max: null, points: multiplierValue }]
+        : ranges;
+
       const payload = {
         ...formData,
-        ranges,
+        ranges: finalRanges,
         metric_ids: formData.metric_type === 'metric' ? selectedMetricIds : undefined,
       };
 
@@ -2385,8 +2407,17 @@ function RuleModal({
                 <label className="block text-sm font-medium text-slate-400 mb-2">
                   1. Select Platforms ({selectedPlatformIds.length} selected)
                 </label>
+                <input
+                  type="text"
+                  value={platformSearch}
+                  onChange={(e) => setPlatformSearch(e.target.value)}
+                  placeholder="Search platforms..."
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white mb-2"
+                />
                 <div className="bg-slate-800 border border-slate-700 rounded-lg p-3 max-h-32 overflow-y-auto space-y-1">
-                  {platforms.map((platform) => (
+                  {platforms
+                    .filter(p => !platformSearch.trim() || p.name.toLowerCase().includes(platformSearch.toLowerCase()))
+                    .map((platform) => (
                     <label key={platform.id} className="flex items-center gap-2 cursor-pointer hover:bg-slate-700/50 p-1 rounded">
                       <input
                         type="checkbox"
@@ -2405,6 +2436,9 @@ function RuleModal({
                       <span className="text-sm">{platform.name}</span>
                     </label>
                   ))}
+                  {platforms.filter(p => !platformSearch.trim() || p.name.toLowerCase().includes(platformSearch.toLowerCase())).length === 0 && (
+                    <div className="text-slate-500 text-sm text-center py-2">No platforms match your search</div>
+                  )}
                 </div>
               </div>
 
@@ -2414,13 +2448,24 @@ function RuleModal({
                   <label className="block text-sm font-medium text-slate-400 mb-2">
                     2. Select Contracts ({selectedContractAddresses.length} selected)
                   </label>
+                  <input
+                    type="text"
+                    value={contractSearch}
+                    onChange={(e) => setContractSearch(e.target.value)}
+                    placeholder="Search by name or address..."
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white mb-2"
+                  />
                   <div className="bg-slate-800 border border-slate-700 rounded-lg p-3 max-h-40 overflow-y-auto space-y-1">
                     {loadingContracts ? (
                       <div className="text-slate-500 text-sm text-center py-2">Loading contracts...</div>
                     ) : allSelectedPlatformContracts.length === 0 ? (
                       <div className="text-slate-500 text-sm text-center py-2">No contracts found</div>
                     ) : (
-                      allSelectedPlatformContracts.map((contract) => (
+                      allSelectedPlatformContracts
+                        .filter(c => !contractSearch.trim() || 
+                          c.name.toLowerCase().includes(contractSearch.toLowerCase()) ||
+                          c.address.toLowerCase().includes(contractSearch.toLowerCase()))
+                        .map((contract) => (
                         <label key={contract.address} className="flex items-center gap-2 cursor-pointer hover:bg-slate-700/50 p-1 rounded">
                           <input
                             type="checkbox"
@@ -2440,6 +2485,12 @@ function RuleModal({
                         </label>
                       ))
                     )}
+                    {!loadingContracts && allSelectedPlatformContracts.length > 0 && 
+                      allSelectedPlatformContracts.filter(c => !contractSearch.trim() || 
+                        c.name.toLowerCase().includes(contractSearch.toLowerCase()) ||
+                        c.address.toLowerCase().includes(contractSearch.toLowerCase())).length === 0 && (
+                      <div className="text-slate-500 text-sm text-center py-2">No contracts match your search</div>
+                    )}
                   </div>
                 </div>
               )}
@@ -2450,13 +2501,22 @@ function RuleModal({
                   <label className="block text-sm font-medium text-slate-400 mb-2">
                     3. Select Metrics ({selectedMetricIds.length} selected)
                   </label>
+                  <input
+                    type="text"
+                    value={metricSearch}
+                    onChange={(e) => setMetricSearch(e.target.value)}
+                    placeholder="Search metrics..."
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white mb-2"
+                  />
                   <div className="bg-slate-800 border border-slate-700 rounded-lg p-3 max-h-40 overflow-y-auto space-y-1">
                     {loadingMetrics ? (
                       <div className="text-slate-500 text-sm text-center py-2">Loading metrics...</div>
                     ) : availableMetrics.length === 0 ? (
                       <div className="text-slate-500 text-sm text-center py-2">No metrics found. Create metrics first.</div>
                     ) : (
-                      availableMetrics.map((metric) => (
+                      availableMetrics
+                        .filter(m => !metricSearch.trim() || m.name.toLowerCase().includes(metricSearch.toLowerCase()))
+                        .map((metric) => (
                         <label key={metric.id} className="flex items-center gap-2 cursor-pointer hover:bg-slate-700/50 p-1 rounded">
                           <input
                             type="checkbox"
@@ -2474,6 +2534,10 @@ function RuleModal({
                           <span className="text-xs text-slate-500">({metric.aggregation_type === 'count' ? 'Count' : metric.currency})</span>
                         </label>
                       ))
+                    )}
+                    {!loadingMetrics && availableMetrics.length > 0 && 
+                      availableMetrics.filter(m => !metricSearch.trim() || m.name.toLowerCase().includes(metricSearch.toLowerCase())).length === 0 && (
+                      <div className="text-slate-500 text-sm text-center py-2">No metrics match your search</div>
                     )}
                   </div>
                 </div>
@@ -2521,31 +2585,58 @@ function RuleModal({
               className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
             >
               {calculationModes.map((mode) => (
-                <option key={mode} value={mode}>{mode}</option>
+                <option key={mode.value} value={mode.value}>{mode.label}</option>
               ))}
             </select>
+            <p className="text-xs text-slate-500 mt-1">
+              {calculationModes.find(m => m.value === formData.calculation_mode)?.description}
+            </p>
           </div>
 
-          {/* Ranges Editor */}
-          <div>
-            <div className="flex justify-between items-center mb-2">
-              <label className="block text-sm font-medium text-slate-400">Point Ranges</label>
-              <button type="button" onClick={addRange} className="text-sm text-purple-400 hover:text-purple-300">+ Add Range</button>
+          {/* Multiplier Input - shown when multiplier mode is selected */}
+          {formData.calculation_mode === 'multiplier' && (
+            <div>
+              <label className="block text-sm font-medium text-slate-400 mb-1">Multiplier Rate</label>
+              <div className="flex items-center gap-3">
+                <span className="text-slate-400 text-lg">x</span>
+                <input
+                  type="number"
+                  value={multiplierValue}
+                  onChange={(e) => setMultiplierValue(parseFloat(e.target.value) || 1)}
+                  min="0.01"
+                  step="0.1"
+                  className="w-32 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-lg font-semibold"
+                  placeholder="1"
+                />
+              </div>
+              <p className="text-xs text-slate-500 mt-2">
+                Example: If multiplier is x{multiplierValue} and user has $100 volume, they get {100 * multiplierValue} points
+              </p>
             </div>
-            <div className="space-y-2">
-              {ranges.map((range, index) => (
-                <div key={index} className="flex items-center gap-2 bg-slate-800 p-2 rounded-lg">
-                  <input type="number" value={range.min} onChange={(e) => updateRange(index, 'min', parseInt(e.target.value) || 0)} className="w-24 bg-slate-700 border border-slate-600 rounded px-2 py-1 text-white text-sm" placeholder="Min" />
-                  <span className="text-slate-500">to</span>
-                  <input type="number" value={range.max ?? ''} onChange={(e) => updateRange(index, 'max', e.target.value ? parseInt(e.target.value) : null)} className="w-24 bg-slate-700 border border-slate-600 rounded px-2 py-1 text-white text-sm" placeholder="∞" />
-                  <span className="text-slate-500">=</span>
-                  <input type="number" value={range.points} onChange={(e) => updateRange(index, 'points', parseInt(e.target.value) || 0)} className="w-20 bg-slate-700 border border-slate-600 rounded px-2 py-1 text-white text-sm" placeholder="Points" />
-                  <span className="text-slate-500 text-sm">pts</span>
-                  {ranges.length > 1 && <button type="button" onClick={() => removeRange(index)} className="text-red-400 hover:text-red-300 ml-2">×</button>}
-                </div>
-              ))}
+          )}
+
+          {/* Ranges Editor - shown when range mode is selected */}
+          {formData.calculation_mode === 'range' && (
+            <div>
+              <div className="flex justify-between items-center mb-2">
+                <label className="block text-sm font-medium text-slate-400">Point Ranges</label>
+                <button type="button" onClick={addRange} className="text-sm text-purple-400 hover:text-purple-300">+ Add Range</button>
+              </div>
+              <div className="space-y-2">
+                {ranges.map((range, index) => (
+                  <div key={index} className="flex items-center gap-2 bg-slate-800 p-2 rounded-lg">
+                    <input type="number" value={range.min} onChange={(e) => updateRange(index, 'min', parseInt(e.target.value) || 0)} className="w-24 bg-slate-700 border border-slate-600 rounded px-2 py-1 text-white text-sm" placeholder="Min" />
+                    <span className="text-slate-500">to</span>
+                    <input type="number" value={range.max ?? ''} onChange={(e) => updateRange(index, 'max', e.target.value ? parseInt(e.target.value) : null)} className="w-24 bg-slate-700 border border-slate-600 rounded px-2 py-1 text-white text-sm" placeholder="∞" />
+                    <span className="text-slate-500">=</span>
+                    <input type="number" value={range.points} onChange={(e) => updateRange(index, 'points', parseInt(e.target.value) || 0)} className="w-20 bg-slate-700 border border-slate-600 rounded px-2 py-1 text-white text-sm" placeholder="Points" />
+                    <span className="text-slate-500 text-sm">pts</span>
+                    {ranges.length > 1 && <button type="button" onClick={() => removeRange(index)} className="text-red-400 hover:text-red-300 ml-2">×</button>}
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="flex justify-end gap-3 pt-4 border-t border-slate-700">
             <button type="button" onClick={onClose} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors">Cancel</button>

@@ -195,7 +195,7 @@ CREATE TABLE IF NOT EXISTS points_rules (
   -- Rule configuration
   name VARCHAR(100) NOT NULL,
   description TEXT,
-  calculation_mode VARCHAR(20) NOT NULL,      -- 'range', 'per_item', 'threshold', 'multiplier'
+  calculation_mode VARCHAR(20) NOT NULL,      -- 'range' or 'multiplier'
   ranges JSONB NOT NULL DEFAULT '[]',         -- [{min: 1, max: 10, points: 100}, ...]
   
   -- Status

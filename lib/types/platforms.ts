@@ -111,7 +111,7 @@ export interface NativeMetric {
   created_at: Date;
 }
 
-export type NativeMetricKey = 'wallet_age' | 'total_tx' | 'nft_collections' | 'erc20_tokens';
+export type NativeMetricKey = 'wallet_age' | 'total_tx' | 'nft_collections' | 'erc20_tokens' | 'total_volume';
 
 // ============================================================================
 // Points System Types
@@ -132,7 +132,7 @@ export interface PointsRule {
   updated_at: Date;
 }
 
-export type CalculationMode = 'range' | 'per_item' | 'threshold' | 'multiplier';
+export type CalculationMode = 'range' | 'multiplier';
 
 export interface PointRange {
   min: number;

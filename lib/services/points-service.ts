@@ -27,6 +27,61 @@ interface RulesCache {
 let rulesCache: RulesCache | null = null;
 const RULES_CACHE_TTL = 60 * 1000; // 1 minute
 
+// Helper function to fetch total volume from indexed transactions
+async function fetchTotalVolumeUsd(walletAddress: string): Promise<number> {
+  try {
+    // Get current ETH price
+    let ethPrice = 3500;
+    try {
+      const priceResult = await queryOne<{ price_usd: number }>(
+        `SELECT price_usd FROM eth_prices ORDER BY timestamp DESC LIMIT 1`
+      );
+      ethPrice = priceResult?.price_usd || 3500;
+    } catch {
+      // Use fallback price
+    }
+
+    // Query outgoing transactions (wallet is the sender)
+    const outgoingResult = await queryOne<{ total_eth: string }>(
+      `SELECT 
+         COALESCE(SUM(CAST(eth_value AS NUMERIC) / 1e18), 0) as total_eth
+       FROM transaction_details
+       WHERE wallet_address = $1
+         AND status = 1`,
+      [walletAddress]
+    );
+
+    // Query incoming ETH transfers (WETH token transfers to wallet)
+    let incomingEth = 0;
+    try {
+      const incomingResult = await queryOne<{ total_eth: string }>(
+        `SELECT 
+           COALESCE(SUM(
+             CASE 
+               WHEN token_address = '0x4200000000000000000000000000000000000006' 
+               THEN COALESCE(amount_decimal, 0)
+               ELSE 0 
+             END
+           ), 0) as total_eth
+         FROM transaction_token_transfers
+         WHERE to_address = $1`,
+        [walletAddress]
+      );
+      incomingEth = parseFloat(incomingResult?.total_eth || '0');
+    } catch {
+      // Table might not exist
+    }
+
+    const outgoingEth = parseFloat(outgoingResult?.total_eth || '0');
+    const totalEth = outgoingEth + incomingEth;
+    
+    return totalEth * ethPrice;
+  } catch (error) {
+    console.error('Error fetching total volume:', error);
+    return 0;
+  }
+}
+
 export class PointsService {
   // Invalidate cache (call after create/update/delete operations)
   invalidateCache(): void {
@@ -419,8 +474,10 @@ export class PointsService {
   // ============================================================================
 
   calculatePointsFromRanges(value: number, ranges: PointRange[], mode: string): number {
-    if (mode === 'per_item') {
-      return this.calculateRangePoints(value, ranges);
+    if (mode === 'multiplier') {
+      // For multiplier mode, the "points" field in ranges[0] is the multiplier rate
+      const multiplier = ranges[0]?.points || 1;
+      return Math.floor(value * multiplier);
     }
     return this.calculateRangePoints(value, ranges);
   }
@@ -445,6 +502,7 @@ export class PointsService {
       totalTxns: number;
       nftCount: number;
       tokenHoldings: Array<{ usdValue: number }>;
+      totalVolumeUsd?: number;
     }
   ): Promise<{ value: number; points: number }> {
     let value = 0;
@@ -460,17 +518,10 @@ export class PointsService {
         value = stats.nftCount;
         break;
       case 'erc20_tokens':
-        if (rule.calculation_mode === 'per_item') {
-          let totalPoints = 0;
-          for (const token of stats.tokenHoldings) {
-            if (token.usdValue > 0) {
-              totalPoints += this.calculateRangePoints(token.usdValue, rule.ranges);
-            }
-          }
-          value = stats.tokenHoldings.reduce((sum, t) => sum + t.usdValue, 0);
-          return { value, points: totalPoints };
-        }
         value = stats.tokenHoldings.reduce((sum, t) => sum + t.usdValue, 0);
+        break;
+      case 'total_volume':
+        value = stats.totalVolumeUsd || 0;
         break;
     }
 
@@ -517,7 +568,12 @@ export class PointsService {
     };
     let totalPoints = 0;
 
-    const stats = await walletStatsService.getAllStats(wallet);
+    // Fetch wallet stats and total volume in parallel
+    const [stats, totalVolumeUsd] = await Promise.all([
+      walletStatsService.getAllStats(wallet),
+      fetchTotalVolumeUsd(wallet),
+    ]);
+    
     const cachedData = await this.getCachedRulesData();
     const { rules, nativeMetrics, platformContracts } = cachedData;
     const nativeMetricMap = new Map(nativeMetrics.map(m => [m.id, m]));
@@ -537,6 +593,7 @@ export class PointsService {
           totalTxns: stats.totalTxns,
           nftCount: stats.nftCount,
           tokenHoldings: stats.tokenHoldings,
+          totalVolumeUsd,
         }
       );
       breakdown.native[metric.key as NativeMetricKey] = result;

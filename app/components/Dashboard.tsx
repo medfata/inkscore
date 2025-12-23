@@ -10,7 +10,7 @@ import {
   Radar,
   Tooltip
 } from 'recharts';
-import { Sparkles, ShieldCheck, Activity, Wallet, Award, Clock, Image, ExternalLink, Coins, Sun, Landmark, Zap, ArrowLeftRight, RefreshCw } from './Icons';
+import { Sparkles, ShieldCheck, Activity, Wallet, Award, Clock, Image, ExternalLink, Coins, Sun, Landmark, Zap, ArrowLeftRight, RefreshCw, TrendingUp } from './Icons';
 import { ScoreData, WalletStats, ScoreTier, AiAnalysisResult, NftHolding, TokenHolding } from '../types';
 import { Logo } from './Logo';
 import { HoldingsSection } from './HoldingsSection';
@@ -110,6 +110,23 @@ interface NftTradingResponse {
     contract_address: string;
     count: number;
   }>;
+}
+
+// Total Volume response type
+interface TotalVolumeResponse {
+  totalEth: number;
+  totalUsd: number;
+  txCount: number;
+  incoming: {
+    eth: number;
+    usd: number;
+    count: number;
+  };
+  outgoing: {
+    eth: number;
+    usd: number;
+    count: number;
+  };
 }
 
 interface DashboardProps {
@@ -290,6 +307,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
   const [swapVolume, setSwapVolume] = useState<SwapVolumeResponse | null>(null);
   const [nftTrading, setNftTrading] = useState<NftTradingResponse | null>(null);
   const [walletScore, setWalletScore] = useState<WalletScoreResponse | null>(null);
+  const [totalVolume, setTotalVolume] = useState<TotalVolumeResponse | null>(null);
 
   // Refresh state
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -325,6 +343,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
     setSwapVolume(null);
     setNftTrading(null);
     setWalletScore(null);
+    setTotalVolume(null);
 
     try {
       const fetchPromises = [];
@@ -446,6 +465,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
             if (data) setWalletScore(data);
           })
           .catch(err => console.error('Failed to refresh wallet score:', err))
+      );
+
+      // Total volume
+      fetchPromises.push(
+        fetch(`/api/wallet/${walletAddress}/volume`)
+          .then(res => res.ok ? res.json() : null)
+          .then(data => {
+            if (data) setTotalVolume(data);
+          })
+          .catch(err => console.error('Failed to refresh total volume:', err))
       );
 
       await Promise.all(fetchPromises);
@@ -678,6 +707,25 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
     fetchWalletScore();
   }, [walletAddress, isDemo]);
 
+  // Fetch total volume when not in demo mode
+  useEffect(() => {
+    if (isDemo || !walletAddress || walletAddress.length < 10) return;
+
+    const fetchTotalVolume = async () => {
+      try {
+        const res = await fetch(`/api/wallet/${walletAddress}/volume`);
+        if (res.ok) {
+          const data = await res.json();
+          setTotalVolume(data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch total volume:', err);
+      }
+    };
+
+    fetchTotalVolume();
+  }, [walletAddress, isDemo]);
+
   const handleAiAnalysis = async () => {
     if (!data) return;
     setAnalyzing(true);
@@ -721,7 +769,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
         wallet_age: 'Age',
         total_tx: 'TXs',
         nft_collections: 'NFTs',
-        erc20_tokens: 'Tokens'
+        erc20_tokens: 'Tokens',
+        total_volume: 'Volume'
       };
 
       Object.entries(walletScore.breakdown.native).forEach(([key, data]) => {
@@ -852,7 +901,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
         </div>
 
         {/* Top Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           {[
             {
               label: 'Net Worth Estimate',
@@ -873,6 +922,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
               color: 'purple',
               delay: '0.2s',
               isLoading: !isDemo && !realWalletStats
+            },
+            {
+              label: 'Total Circulated Volume',
+              value: !isDemo && totalVolume
+                ? `$${totalVolume.totalUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                : '$0.00',
+              subValue: !isDemo && totalVolume
+                ? `${totalVolume.totalEth.toFixed(4)} ETH`
+                : undefined,
+              icon: TrendingUp,
+              color: 'cyan',
+              delay: '0.25s',
+              isLoading: !isDemo && !totalVolume
             },
             {
               label: 'NFTs Held',
@@ -910,6 +972,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                     <span className="inline-block w-24 h-7 bg-slate-700/50 rounded animate-pulse"></span>
                   ) : item.value}
                 </div>
+                {'subValue' in item && item.subValue && (
+                  <div className="text-xs text-slate-500">{item.subValue}</div>
+                )}
               </div>
             </div>
           ))}
