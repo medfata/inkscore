@@ -146,6 +146,14 @@ export interface WalletStatsData {
   tokenHoldings: TokenHolding[];
 }
 
+// Cache for wallet stats (30 second TTL)
+interface StatsCache {
+  data: WalletStatsData;
+  timestamp: number;
+}
+const walletStatsCache = new Map<string, StatsCache>();
+const STATS_CACHE_TTL = 30 * 1000; // 30 seconds
+
 export class WalletStatsService {
   // Get wallet overview (balance only - age is fetched separately for Ink chain)
   async getWalletOverview(walletAddress: string): Promise<{
@@ -464,13 +472,25 @@ export class WalletStatsService {
     return diffDays;
   }
 
-  // Get all wallet stats in one call (optimized: 4 API calls)
+  // Get all wallet stats in one call (optimized: 4 parallel API calls + caching)
   async getAllStats(walletAddress: string): Promise<WalletStatsData> {
-    const [overview, txStats, nftData, tokenHoldings] = await Promise.all([
+    const wallet = walletAddress.toLowerCase();
+
+    // Check cache first
+    const cached = walletStatsCache.get(wallet);
+    if (cached && Date.now() - cached.timestamp < STATS_CACHE_TTL) {
+      return cached.data;
+    }
+
+    // Pre-fetch meme coin prices before token holdings (so it's cached)
+    const memePricesPromise = this.getMemeCoinPrices();
+
+    const [overview, txStats, nftData, _, tokenHoldings] = await Promise.all([
       this.getWalletOverview(walletAddress),
-      this.getInkChainTxStats(walletAddress), // Gets both first tx date AND total count
-      this.getAllNftHoldings(walletAddress), // Gets all NFTs + count
-      this.getTokenHoldings(walletAddress), // Gets ERC-20 token holdings with USD values from API
+      this.getInkChainTxStats(walletAddress),
+      this.getAllNftHoldings(walletAddress),
+      memePricesPromise, // Ensure prices are cached before getTokenHoldings uses them
+      this.getTokenHoldings(walletAddress),
     ]);
 
     // Calculate age based on Ink chain first transaction
@@ -479,7 +499,7 @@ export class WalletStatsService {
     // Count special NFT collections
     const nftCollections = this.countSpecialCollections(nftData.holdings);
 
-    return {
+    const result: WalletStatsData = {
       balanceUsd: overview.balanceUsd,
       balanceEth: overview.balanceEth,
       totalTxns: txStats.totalTxns,
@@ -489,6 +509,11 @@ export class WalletStatsService {
       nftCollections,
       tokenHoldings,
     };
+
+    // Cache the result
+    walletStatsCache.set(wallet, { data: result, timestamp: Date.now() });
+
+    return result;
   }
 }
 

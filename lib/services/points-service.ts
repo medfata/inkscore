@@ -16,29 +16,62 @@ import {
 } from '../types/platforms';
 import { walletStatsService } from './wallet-stats-service';
 
+// Cache for points rules and related data (1 minute TTL - rarely changes)
+interface RulesCache {
+  rules: PointsRuleWithRelations[];
+  nativeMetrics: NativeMetric[];
+  ranks: Rank[];
+  platformContracts: Map<number, string[]>; // platformId -> contract addresses
+  timestamp: number;
+}
+let rulesCache: RulesCache | null = null;
+const RULES_CACHE_TTL = 60 * 1000; // 1 minute
+
 export class PointsService {
-  // ============================================================================
-  // NATIVE METRICS
-  // ============================================================================
-
-  async getAllNativeMetrics(activeOnly: boolean = false): Promise<NativeMetric[]> {
-    const whereClause = activeOnly ? 'WHERE is_active = true' : '';
-    return query<NativeMetric>(`
-      SELECT * FROM native_metrics
-      ${whereClause}
-      ORDER BY display_order ASC
-    `);
+  // Invalidate cache (call after create/update/delete operations)
+  invalidateCache(): void {
+    rulesCache = null;
   }
 
-  async getNativeMetricByKey(key: string): Promise<NativeMetric | null> {
-    return queryOne<NativeMetric>(`SELECT * FROM native_metrics WHERE key = $1`, [key]);
+  // Get cached rules and related data
+  private async getCachedRulesData(): Promise<RulesCache> {
+    if (rulesCache && Date.now() - rulesCache.timestamp < RULES_CACHE_TTL) {
+      return rulesCache;
+    }
+
+    // Fetch all data in parallel
+    const [rules, nativeMetrics, ranks, platformContractsRows] = await Promise.all([
+      this.fetchAllPointsRules(true),
+      query<NativeMetric>(`SELECT * FROM native_metrics WHERE is_active = true ORDER BY display_order ASC`),
+      query<Rank>(`SELECT * FROM ranks WHERE is_active = true ORDER BY min_points ASC`),
+      query<{ platform_id: number; address: string }>(`
+        SELECT pc.platform_id, c.address 
+        FROM platform_contracts pc
+        JOIN contracts c ON c.id = pc.contract_id
+      `),
+    ]);
+
+    // Build platform contracts map
+    const platformContracts = new Map<number, string[]>();
+    for (const row of platformContractsRows) {
+      const existing = platformContracts.get(row.platform_id) || [];
+      existing.push(row.address);
+      platformContracts.set(row.platform_id, existing);
+    }
+
+    rulesCache = {
+      rules,
+      nativeMetrics,
+      ranks,
+      platformContracts,
+      timestamp: Date.now(),
+    };
+
+    return rulesCache;
   }
 
-  // ============================================================================
-  // POINTS RULES
-  // ============================================================================
-
-  async getAllPointsRules(activeOnly: boolean = false): Promise<PointsRuleWithRelations[]> {
+  // Internal fetch without cache (used by getCachedRulesData)
+  private async fetchAllPointsRules(activeOnly: boolean): Promise<PointsRuleWithRelations[]> {
     const whereClause = activeOnly ? 'WHERE pr.is_active = true' : '';
     
     const rules = await query<PointsRule & { platform_name?: string; native_metric_key?: string }>(`
@@ -60,6 +93,33 @@ export class PointsService {
       ranges: typeof rule.ranges === 'string' ? JSON.parse(rule.ranges) : rule.ranges,
     }));
   }
+  // ============================================================================
+  // NATIVE METRICS
+  // ============================================================================
+
+  async getAllNativeMetrics(activeOnly: boolean = false): Promise<NativeMetric[]> {
+    if (activeOnly) {
+      const cached = await this.getCachedRulesData();
+      return cached.nativeMetrics;
+    }
+    return query<NativeMetric>(`SELECT * FROM native_metrics ORDER BY display_order ASC`);
+  }
+
+  async getNativeMetricByKey(key: string): Promise<NativeMetric | null> {
+    return queryOne<NativeMetric>(`SELECT * FROM native_metrics WHERE key = $1`, [key]);
+  }
+
+  // ============================================================================
+  // POINTS RULES
+  // ============================================================================
+
+  async getAllPointsRules(activeOnly: boolean = false): Promise<PointsRuleWithRelations[]> {
+    if (activeOnly) {
+      const cached = await this.getCachedRulesData();
+      return cached.rules;
+    }
+    return this.fetchAllPointsRules(false);
+  }
 
   async getPointsRuleById(id: number): Promise<PointsRuleWithRelations | null> {
     const rule = await queryOne<PointsRule>(`SELECT * FROM points_rules WHERE id = $1`, [id]);
@@ -72,6 +132,7 @@ export class PointsService {
   }
 
   async createPointsRule(data: CreatePointsRuleRequest): Promise<PointsRule> {
+    this.invalidateCache();
     const result = await queryOne<PointsRule>(`
       INSERT INTO points_rules (
         metric_type, platform_id, native_metric_id, name, description,
@@ -98,6 +159,7 @@ export class PointsService {
   }
 
   async updatePointsRule(id: number, data: UpdatePointsRuleRequest): Promise<PointsRule | null> {
+    this.invalidateCache();
     const updates: string[] = [];
     const values: unknown[] = [];
     let paramIndex = 1;
@@ -147,6 +209,7 @@ export class PointsService {
   }
 
   async deletePointsRule(id: number): Promise<boolean> {
+    this.invalidateCache();
     const result = await query(`DELETE FROM points_rules WHERE id = $1 RETURNING id`, [id]);
     return result.length > 0;
   }
@@ -288,46 +351,46 @@ export class PointsService {
   }
 
   /**
-   * Calculate points for a native metric
+   * Calculate points for a native metric using pre-fetched stats
    */
   async calculateNativeMetricPoints(
-    walletAddress: string,
     metricKey: NativeMetricKey,
-    rule: PointsRule
+    rule: PointsRule,
+    stats: {
+      ageDays: number;
+      totalTxns: number;
+      nftCount: number;
+      tokenHoldings: Array<{ usdValue: number }>;
+    }
   ): Promise<{ value: number; points: number }> {
-    const wallet = walletAddress.toLowerCase();
     let value = 0;
 
     switch (metricKey) {
       case 'wallet_age': {
-        const txStats = await walletStatsService.getInkChainTxStats(wallet);
-        value = walletStatsService.calculateAgeDays(txStats.firstTxDate);
+        value = stats.ageDays;
         break;
       }
       case 'total_tx': {
-        const txStats = await walletStatsService.getInkChainTxStats(wallet);
-        value = txStats.totalTxns;
+        value = stats.totalTxns;
         break;
       }
       case 'nft_collections': {
-        const nftData = await walletStatsService.getAllNftHoldings(wallet);
-        value = nftData.totalCount;
+        value = stats.nftCount;
         break;
       }
       case 'erc20_tokens': {
-        const tokenHoldings = await walletStatsService.getTokenHoldings(wallet);
         // For ERC20, we sum USD values and apply per_item logic
         if (rule.calculation_mode === 'per_item') {
           let totalPoints = 0;
-          for (const token of tokenHoldings) {
+          for (const token of stats.tokenHoldings) {
             if (token.usdValue > 0) {
               totalPoints += this.calculateRangePoints(token.usdValue, rule.ranges);
             }
           }
-          value = tokenHoldings.reduce((sum, t) => sum + t.usdValue, 0);
+          value = stats.tokenHoldings.reduce((sum, t) => sum + t.usdValue, 0);
           return { value, points: totalPoints };
         }
-        value = tokenHoldings.reduce((sum, t) => sum + t.usdValue, 0);
+        value = stats.tokenHoldings.reduce((sum, t) => sum + t.usdValue, 0);
         break;
       }
     }
@@ -337,27 +400,22 @@ export class PointsService {
   }
 
   /**
-   * Calculate points for a platform
+   * Calculate points for a platform (uses cached contract addresses)
    */
   async calculatePlatformPoints(
     walletAddress: string,
     platformId: number,
-    rule: PointsRule
+    rule: PointsRule,
+    platformContracts: Map<number, string[]>
   ): Promise<{ tx_count: number; usd_volume: number; points: number }> {
     const wallet = walletAddress.toLowerCase();
 
-    // Get platform contracts
-    const contracts = await query<{ address: string }>(`
-      SELECT c.address FROM contracts c
-      JOIN platform_contracts pc ON c.id = pc.contract_id
-      WHERE pc.platform_id = $1
-    `, [platformId]);
+    // Get platform contracts from cache
+    const addresses = platformContracts.get(platformId) || [];
 
-    if (contracts.length === 0) {
+    if (addresses.length === 0) {
       return { tx_count: 0, usd_volume: 0, points: 0 };
     }
-
-    const addresses = contracts.map(c => c.address);
 
     // Get transaction stats for this wallet on platform contracts
     const stats = await queryOne<{ tx_count: string; usd_volume: string }>(`
@@ -382,7 +440,7 @@ export class PointsService {
   }
 
   /**
-   * Calculate total wallet score
+   * Calculate total wallet score (optimized: uses cached rules and platform contracts)
    */
   async calculateWalletScore(walletAddress: string): Promise<WalletScoreResponse> {
     const wallet = walletAddress.toLowerCase();
@@ -392,40 +450,67 @@ export class PointsService {
     };
     let totalPoints = 0;
 
-    // Get all active rules
-    const rules = await this.getAllPointsRules(true);
+    // Fetch wallet stats ONCE (this is cached)
+    const stats = await walletStatsService.getAllStats(wallet);
 
-    // Process native metric rules
+    // Get all cached rules data (rules, metrics, ranks, platform contracts)
+    const cachedData = await this.getCachedRulesData();
+    const { rules, nativeMetrics, platformContracts } = cachedData;
+
+    // Build native metrics map
+    const nativeMetricMap = new Map(nativeMetrics.map(m => [m.id, m]));
+
+    // Process native metric rules (no additional API calls needed - uses cached stats)
     const nativeRules = rules.filter(r => r.metric_type === 'native');
     for (const rule of nativeRules) {
       if (!rule.native_metric_id) continue;
 
-      const metric = await queryOne<NativeMetric>(
-        `SELECT * FROM native_metrics WHERE id = $1`,
-        [rule.native_metric_id]
-      );
+      const metric = nativeMetricMap.get(rule.native_metric_id);
       if (!metric) continue;
 
-      const result = await this.calculateNativeMetricPoints(wallet, metric.key as NativeMetricKey, rule);
+      const result = await this.calculateNativeMetricPoints(
+        metric.key as NativeMetricKey,
+        rule,
+        {
+          ageDays: stats.ageDays,
+          totalTxns: stats.totalTxns,
+          nftCount: stats.nftCount,
+          tokenHoldings: stats.tokenHoldings,
+        }
+      );
       breakdown.native[metric.key as NativeMetricKey] = result;
       totalPoints += result.points;
     }
 
-    // Process platform rules
+    // Process platform rules in parallel
     const platformRules = rules.filter(r => r.metric_type === 'platform');
-    for (const rule of platformRules) {
-      if (!rule.platform_id) continue;
+    
+    // Get all platform slugs in one query
+    const platformIds = platformRules.map(r => r.platform_id).filter(Boolean) as number[];
+    const platforms = platformIds.length > 0 
+      ? await query<{ id: number; slug: string }>(`SELECT id, slug FROM platforms WHERE id = ANY($1)`, [platformIds])
+      : [];
+    const platformMap = new Map(platforms.map(p => [p.id, p.slug]));
 
-      const platform = await queryOne<{ slug: string }>(`SELECT slug FROM platforms WHERE id = $1`, [rule.platform_id]);
-      if (!platform) continue;
+    // Calculate platform points in parallel (using cached platform contracts)
+    const platformPromises = platformRules
+      .filter(rule => rule.platform_id && platformMap.has(rule.platform_id))
+      .map(async rule => {
+        const slug = platformMap.get(rule.platform_id!)!;
+        const result = await this.calculatePlatformPoints(wallet, rule.platform_id!, rule, platformContracts);
+        return { slug, result };
+      });
 
-      const result = await this.calculatePlatformPoints(wallet, rule.platform_id, rule);
-      breakdown.platforms[platform.slug] = result;
+    const platformResults = await Promise.all(platformPromises);
+    for (const { slug, result } of platformResults) {
+      breakdown.platforms[slug] = result;
       totalPoints += result.points;
     }
 
-    // Get rank
-    const rank = await this.getRankForPoints(totalPoints);
+    // Get rank from cached ranks
+    const rank = cachedData.ranks.find(r => 
+      r.min_points <= totalPoints && (r.max_points === null || r.max_points >= totalPoints)
+    ) || null;
 
     // Cache the result
     await this.cacheWalletPoints(wallet, totalPoints, rank?.id || null, breakdown);

@@ -81,6 +81,10 @@ const ETH_PARAM_FUNCTIONS: Record<string, { amountIndex: number; abi: string }> 
 const tokenPriceCache: Map<string, { price: number; timestamp: number }> = new Map();
 const PRICE_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
+// Response cache for wallet analytics (30 second TTL - balances freshness vs performance)
+const analyticsCache: Map<string, { data: UserAnalyticsResponse; timestamp: number }> = new Map();
+const ANALYTICS_CACHE_TTL = 30 * 1000; // 30 seconds
+
 export class AnalyticsService {
   private rpcClient = createPublicClient({
     transport: http(RPC_URL),
@@ -181,14 +185,14 @@ export class AnalyticsService {
   }
 
   // Fetch USD value from DeFi transactions (borrow, supply, etc.)
+  // Uses indexed input_data from database instead of RPC calls
   private async getDefiUsdValues(
-    txHashes: string[],
+    walletAddress: string,
+    contractAddresses: string[],
     functionName: string,
     ethPrice: number
   ): Promise<Map<string, number>> {
     const valueMap = new Map<string, number>();
-
-    if (txHashes.length === 0) return valueMap;
 
     // Check if it's a DeFi function with asset parameter
     const defiConfig = DEFI_FUNCTIONS[functionName];
@@ -199,71 +203,82 @@ export class AnalyticsService {
     try {
       const abi = parseAbi([defiConfig?.abi || ethParamConfig?.abi || '']);
 
-      // Fetch transactions in batches
-      const batchSize = 10;
-      for (let i = 0; i < txHashes.length; i += batchSize) {
-        const batch = txHashes.slice(i, i + batchSize);
+      // Fetch input_data directly from indexed database instead of RPC
+      const txRows = await query<{ tx_hash: string; input_data: string }>(`
+        SELECT tx_hash, input_data 
+        FROM transaction_details
+        WHERE wallet_address = $1
+          AND contract_address = ANY($2)
+          AND function_name = $3
+          AND status = 1
+          AND input_data IS NOT NULL
+      `, [walletAddress, contractAddresses, functionName]);
 
-        const txPromises = batch.map(async (hash) => {
-          try {
-            const tx = await this.rpcClient.getTransaction({ hash: hash as `0x${string}` });
-            if (tx && tx.input && tx.input.length > 10) {
-              const decoded = decodeFunctionData({
-                abi,
-                data: tx.input,
-              });
+      for (const row of txRows) {
+        try {
+          if (row.input_data && row.input_data.length > 10) {
+            const decoded = decodeFunctionData({
+              abi,
+              data: row.input_data as `0x${string}`,
+            });
 
-              if (defiConfig) {
-                // DeFi function with asset parameter (borrow, supply, etc.)
-                const asset = decoded.args?.[defiConfig.assetIndex] as string;
-                const amount = decoded.args?.[defiConfig.amountIndex] as bigint;
+            if (defiConfig) {
+              // DeFi function with asset parameter (borrow, supply, etc.)
+              const asset = decoded.args?.[defiConfig.assetIndex] as string;
+              const amount = decoded.args?.[defiConfig.amountIndex] as bigint;
 
-                if (asset && typeof amount === 'bigint') {
-                  const tokenInfo = await this.getTokenInfo(asset);
-                  const tokenPrice = await this.getTokenPriceUsd(asset, ethPrice);
-                  const tokenAmount = Number(amount) / Math.pow(10, tokenInfo.decimals);
-                  const usdValue = tokenAmount * tokenPrice;
-                  valueMap.set(hash.toLowerCase(), usdValue);
-                }
-              } else if (ethParamConfig) {
-                // ETH function (borrowETH, etc.) - amount is in wei
-                const amount = decoded.args?.[ethParamConfig.amountIndex] as bigint;
-                if (typeof amount === 'bigint') {
-                  const ethAmount = Number(amount) / 1e18;
-                  const usdValue = ethAmount * ethPrice;
-                  valueMap.set(hash.toLowerCase(), usdValue);
-                }
+              if (asset && typeof amount === 'bigint') {
+                const tokenInfo = await this.getTokenInfo(asset);
+                const tokenPrice = await this.getTokenPriceUsd(asset, ethPrice);
+                const tokenAmount = Number(amount) / Math.pow(10, tokenInfo.decimals);
+                const usdValue = tokenAmount * tokenPrice;
+                valueMap.set(row.tx_hash.toLowerCase(), usdValue);
+              }
+            } else if (ethParamConfig) {
+              // ETH function (borrowETH, etc.) - amount is in wei
+              const amount = decoded.args?.[ethParamConfig.amountIndex] as bigint;
+              if (typeof amount === 'bigint') {
+                const ethAmount = Number(amount) / 1e18;
+                const usdValue = ethAmount * ethPrice;
+                valueMap.set(row.tx_hash.toLowerCase(), usdValue);
               }
             }
-          } catch (err) {
-            // Skip transactions that fail to decode
-            console.error(`Failed to decode tx ${hash}:`, err);
           }
-        });
-
-        await Promise.all(txPromises);
+        } catch (err) {
+          // Skip transactions that fail to decode
+          console.error(`Failed to decode tx ${row.tx_hash}:`, err);
+        }
       }
     } catch (err) {
-      console.error(`Error fetching input data for ${functionName}:`, err);
+      console.error(`Error processing input data for ${functionName}:`, err);
     }
 
     return valueMap;
   }
 
-  // Get all analytics for a wallet (direct query - no caching)
+  // Get all analytics for a wallet (with response caching)
   async getWalletAnalytics(walletAddress: string): Promise<UserAnalyticsResponse> {
     const wallet = walletAddress.toLowerCase();
+
+    // Check cache first
+    const cached = analyticsCache.get(wallet);
+    if (cached && Date.now() - cached.timestamp < ANALYTICS_CACHE_TTL) {
+      return cached.data;
+    }
+
     const metrics = await metricsService.getAllMetrics(true);
+
+    // Process all metrics in parallel for better performance
+    const metricPromises = metrics.map(metric => this.queryMetricForWallet(wallet, metric));
+    const metricsData = await Promise.all(metricPromises);
 
     const result: UserAnalyticsResponse = {
       wallet_address: wallet,
-      metrics: [],
+      metrics: metricsData,
     };
 
-    for (const metric of metrics) {
-      const metricData = await this.queryMetricForWallet(wallet, metric);
-      result.metrics.push(metricData);
-    }
+    // Cache the result
+    analyticsCache.set(wallet, { data: result, timestamp: Date.now() });
 
     return result;
   }
@@ -378,25 +393,10 @@ export class AnalyticsService {
     // Map to store USD values from input data: tx_hash -> usd_value
     const inputDataUsdValues = new Map<string, number>();
 
-    // Fetch input data values for special functions
+    // Fetch input data values for special functions (now uses indexed DB data, not RPC)
     for (const funcName of functionsNeedingInputData) {
-      // Get tx hashes for this function
-      const txHashRows = await query<{ tx_hash: string }>(`
-        SELECT tx_hash 
-        FROM transaction_details
-        WHERE wallet_address = $1
-          AND contract_address = ANY($2)
-          AND function_name = $3
-          AND status = 1
-      `, [walletAddress, contractAddresses, funcName]);
-
-      const txHashes = txHashRows.map(r => r.tx_hash);
-
-      if (txHashes.length > 0) {
-        // DeFi or ETH param function
-        const values = await this.getDefiUsdValues(txHashes, funcName, ethPrice);
-        values.forEach((value, hash) => inputDataUsdValues.set(hash, value));
-      }
+      const values = await this.getDefiUsdValues(walletAddress, contractAddresses, funcName, ethPrice);
+      values.forEach((value, hash) => inputDataUsdValues.set(hash, value));
     }
 
     // Aggregate results

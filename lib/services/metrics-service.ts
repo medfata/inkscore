@@ -10,37 +10,61 @@ import {
 } from '../types/analytics';
 
 export class MetricsService {
-  // Get all metrics with their contracts and functions
+  // In-memory cache for metrics (they rarely change)
+  private metricsCache: { data: MetricWithRelations[]; timestamp: number } | null = null;
+  private readonly METRICS_CACHE_TTL = 60 * 1000; // 1 minute
+
+  // Get all metrics with their contracts and functions (optimized with single query + caching)
   async getAllMetrics(activeOnly: boolean = false): Promise<MetricWithRelations[]> {
-    const whereClause = activeOnly ? 'WHERE m.is_active = true' : '';
-    
-    const metrics = await query<AnalyticsMetric>(`
-      SELECT * FROM analytics_metrics m
-      ${whereClause}
-      ORDER BY display_order ASC, created_at ASC
-    `);
-
-    const result: MetricWithRelations[] = [];
-
-    for (const metric of metrics) {
-      const contracts = await query<MetricContract>(`
-        SELECT * FROM analytics_metric_contracts
-        WHERE metric_id = $1
-      `, [metric.id]);
-
-      const functions = await query<MetricFunction>(`
-        SELECT * FROM analytics_metric_functions
-        WHERE metric_id = $1
-      `, [metric.id]);
-
-      result.push({
-        ...metric,
-        contracts,
-        functions,
-      });
+    // Check cache first
+    if (this.metricsCache && Date.now() - this.metricsCache.timestamp < this.METRICS_CACHE_TTL) {
+      return activeOnly 
+        ? this.metricsCache.data.filter(m => m.is_active)
+        : this.metricsCache.data;
     }
 
-    return result;
+    // Fetch all data in 3 parallel queries instead of N+1
+    const [metrics, allContracts, allFunctions] = await Promise.all([
+      query<AnalyticsMetric>(`
+        SELECT * FROM analytics_metrics
+        ORDER BY display_order ASC, created_at ASC
+      `),
+      query<MetricContract>(`SELECT * FROM analytics_metric_contracts`),
+      query<MetricFunction>(`SELECT * FROM analytics_metric_functions`),
+    ]);
+
+    // Group contracts and functions by metric_id
+    const contractsByMetric = new Map<number, MetricContract[]>();
+    const functionsByMetric = new Map<number, MetricFunction[]>();
+
+    for (const contract of allContracts) {
+      const existing = contractsByMetric.get(contract.metric_id) || [];
+      existing.push(contract);
+      contractsByMetric.set(contract.metric_id, existing);
+    }
+
+    for (const func of allFunctions) {
+      const existing = functionsByMetric.get(func.metric_id) || [];
+      existing.push(func);
+      functionsByMetric.set(func.metric_id, existing);
+    }
+
+    // Assemble results
+    const result: MetricWithRelations[] = metrics.map(metric => ({
+      ...metric,
+      contracts: contractsByMetric.get(metric.id) || [],
+      functions: functionsByMetric.get(metric.id) || [],
+    }));
+
+    // Update cache
+    this.metricsCache = { data: result, timestamp: Date.now() };
+
+    return activeOnly ? result.filter(m => m.is_active) : result;
+  }
+
+  // Invalidate cache (call after create/update/delete)
+  invalidateCache(): void {
+    this.metricsCache = null;
   }
 
   // Get single metric by ID or slug
@@ -113,6 +137,7 @@ export class MetricsService {
 
   // Update metric
   async updateMetric(id: number, data: UpdateMetricRequest): Promise<MetricWithRelations | null> {
+    this.invalidateCache();
     const updates: string[] = [];
     const values: unknown[] = [];
     let paramIndex = 1;
@@ -194,6 +219,7 @@ export class MetricsService {
 
   // Delete metric
   async deleteMetric(id: number): Promise<boolean> {
+    this.invalidateCache();
     const result = await query(`
       DELETE FROM analytics_metrics WHERE id = $1 RETURNING id
     `, [id]);
