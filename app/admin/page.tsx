@@ -41,10 +41,10 @@ interface IndexingProgress {
 
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<TabType>('platforms');
-  
+
   // Metrics state
   const [metrics, setMetrics] = useState<MetricWithRelations[]>([]);
-  
+
   // Platforms state
   const [platforms, setPlatforms] = useState<Platform[]>([]);
   const [contracts, setContracts] = useState<ContractWithPlatforms[]>([]);
@@ -52,7 +52,7 @@ export default function AdminPage() {
   const [ranks, setRanks] = useState<Rank[]>([]);
   const [nativeMetrics, setNativeMetrics] = useState<NativeMetric[]>([]);
   const [indexingProgress, setIndexingProgress] = useState<IndexingProgress | null>(null);
-  
+
   const [loading, setLoading] = useState(true);
 
   // Modal states
@@ -61,7 +61,7 @@ export default function AdminPage() {
   const [showContractModal, setShowContractModal] = useState(false);
   const [showRuleModal, setShowRuleModal] = useState(false);
   const [showRankModal, setShowRankModal] = useState(false);
-  
+
   const [editingMetric, setEditingMetric] = useState<MetricWithRelations | null>(null);
   const [editingPlatform, setEditingPlatform] = useState<Platform | null>(null);
   const [editingContract, setEditingContract] = useState<ContractWithPlatforms | null>(null);
@@ -199,11 +199,10 @@ export default function AdminPage() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-2 rounded-t-lg font-medium transition-colors whitespace-nowrap flex items-center gap-2 ${
-                activeTab === tab.id
+              className={`px-4 py-2 rounded-t-lg font-medium transition-colors whitespace-nowrap flex items-center gap-2 ${activeTab === tab.id
                   ? 'bg-slate-800 text-white'
                   : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
-              }`}
+                }`}
             >
               {tab.label}
               {tab.count !== undefined && (
@@ -382,9 +381,8 @@ function MetricsTab({
                   <div className="flex-1">
                     <div className="flex items-center gap-3">
                       <h3 className="font-semibold text-lg">{metric.name}</h3>
-                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                        metric.is_active ? 'bg-green-500/20 text-green-400' : 'bg-slate-700 text-slate-400'
-                      }`}>
+                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${metric.is_active ? 'bg-green-500/20 text-green-400' : 'bg-slate-700 text-slate-400'
+                        }`}>
                         {metric.is_active ? 'Active' : 'Inactive'}
                       </span>
                       <span className="px-2 py-0.5 rounded text-xs font-medium bg-blue-500/20 text-blue-400">
@@ -544,9 +542,8 @@ function PlatformsTab({
                       <div>
                         <div className="flex items-center gap-3">
                           <h3 className="font-semibold text-lg">{platform.name}</h3>
-                          <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                            platform.is_active ? 'bg-green-500/20 text-green-400' : 'bg-slate-700 text-slate-400'
-                          }`}>
+                          <span className={`px-2 py-0.5 rounded text-xs font-medium ${platform.is_active ? 'bg-green-500/20 text-green-400' : 'bg-slate-700 text-slate-400'
+                            }`}>
                             {platform.is_active ? 'Active' : 'Inactive'}
                           </span>
                           <span className={`px-2 py-0.5 rounded text-xs font-medium ${getPlatformTypeColor(platform.platform_type)}`}>
@@ -830,10 +827,9 @@ function IndexingTab({ progress }: { progress: IndexingProgress | null }) {
                       <div className="flex-1 flex items-center gap-2">
                         <div className="flex-1 h-2 bg-slate-700 rounded-full overflow-hidden">
                           <div
-                            className={`h-full transition-all ${
-                              contract.indexing_status === 'complete' ? 'bg-green-500' :
-                              contract.indexing_status === 'error' ? 'bg-red-500' : 'bg-purple-500'
-                            }`}
+                            className={`h-full transition-all ${contract.indexing_status === 'complete' ? 'bg-green-500' :
+                                contract.indexing_status === 'error' ? 'bg-red-500' : 'bg-purple-500'
+                              }`}
                             style={{ width: `${contract.progress_percent}%` }}
                           />
                         </div>
@@ -944,14 +940,12 @@ function RulesTab({
                   <div className="flex-1">
                     <div className="flex items-center gap-3">
                       <h3 className="font-semibold">{rule.name}</h3>
-                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                        rule.is_active ? 'bg-green-500/20 text-green-400' : 'bg-slate-700 text-slate-400'
-                      }`}>
+                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${rule.is_active ? 'bg-green-500/20 text-green-400' : 'bg-slate-700 text-slate-400'
+                        }`}>
                         {rule.is_active ? 'Active' : 'Inactive'}
                       </span>
-                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                        rule.metric_type === 'platform' ? 'bg-cyan-500/20 text-cyan-400' : 'bg-pink-500/20 text-pink-400'
-                      }`}>
+                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${rule.metric_type === 'platform' ? 'bg-cyan-500/20 text-cyan-400' : 'bg-pink-500/20 text-pink-400'
+                        }`}>
                         {rule.metric_type}
                       </span>
                       <span className={`px-2 py-0.5 rounded text-xs font-medium ${modeColors[rule.calculation_mode]}`}>
@@ -959,7 +953,7 @@ function RulesTab({
                       </span>
                     </div>
                     <p className="text-slate-400 text-sm mt-1">
-                      {rule.metric_type === 'platform' 
+                      {rule.metric_type === 'platform'
                         ? `Platform: ${getPlatformName(rule.platform_id) || 'Unknown'}`
                         : `Native Metric: ${getNativeMetricName(rule.native_metric_id) || 'Unknown'}`
                       }
@@ -1089,9 +1083,8 @@ function RanksTab({
                     <div>
                       <div className="flex items-center gap-3">
                         <h3 className="font-semibold">{rank.name}</h3>
-                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                          rank.is_active ? 'bg-green-500/20 text-green-400' : 'bg-slate-700 text-slate-400'
-                        }`}>
+                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${rank.is_active ? 'bg-green-500/20 text-green-400' : 'bg-slate-700 text-slate-400'
+                          }`}>
                           {rank.is_active ? 'Active' : 'Inactive'}
                         </span>
                       </div>
@@ -1166,22 +1159,22 @@ function MetricModal({
     currency: metric?.currency || 'COUNT',
     display_order: metric?.display_order || 0,
   });
-  
+
   const [selectedContracts, setSelectedContracts] = useState<string[]>(
     metric?.contracts.map(c => c.contract_address) || []
   );
-  
+
   const [selectedFunctions, setSelectedFunctions] = useState<string[]>(
     metric?.functions.map(f => f.function_name) || []
   );
-  
+
   const [availableFunctions, setAvailableFunctions] = useState<ContractFunction[]>([]);
   const [saving, setSaving] = useState(false);
-  
+
   // Name validation state
   const [nameError, setNameError] = useState<string | null>(null);
   const [checkingName, setCheckingName] = useState(false);
-  
+
   // Fetch contracts from the platforms service (up-to-date indexed contracts)
   const [contracts, setContracts] = useState<{ address: string; name: string }[]>([]);
   const [loadingContracts, setLoadingContracts] = useState(true);
@@ -1210,13 +1203,13 @@ function MetricModal({
         const res = await fetch('/api/admin/metrics');
         const data = await res.json();
         const existingMetrics = data.metrics || [];
-        
+
         const isDuplicate = existingMetrics.some(
-          (m: { id: number; name: string }) => 
+          (m: { id: number; name: string }) =>
             m.name.toLowerCase() === formData.name.trim().toLowerCase() &&
             m.id !== metric?.id // Exclude current metric when editing
         );
-        
+
         setNameError(isDuplicate ? 'A metric with this name already exists' : null);
       } catch (error) {
         console.error('Failed to check name uniqueness:', error);
@@ -1280,7 +1273,7 @@ function MetricModal({
         // Find contract name from our contracts list
         const contractInfo = contracts.find(c => c.address.toLowerCase() === address.toLowerCase());
         const contractName = contractInfo?.name || address.slice(0, 8) + '...';
-        
+
         try {
           const res = await fetch(`/api/admin/contracts/${address}/functions`);
           const data = await res.json();
@@ -1297,7 +1290,7 @@ function MetricModal({
 
       // Keep all functions (don't dedupe) - they may have same name but different contracts
       setAvailableFunctionsWithContract(allFunctions);
-      
+
       // For backward compatibility, also set the unique function names
       const uniqueFunctions = allFunctions.reduce((acc, func) => {
         if (!acc.find(f => f.function_name === func.function_name)) {
@@ -1414,7 +1407,7 @@ function MetricModal({
             <div className="bg-slate-800 border border-slate-700 rounded-lg p-3 max-h-48 overflow-y-auto space-y-2">
               {availableFunctionsWithContract.length === 0 ? (
                 <div className="text-slate-500 text-sm text-center py-4">
-                  {selectedContracts.length === 0 
+                  {selectedContracts.length === 0
                     ? 'Select contracts to see available functions'
                     : 'No functions found for selected contracts'}
                 </div>
@@ -1457,9 +1450,8 @@ function MetricModal({
               type="text"
               value={formData.name}
               onChange={(e) => handleNameChange(e.target.value)}
-              className={`w-full bg-slate-800 border rounded-lg px-3 py-2 text-white ${
-                nameError ? 'border-red-500' : 'border-slate-700'
-              }`}
+              className={`w-full bg-slate-800 border rounded-lg px-3 py-2 text-white ${nameError ? 'border-red-500' : 'border-slate-700'
+                }`}
               placeholder="Bridge Volume (USD)"
               required
             />
@@ -1482,8 +1474,8 @@ function MetricModal({
               value={formData.aggregation_type}
               onChange={(e) => {
                 const newType = e.target.value as 'sum_eth_value' | 'count';
-                setFormData({ 
-                  ...formData, 
+                setFormData({
+                  ...formData,
                   aggregation_type: newType,
                   // Auto-set currency based on type
                   currency: newType === 'count' ? 'COUNT' : formData.currency === 'COUNT' ? 'USD' : formData.currency,
@@ -1495,7 +1487,7 @@ function MetricModal({
               <option value="sum_eth_value">Sum Value (ETH/USD)</option>
             </select>
             <p className="text-xs text-slate-500 mt-1">
-              {formData.aggregation_type === 'count' 
+              {formData.aggregation_type === 'count'
                 ? 'Counts the number of transactions matching the selected contracts and functions'
                 : 'Sums the ETH value of transactions and converts to selected currency'}
             </p>
@@ -1594,13 +1586,13 @@ function PlatformTypeAutocomplete({
 
   // Filter suggestions based on input
   const filteredSuggestions = inputValue.trim()
-    ? allTypes.filter(type => 
-        type.toLowerCase().includes(inputValue.toLowerCase())
-      )
+    ? allTypes.filter(type =>
+      type.toLowerCase().includes(inputValue.toLowerCase())
+    )
     : allTypes;
 
   // Check if current input is a new type
-  const isNewType = inputValue.trim() && 
+  const isNewType = inputValue.trim() &&
     !allTypes.some(type => type.toLowerCase() === inputValue.toLowerCase().trim());
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1656,7 +1648,7 @@ function PlatformTypeAutocomplete({
         placeholder="Type or select a platform type..."
         required
       />
-      
+
       {showSuggestions && !loading && (
         <div className="absolute z-10 w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg shadow-lg max-h-48 overflow-y-auto">
           {isNewType && (
@@ -1680,9 +1672,8 @@ function PlatformTypeAutocomplete({
                 e.preventDefault();
                 handleSelectType(type);
               }}
-              className={`w-full px-3 py-2 text-left hover:bg-slate-700 transition-colors flex items-center justify-between ${
-                type.toLowerCase() === inputValue.toLowerCase() ? 'bg-slate-700' : ''
-              }`}
+              className={`w-full px-3 py-2 text-left hover:bg-slate-700 transition-colors flex items-center justify-between ${type.toLowerCase() === inputValue.toLowerCase() ? 'bg-slate-700' : ''
+                }`}
             >
               <span>{type}</span>
               {existingTypes.includes(type) && !defaultTypes.includes(type) && (
@@ -1722,7 +1713,7 @@ function PlatformModal({
     platform_type: platform?.platform_type || 'dex',
   });
   const [saving, setSaving] = useState(false);
-  
+
   // Name validation state
   const [nameError, setNameError] = useState<string | null>(null);
   const [checkingName, setCheckingName] = useState(false);
@@ -1750,13 +1741,13 @@ function PlatformModal({
         const res = await fetch('/api/admin/platforms');
         const data = await res.json();
         const existingPlatforms = data.platforms || [];
-        
+
         const isDuplicate = existingPlatforms.some(
-          (p: { id: number; name: string }) => 
+          (p: { id: number; name: string }) =>
             p.name.toLowerCase() === formData.name.trim().toLowerCase() &&
             p.id !== platform?.id // Exclude current platform when editing
         );
-        
+
         setNameError(isDuplicate ? 'A platform with this name already exists' : null);
       } catch (error) {
         console.error('Failed to check name uniqueness:', error);
@@ -1813,9 +1804,8 @@ function PlatformModal({
               type="text"
               value={formData.name}
               onChange={(e) => handleNameChange(e.target.value)}
-              className={`w-full bg-slate-800 border rounded-lg px-3 py-2 text-white ${
-                nameError ? 'border-red-500' : 'border-slate-700'
-              }`}
+              className={`w-full bg-slate-800 border rounded-lg px-3 py-2 text-white ${nameError ? 'border-red-500' : 'border-slate-700'
+                }`}
               placeholder="Velodrome"
               required
             />
@@ -1939,8 +1929,8 @@ function ContractModal({
         platform_ids: selectedPlatforms,
       };
 
-      const url = contract 
-        ? `/api/admin/platforms/contracts/${contract.address}` 
+      const url = contract
+        ? `/api/admin/platforms/contracts/${contract.address}`
         : '/api/admin/platforms/contracts';
       const method = contract ? 'PUT' : 'POST';
 
@@ -2089,6 +2079,15 @@ function ContractModal({
 // RULE MODAL
 // ============================================================================
 
+interface MetricOption {
+  id: number;
+  name: string;
+  slug: string;
+  aggregation_type: string;
+  currency: string;
+  contracts: string[];
+}
+
 function RuleModal({
   rule,
   platforms,
@@ -2103,7 +2102,7 @@ function RuleModal({
   onSave: () => void;
 }) {
   const [formData, setFormData] = useState({
-    metric_type: rule?.metric_type || 'platform' as 'platform' | 'native',
+    metric_type: rule?.metric_type || 'metric' as 'platform' | 'native' | 'metric',
     platform_id: rule?.platform_id || null as number | null,
     native_metric_id: rule?.native_metric_id || null as number | null,
     name: rule?.name || '',
@@ -2111,6 +2110,19 @@ function RuleModal({
     calculation_mode: rule?.calculation_mode || 'range' as CalculationMode,
     display_order: rule?.display_order || 0,
   });
+
+  // For metric-based rules: cascading selection
+  const [selectedPlatformIds, setSelectedPlatformIds] = useState<number[]>([]);
+  const [platformContractsMap, setPlatformContractsMap] = useState<Map<number, ContractWithPlatforms[]>>(new Map());
+  const [selectedContractAddresses, setSelectedContractAddresses] = useState<string[]>([]);
+  const [availableMetrics, setAvailableMetrics] = useState<MetricOption[]>([]);
+  const [selectedMetricIds, setSelectedMetricIds] = useState<number[]>(
+    rule?.metrics?.map(m => m.id) || []
+  );
+  const [loadingContracts, setLoadingContracts] = useState(false);
+  const [loadingMetrics, setLoadingMetrics] = useState(false);
+  const [initializing, setInitializing] = useState(!!rule && rule.metric_type === 'metric');
+
   const [ranges, setRanges] = useState<PointRange[]>(
     rule?.ranges || [{ min: 0, max: 10, points: 10 }]
   );
@@ -2118,12 +2130,156 @@ function RuleModal({
 
   const calculationModes: CalculationMode[] = ['range', 'per_item', 'threshold', 'multiplier'];
 
+  // Initialize selections when editing an existing metric-based rule
+  useEffect(() => {
+    if (!rule || rule.metric_type !== 'metric' || !rule.metrics || rule.metrics.length === 0) {
+      setInitializing(false);
+      return;
+    }
+
+    const initializeSelections = async () => {
+      try {
+        // 1. Fetch all metrics to get their contract addresses
+        const metricsRes = await fetch('/api/admin/metrics');
+        const metricsData = await metricsRes.json();
+        const allMetrics = metricsData.metrics || [];
+        
+        // Find the metrics that belong to this rule
+        const ruleMetricIds = rule.metrics!.map(m => m.id);
+        type MetricData = { id: number; name: string; slug: string; aggregation_type: string; currency: string; contracts: { contract_address: string }[] };
+        const ruleMetrics = allMetrics.filter((m: MetricData) => ruleMetricIds.includes(m.id));
+        
+        // Extract all contract addresses from these metrics
+        const contractAddresses = new Set<string>();
+        for (const metric of ruleMetrics) {
+          for (const c of (metric.contracts || [])) {
+            contractAddresses.add(c.contract_address.toLowerCase());
+          }
+        }
+        
+        // 2. Fetch all contracts to find their platforms
+        const contractsRes = await fetch('/api/admin/platforms/contracts');
+        const contractsData = await contractsRes.json();
+        const allContracts: ContractWithPlatforms[] = contractsData.contracts || [];
+        
+        // Find contracts that match and extract their platform IDs
+        const platformIds = new Set<number>();
+        for (const contract of allContracts) {
+          if (contractAddresses.has(contract.address.toLowerCase())) {
+            for (const platform of (contract.platforms || [])) {
+              platformIds.add(platform.id);
+            }
+          }
+        }
+        
+        // 3. Set all the selections
+        setSelectedPlatformIds(Array.from(platformIds));
+        setSelectedContractAddresses(Array.from(contractAddresses));
+        setSelectedMetricIds(ruleMetricIds);
+        
+        // 4. Set available metrics for display
+        setAvailableMetrics(ruleMetrics.map((m: MetricData) => ({
+          id: m.id,
+          name: m.name,
+          slug: m.slug,
+          aggregation_type: m.aggregation_type,
+          currency: m.currency,
+          contracts: m.contracts?.map(c => c.contract_address) || [],
+        })));
+        
+      } catch (error) {
+        console.error('Failed to initialize rule selections:', error);
+      } finally {
+        setInitializing(false);
+      }
+    };
+
+    initializeSelections();
+  }, [rule]);
+
+  // Load contracts when platforms are selected (skip during initialization)
+  useEffect(() => {
+    if (initializing) return;
+    if (formData.metric_type !== 'metric' || selectedPlatformIds.length === 0) {
+      setPlatformContractsMap(new Map());
+      return;
+    }
+
+    const loadContracts = async () => {
+      setLoadingContracts(true);
+      try {
+        const res = await fetch('/api/admin/platforms/contracts');
+        const data = await res.json();
+        const allContracts: ContractWithPlatforms[] = data.contracts || [];
+
+        const contractsByPlatform = new Map<number, ContractWithPlatforms[]>();
+        for (const platformId of selectedPlatformIds) {
+          const contracts = allContracts.filter(c =>
+            c.platforms?.some(p => p.id === platformId)
+          );
+          contractsByPlatform.set(platformId, contracts);
+        }
+        setPlatformContractsMap(contractsByPlatform);
+      } catch (error) {
+        console.error('Failed to load contracts:', error);
+      } finally {
+        setLoadingContracts(false);
+      }
+    };
+
+    loadContracts();
+  }, [selectedPlatformIds, formData.metric_type, initializing]);
+
+  // Load metrics when contracts are selected (skip during initialization)
+  useEffect(() => {
+    if (initializing) return;
+    if (formData.metric_type !== 'metric' || selectedContractAddresses.length === 0) {
+      setAvailableMetrics([]);
+      return;
+    }
+
+    const loadMetrics = async () => {
+      setLoadingMetrics(true);
+      try {
+        const res = await fetch('/api/admin/metrics');
+        const data = await res.json();
+        const allMetrics = data.metrics || [];
+
+        type MetricData = { id: number; name: string; slug: string; aggregation_type: string; currency: string; contracts: { contract_address: string }[] };
+        const filteredMetrics: MetricOption[] = allMetrics
+          .filter((m: MetricData) =>
+            m.contracts?.some(c =>
+              selectedContractAddresses.includes(c.contract_address.toLowerCase())
+            )
+          )
+          .map((m: MetricData) => ({
+            id: m.id,
+            name: m.name,
+            slug: m.slug,
+            aggregation_type: m.aggregation_type,
+            currency: m.currency,
+            contracts: m.contracts?.map(c => c.contract_address) || [],
+          }));
+
+        setAvailableMetrics(filteredMetrics);
+      } catch (error) {
+        console.error('Failed to load metrics:', error);
+      } finally {
+        setLoadingMetrics(false);
+      }
+    };
+
+    loadMetrics();
+  }, [selectedContractAddresses, formData.metric_type]);
+
+  const allSelectedPlatformContracts = Array.from(platformContractsMap.values()).flat();
+
   const addRange = () => {
     const lastRange = ranges[ranges.length - 1];
-    setRanges([...ranges, { 
-      min: lastRange ? (lastRange.max || lastRange.min) + 1 : 0, 
-      max: null, 
-      points: 0 
+    setRanges([...ranges, {
+      min: lastRange ? (lastRange.max || lastRange.min) + 1 : 0,
+      max: null,
+      points: 0
     }]);
   };
 
@@ -2147,6 +2303,7 @@ function RuleModal({
       const payload = {
         ...formData,
         ranges,
+        metric_ids: formData.metric_type === 'metric' ? selectedMetricIds : undefined,
       };
 
       const url = rule ? `/api/admin/points/rules/${rule.id}` : '/api/admin/points/rules';
@@ -2172,6 +2329,16 @@ function RuleModal({
     }
   };
 
+  if (initializing) {
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="bg-slate-900 border border-slate-700 rounded-xl w-full max-w-2xl p-8">
+          <div className="text-center text-slate-400">Loading rule data...</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-slate-900 border border-slate-700 rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -2182,57 +2349,157 @@ function RuleModal({
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-400 mb-1">Metric Type</label>
-              <select
-                value={formData.metric_type}
-                onChange={(e) => setFormData({ 
-                  ...formData, 
-                  metric_type: e.target.value as 'platform' | 'native',
+          {/* Rule Type Selection */}
+          <div>
+            <label className="block text-sm font-medium text-slate-400 mb-1">Rule Type</label>
+            <select
+              value={formData.metric_type}
+              onChange={(e) => {
+                const newType = e.target.value as 'platform' | 'native' | 'metric';
+                setFormData({
+                  ...formData,
+                  metric_type: newType,
                   platform_id: null,
                   native_metric_id: null,
-                })}
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
-              >
-                <option value="platform">Platform</option>
-                <option value="native">Native Metric</option>
-              </select>
-            </div>
-
-            {formData.metric_type === 'platform' ? (
-              <div>
-                <label className="block text-sm font-medium text-slate-400 mb-1">Platform</label>
-                <select
-                  value={formData.platform_id || ''}
-                  onChange={(e) => setFormData({ ...formData, platform_id: parseInt(e.target.value) || null })}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
-                  required
-                >
-                  <option value="">Select platform...</option>
-                  {platforms.map((p) => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
-                  ))}
-                </select>
-              </div>
-            ) : (
-              <div>
-                <label className="block text-sm font-medium text-slate-400 mb-1">Native Metric</label>
-                <select
-                  value={formData.native_metric_id || ''}
-                  onChange={(e) => setFormData({ ...formData, native_metric_id: parseInt(e.target.value) || null })}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
-                  required
-                >
-                  <option value="">Select metric...</option>
-                  {nativeMetrics.map((m) => (
-                    <option key={m.id} value={m.id}>{m.name}</option>
-                  ))}
-                </select>
-              </div>
-            )}
+                });
+                setSelectedPlatformIds([]);
+                setSelectedContractAddresses([]);
+                setSelectedMetricIds([]);
+              }}
+              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
+            >
+              <option value="metric">Based on Metrics (Recommended)</option>
+              <option value="native">Native Metric (Wallet Age, TX Count, etc.)</option>
+            </select>
+            <p className="text-xs text-slate-500 mt-1">
+              {formData.metric_type === 'metric' && 'Select platforms → contracts → metrics to define what activity earns points'}
+              {formData.metric_type === 'native' && 'Points based on wallet-level metrics like age, transaction count, NFTs, or token holdings'}
+            </p>
           </div>
 
+          {/* Metric-based rule: Cascading selection */}
+          {formData.metric_type === 'metric' && (
+            <>
+              {/* Step 1: Select Platforms */}
+              <div>
+                <label className="block text-sm font-medium text-slate-400 mb-2">
+                  1. Select Platforms ({selectedPlatformIds.length} selected)
+                </label>
+                <div className="bg-slate-800 border border-slate-700 rounded-lg p-3 max-h-32 overflow-y-auto space-y-1">
+                  {platforms.map((platform) => (
+                    <label key={platform.id} className="flex items-center gap-2 cursor-pointer hover:bg-slate-700/50 p-1 rounded">
+                      <input
+                        type="checkbox"
+                        checked={selectedPlatformIds.includes(platform.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedPlatformIds([...selectedPlatformIds, platform.id]);
+                          } else {
+                            setSelectedPlatformIds(selectedPlatformIds.filter(id => id !== platform.id));
+                            const addrs = platformContractsMap.get(platform.id)?.map(c => c.address.toLowerCase()) || [];
+                            setSelectedContractAddresses(selectedContractAddresses.filter(a => !addrs.includes(a)));
+                          }
+                        }}
+                        className="rounded bg-slate-700 border-slate-600"
+                      />
+                      <span className="text-sm">{platform.name}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Step 2: Select Contracts */}
+              {selectedPlatformIds.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-400 mb-2">
+                    2. Select Contracts ({selectedContractAddresses.length} selected)
+                  </label>
+                  <div className="bg-slate-800 border border-slate-700 rounded-lg p-3 max-h-40 overflow-y-auto space-y-1">
+                    {loadingContracts ? (
+                      <div className="text-slate-500 text-sm text-center py-2">Loading contracts...</div>
+                    ) : allSelectedPlatformContracts.length === 0 ? (
+                      <div className="text-slate-500 text-sm text-center py-2">No contracts found</div>
+                    ) : (
+                      allSelectedPlatformContracts.map((contract) => (
+                        <label key={contract.address} className="flex items-center gap-2 cursor-pointer hover:bg-slate-700/50 p-1 rounded">
+                          <input
+                            type="checkbox"
+                            checked={selectedContractAddresses.includes(contract.address.toLowerCase())}
+                            onChange={(e) => {
+                              const addr = contract.address.toLowerCase();
+                              if (e.target.checked) {
+                                setSelectedContractAddresses([...selectedContractAddresses, addr]);
+                              } else {
+                                setSelectedContractAddresses(selectedContractAddresses.filter(a => a !== addr));
+                              }
+                            }}
+                            className="rounded bg-slate-700 border-slate-600"
+                          />
+                          <span className="text-sm">{contract.name}</span>
+                          <span className="text-xs text-slate-500 font-mono">{contract.address.slice(0, 8)}...</span>
+                        </label>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Step 3: Select Metrics */}
+              {selectedContractAddresses.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-400 mb-2">
+                    3. Select Metrics ({selectedMetricIds.length} selected)
+                  </label>
+                  <div className="bg-slate-800 border border-slate-700 rounded-lg p-3 max-h-40 overflow-y-auto space-y-1">
+                    {loadingMetrics ? (
+                      <div className="text-slate-500 text-sm text-center py-2">Loading metrics...</div>
+                    ) : availableMetrics.length === 0 ? (
+                      <div className="text-slate-500 text-sm text-center py-2">No metrics found. Create metrics first.</div>
+                    ) : (
+                      availableMetrics.map((metric) => (
+                        <label key={metric.id} className="flex items-center gap-2 cursor-pointer hover:bg-slate-700/50 p-1 rounded">
+                          <input
+                            type="checkbox"
+                            checked={selectedMetricIds.includes(metric.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedMetricIds([...selectedMetricIds, metric.id]);
+                              } else {
+                                setSelectedMetricIds(selectedMetricIds.filter(id => id !== metric.id));
+                              }
+                            }}
+                            className="rounded bg-slate-700 border-slate-600"
+                          />
+                          <span className="text-sm">{metric.name}</span>
+                          <span className="text-xs text-slate-500">({metric.aggregation_type === 'count' ? 'Count' : metric.currency})</span>
+                        </label>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Native metric selection */}
+          {formData.metric_type === 'native' && (
+            <div>
+              <label className="block text-sm font-medium text-slate-400 mb-1">Native Metric</label>
+              <select
+                value={formData.native_metric_id || ''}
+                onChange={(e) => setFormData({ ...formData, native_metric_id: parseInt(e.target.value) || null })}
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
+                required
+              >
+                <option value="">Select metric...</option>
+                {nativeMetrics.map((m) => (
+                  <option key={m.id} value={m.id}>{m.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Rule Name */}
           <div>
             <label className="block text-sm font-medium text-slate-400 mb-1">Rule Name</label>
             <input
@@ -2240,22 +2507,12 @@ function RuleModal({
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
-              placeholder="Velodrome Swap Points"
+              placeholder="e.g., Velodrome Swap Points"
               required
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-slate-400 mb-1">Description</label>
-            <textarea
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
-              rows={2}
-              placeholder="Points awarded for..."
-            />
-          </div>
-
+          {/* Calculation Mode */}
           <div>
             <label className="block text-sm font-medium text-slate-400 mb-1">Calculation Mode</label>
             <select
@@ -2267,80 +2524,32 @@ function RuleModal({
                 <option key={mode} value={mode}>{mode}</option>
               ))}
             </select>
-            <p className="text-xs text-slate-500 mt-1">
-              {formData.calculation_mode === 'range' && 'Points based on value falling within ranges'}
-              {formData.calculation_mode === 'per_item' && 'Points calculated per item (e.g., per token)'}
-              {formData.calculation_mode === 'threshold' && 'Points awarded when threshold is met'}
-              {formData.calculation_mode === 'multiplier' && 'Points multiplied by value'}
-            </p>
           </div>
 
           {/* Ranges Editor */}
           <div>
             <div className="flex justify-between items-center mb-2">
               <label className="block text-sm font-medium text-slate-400">Point Ranges</label>
-              <button
-                type="button"
-                onClick={addRange}
-                className="text-sm text-purple-400 hover:text-purple-300"
-              >
-                + Add Range
-              </button>
+              <button type="button" onClick={addRange} className="text-sm text-purple-400 hover:text-purple-300">+ Add Range</button>
             </div>
             <div className="space-y-2">
               {ranges.map((range, index) => (
                 <div key={index} className="flex items-center gap-2 bg-slate-800 p-2 rounded-lg">
-                  <input
-                    type="number"
-                    value={range.min}
-                    onChange={(e) => updateRange(index, 'min', parseInt(e.target.value) || 0)}
-                    className="w-24 bg-slate-700 border border-slate-600 rounded px-2 py-1 text-white text-sm"
-                    placeholder="Min"
-                  />
+                  <input type="number" value={range.min} onChange={(e) => updateRange(index, 'min', parseInt(e.target.value) || 0)} className="w-24 bg-slate-700 border border-slate-600 rounded px-2 py-1 text-white text-sm" placeholder="Min" />
                   <span className="text-slate-500">to</span>
-                  <input
-                    type="number"
-                    value={range.max ?? ''}
-                    onChange={(e) => updateRange(index, 'max', e.target.value ? parseInt(e.target.value) : null)}
-                    className="w-24 bg-slate-700 border border-slate-600 rounded px-2 py-1 text-white text-sm"
-                    placeholder="∞"
-                  />
+                  <input type="number" value={range.max ?? ''} onChange={(e) => updateRange(index, 'max', e.target.value ? parseInt(e.target.value) : null)} className="w-24 bg-slate-700 border border-slate-600 rounded px-2 py-1 text-white text-sm" placeholder="∞" />
                   <span className="text-slate-500">=</span>
-                  <input
-                    type="number"
-                    value={range.points}
-                    onChange={(e) => updateRange(index, 'points', parseInt(e.target.value) || 0)}
-                    className="w-20 bg-slate-700 border border-slate-600 rounded px-2 py-1 text-white text-sm"
-                    placeholder="Points"
-                  />
+                  <input type="number" value={range.points} onChange={(e) => updateRange(index, 'points', parseInt(e.target.value) || 0)} className="w-20 bg-slate-700 border border-slate-600 rounded px-2 py-1 text-white text-sm" placeholder="Points" />
                   <span className="text-slate-500 text-sm">pts</span>
-                  {ranges.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => removeRange(index)}
-                      className="text-red-400 hover:text-red-300 ml-2"
-                    >
-                      ×
-                    </button>
-                  )}
+                  {ranges.length > 1 && <button type="button" onClick={() => removeRange(index)} className="text-red-400 hover:text-red-300 ml-2">×</button>}
                 </div>
               ))}
             </div>
           </div>
 
           <div className="flex justify-end gap-3 pt-4 border-t border-slate-700">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-slate-700 rounded-lg transition-colors"
-            >
+            <button type="button" onClick={onClose} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors">Cancel</button>
+            <button type="submit" disabled={saving || (formData.metric_type === 'metric' && selectedMetricIds.length === 0)} className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-slate-700 rounded-lg transition-colors">
               {saving ? 'Saving...' : rule ? 'Update' : 'Create'}
             </button>
           </div>

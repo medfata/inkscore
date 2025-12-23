@@ -119,7 +119,7 @@ export type NativeMetricKey = 'wallet_age' | 'total_tx' | 'nft_collections' | 'e
 
 export interface PointsRule {
   id: number;
-  metric_type: 'platform' | 'native';
+  metric_type: 'platform' | 'native' | 'metric';
   platform_id: number | null;
   native_metric_id: number | null;
   name: string;
@@ -144,6 +144,13 @@ export interface PointRange {
 export interface PointsRuleWithRelations extends PointsRule {
   platform?: Platform;
   native_metric?: NativeMetric;
+  metrics?: Array<{
+    id: number;
+    name: string;
+    slug: string;
+    aggregation_type: string;
+    currency: string;
+  }>;
 }
 
 // ============================================================================
@@ -284,9 +291,10 @@ export interface UpdateContractRequest {
 }
 
 export interface CreatePointsRuleRequest {
-  metric_type: 'platform' | 'native';
+  metric_type: 'platform' | 'native' | 'metric';
   platform_id?: number;
   native_metric_id?: number;
+  metric_ids?: number[];  // For metric-based rules
   name: string;
   description?: string;
   calculation_mode: CalculationMode;
