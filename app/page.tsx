@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { useAccount, useConnect, useDisconnect } from 'wagmi';
+import { useAccount, useDisconnect } from 'wagmi';
+import { useAppKit } from '@reown/appkit/react';
 import { Landing } from './components/Landing';
 import { Dashboard } from './components/Dashboard';
 import { Menu, X, ExternalLink } from './components/Icons';
@@ -16,11 +17,10 @@ export default function Home() {
   const [currentView, setCurrentView] = useState<View>(View.LANDING);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isDemo, setIsDemo] = useState(false);
-  const [showConnectModal, setShowConnectModal] = useState(false);
 
-  const { address, isConnected } = useAccount();
-  const { connect, connectors, isPending } = useConnect();
+  const { address, isConnected, isConnecting } = useAccount();
   const { disconnect } = useDisconnect();
+  const { open } = useAppKit();
 
   // Auto-switch to dashboard when connected
   useEffect(() => {
@@ -30,12 +30,7 @@ export default function Home() {
   }, [isConnected, address, isDemo]);
 
   const handleConnect = () => {
-    setShowConnectModal(true);
-  };
-
-  const handleConnectorSelect = (connector: typeof connectors[number]) => {
-    connect({ connector });
-    setShowConnectModal(false);
+    open();
   };
 
   const startDemo = () => {
@@ -104,12 +99,12 @@ export default function Home() {
             ) : (
               <button
                 onClick={handleConnect}
-                disabled={isPending}
+                disabled={isConnecting}
                 className="group relative px-5 py-2.5 rounded-lg text-sm font-medium transition-all overflow-hidden disabled:opacity-50"
               >
                 <div className="absolute inset-0 bg-white/5 border border-white/10 group-hover:bg-white/10 transition-colors"></div>
                 <span className="relative z-10 text-white">
-                  {isPending ? 'Connecting...' : 'Connect Wallet'}
+                  {isConnecting ? 'Connecting...' : 'Connect Wallet'}
                 </span>
               </button>
             )}
@@ -167,62 +162,6 @@ export default function Home() {
           </div>
         </div>
       </footer>
-
-      {/* Connect Wallet Modal */}
-      {showConnectModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md p-6 animate-fade-in-up">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-semibold text-white">Connect Wallet</h2>
-              <button
-                onClick={() => setShowConnectModal(false)}
-                className="text-slate-400 hover:text-white transition-colors"
-              >
-                <X />
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              {connectors.map((connector) => (
-                <button
-                  key={connector.uid}
-                  onClick={() => handleConnectorSelect(connector)}
-                  disabled={isPending}
-                  className="w-full flex items-center gap-4 p-4 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl transition-colors disabled:opacity-50"
-                >
-                  <div className="w-10 h-10 bg-slate-700 rounded-lg flex items-center justify-center overflow-hidden">
-                    {connector.icon ? (
-                      <img src={connector.icon} alt={connector.name} className="w-8 h-8" />
-                    ) : connector.name === 'MetaMask' ? (
-                      <span className="text-2xl">🦊</span>
-                    ) : connector.name === 'WalletConnect' ? (
-                      <img src="https://walletconnect.com/static/favicon.png" alt="WalletConnect" className="w-8 h-8" />
-                    ) : connector.name === 'Injected' ? (
-                      <span className="text-2xl">💉</span>
-                    ) : (
-                      <span className="text-2xl">👛</span>
-                    )}
-                  </div>
-                  <div className="text-left">
-                    <div className="font-medium text-white">{connector.name}</div>
-                    <div className="text-sm text-slate-400">
-                      {connector.name === 'WalletConnect' 
-                        ? 'Scan with mobile wallet' 
-                        : connector.name === 'Injected' 
-                          ? 'Browser Wallet' 
-                          : 'Connect'}
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
-
-            <p className="text-xs text-slate-500 text-center mt-6">
-              By connecting, you agree to our Terms of Service
-            </p>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

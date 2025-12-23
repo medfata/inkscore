@@ -1,12 +1,14 @@
-import { http, createConfig, createStorage, cookieStorage } from 'wagmi';
-import { injected, walletConnect } from 'wagmi/connectors';
+import { WagmiAdapter } from '@reown/appkit-adapter-wagmi';
+import { defineChain } from '@reown/appkit/networks';
 
-// Get your projectId from https://cloud.walletconnect.com
+// Get your projectId from https://cloud.reown.com
 export const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || '';
 
 // Ink Chain configuration
-export const inkChain = {
+export const inkChain = defineChain({
   id: 57073,
+  caipNetworkId: 'eip155:57073',
+  chainNamespace: 'eip155',
   name: 'Ink',
   nativeCurrency: {
     decimals: 18,
@@ -19,34 +21,15 @@ export const inkChain = {
   blockExplorers: {
     default: { name: 'Ink Explorer', url: 'https://explorer.inkonchain.com' },
   },
-} as const;
-
-export const config = createConfig({
-  chains: [inkChain],
-  connectors: [
-    injected(),
-    walletConnect({
-      projectId,
-      showQrModal: true, // This enables the official WalletConnect modal
-      metadata: {
-        name: 'INKSCORE',
-        description: 'On-Chain Reputation Score for InkChain',
-        url: typeof window !== 'undefined' ? window.location.origin : '',
-        icons: [],
-      },
-    }),
-  ],
-  storage: createStorage({
-    storage: cookieStorage,
-  }),
-  ssr: true,
-  transports: {
-    [inkChain.id]: http(),
-  },
 });
 
-declare module 'wagmi' {
-  interface Register {
-    config: typeof config;
-  }
-}
+export const networks = [inkChain] as const;
+
+// Create Wagmi Adapter
+export const wagmiAdapter = new WagmiAdapter({
+  ssr: true,
+  projectId,
+  networks: [inkChain],
+});
+
+export const config = wagmiAdapter.wagmiConfig;
