@@ -16,7 +16,7 @@ export interface TransactionDetail {
   status: number;
 }
 
-const BATCH_SIZE = 100;
+const BATCH_SIZE = 500; // Increased for better throughput with large pages
 
 export async function insertTransactionDetails(txs: TransactionDetail[]): Promise<void> {
   if (txs.length === 0) return;

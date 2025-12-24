@@ -3,11 +3,11 @@ import { insertTransactionDetails, type TransactionDetail } from './db/transacti
 import { insertInteractions, type Interaction } from './db/interactions.js';
 import { pool } from './db/index.js';
 
-// Routescan API configuration - using chain-specific endpoint for Ink (57073)
+// Routescan API configuration - using the ALL chains endpoint with chain filter
 const INK_CHAIN_ID = '57073';
-const ROUTESCAN_BASE_URL = `https://cdn-canary.routescan.io/api/evm/${INK_CHAIN_ID}/transactions`;
-const PAGE_LIMIT = 50;
-const REQUEST_DELAY_MS = 250; // 4 requests per second (increased from 2)
+const ROUTESCAN_BASE_URL = 'https://cdn.routescan.io/api/evm/all/transactions';
+const PAGE_LIMIT = 100; // Routescan supports up to 1000
+const REQUEST_DELAY_MS = 100; // 10 requests per second
 
 interface RoutescanTransaction {
   chainId: string;
@@ -51,19 +51,31 @@ interface TxIndexerCursor {
   contract_address: string;
   last_next_token: string | null;
   total_indexed: number;
+  api_total_count: number; // Total transactions reported by API
   is_complete: boolean;
 }
 
-// Stats tracking
-let totalTxProcessed = 0;
-let startTime = Date.now();
+// Stats tracking - now per-contract instead of global
+interface IndexerStats {
+  totalTxProcessed: number;
+  startTime: number;
+  seenTxHashes: Set<string>; // Track seen tx hashes to detect loops
+}
 
-function logStats(contractName: string, batchCount: number, apiTotalCount: number) {
-  const elapsed = (Date.now() - startTime) / 1000;
-  const txPerSec = elapsed > 0 ? (totalTxProcessed / elapsed).toFixed(1) : '0';
-  const progress = apiTotalCount > 0 ? ((totalTxProcessed / apiTotalCount) * 100).toFixed(1) : '0';
+function createStats(initialCount: number = 0): IndexerStats {
+  return {
+    totalTxProcessed: initialCount,
+    startTime: Date.now(),
+    seenTxHashes: new Set(),
+  };
+}
+
+function logStats(contractName: string, batchCount: number, stats: IndexerStats, apiTotalCount: number) {
+  const elapsed = (Date.now() - stats.startTime) / 1000;
+  const txPerSec = elapsed > 0 ? (stats.totalTxProcessed / elapsed).toFixed(1) : '0';
+  const progress = apiTotalCount > 0 ? ((stats.totalTxProcessed / apiTotalCount) * 100).toFixed(1) : '0';
   console.log(
-    `  [${contractName}] +${batchCount} txs | Total: ${totalTxProcessed} | ${txPerSec} tx/sec | ~${progress}%`
+    `  [${contractName}] +${batchCount} txs | Total: ${stats.totalTxProcessed} | ${txPerSec} tx/sec | ~${progress}%`
   );
 }
 
@@ -75,6 +87,7 @@ async function fetchRoutescanPage(
   const params = new URLSearchParams({
     fromAddresses: contractAddress,
     toAddresses: contractAddress,
+    includedChainIds: INK_CHAIN_ID, // Filter to Ink chain only
     count: 'true',
     limit: PAGE_LIMIT.toString(),
     sort, // asc for backfill (oldest first), desc for polling (newest first)
@@ -121,10 +134,17 @@ async function ensureCursorTable(): Promise<void> {
       contract_address VARCHAR(42) UNIQUE NOT NULL,
       last_next_token TEXT,
       total_indexed INTEGER DEFAULT 0,
+      api_total_count INTEGER DEFAULT 0,
       is_complete BOOLEAN DEFAULT FALSE,
       created_at TIMESTAMP DEFAULT NOW(),
       updated_at TIMESTAMP DEFAULT NOW()
     )
+  `);
+
+  // Add api_total_count column if it doesn't exist (migration for existing tables)
+  await pool.query(`
+    ALTER TABLE tx_indexer_cursors 
+    ADD COLUMN IF NOT EXISTS api_total_count INTEGER DEFAULT 0
   `);
 }
 
@@ -155,13 +175,22 @@ async function updateCursorProgress(
   contractAddress: string,
   nextToken: string | null,
   totalIndexed: number,
+  apiTotalCount: number,
   isComplete: boolean
 ): Promise<void> {
   await pool.query(
     `UPDATE tx_indexer_cursors 
-     SET last_next_token = $1, total_indexed = $2, is_complete = $3, updated_at = NOW()
-     WHERE contract_address = $4`,
-    [nextToken, totalIndexed, isComplete, contractAddress.toLowerCase()]
+     SET last_next_token = $1, total_indexed = $2, api_total_count = $3, is_complete = $4, updated_at = NOW()
+     WHERE contract_address = $5`,
+    [nextToken, totalIndexed, apiTotalCount, isComplete, contractAddress.toLowerCase()]
+  );
+
+  // Also sync to contracts table for unified progress tracking
+  await pool.query(
+    `UPDATE contracts 
+     SET total_indexed = $1, updated_at = NOW()
+     WHERE LOWER(address) = $2`,
+    [totalIndexed, contractAddress.toLowerCase()]
   );
 }
 
@@ -183,14 +212,15 @@ export async function indexContractTransactions(contract: ContractConfig): Promi
     return;
   }
 
-  startTime = Date.now();
-  totalTxProcessed = cursor.total_indexed;
+  // Create per-contract stats (not global!)
+  const stats = createStats(cursor.total_indexed);
 
   let nextToken = cursor.last_next_token || undefined;
   let pageCount = 0;
   let apiTotalCount = 0;
   let consecutiveErrors = 0;
   let skippedBeforeDeployBlock = 0;
+  let duplicateDetected = 0;
 
   if (cursor.total_indexed > 0) {
     console.log(`Resuming from ${cursor.total_indexed} previously indexed transactions\n`);
@@ -205,9 +235,40 @@ export async function indexContractTransactions(contract: ContractConfig): Promi
 
       if (response.items.length === 0) {
         console.log(`\n✓ No more transactions to index.`);
-        await updateCursorProgress(address, null, totalTxProcessed, true);
+        await updateCursorProgress(address, null, stats.totalTxProcessed, apiTotalCount, true);
         break;
       }
+
+      // Check for pagination loop - if we've seen ALL tx hashes in this batch before, we're looping
+      const batchHashes = response.items.map(tx => tx.txHash);
+      const allSeenBefore = batchHashes.every(hash => stats.seenTxHashes.has(hash));
+
+      if (allSeenBefore && batchHashes.length > 0) {
+        duplicateDetected++;
+        console.log(`\n⚠️ Detected pagination loop (all ${batchHashes.length} txs already seen). Attempt ${duplicateDetected}/3`);
+
+        if (duplicateDetected >= 3) {
+          console.log(`\n✓ Pagination loop confirmed. Marking as complete.`);
+          await updateCursorProgress(address, null, stats.totalTxProcessed, apiTotalCount, true);
+          break;
+        }
+
+        // Try to skip ahead
+        if (response.link.nextToken) {
+          nextToken = response.link.nextToken;
+          await sleep(REQUEST_DELAY_MS);
+          continue;
+        } else {
+          console.log(`\n✓ No more pages. Marking as complete.`);
+          await updateCursorProgress(address, null, stats.totalTxProcessed, apiTotalCount, true);
+          break;
+        }
+      } else {
+        duplicateDetected = 0; // Reset if we found new txs
+      }
+
+      // Add all hashes to seen set
+      batchHashes.forEach(hash => stats.seenTxHashes.add(hash));
 
       // Filter transactions:
       // 1. Must be at or after deploy block
@@ -243,20 +304,28 @@ export async function indexContractTransactions(contract: ContractConfig): Promi
         // Then insert detailed tx data (child table)
         await insertTransactionDetails(txDetails);
 
-        totalTxProcessed += txDetails.length;
-        logStats(name, txDetails.length, apiTotalCount);
+        stats.totalTxProcessed += txDetails.length;
+        logStats(name, txDetails.length, stats, apiTotalCount);
+      }
+
+      // Safety check: if we've indexed way more than the API says exists, something is wrong
+      if (stats.totalTxProcessed > apiTotalCount * 1.1 && apiTotalCount > 0) {
+        console.log(`\n⚠️ WARNING: Indexed ${stats.totalTxProcessed} txs but API reports only ${apiTotalCount}. Possible loop detected.`);
+        console.log(`Marking as complete to prevent infinite loop.`);
+        await updateCursorProgress(address, null, stats.totalTxProcessed, apiTotalCount, true);
+        break;
       }
 
       // Check if we have more pages
       if (!response.link.nextToken) {
         console.log(`\n✓ Reached end of transaction history!`);
-        await updateCursorProgress(address, null, totalTxProcessed, true);
+        await updateCursorProgress(address, null, stats.totalTxProcessed, apiTotalCount, true);
         break;
       }
 
       // Save progress and continue
       nextToken = response.link.nextToken;
-      await updateCursorProgress(address, nextToken, totalTxProcessed, false);
+      await updateCursorProgress(address, nextToken, stats.totalTxProcessed, apiTotalCount, false);
 
       // Rate limiting: 2 requests per second
       await sleep(REQUEST_DELAY_MS);
@@ -276,13 +345,13 @@ export async function indexContractTransactions(contract: ContractConfig): Promi
     }
   }
 
-  const elapsed = (Date.now() - startTime) / 1000;
+  const elapsed = (Date.now() - stats.startTime) / 1000;
   console.log(`\n========================================`);
   console.log(`${name} TX indexing summary:`);
-  console.log(`  Total indexed: ${totalTxProcessed}`);
+  console.log(`  Total indexed: ${stats.totalTxProcessed}`);
   console.log(`  Skipped (before deploy block ${deployBlock}): ${skippedBeforeDeployBlock}`);
   console.log(`  Time elapsed: ${elapsed.toFixed(1)}s`);
-  console.log(`  Average speed: ${(totalTxProcessed / elapsed).toFixed(1)} tx/sec`);
+  console.log(`  Average speed: ${(stats.totalTxProcessed / elapsed).toFixed(1)} tx/sec`);
   console.log(`  Pages fetched: ${pageCount}`);
   console.log(`========================================\n`);
 }
@@ -292,7 +361,7 @@ export async function resetTxCursor(contractAddress: string): Promise<void> {
   await ensureCursorTable();
   await pool.query(
     `UPDATE tx_indexer_cursors 
-     SET last_next_token = NULL, total_indexed = 0, is_complete = FALSE, updated_at = NOW()
+     SET last_next_token = NULL, total_indexed = 0, api_total_count = 0, is_complete = FALSE, updated_at = NOW()
      WHERE contract_address = $1`,
     [contractAddress.toLowerCase()]
   );

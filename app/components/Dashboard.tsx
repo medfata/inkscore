@@ -924,7 +924,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
               isLoading: !isDemo && !realWalletStats
             },
             {
-              label: 'Total Circulated Volume',
+              label: 'Circulated Volume',
               value: !isDemo && totalVolume
                 ? `$${totalVolume.totalUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                 : '$0.00',

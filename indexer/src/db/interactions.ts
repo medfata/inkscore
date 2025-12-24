@@ -11,7 +11,7 @@ export interface Interaction {
   block_timestamp: Date;
 }
 
-const BATCH_SIZE = 500; // Max rows per insert to avoid Postgres parameter limit
+const BATCH_SIZE = 1000; // Increased for better throughput with large pages
 
 export async function insertInteractions(interactions: Interaction[]): Promise<void> {
   if (interactions.length === 0) return;
@@ -51,4 +51,20 @@ async function insertBatch(interactions: Interaction[]): Promise<void> {
      ON CONFLICT (tx_hash, wallet_address, contract_address) DO NOTHING`,
     values
   );
+
+  // Update total_indexed count on contracts table
+  // Group by contract_address and increment counts
+  const countsByContract = new Map<string, number>();
+  for (const interaction of interactions) {
+    const addr = interaction.contract_address.toLowerCase();
+    countsByContract.set(addr, (countsByContract.get(addr) || 0) + 1);
+  }
+  
+  for (const [contractAddr, count] of countsByContract) {
+    await query(
+      `UPDATE contracts SET total_indexed = COALESCE(total_indexed, 0) + $1, updated_at = NOW() 
+       WHERE LOWER(address) = $2`,
+      [count, contractAddr]
+    );
+  }
 }

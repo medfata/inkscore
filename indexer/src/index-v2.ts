@@ -53,6 +53,46 @@ function toContractConfig(contract: IndexableContract) {
   };
 }
 
+/**
+ * Index multiple contracts in parallel with a concurrency limit
+ */
+async function indexContractsInParallel(contracts: IndexableContract[], concurrencyLimit: number): Promise<void> {
+  const queue = [...contracts];
+  const active: Promise<void>[] = [];
+  
+  async function processContract(contract: IndexableContract): Promise<void> {
+    try {
+      await updateContractStatus(contract.address, 'indexing');
+      await indexContractTransactions(toContractConfig(contract));
+      
+      const cursor = await getTxCursorStatus(contract.address);
+      const totalIndexed = cursor?.total_indexed || 0;
+      await updateContractStatus(contract.address, 'complete', totalIndexed, totalIndexed);
+    } catch (err) {
+      console.error(`TX Indexer error for ${contract.name}:`, err);
+      await updateContractStatus(contract.address, 'error', undefined, undefined, String(err));
+    }
+  }
+  
+  while (queue.length > 0 || active.length > 0) {
+    // Start new tasks up to the concurrency limit
+    while (active.length < concurrencyLimit && queue.length > 0) {
+      const contract = queue.shift()!;
+      const promise = processContract(contract).then(() => {
+        // Remove from active when done
+        const index = active.indexOf(promise);
+        if (index > -1) active.splice(index, 1);
+      });
+      active.push(promise);
+    }
+    
+    // Wait for at least one to complete before continuing
+    if (active.length > 0) {
+      await Promise.race(active);
+    }
+  }
+}
+
 async function main() {
   console.log('Ink Chain Indexer V2 starting...');
   console.log(`RPC: ${config.rpcUrl}`);
@@ -109,23 +149,13 @@ async function runDatabaseDrivenIndexer() {
     }
   }
 
-  // 2. Index transaction-based contracts via Routerscan API
+  // 2. Index transaction-based contracts via Routerscan API - PARALLEL
   if (txContracts.length > 0) {
-    console.log(`\n=== Starting Transaction Indexing (Routerscan API) for ${txContracts.length} contracts ===\n`);
-    for (const contract of txContracts) {
-      try {
-        await updateContractStatus(contract.address, 'indexing');
-        await indexContractTransactions(toContractConfig(contract));
-        
-        // Get actual progress from tx cursor and update contract status
-        const cursor = await getTxCursorStatus(contract.address);
-        const totalIndexed = cursor?.total_indexed || 0;
-        await updateContractStatus(contract.address, 'complete', totalIndexed, totalIndexed);
-      } catch (err) {
-        console.error(`TX Indexer error for ${contract.name}:`, err);
-        await updateContractStatus(contract.address, 'error', undefined, undefined, String(err));
-      }
-    }
+    const PARALLEL_LIMIT = 3; // Index 3 contracts simultaneously
+    console.log(`\n=== Starting PARALLEL Transaction Indexing (${PARALLEL_LIMIT} concurrent) for ${txContracts.length} contracts ===\n`);
+    
+    // Process contracts in parallel batches
+    await indexContractsInParallel(txContracts, PARALLEL_LIMIT);
   }
 
   // 3. Index bridge transfers
@@ -152,33 +182,28 @@ async function runDatabaseDrivenIndexer() {
       const allContracts = await getContractsToIndex();
       const contractsForBackfill = await getContractsForBackfill();
 
-      // Check if there are new contracts that need backfill
+      // Check if there are new contracts that need backfill - run in parallel
       if (contractsForBackfill.length > 0) {
         console.log(`\n[Poll ${pollCount}] Found ${contractsForBackfill.length} new contracts needing backfill...`);
         
-        for (const contract of contractsForBackfill) {
-          if (contract.fetch_transactions) {
-            try {
-              await updateContractStatus(contract.address, 'indexing');
-              await indexContractTransactions(toContractConfig(contract));
-              
-              const cursor = await getTxCursorStatus(contract.address);
-              const totalIndexed = cursor?.total_indexed || 0;
-              await updateContractStatus(contract.address, 'complete', totalIndexed, totalIndexed);
-            } catch (err) {
-              console.error(`TX Indexer error for ${contract.name}:`, err);
-              await updateContractStatus(contract.address, 'error', undefined, undefined, String(err));
-            }
-          } else {
-            try {
-              await updateContractStatus(contract.address, 'indexing');
-              await indexContract(toContractConfig(contract));
-              await updateContractStatus(contract.address, 'complete');
-            } catch (err) {
-              console.error(`Event Indexer error for ${contract.name}:`, err);
-              await updateContractStatus(contract.address, 'error', undefined, undefined, String(err));
-            }
+        const txContractsToBackfill = contractsForBackfill.filter(c => c.fetch_transactions);
+        const eventContractsToBackfill = contractsForBackfill.filter(c => !c.fetch_transactions);
+        
+        // Index event contracts sequentially (usually fast)
+        for (const contract of eventContractsToBackfill) {
+          try {
+            await updateContractStatus(contract.address, 'indexing');
+            await indexContract(toContractConfig(contract));
+            await updateContractStatus(contract.address, 'complete');
+          } catch (err) {
+            console.error(`Event Indexer error for ${contract.name}:`, err);
+            await updateContractStatus(contract.address, 'error', undefined, undefined, String(err));
           }
+        }
+        
+        // Index tx contracts in parallel
+        if (txContractsToBackfill.length > 0) {
+          await indexContractsInParallel(txContractsToBackfill, 3);
         }
       }
 
