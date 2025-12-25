@@ -13,8 +13,9 @@ import {
   PointRange,
   CalculationMode,
 } from '@/lib/types/platforms';
+import { DashboardCardsTab } from './DashboardCardsTab';
 
-type TabType = 'metrics' | 'platforms' | 'contracts' | 'rules' | 'ranks';
+type TabType = 'metrics' | 'platforms' | 'contracts' | 'rules' | 'ranks' | 'dashboard';
 
 interface IndexingProgress {
   platforms: Array<{
@@ -173,6 +174,7 @@ export default function AdminPage() {
     { id: 'metrics', label: 'Metrics', count: metrics.length },
     { id: 'rules', label: 'Points Rules', count: rules.length },
     { id: 'ranks', label: 'Ranks', count: ranks.length },
+    { id: 'dashboard', label: 'Dashboard Cards' },
   ];
 
   if (loading) {
@@ -258,6 +260,13 @@ export default function AdminPage() {
             onCreateRank={() => { setEditingRank(null); setShowRankModal(true); }}
             onEditRank={(r) => { setEditingRank(r); setShowRankModal(true); }}
             onRefresh={loadRanks}
+          />
+        )}
+
+        {activeTab === 'dashboard' && (
+          <DashboardCardsTab
+            platforms={platforms}
+            metrics={metrics}
           />
         )}
       </div>

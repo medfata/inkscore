@@ -62,6 +62,11 @@ interface TydroResponse {
   repayCount: number;
 }
 
+// Max uint256 value - used when users want to withdraw/repay entire balance
+const MAX_UINT256 = BigInt('0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff');
+// Threshold to detect "max" values (anything above 1e50 ETH is clearly invalid)
+const MAX_REASONABLE_ETH = BigInt('1000000000000000000000000000000000000000000000000000'); // 1e50 wei
+
 // Helper to decode amount from input data (counts all txs, decodes amount when possible)
 async function decodeAmountFromTxs(
   txs: { input_data: string | null; tx_hash: string; eth_value?: string }[],
@@ -83,6 +88,12 @@ async function decodeAmountFromTxs(
         // Amount is at index 1 for all these functions
         const amount = decoded.args?.[1] as bigint;
         if (typeof amount === 'bigint') {
+          // Skip max uint256 values - these mean "withdraw all" and the actual
+          // amount is determined by the contract, not the input parameter
+          if (amount === MAX_UINT256 || amount > MAX_REASONABLE_ETH) {
+            console.log(`Skipping max/unreasonable amount in tx ${tx.tx_hash}: ${amount.toString()}`);
+            continue;
+          }
           totalEth += Number(amount) / 1e18;
         }
       }

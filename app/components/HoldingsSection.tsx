@@ -56,14 +56,18 @@ export const HoldingsSection: React.FC<HoldingsSectionProps> = ({
   nftCollections,
   nativeEthUsd,
 }) => {
+  // Separate meme coins from regular tokens
+  const memeCoins = tokenHoldings.filter(token => token.tokenType === 'meme');
+  const regularTokens = tokenHoldings.filter(token => token.tokenType !== 'meme');
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-fade-in-up" style={{ animationDelay: '0.3s' }}>
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in-up" style={{ animationDelay: '0.3s' }}>
       {/* Token Holdings Card */}
       <div className="glass-card p-6 rounded-xl">
         <div className="flex items-center justify-between mb-5">
           <h3 className="text-lg font-semibold text-white flex items-center gap-2">
             <div className="flex items-center -space-x-3">
-              {tokenHoldings.slice(0, 3).map((token, i) => (
+              {regularTokens.slice(0, 3).map((token, i) => (
                 <img
                   key={i}
                   src={token.logo}
@@ -79,11 +83,11 @@ export const HoldingsSection: React.FC<HoldingsSectionProps> = ({
             Token Holdings
           </h3>
           <span className="text-xs text-slate-500 bg-slate-800 px-2 py-1 rounded">
-            {tokenHoldings.length} tokens
+            {regularTokens.length} tokens
           </span>
         </div>
         <div className="space-y-3 max-h-[280px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
-          {tokenHoldings.map((token) => {
+          {regularTokens.map((token) => {
             const displayUsdValue = token.symbol === 'ETH' ? nativeEthUsd : token.usdValue;
             return (
               <div
@@ -118,6 +122,78 @@ export const HoldingsSection: React.FC<HoldingsSectionProps> = ({
               </div>
             );
           })}
+        </div>
+      </div>
+
+      {/* Meme Coins Card */}
+      <div className="glass-card p-6 rounded-xl border border-yellow-500/20 bg-yellow-500/5">
+        <div className="flex items-center justify-between mb-5">
+          <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+            <div className="flex items-center -space-x-3">
+              {memeCoins.slice(0, 3).map((token, i) => (
+                <img
+                  key={i}
+                  src={token.logo}
+                  alt={token.symbol}
+                  className="w-7 h-7 rounded-full object-cover border-2 border-yellow-500 bg-slate-800"
+                  style={{ zIndex: 3 - i }}
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${token.symbol.charAt(0)}&background=334155&color=94a3b8&size=28`;
+                  }}
+                />
+              ))}
+              {memeCoins.length === 0 && (
+                <div className="w-7 h-7 rounded-full border-2 border-yellow-500 bg-slate-800 flex items-center justify-center">
+                  <span className="text-yellow-400 text-xs">🚀</span>
+                </div>
+              )}
+            </div>
+            Meme Coins
+          </h3>
+          <span className="text-xs text-yellow-400 bg-yellow-900/30 px-2 py-1 rounded border border-yellow-500/30">
+            {memeCoins.length} memes
+          </span>
+        </div>
+        <div className="space-y-3 max-h-[280px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
+          {memeCoins.length > 0 ? (
+            memeCoins.map((token) => (
+              <div
+                key={token.address}
+                className="flex items-center justify-between p-3 rounded-lg bg-slate-800/30 hover:bg-slate-800/50 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <img
+                    src={token.logo}
+                    alt={token.symbol}
+                    className="w-10 h-10 rounded-lg object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(token.symbol)}&background=334155&color=94a3b8`;
+                    }}
+                  />
+                  <div>
+                    <div className="font-medium text-white flex items-center gap-2">
+                      {token.symbol}
+                    </div>
+                    <div className="text-xs text-slate-500">{token.name}</div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="font-bold text-yellow-400 font-display">
+                    ${token.usdValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </div>
+                  <div className="text-xs text-slate-500">
+                    {token.balance.toLocaleString(undefined, { maximumFractionDigits: 4 })} {token.symbol}
+                  </div>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="flex flex-col items-center justify-center py-8 text-center">
+              <div className="text-4xl mb-3">🐸</div>
+              <div className="text-slate-400 text-sm">No meme coins yet</div>
+              <div className="text-slate-500 text-xs mt-1">Time to ape in?</div>
+            </div>
+          )}
         </div>
       </div>
 

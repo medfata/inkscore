@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
 import {
@@ -15,6 +15,8 @@ import { ScoreData, WalletStats, ScoreTier, AiAnalysisResult, NftHolding, TokenH
 import { Logo } from './Logo';
 import { HoldingsSection } from './HoldingsSection';
 import { WalletScoreResponse } from '../../lib/types/platforms';
+import { DashboardCardData } from '../../lib/types/dashboard';
+import { DynamicCardsCarouselRow3, DynamicCardsCarouselRow4 } from './DynamicDashboardCards';
 
 // Bridge platform logos
 const BRIDGE_PLATFORM_LOGOS: Record<string, string> = {
@@ -322,6 +324,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
   const [nftTrading, setNftTrading] = useState<NftTradingResponse | null>(null);
   const [walletScore, setWalletScore] = useState<WalletScoreResponse | null>(null);
   const [totalVolume, setTotalVolume] = useState<TotalVolumeResponse | null>(null);
+
+  // Dynamic dashboard cards state
+  const [dynamicCardsRow3, setDynamicCardsRow3] = useState<DashboardCardData[]>([]);
+  const [dynamicCardsRow4, setDynamicCardsRow4] = useState<DashboardCardData[]>([]);
 
   // Refresh state
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -797,6 +803,26 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
     };
 
     fetchTotalVolume();
+  }, [walletAddress, isDemo]);
+
+  // Fetch dynamic dashboard cards
+  useEffect(() => {
+    if (isDemo || !walletAddress || walletAddress.length < 10) return;
+
+    const fetchDynamicCards = async () => {
+      try {
+        const res = await fetch(`/api/dashboard/cards/${walletAddress}`);
+        if (res.ok) {
+          const data = await res.json();
+          setDynamicCardsRow3(data.row3 || []);
+          setDynamicCardsRow4(data.row4 || []);
+        }
+      } catch (err) {
+        console.error('Failed to fetch dynamic dashboard cards:', err);
+      }
+    };
+
+    fetchDynamicCards();
   }, [walletAddress, isDemo]);
 
   const handleAiAnalysis = async () => {
@@ -1573,6 +1599,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
           </div>
         </div>
 
+        {/* Dynamic Cards Row 3 - Admin added aggregate cards */}
+        {!isDemo && dynamicCardsRow3.length > 0 && (
+          <DynamicCardsCarouselRow3 cards={dynamicCardsRow3} />
+        )}
+
         {/* Row 4: GM Activity + InkySwap Volume + NFT Trading (3 columns) */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* GM Activity Card */}
@@ -1790,6 +1821,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
             )}
           </div>
         </div>
+
+        {/* Dynamic Cards Row 4 - Admin added single platform cards */}
+        {!isDemo && dynamicCardsRow4.length > 0 && (
+          <DynamicCardsCarouselRow4 cards={dynamicCardsRow4} />
+        )}
+
         {/* Holdings Section - Tokens & NFTs */}
         {!isDemo && realWalletStats && (
           <HoldingsSection
@@ -1802,3 +1839,4 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
     </div>
   );
 };
+
