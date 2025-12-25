@@ -2,6 +2,7 @@ import { config, CONTRACTS_TO_INDEX, BRIDGE_HOT_WALLETS } from './config.js';
 import { indexContract } from './indexer.js';
 import { indexContractTransactions, pollNewTransactions } from './txIndexer.js';
 import { runBridgeIndexer, pollBridgeTransfers } from './bridge-indexer.js';
+import { fillInputData, fillInputDataBatch } from './inputDataFiller.js';
 import { pool } from './db/index.js';
 
 // Separate contracts by indexing method
@@ -49,6 +50,14 @@ async function main() {
     }
   }
 
+  // 4. Fill missing input_data for all indexed transactions (backfill)
+  console.log('\n=== Filling Missing Input Data (RPC) ===\n');
+  try {
+    await fillInputData();
+  } catch (err) {
+    console.error('Input Data Filler error:', err);
+  }
+
   console.log('\nBackfill complete! Switching to polling mode (15s)...\n');
 
   // Polling for real-time updates (15 seconds)
@@ -72,6 +81,10 @@ async function main() {
         await pollBridgeTransfers(wallet);
         await sleep(500);
       }
+
+      // Fill input data for ALL transactions missing it (handles reset contracts too)
+      // Processes one batch (100 txs) per poll cycle
+      await fillInputDataBatch();
     } catch (err) {
       console.error('Indexer error:', err);
     }

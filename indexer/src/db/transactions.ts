@@ -57,7 +57,8 @@ async function insertBatch(txs: TransactionDetail[]): Promise<void> {
     `INSERT INTO transaction_details 
      (tx_hash, wallet_address, contract_address, function_selector, function_name, input_data, eth_value, gas_used, gas_price, block_number, block_timestamp, status, chain_id)
      VALUES ${placeholders.join(', ')}
-     ON CONFLICT (tx_hash) DO NOTHING`,
+     ON CONFLICT (tx_hash) DO UPDATE SET
+       input_data = COALESCE(NULLIF(EXCLUDED.input_data, ''), transaction_details.input_data)`,
     values
   );
 }

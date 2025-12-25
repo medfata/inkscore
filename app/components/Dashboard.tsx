@@ -302,6 +302,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
     borrowVolume: number;
     borrowCount: number;
   } | null>(null);
+  const [tydroCurrentSupply, setTydroCurrentSupply] = useState<{
+    currentSupplyUsd: number;
+    currentSupplyEth: number;
+    totalDepositedUsd: number;
+    totalWithdrawnUsd: number;
+    depositCount: number;
+    withdrawCount: number;
+    currentBorrowUsd: number;
+    currentBorrowEth: number;
+    totalBorrowedUsd: number;
+    totalRepaidUsd: number;
+    borrowCount: number;
+    repayCount: number;
+  } | null>(null);
   const [bridgeVolume, setBridgeVolume] = useState<BridgeVolumeResponse | null>(null);
   const [inkySwapVolume, setInkySwapVolume] = useState<InkySwapVolumeData | null>(null);
   const [swapVolume, setSwapVolume] = useState<SwapVolumeResponse | null>(null);
@@ -338,6 +352,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
     setRealWalletStats(null);
     setRealGmData(null);
     setRealTydroData(null);
+    setTydroCurrentSupply(null);
     setBridgeVolume(null);
     setInkySwapVolume(null);
     setSwapVolume(null);
@@ -409,6 +424,31 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
             }
           })
           .catch(err => console.error('Failed to refresh Tydro data:', err))
+      );
+
+      // Tydro current supply (event-sourced: deposits - withdrawals)
+      fetchPromises.push(
+        fetch(`/api/wallet/${walletAddress}/tydro`)
+          .then(res => res.ok ? res.json() : null)
+          .then(data => {
+            if (data) {
+              setTydroCurrentSupply({
+                currentSupplyUsd: data.currentSupplyUsd || 0,
+                currentSupplyEth: data.currentSupplyEth || 0,
+                totalDepositedUsd: data.totalDepositedUsd || 0,
+                totalWithdrawnUsd: data.totalWithdrawnUsd || 0,
+                depositCount: data.depositCount || 0,
+                withdrawCount: data.withdrawCount || 0,
+                currentBorrowUsd: data.currentBorrowUsd || 0,
+                currentBorrowEth: data.currentBorrowEth || 0,
+                totalBorrowedUsd: data.totalBorrowedUsd || 0,
+                totalRepaidUsd: data.totalRepaidUsd || 0,
+                borrowCount: data.borrowCount || 0,
+                repayCount: data.repayCount || 0,
+              });
+            }
+          })
+          .catch(err => console.error('Failed to refresh Tydro current supply:', err))
       );
 
       // Bridge volume
@@ -589,6 +629,39 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
     };
 
     fetchTydroData();
+  }, [walletAddress, isDemo]);
+
+  // Fetch Tydro current supply (event-sourced: deposits - withdrawals)
+  useEffect(() => {
+    if (isDemo || !walletAddress || walletAddress.length < 10) return;
+
+    const fetchTydroCurrentSupply = async () => {
+      try {
+        const res = await fetch(`/api/wallet/${walletAddress}/tydro`);
+        if (res.ok) {
+          const data = await res.json();
+          console.log('Tydro current supply data:', data); // Debug log
+          setTydroCurrentSupply({
+            currentSupplyUsd: data.currentSupplyUsd || 0,
+            currentSupplyEth: data.currentSupplyEth || 0,
+            totalDepositedUsd: data.totalDepositedUsd || 0,
+            totalWithdrawnUsd: data.totalWithdrawnUsd || 0,
+            depositCount: data.depositCount || 0,
+            withdrawCount: data.withdrawCount || 0,
+            currentBorrowUsd: data.currentBorrowUsd || 0,
+            currentBorrowEth: data.currentBorrowEth || 0,
+            totalBorrowedUsd: data.totalBorrowedUsd || 0,
+            totalRepaidUsd: data.totalRepaidUsd || 0,
+            borrowCount: data.borrowCount || 0,
+            repayCount: data.repayCount || 0,
+          });
+        }
+      } catch (err) {
+        console.error('Failed to fetch Tydro current supply:', err);
+      }
+    };
+
+    fetchTydroCurrentSupply();
   }, [walletAddress, isDemo]);
 
   // Fetch bridge volume when not in demo mode
@@ -1065,9 +1138,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
           </div>
 
           {/* Tydro DeFi Card - 50% width - Premium Card */}
-          <div 
+          <div
             className="animated-border p-6 rounded-2xl animate-fade-in-up h-[300px] flex flex-col relative"
-            style={{ 
+            style={{
               animationDelay: '0.55s',
               background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(15, 23, 42, 0.6) 100%)',
             }}
@@ -1091,7 +1164,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
               </span>
             </div>
 
-            {!isDemo && !realTydroData ? (
+            {!isDemo && !realTydroData && !tydroCurrentSupply ? (
               <div className="flex-1 flex flex-col gap-3 relative z-10">
                 {/* Current Positions Skeleton */}
                 <div className="grid grid-cols-2 gap-3">
@@ -1120,7 +1193,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
               <div className="flex-1 flex flex-col gap-3 relative z-10">
                 {/* Current Positions Row */}
                 <div className="grid grid-cols-2 gap-3">
-                  {/* Current Supply Position */}
+                  {/* Current Supply Position - Event Sourced (deposits - withdrawals) */}
                   <div className="p-3 rounded-xl bg-green-500/10 border border-green-500/20 hover:border-green-500/40 transition-colors duration-200">
                     <div className="flex items-center justify-between mb-1">
                       <div className="flex items-center gap-2">
@@ -1132,8 +1205,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                       <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/15 text-green-400 font-medium">LIVE</span>
                     </div>
                     <div className="text-2xl font-bold font-display text-green-400">
-                      $0.00
+                      ${!isDemo && tydroCurrentSupply
+                        ? tydroCurrentSupply.currentSupplyUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                        : '0.00'}
                     </div>
+                    {!isDemo && tydroCurrentSupply && tydroCurrentSupply.currentSupplyEth > 0 && (
+                      <div className="text-[10px] text-slate-500 mt-0.5">
+                        {tydroCurrentSupply.currentSupplyEth.toFixed(4)} ETH
+                      </div>
+                    )}
                   </div>
 
                   {/* Current Borrow Position */}
@@ -1148,54 +1228,85 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                       <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-500/15 text-orange-400 font-medium">LIVE</span>
                     </div>
                     <div className="text-2xl font-bold font-display text-orange-400">
-                      $0.00
+                      ${!isDemo && tydroCurrentSupply
+                        ? tydroCurrentSupply.currentBorrowUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                        : '0.00'}
                     </div>
+                    {!isDemo && tydroCurrentSupply && tydroCurrentSupply.currentBorrowEth > 0 && (
+                      <div className="text-[10px] text-slate-500 mt-0.5">
+                        {tydroCurrentSupply.currentBorrowEth.toFixed(4)} ETH
+                      </div>
+                    )}
                   </div>
                 </div>
 
                 {/* Historical Volume Row */}
                 <div className="grid grid-cols-2 gap-3 flex-1">
-                  {/* Historical Supply Volume */}
+                  {/* Historical Supply/Withdraw Volume */}
                   <div className="p-3 rounded-xl bg-slate-800/40 border border-slate-700/40 hover:border-slate-600/60 transition-colors duration-200">
                     <div className="flex items-center gap-2 mb-1">
                       <Clock size={12} className="text-slate-500" />
-                      <span className="text-xs text-slate-500">Historical Supply</span>
+                      <span className="text-xs text-slate-500">Historical Supply/Withdraw</span>
                     </div>
-                    <div className="text-lg font-bold font-display text-white">
-                      ${!isDemo && realTydroData
-                        ? realTydroData.supplyVolume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                        : (data.stats.tydroSupplyCount * 100).toFixed(2)}
-                    </div>
-                    <div className="text-[10px] text-slate-500 mt-0.5">
-                      {!isDemo && realTydroData ? realTydroData.supplyCount : data.stats.tydroSupplyCount} transactions
+                    <div className="flex justify-around items-baseline gap-2 mt-2">
+                      <div>
+                        <div className="text-xs text-green-400 mb-0.5">Supply</div>
+                        <div className="text-sm font-bold font-display text-white">
+                          ${!isDemo && tydroCurrentSupply
+                            ? tydroCurrentSupply.totalDepositedUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                            : '0.00'}
+                          <div className=" pl-[2px] inline text-[10px] text-slate-500"> /
+                            {!isDemo && tydroCurrentSupply ? tydroCurrentSupply.depositCount : 0} tx
+                          </div>
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-red-400 mb-0.5">Withdraw</div>
+                        <div className="text-sm font-bold font-display text-white">
+                          ${!isDemo && tydroCurrentSupply
+                            ? tydroCurrentSupply.totalWithdrawnUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                            : '0.00'}
+                          <div className="pl-[2px] inline text-[10px] text-slate-500"> /
+                            {!isDemo && tydroCurrentSupply ? tydroCurrentSupply.withdrawCount : 0} tx
+                          </div>
+                        </div>
+
+                      </div>
                     </div>
                   </div>
 
-                  {/* Historical Borrow Volume */}
+                  {/* Historical Borrow/Repay Volume */}
                   <div className="p-3 rounded-xl bg-slate-800/40 border border-slate-700/40 hover:border-slate-600/60 transition-colors duration-200">
                     <div className="flex items-center gap-2 mb-1">
                       <Clock size={12} className="text-slate-500" />
-                      <span className="text-xs text-slate-500">Historical Borrow</span>
+                      <span className="text-xs text-slate-500">Historical Borrow/Repay</span>
                     </div>
-                    <div className="text-lg font-bold font-display text-white">
-                      ${!isDemo && realTydroData
-                        ? realTydroData.borrowVolume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                        : (data.stats.tydroBorrowCount * 200).toFixed(2)}
-                    </div>
-                    <div className="text-[10px] text-slate-500 mt-0.5">
-                      {!isDemo && realTydroData ? realTydroData.borrowCount : data.stats.tydroBorrowCount} transactions
+                    <div className="flex justify-around items-baseline gap-2">
+                      <div>
+                        <div className="text-xs text-orange-400 mb-0.5">Borrow</div>
+                        <div className="text-sm font-bold font-display text-white">
+                          ${!isDemo && tydroCurrentSupply
+                            ? tydroCurrentSupply.totalBorrowedUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                            : '0.00'}
+                          <div className="pl-[2px] inline text-[10px] text-slate-500"> /
+                            {!isDemo && tydroCurrentSupply ? tydroCurrentSupply.borrowCount : 0} tx
+                          </div>
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-blue-400 mb-0.5">Repay</div>
+                        <div className="text-sm font-bold font-display text-white">
+                          ${!isDemo && tydroCurrentSupply
+                            ? tydroCurrentSupply.totalRepaidUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                            : '0.00'}
+                          <div className="pl-[2px] inline text-[10px] text-slate-500"> /
+                            {!isDemo && tydroCurrentSupply ? tydroCurrentSupply.repayCount : 0} tx
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
-
-            {/* Active indicator */}
-            {((!isDemo && realTydroData && (realTydroData.supplyCount > 0 || realTydroData.borrowCount > 0)) || 
-              (isDemo && (data.stats.tydroSupplyCount > 0 || data.stats.tydroBorrowCount > 0))) && (
-              <div className="mt-2 text-xs text-emerald-400 flex items-center gap-2 relative z-10">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                <span className="font-medium">Active DeFi Participant</span>
               </div>
             )}
           </div>

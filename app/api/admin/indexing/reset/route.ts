@@ -53,12 +53,13 @@ export async function POST(request: NextRequest) {
       [normalizedAddress]
     );
 
-    // 4. Update contract status back to pending
+    // 4. Update contract status back to pending and reset total_indexed
     await query(
       `UPDATE contracts 
        SET indexing_status = 'pending',
            progress_percent = 0,
            current_block = 0,
+           total_indexed = 0,
            error_message = NULL,
            updated_at = NOW()
        WHERE LOWER(address) = $1`,

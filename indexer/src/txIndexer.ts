@@ -1,13 +1,79 @@
-import { type ContractConfig } from './config.js';
+import { type ContractConfig, RPC_ENDPOINTS } from './config.js';
 import { insertTransactionDetails, type TransactionDetail } from './db/transactions.js';
 import { insertInteractions, type Interaction } from './db/interactions.js';
 import { pool } from './db/index.js';
+import { createPublicClient, http, type PublicClient } from 'viem';
 
 // Routescan API configuration - using the ALL chains endpoint with chain filter
 const INK_CHAIN_ID = '57073';
 const ROUTESCAN_BASE_URL = 'https://cdn.routescan.io/api/evm/all/transactions';
 const PAGE_LIMIT = 100; // Routescan supports up to 1000
 const REQUEST_DELAY_MS = 100; // 10 requests per second
+
+// Create multiple RPC clients for load balancing (same as event indexer)
+// Each endpoint has 20 req/sec limit, so 2 endpoints = 40 req/sec effective
+const rpcClients: PublicClient[] = RPC_ENDPOINTS.map((url) =>
+  createPublicClient({
+    transport: http(url, {
+      retryCount: 2,
+      retryDelay: 500,
+    }),
+  })
+);
+
+// Round-robin client selector for load balancing
+let rpcClientIndex = 0;
+function getNextRpcClient(): PublicClient {
+  const client = rpcClients[rpcClientIndex];
+  rpcClientIndex = (rpcClientIndex + 1) % rpcClients.length;
+  return client;
+}
+
+// With 2 RPCs at 20 req/sec each, we can do ~35 req/sec safely
+// Process in batches with minimal delay
+const RPC_BATCH_SIZE = 35;
+const RPC_BATCH_DELAY_MS = 1000; // 1 second between batches
+
+/**
+ * Batch fetch input data from RPC for multiple transactions
+ * Uses load balancing across multiple RPC endpoints for higher throughput
+ */
+async function fetchInputDataFromRpc(txHashes: string[]): Promise<Map<string, string>> {
+  const inputMap = new Map<string, string>();
+  if (txHashes.length === 0) return inputMap;
+
+  // Process in batches, distributing across RPC endpoints
+  for (let i = 0; i < txHashes.length; i += RPC_BATCH_SIZE) {
+    const batch = txHashes.slice(i, i + RPC_BATCH_SIZE);
+
+    try {
+      // Distribute requests across RPC clients
+      const txPromises = batch.map(hash => {
+        const client = getNextRpcClient();
+        return client.getTransaction({ hash: hash as `0x${string}` })
+          .catch(() => null);
+      });
+
+      const transactions = await Promise.all(txPromises);
+
+      for (let j = 0; j < batch.length; j++) {
+        const tx = transactions[j];
+        if (tx && tx.input && tx.input !== '0x') {
+          inputMap.set(batch[j].toLowerCase(), tx.input);
+        }
+      }
+    } catch {
+      // Silent fail - inputDataFiller will catch these later
+    }
+
+    // Wait between batches to respect rate limit (except for last batch)
+    if (i + RPC_BATCH_SIZE < txHashes.length) {
+      await sleep(RPC_BATCH_DELAY_MS);
+    }
+  }
+
+  return inputMap;
+}
 
 interface RoutescanTransaction {
   chainId: string;
@@ -30,6 +96,7 @@ interface RoutescanTransaction {
   burnedFees?: string;
   methodId?: string;
   method?: string;
+  input?: string; // Full input data (calldata)
   status: boolean;
 }
 
@@ -117,7 +184,7 @@ function transformToTransactionDetail(
     contract_address: contractAddress,
     function_selector: tx.methodId || null,
     function_name: tx.method ? tx.method.split('(')[0] : null,
-    input_data: null, // Routescan doesn't provide full input data
+    input_data: tx.input || null, // Full calldata from Routescan
     eth_value: tx.value,
     gas_used: tx.gasUsed ? parseInt(tx.gasUsed, 10) : null,
     gas_price: tx.gasPrice,
@@ -282,7 +349,19 @@ export async function indexContractTransactions(contract: ContractConfig): Promi
       });
 
       if (validTransactions.length > 0) {
-        const txDetails = validTransactions.map((tx) => transformToTransactionDetail(tx, address));
+        // Fetch input data from RPC for all transactions (load balanced across multiple RPCs)
+        const txHashes = validTransactions.map(tx => tx.txHash);
+        const inputDataMap = await fetchInputDataFromRpc(txHashes);
+
+        const txDetails = validTransactions.map((tx) => {
+          const detail = transformToTransactionDetail(tx, address);
+          // Add input data from RPC if available
+          const rpcInput = inputDataMap.get(tx.txHash.toLowerCase());
+          if (rpcInput) {
+            detail.input_data = rpcInput;
+          }
+          return detail;
+        });
 
         // Insert into wallet_interactions first (parent table)
         const interactions: Interaction[] = txDetails.map((tx) => ({
@@ -439,7 +518,19 @@ export async function pollNewTransactions(contract: ContractConfig): Promise<num
 
       // Insert new transactions
       if (newTransactions.length > 0) {
-        const txDetails = newTransactions.map((tx) => transformToTransactionDetail(tx, address));
+        // Fetch input data from RPC (load balanced across multiple RPCs)
+        const txHashes = newTransactions.map(tx => tx.txHash);
+        const inputDataMap = await fetchInputDataFromRpc(txHashes);
+
+        const txDetails = newTransactions.map((tx) => {
+          const detail = transformToTransactionDetail(tx, address);
+          // Add input data from RPC if available
+          const rpcInput = inputDataMap.get(tx.txHash.toLowerCase());
+          if (rpcInput) {
+            detail.input_data = rpcInput;
+          }
+          return detail;
+        });
 
         // Insert into wallet_interactions first (parent table)
         const interactions: Interaction[] = txDetails.map((tx) => ({
