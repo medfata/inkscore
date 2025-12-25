@@ -186,6 +186,7 @@ function processLogs(
       tx_hash: log.transactionHash,
       block_number: Number(log.blockNumber),
       block_timestamp: new Date(Number(estimatedTs) * 1000),
+      status: 1, // Events are only emitted for successful transactions
     });
   }
 

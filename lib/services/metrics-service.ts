@@ -237,6 +237,7 @@ export class MetricsService {
       FROM transaction_details
       WHERE contract_address = $1
         AND function_name IS NOT NULL
+        AND status = 1
       GROUP BY function_name, function_selector
       ORDER BY tx_count DESC
     `, [contractAddress.toLowerCase()]);
@@ -251,6 +252,7 @@ export class MetricsService {
         FROM wallet_interactions
         WHERE contract_address = $1
           AND function_name IS NOT NULL
+          AND status = 1
         GROUP BY function_name, function_selector
         ORDER BY tx_count DESC
       `, [contractAddress.toLowerCase()]);

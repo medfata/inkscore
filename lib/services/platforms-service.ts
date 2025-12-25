@@ -229,6 +229,7 @@ export class PlatformsService {
         const walletStats = await query<{ contract_address: string; unique_wallets: string }>(`
       SELECT contract_address, COUNT(DISTINCT wallet_address) as unique_wallets
       FROM wallet_interactions
+      WHERE status = 1
       GROUP BY contract_address
     `);
 

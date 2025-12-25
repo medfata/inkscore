@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { pool } from './index.js';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -46,9 +47,22 @@ CREATE TABLE IF NOT EXISTS wallet_interactions (
   block_number BIGINT NOT NULL,
   block_timestamp TIMESTAMP NOT NULL,
   chain_id INT NOT NULL,
+  status SMALLINT DEFAULT 1,
   created_at TIMESTAMP DEFAULT NOW(),
   UNIQUE(tx_hash, wallet_address, contract_address)
 );
+
+-- Add status column if missing (migration for existing tables)
+ALTER TABLE wallet_interactions ADD COLUMN IF NOT EXISTS status SMALLINT DEFAULT 1;
+
+-- Update existing index to include status for better query performance
+-- This index covers: (wallet, contract, status), (wallet, contract), and (wallet) queries
+DROP INDEX IF EXISTS idx_wallet_contract;
+CREATE INDEX idx_wallet_contract ON wallet_interactions(wallet_address, contract_address, status);
+
+-- Index for queries that filter by contract + status (platform stats, unique wallets)
+CREATE INDEX IF NOT EXISTS idx_contract_status 
+ON wallet_interactions(contract_address, status);
 
 -- Indexes for fast queries
 CREATE INDEX IF NOT EXISTS idx_wallet_contract 
@@ -86,35 +100,48 @@ ON transaction_details(contract_address);
 
 CREATE INDEX IF NOT EXISTS idx_txdetails_wallet_contract 
 ON transaction_details(wallet_address, contract_address);
+
+-- Update indexes to include status for better query performance
+DROP INDEX IF EXISTS idx_txdetails_wallet_contract;
+CREATE INDEX idx_txdetails_wallet_contract 
+ON transaction_details(wallet_address, contract_address, status);
+
+CREATE INDEX IF NOT EXISTS idx_txdetails_contract_status 
+ON transaction_details(contract_address, status);
 `;
 
   console.log('Running base migrations...');
   await pool.query(baseMigrations);
   console.log('Base migrations complete!');
 
-  // Run additional migrations from files
+  // Run additional migrations from files (if folder exists)
   const migrationsDir = path.join(__dirname, 'migrations');
-  const migrationFiles = fs.readdirSync(migrationsDir)
-    .filter(f => f.endsWith('.sql'))
-    .sort();
+  
+  if (fs.existsSync(migrationsDir)) {
+    const migrationFiles = fs.readdirSync(migrationsDir)
+      .filter(f => f.endsWith('.sql'))
+      .sort();
 
-  for (const file of migrationFiles) {
-    console.log(`Running migration: ${file}...`);
-    const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf-8');
+    for (const file of migrationFiles) {
+      console.log(`Running migration: ${file}...`);
+      const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf-8');
 
-    try {
-      await pool.query(sql);
-      console.log(`  ✓ ${file} complete`);
-    } catch (err) {
-      // Check if it's just a "already exists" error
-      const error = err as Error;
-      if (error.message.includes('already exists') || error.message.includes('duplicate')) {
-        console.log(`  ⚠ ${file} skipped (already applied)`);
-      } else {
-        console.error(`  ✗ ${file} failed:`, error.message);
-        throw err;
+      try {
+        await pool.query(sql);
+        console.log(`  ✓ ${file} complete`);
+      } catch (err) {
+        // Check if it's just a "already exists" error
+        const error = err as Error;
+        if (error.message.includes('already exists') || error.message.includes('duplicate')) {
+          console.log(`  ⚠ ${file} skipped (already applied)`);
+        } else {
+          console.error(`  ✗ ${file} failed:`, error.message);
+          throw err;
+        }
       }
     }
+  } else {
+    console.log('No additional SQL migrations folder found, skipping...');
   }
 
   console.log('\nAll migrations complete!');

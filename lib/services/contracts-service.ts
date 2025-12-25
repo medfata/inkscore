@@ -112,6 +112,7 @@ export class ContractsService {
         COUNT(DISTINCT wallet_address) as unique_wallets
       FROM wallet_interactions
       WHERE contract_address = $1
+        AND status = 1
     `, [address.toLowerCase()]);
 
     return {

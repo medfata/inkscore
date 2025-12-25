@@ -270,17 +270,12 @@ export async function indexContractTransactions(contract: ContractConfig): Promi
       // Add all hashes to seen set
       batchHashes.forEach(hash => stats.seenTxHashes.add(hash));
 
-      // Filter transactions:
-      // 1. Must be at or after deploy block
-      // 2. Must be successful (status = true)
+      // Filter transactions: only skip those before deploy block
+      // We now include failed transactions to match Routescan count
       const validTransactions = response.items.filter((tx) => {
         // Skip transactions before contract was deployed
         if (tx.blockNumber < deployBlock) {
           skippedBeforeDeployBlock++;
-          return false;
-        }
-        // Skip failed transactions
-        if (!tx.status) {
           return false;
         }
         return true;
@@ -298,6 +293,7 @@ export async function indexContractTransactions(contract: ContractConfig): Promi
           tx_hash: tx.tx_hash,
           block_number: tx.block_number,
           block_timestamp: tx.block_timestamp,
+          status: tx.status,
         }));
         await insertInteractions(interactions);
 
@@ -412,9 +408,9 @@ export async function pollNewTransactions(contract: ContractConfig): Promise<num
         break;
       }
 
-      // Filter by deploy block and status
+      // Filter by deploy block only - include failed transactions
       const validTransactions = response.items.filter(
-        (tx) => tx.blockNumber >= deployBlock && tx.status === true
+        (tx) => tx.blockNumber >= deployBlock
       );
 
       if (validTransactions.length === 0) {
@@ -454,6 +450,7 @@ export async function pollNewTransactions(contract: ContractConfig): Promise<num
           tx_hash: tx.tx_hash,
           block_number: tx.block_number,
           block_timestamp: tx.block_timestamp,
+          status: tx.status,
         }));
         await insertInteractions(interactions);
 

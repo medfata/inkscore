@@ -74,7 +74,7 @@ async function fetchTotalVolumeUsd(walletAddress: string): Promise<number> {
 
     const outgoingEth = parseFloat(outgoingResult?.total_eth || '0');
     const totalEth = outgoingEth + incomingEth;
-    
+
     return totalEth * ethPrice;
   } catch (error) {
     console.error('Error fetching total volume:', error);
@@ -129,7 +129,7 @@ export class PointsService {
   // Internal fetch without cache (used by getCachedRulesData)
   private async fetchAllPointsRules(activeOnly: boolean): Promise<PointsRuleWithRelations[]> {
     const whereClause = activeOnly ? 'WHERE pr.is_active = true' : '';
-    
+
     const rules = await query<PointsRule & { platform_name?: string; native_metric_key?: string }>(`
       SELECT 
         pr.*,
@@ -147,7 +147,7 @@ export class PointsService {
     // For metric-based rules, fetch the associated metrics
     const ruleIds = rules.filter(r => r.metric_type === 'metric').map(r => r.id);
     const metricsMap = new Map<number, Array<{ id: number; name: string; slug: string; aggregation_type: string; currency: string }>>();
-    
+
     if (ruleIds.length > 0) {
       const ruleMetrics = await query<{
         rule_id: number;
@@ -345,7 +345,7 @@ export class PointsService {
     if (data.metric_ids !== undefined) {
       // Delete existing associations
       await query(`DELETE FROM points_rule_metrics WHERE rule_id = $1`, [id]);
-      
+
       // Insert new associations
       for (const metricId of data.metric_ids) {
         await query(`
@@ -550,6 +550,7 @@ export class PointsService {
       LEFT JOIN transaction_details td ON td.tx_hash = wi.tx_hash
       WHERE wi.wallet_address = $1
         AND wi.contract_address = ANY($2)
+        AND wi.status = 1
     `, [wallet, addresses]);
 
     const txCount = parseInt(stats?.tx_count || '0');
@@ -573,7 +574,7 @@ export class PointsService {
       walletStatsService.getAllStats(wallet),
       fetchTotalVolumeUsd(wallet),
     ]);
-    
+
     const cachedData = await this.getCachedRulesData();
     const { rules, nativeMetrics, platformContracts } = cachedData;
     const nativeMetricMap = new Map(nativeMetrics.map(m => [m.id, m]));
@@ -603,7 +604,7 @@ export class PointsService {
     // Process platform rules
     const platformRules = rules.filter(r => r.metric_type === 'platform');
     const platformIds = platformRules.map(r => r.platform_id).filter(Boolean) as number[];
-    const platforms = platformIds.length > 0 
+    const platforms = platformIds.length > 0
       ? await query<{ id: number; slug: string }>(`SELECT id, slug FROM platforms WHERE id = ANY($1)`, [platformIds])
       : [];
     const platformMap = new Map(platforms.map(p => [p.id, p.slug]));
@@ -622,7 +623,7 @@ export class PointsService {
       totalPoints += result.points;
     }
 
-    const rank = cachedData.ranks.find(r => 
+    const rank = cachedData.ranks.find(r =>
       r.min_points <= totalPoints && (r.max_points === null || r.max_points >= totalPoints)
     ) || null;
 
@@ -643,7 +644,7 @@ export class PointsService {
 
   async getCachedWalletScore(walletAddress: string): Promise<WalletScoreResponse | null> {
     const wallet = walletAddress.toLowerCase();
-    
+
     const cached = await queryOne<WalletPointsCache & { rank_name?: string; rank_color?: string; rank_logo?: string }>(`
       SELECT 
         wpc.*,
@@ -665,8 +666,8 @@ export class PointsService {
         color: cached.rank_color || null,
         logo_url: cached.rank_logo || null,
       } : null,
-      breakdown: typeof cached.breakdown === 'string' 
-        ? JSON.parse(cached.breakdown) 
+      breakdown: typeof cached.breakdown === 'string'
+        ? JSON.parse(cached.breakdown)
         : cached.breakdown,
       last_updated: cached.last_calculated_at,
     };

@@ -980,10 +980,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
           ))}
         </div>
 
-        {/* Row 2: Total INKSCORE (50%) + Bridge Volume (25%) + Swap Volume (25%) */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Total INKSCORE Card - 50% width (2 columns) */}
-          <div className="lg:col-span-2 glass-card p-8 rounded-2xl animate-fade-in-up h-[300px] flex flex-col" style={{ animationDelay: '0.5s' }}>
+        {/* Row 2: Total INKSCORE (50%) + Tydro DeFi (50%) */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Total INKSCORE Card - 50% width */}
+          <div className="glass-card p-8 rounded-2xl animate-fade-in-up h-[300px] flex flex-col" style={{ animationDelay: '0.5s' }}>
             <div className="flex flex-col md:flex-row items-center justify-between gap-6 flex-1">
               <div className="text-center md:text-left relative flex-shrink-0">
                 <div className="absolute -top-20 -left-20 w-40 h-40 bg-ink-purple/20 blur-3xl rounded-full"></div>
@@ -1064,8 +1064,147 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
             </div>
           </div>
 
-          {/* Bridge Volume Card - 25% width (1 column) */}
-          <div className="lg:col-span-1 glass-card p-6 rounded-2xl animate-fade-in-up border border-purple-500/20 bg-purple-500/5 h-[300px] flex flex-col" style={{ animationDelay: '0.55s' }}>
+          {/* Tydro DeFi Card - 50% width - Premium Card */}
+          <div 
+            className="animated-border p-6 rounded-2xl animate-fade-in-up h-[300px] flex flex-col relative"
+            style={{ 
+              animationDelay: '0.55s',
+              background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(15, 23, 42, 0.6) 100%)',
+            }}
+          >
+            <div className="flex items-center justify-between mb-3 relative z-10">
+              <h3 className="text-xl font-bold text-white flex items-center gap-3">
+                <div className="w-9 h-9 rounded-full border-2 border-emerald-500 bg-slate-800 flex items-center justify-center p-1.5">
+                  <img
+                    src="https://app.tydro.com/tydro-logo.svg"
+                    alt="Tydro"
+                    className="w-full h-full object-contain"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none';
+                    }}
+                  />
+                </div>
+                <span className="text-white font-display">Tydro DeFi</span>
+              </h3>
+              <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/25 text-emerald-400">
+                PARTNER
+              </span>
+            </div>
+
+            {!isDemo && !realTydroData ? (
+              <div className="flex-1 flex flex-col gap-3 relative z-10">
+                {/* Current Positions Skeleton */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-3 rounded-xl bg-slate-800/40 border border-slate-700/30">
+                    <div className="h-3 w-24 bg-slate-700/40 rounded animate-pulse mb-2"></div>
+                    <div className="h-7 w-20 bg-slate-700/50 rounded animate-pulse"></div>
+                  </div>
+                  <div className="p-3 rounded-xl bg-slate-800/40 border border-slate-700/30">
+                    <div className="h-3 w-24 bg-slate-700/40 rounded animate-pulse mb-2"></div>
+                    <div className="h-7 w-20 bg-slate-700/50 rounded animate-pulse"></div>
+                  </div>
+                </div>
+                {/* Historical Skeleton */}
+                <div className="grid grid-cols-2 gap-3 flex-1">
+                  <div className="p-3 rounded-xl bg-slate-800/30 border border-slate-700/20">
+                    <div className="h-3 w-28 bg-slate-700/30 rounded animate-pulse mb-2"></div>
+                    <div className="h-6 w-24 bg-slate-700/40 rounded animate-pulse"></div>
+                  </div>
+                  <div className="p-3 rounded-xl bg-slate-800/30 border border-slate-700/20">
+                    <div className="h-3 w-28 bg-slate-700/30 rounded animate-pulse mb-2"></div>
+                    <div className="h-6 w-24 bg-slate-700/40 rounded animate-pulse"></div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="flex-1 flex flex-col gap-3 relative z-10">
+                {/* Current Positions Row */}
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Current Supply Position */}
+                  <div className="p-3 rounded-xl bg-green-500/10 border border-green-500/20 hover:border-green-500/40 transition-colors duration-200">
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-green-500/20 flex items-center justify-center">
+                          <Landmark size={12} className="text-green-400" />
+                        </div>
+                        <span className="text-xs font-medium text-slate-400">Current Supply</span>
+                      </div>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/15 text-green-400 font-medium">LIVE</span>
+                    </div>
+                    <div className="text-2xl font-bold font-display text-green-400">
+                      $0.00
+                    </div>
+                  </div>
+
+                  {/* Current Borrow Position */}
+                  <div className="p-3 rounded-xl bg-orange-500/10 border border-orange-500/20 hover:border-orange-500/40 transition-colors duration-200">
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-orange-500/20 flex items-center justify-center">
+                          <Zap size={12} className="text-orange-400" />
+                        </div>
+                        <span className="text-xs font-medium text-slate-400">Current Borrow</span>
+                      </div>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-500/15 text-orange-400 font-medium">LIVE</span>
+                    </div>
+                    <div className="text-2xl font-bold font-display text-orange-400">
+                      $0.00
+                    </div>
+                  </div>
+                </div>
+
+                {/* Historical Volume Row */}
+                <div className="grid grid-cols-2 gap-3 flex-1">
+                  {/* Historical Supply Volume */}
+                  <div className="p-3 rounded-xl bg-slate-800/40 border border-slate-700/40 hover:border-slate-600/60 transition-colors duration-200">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Clock size={12} className="text-slate-500" />
+                      <span className="text-xs text-slate-500">Historical Supply</span>
+                    </div>
+                    <div className="text-lg font-bold font-display text-white">
+                      ${!isDemo && realTydroData
+                        ? realTydroData.supplyVolume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                        : (data.stats.tydroSupplyCount * 100).toFixed(2)}
+                    </div>
+                    <div className="text-[10px] text-slate-500 mt-0.5">
+                      {!isDemo && realTydroData ? realTydroData.supplyCount : data.stats.tydroSupplyCount} transactions
+                    </div>
+                  </div>
+
+                  {/* Historical Borrow Volume */}
+                  <div className="p-3 rounded-xl bg-slate-800/40 border border-slate-700/40 hover:border-slate-600/60 transition-colors duration-200">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Clock size={12} className="text-slate-500" />
+                      <span className="text-xs text-slate-500">Historical Borrow</span>
+                    </div>
+                    <div className="text-lg font-bold font-display text-white">
+                      ${!isDemo && realTydroData
+                        ? realTydroData.borrowVolume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                        : (data.stats.tydroBorrowCount * 200).toFixed(2)}
+                    </div>
+                    <div className="text-[10px] text-slate-500 mt-0.5">
+                      {!isDemo && realTydroData ? realTydroData.borrowCount : data.stats.tydroBorrowCount} transactions
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Active indicator */}
+            {((!isDemo && realTydroData && (realTydroData.supplyCount > 0 || realTydroData.borrowCount > 0)) || 
+              (isDemo && (data.stats.tydroSupplyCount > 0 || data.stats.tydroBorrowCount > 0))) && (
+              <div className="mt-2 text-xs text-emerald-400 flex items-center gap-2 relative z-10">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                <span className="font-medium">Active DeFi Participant</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Row 3: Bridge Volume + Swap Volume (50% each) */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Bridge Volume Card - 50% width */}
+          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-purple-500/20 bg-purple-500/5 h-[300px] flex flex-col" style={{ animationDelay: '0.6s' }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                 <div className="flex items-center -space-x-3">
@@ -1106,43 +1245,47 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                   </div>
                 </div>
 
-                {bridgeVolume.byPlatform.length > 0 && (
-                  <div className="flex-1 pt-3 border-t border-slate-700/50 flex flex-col min-h-0">
-                    <span className="text-xs text-slate-500 uppercase tracking-wider mb-2">By Platform</span>
-                    <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar max-h-[140px]">
-                      {bridgeVolume.byPlatform.map((platform, i) => {
-                        const displayName = platform.subPlatform || platform.platform;
-                        const logoUrl = BRIDGE_PLATFORM_LOGOS[displayName] || BRIDGE_PLATFORM_LOGOS[platform.platform];
-
-                        return (
-                          <div key={i} className="flex justify-between items-center text-xs py-0.5">
-                            <span className="text-slate-400 flex items-center gap-1.5">
-                              {logoUrl && (
-                                <img
-                                  src={logoUrl}
-                                  alt={displayName}
-                                  className="w-3.5 h-3.5 rounded"
-                                  onError={(e) => {
-                                    (e.target as HTMLImageElement).style.display = 'none';
-                                  }}
-                                />
-                              )}
-                              {displayName}
-                            </span>
-                            <div className="text-right">
-                              <span className="font-mono text-white text-xs">
-                                ${platform.usdValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                              </span>
-                              <span className="text-slate-500 text-[10px] ml-1.5">
-                                ({platform.txCount})
-                              </span>
-                            </div>
-                          </div>
+                <div className="flex-1 pt-3 border-t border-slate-700/50 flex flex-col min-h-0">
+                  <span className="text-xs text-slate-500 uppercase tracking-wider mb-2">By Platform</span>
+                  <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar max-h-[140px]">
+                    {Object.entries(BRIDGE_PLATFORM_LOGOS)
+                      .map(([platformName, logoUrl]) => {
+                        const platformData = bridgeVolume.byPlatform.find(
+                          p => (p.subPlatform || p.platform) === platformName || p.platform === platformName
                         );
-                      })}
-                    </div>
+                        return {
+                          platformName,
+                          logoUrl,
+                          usdValue: platformData?.usdValue || 0,
+                          txCount: platformData?.txCount || 0,
+                        };
+                      })
+                      .sort((a, b) => b.usdValue - a.usdValue)
+                      .map((platform, i) => (
+                        <div key={i} className="flex justify-between items-center text-xs py-0.5">
+                          <span className="text-slate-400 flex items-center gap-1.5">
+                            <img
+                              src={platform.logoUrl}
+                              alt={platform.platformName}
+                              className="w-3.5 h-3.5 rounded"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).style.display = 'none';
+                              }}
+                            />
+                            {platform.platformName}
+                          </span>
+                          <div className="text-right">
+                            <span className="font-mono text-white text-xs">
+                              ${platform.usdValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                            <span className="text-slate-500 text-[10px] ml-1.5">
+                              ({platform.txCount})
+                            </span>
+                          </div>
+                        </div>
+                      ))}
                   </div>
-                )}
+                </div>
 
                 {bridgeVolume.txCount > 0 && (
                   <div className="mt-3 text-xs text-purple-400 opacity-80 flex items-center gap-1">
@@ -1189,8 +1332,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
             )}
           </div>
 
-          {/* Swap Volume Card - 25% width (1 column) */}
-          <div className="lg:col-span-1 glass-card p-6 rounded-2xl animate-fade-in-up border border-cyan-500/20 bg-cyan-500/5 h-[300px] flex flex-col" style={{ animationDelay: '0.6s' }}>
+          {/* Swap Volume Card - 50% width */}
+          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-cyan-500/20 bg-cyan-500/5 h-[300px] flex flex-col" style={{ animationDelay: '0.65s' }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                 <div className="flex items-center -space-x-3">
@@ -1231,45 +1374,47 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                   </div>
                 </div>
 
-                {swapVolume.byPlatform.length > 0 && (
-                  <div className="flex-1 pt-3 border-t border-slate-700/50 flex flex-col min-h-0">
-                    <span className="text-xs text-slate-500 uppercase tracking-wider mb-2">By Platform</span>
-                    <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar max-h-[140px]">
-                      {swapVolume.byPlatform.map((platform, i) => {
-                        const platformInfo = DEX_PLATFORMS[platform.contractAddress.toLowerCase()];
-                        const logoUrl = platformInfo?.logo;
-                        // Use platform info name, then check name overrides, then fall back to API name
-                        const displayName = platformInfo?.name || DEX_NAME_OVERRIDES[platform.platform] || platform.platform;
-
-                        return (
-                          <div key={i} className="flex justify-between items-center text-xs py-0.5">
-                            <span className="text-slate-400 flex items-center gap-1.5">
-                              {logoUrl && (
-                                <img
-                                  src={logoUrl}
-                                  alt={displayName}
-                                  className="w-3.5 h-3.5 rounded"
-                                  onError={(e) => {
-                                    (e.target as HTMLImageElement).style.display = 'none';
-                                  }}
-                                />
-                              )}
-                              {displayName}
-                            </span>
-                            <div className="text-right">
-                              <span className="font-mono text-white text-xs">
-                                ${platform.usdValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                              </span>
-                              <span className="text-slate-500 text-[10px] ml-1.5">
-                                ({platform.txCount})
-                              </span>
-                            </div>
-                          </div>
+                <div className="flex-1 pt-3 border-t border-slate-700/50 flex flex-col min-h-0">
+                  <span className="text-xs text-slate-500 uppercase tracking-wider mb-2">By Platform</span>
+                  <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar max-h-[140px]">
+                    {Object.entries(DEX_PLATFORMS)
+                      .map(([contractAddress, platformInfo]) => {
+                        const platformData = swapVolume.byPlatform.find(
+                          p => p.contractAddress.toLowerCase() === contractAddress.toLowerCase()
                         );
-                      })}
-                    </div>
+                        return {
+                          contractAddress,
+                          platformInfo,
+                          usdValue: platformData?.usdValue || 0,
+                          txCount: platformData?.txCount || 0,
+                        };
+                      })
+                      .sort((a, b) => b.usdValue - a.usdValue)
+                      .map((platform, i) => (
+                        <div key={i} className="flex justify-between items-center text-xs py-0.5">
+                          <span className="text-slate-400 flex items-center gap-1.5">
+                            <img
+                              src={platform.platformInfo.logo}
+                              alt={platform.platformInfo.name}
+                              className="w-3.5 h-3.5 rounded"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).style.display = 'none';
+                              }}
+                            />
+                            {platform.platformInfo.name}
+                          </span>
+                          <div className="text-right">
+                            <span className="font-mono text-white text-xs">
+                              ${platform.usdValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                            <span className="text-slate-500 text-[10px] ml-1.5">
+                              ({platform.txCount})
+                            </span>
+                          </div>
+                        </div>
+                      ))}
                   </div>
-                )}
+                </div>
 
                 {swapVolume.txCount > 0 && (
                   <div className="mt-3 text-xs text-cyan-400 opacity-80 flex items-center gap-1">
@@ -1317,8 +1462,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
           </div>
         </div>
 
-        {/* Row 3: GM Activity + InkySwap Volume + Tydro DeFi Activity + NFT Trading (same height) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* Row 4: GM Activity + InkySwap Volume + NFT Trading (3 columns) */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* GM Activity Card */}
           <div className="glass-card p-6 rounded-xl animate-fade-in-up border border-yellow-500/20 bg-yellow-500/5 h-[200px] flex flex-col" style={{ animationDelay: '0.6s' }}>
             <div className="flex items-center justify-between mb-4">
@@ -1430,99 +1575,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                   </div>
                 )}
               </>
-            )}
-          </div>
-
-          {/* Tydro DeFi Card */}
-          <div className="glass-card p-6 rounded-xl animate-fade-in-up border border-emerald-500/20 bg-emerald-500/5 h-[200px] flex flex-col" style={{ animationDelay: '0.7s' }}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                <img
-                  src="https://app.tydro.com/tydro-logo.svg"
-                  alt="Tydro"
-                  className="w-6 h-6 rounded"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).style.display = 'none';
-                  }}
-                />
-                Tydro DeFi
-              </h3>
-              <div className="text-xs font-bold px-2 py-1 rounded border bg-emerald-900/30 border-emerald-500/30 text-emerald-400">
-                USD
-              </div>
-            </div>
-
-            {!isDemo && !realTydroData ? (
-              <div className="flex-1 flex flex-col justify-center space-y-4">
-                {/* Supply Row Skeleton */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full bg-slate-700/50 animate-pulse"></div>
-                    <div>
-                      <div className="h-3 w-12 bg-slate-700/40 rounded animate-pulse"></div>
-                      <div className="h-3 w-16 bg-slate-700/30 rounded mt-1 animate-pulse"></div>
-                    </div>
-                  </div>
-                  <div className="h-6 w-20 bg-slate-700/50 rounded animate-pulse"></div>
-                </div>
-                <div className="border-t border-slate-700/50"></div>
-                {/* Borrow Row Skeleton */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full bg-slate-700/50 animate-pulse"></div>
-                    <div>
-                      <div className="h-3 w-12 bg-slate-700/40 rounded animate-pulse"></div>
-                      <div className="h-3 w-16 bg-slate-700/30 rounded mt-1 animate-pulse"></div>
-                    </div>
-                  </div>
-                  <div className="h-6 w-20 bg-slate-700/50 rounded animate-pulse"></div>
-                </div>
-              </div>
-            ) : (
-              <div className="flex-1 flex flex-col justify-center space-y-4">
-                {/* Supply Row */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center">
-                      <Landmark size={14} className="text-green-400" />
-                    </div>
-                    <div>
-                      <div className="text-xs text-slate-400">Supply</div>
-                      <div className="text-xs text-slate-500">
-                        {!isDemo && realTydroData ? realTydroData.supplyCount : data.stats.tydroSupplyCount} txns
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-xl font-bold font-display text-green-400">
-                    ${!isDemo && realTydroData
-                      ? realTydroData.supplyVolume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                      : (data.stats.tydroSupplyCount * 100).toFixed(2)}
-                  </div>
-                </div>
-
-                {/* Divider */}
-                <div className="border-t border-slate-700/50"></div>
-
-                {/* Borrow Row */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center">
-                      <Zap size={14} className="text-orange-400" />
-                    </div>
-                    <div>
-                      <div className="text-xs text-slate-400">Borrow</div>
-                      <div className="text-xs text-slate-500">
-                        {!isDemo && realTydroData ? realTydroData.borrowCount : data.stats.tydroBorrowCount} txns
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-xl font-bold font-display text-orange-400">
-                    ${!isDemo && realTydroData
-                      ? realTydroData.borrowVolume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                      : (data.stats.tydroBorrowCount * 200).toFixed(2)}
-                  </div>
-                </div>
-              </div>
             )}
           </div>
 

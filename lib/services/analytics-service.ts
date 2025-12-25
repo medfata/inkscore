@@ -374,6 +374,7 @@ export class AnalyticsService {
         FROM wallet_interactions
         WHERE wallet_address = $1
           AND contract_address = ANY($2)
+          AND status = 1
           ${functionFilter}
         GROUP BY contract_address, function_name
       `, params);

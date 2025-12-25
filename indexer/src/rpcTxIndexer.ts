@@ -140,6 +140,7 @@ async function getTransactionsForContract(
         tx_hash: tx.hash,
         block_number: Number(block.number),
         block_timestamp: new Date(Number(block.timestamp) * 1000),
+        status: receipt.status === 'success' ? 1 : 0,
       };
 
       interactions.push(interaction);

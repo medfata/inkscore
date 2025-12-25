@@ -184,6 +184,7 @@ export async function indexContractTransactionsFast(contract: ContractConfig): P
       tx_hash: tx.txHash,
       block_number: tx.blockNumber,
       block_timestamp: new Date(tx.timestamp),
+      status: tx.status ? 1 : 0,
     };
 
     interactions.push(interaction);
@@ -204,7 +205,7 @@ export async function indexContractTransactionsFast(contract: ContractConfig): P
   while (nextToken) {
     try {
       const page = await fetchRoutescanPage(contractAddress, nextToken);
-      
+
       const batchTransactions: TransactionDetail[] = [];
       const batchInteractions: Interaction[] = [];
 
@@ -220,6 +221,7 @@ export async function indexContractTransactionsFast(contract: ContractConfig): P
           tx_hash: tx.txHash,
           block_number: tx.blockNumber,
           block_timestamp: new Date(tx.timestamp),
+          status: tx.status ? 1 : 0,
         };
 
         batchInteractions.push(interaction);
@@ -272,6 +274,7 @@ export async function pollNewTransactionsFast(contract: ContractConfig): Promise
         tx_hash: tx.txHash,
         block_number: tx.blockNumber,
         block_timestamp: new Date(tx.timestamp),
+        status: tx.status ? 1 : 0,
       };
 
       interactions.push(interaction);
