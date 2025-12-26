@@ -72,7 +72,7 @@ export const HoldingsSection: React.FC<HoldingsSectionProps> = ({
                   key={i}
                   src={token.logo}
                   alt={token.symbol}
-                  className="w-7 h-7 rounded-full object-cover border-2 border-blue-500 bg-slate-800"
+                  className="w-7 h-7 rounded-full object-cover bg-slate-800"
                   style={{ zIndex: 3 - i }}
                   onError={(e) => {
                     (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${token.symbol.charAt(0)}&background=334155&color=94a3b8&size=28`;
@@ -135,7 +135,7 @@ export const HoldingsSection: React.FC<HoldingsSectionProps> = ({
                   key={i}
                   src={token.logo}
                   alt={token.symbol}
-                  className="w-7 h-7 rounded-full object-cover border-2 border-yellow-500 bg-slate-800"
+                  className="w-7 h-7 rounded-full object-cover bg-slate-800"
                   style={{ zIndex: 3 - i }}
                   onError={(e) => {
                     (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${token.symbol.charAt(0)}&background=334155&color=94a3b8&size=28`;
@@ -207,7 +207,7 @@ export const HoldingsSection: React.FC<HoldingsSectionProps> = ({
                   key={i}
                   src={collection.logo}
                   alt={collection.name}
-                  className="w-7 h-7 rounded-full object-cover border-2 border-pink-500 bg-slate-800"
+                  className="w-7 h-7 rounded-full object-cover  bg-slate-800"
                   style={{ zIndex: 3 - i }}
                   onError={(e) => {
                     (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${collection.name.charAt(0)}&background=334155&color=94a3b8&size=28`;

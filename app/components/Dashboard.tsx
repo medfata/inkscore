@@ -20,11 +20,10 @@ import { DynamicCardsCarouselRow3, DynamicCardsCarouselRow4 } from './DynamicDas
 
 // Bridge platform logos
 const BRIDGE_PLATFORM_LOGOS: Record<string, string> = {
-  'Owlto': 'https://owlto.finance/favicon.ico',
-  'Orbiter': 'https://www.orbiter.finance/favicon.ico',
-  'Gas.zip': 'https://www.gas.zip/favicon.ico',
-  'Relay': 'https://relay.link/favicon.ico',
+  'Native Bridge (USDT0)': 'https://pbs.twimg.com/profile_images/1879546764971188224/SQISVYwX_400x400.jpg',
   'Ink Official': 'https://inkonchain.com/favicon.ico',
+  'Relay': 'https://relay.link/favicon.ico',
+  'Bungee': 'https://www.bungee.exchange/favicon.ico',
 };
 
 // DEX platform logos and info (keyed by lowercase contract address)
@@ -1173,7 +1172,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
           >
             <div className="flex items-center justify-between mb-3 relative z-10">
               <h3 className="text-xl font-bold text-white flex items-center gap-3">
-                <div className="w-9 h-9 rounded-full border-2 border-emerald-500 bg-slate-800 flex items-center justify-center p-1.5">
+                <div className="w-9 h-9 rounded-full bg-slate-800 flex items-center justify-center p-1.5">
                   <img
                     src="https://app.tydro.com/tydro-logo.svg"
                     alt="Tydro"
@@ -1338,10 +1337,58 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
           </div>
         </div>
 
-        {/* Row 3: Bridge Volume + Swap Volume (50% each) */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Bridge Volume Card - 50% width */}
-          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-purple-500/20 bg-purple-500/5 h-[300px] flex flex-col" style={{ animationDelay: '0.6s' }}>
+        {/* Row 3: GM + Bridge Volume + InkyPump + Swap Volume (4 columns) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {/* GM Activity Card */}
+          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-yellow-500/20 bg-yellow-500/5 h-[300px] flex flex-col" style={{ animationDelay: '0.6s' }}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                <img
+                  src="https://gm.inkonchain.com/favicon.ico"
+                  alt="GM"
+                  className="w-6 h-6 rounded"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = 'none';
+                  }}
+                />
+                GM Activity
+              </h3>
+              <div className="text-xs font-bold px-2 py-1 rounded border bg-purple-900/30 border-purple-500/30 text-purple-400">
+                COUNT
+              </div>
+            </div>
+
+            {!isDemo && !realGmData ? (
+              <div className="flex-1 flex flex-col justify-center">
+                <div className="h-8 w-20 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+                <div className="h-3 w-24 bg-slate-700/30 rounded animate-pulse"></div>
+              </div>
+            ) : (
+              <>
+                <div className="flex-1">
+                  <div className="text-3xl font-bold font-display text-white mb-1">
+                    {!isDemo && realGmData ? realGmData.count : data.stats.gmInteractionCount}
+                  </div>
+                  <div className="text-xs text-slate-500">Total Interactions</div>
+                  <div className="mt-4 pt-3 border-t border-slate-700/50">
+                    <div className="text-2xl font-bold font-display text-purple-500">
+                      +{((!isDemo && realGmData ? realGmData.count : data.stats.gmInteractionCount) * 2)}
+                    </div>
+                    <div className="text-xs text-slate-500">Points Earned</div>
+                  </div>
+                </div>
+                {((!isDemo && realGmData ? realGmData.count : data.stats.gmInteractionCount) > 0) && (
+                  <div className="mt-3 text-xs text-purple-500/80 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse"></span>
+                    Active GM Participant
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* Bridge Volume Card */}
+          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-purple-500/20 bg-purple-500/5 h-[300px] flex flex-col" style={{ animationDelay: '0.65s' }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                 <div className="flex items-center -space-x-3">
@@ -1350,41 +1397,33 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                       key={i}
                       src={logo}
                       alt={name}
-                      className="w-7 h-7 rounded-full object-cover border-2 border-purple-500 bg-slate-800"
+                      className="w-6 h-6 rounded-full object-cover  bg-slate-800"
                       style={{ zIndex: 3 - i }}
                       onError={(e) => {
-                        (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${name.charAt(0)}&background=334155&color=94a3b8&size=28`;
+                        (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${name.charAt(0)}&background=334155&color=94a3b8&size=24`;
                       }}
                     />
                   ))}
                 </div>
                 Bridge Volume
               </h3>
-              <div className="text-xs font-bold px-2 py-1 rounded border bg-purple-900/30 border-purple-500/30 text-purple-400">
+              <div className="text-xs font-bold px-2 py-1 rounded border bg-teal-900/30 border-teal-500/30 text-teal-400">
                 USD
               </div>
             </div>
 
             {!isDemo && bridgeVolume ? (
               <>
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <div className="text-3xl font-bold font-display text-purple-400">
-                      ${bridgeVolume.totalUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </div>
-                    <div className="text-xs text-slate-500">Total Bridged To Ink Chain</div>
+                <div className="mb-3">
+                  <div className="text-2xl font-bold font-display text-teal-400">
+                    ${bridgeVolume.totalUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </div>
-                  <div className="text-right">
-                    <div className="text-2xl font-bold font-display text-white">
-                      {bridgeVolume.txCount.toLocaleString()}
-                    </div>
-                    <div className="text-xs text-slate-500">Transactions</div>
-                  </div>
+                  <div className="text-xs text-slate-500">{bridgeVolume.txCount} transactions</div>
                 </div>
 
                 <div className="flex-1 pt-3 border-t border-slate-700/50 flex flex-col min-h-0">
-                  <span className="text-xs text-slate-500 uppercase tracking-wider mb-2">By Platform</span>
-                  <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar max-h-[140px]">
+                  <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">By Platform</span>
+                  <div className="flex-1 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
                     {Object.entries(BRIDGE_PLATFORM_LOGOS)
                       .map(([platformName, logoUrl]) => {
                         const platformData = bridgeVolume.byPlatform.find(
@@ -1399,34 +1438,29 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                       })
                       .sort((a, b) => b.usdValue - a.usdValue)
                       .map((platform, i) => (
-                        <div key={i} className="flex justify-between items-center text-xs py-0.5">
-                          <span className="text-slate-400 flex items-center gap-1.5">
+                        <div key={i} className="flex justify-between items-center text-[11px] py-0.5">
+                          <span className="text-slate-400 flex items-center gap-1">
                             <img
                               src={platform.logoUrl}
                               alt={platform.platformName}
-                              className="w-3.5 h-3.5 rounded"
+                              className="w-3 h-3 rounded"
                               onError={(e) => {
                                 (e.target as HTMLImageElement).style.display = 'none';
                               }}
                             />
-                            {platform.platformName}
+                            <span className="truncate max-w-[80px]">{platform.platformName}</span>
                           </span>
-                          <div className="text-right">
-                            <span className="font-mono text-white text-xs">
-                              ${platform.usdValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </span>
-                            <span className="text-slate-500 text-[10px] ml-1.5">
-                              ({platform.txCount})
-                            </span>
-                          </div>
+                          <span className="font-mono text-white text-[10px]">
+                            ${platform.usdValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                          </span>
                         </div>
                       ))}
                   </div>
                 </div>
 
                 {bridgeVolume.txCount > 0 && (
-                  <div className="mt-3 text-xs text-purple-400 opacity-80 flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse"></span>
+                  <div className="mt-2 text-xs text-teal-400 opacity-80 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse"></span>
                     Active Bridger
                   </div>
                 )}
@@ -1436,41 +1470,67 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                 {isDemo ? (
                   <div className="flex-1 flex items-center justify-center">
                     <div className="text-center text-slate-500">
-                      <div className="text-3xl font-bold font-display text-purple-400 mb-2">$12,450.00</div>
+                      <div className="text-2xl font-bold font-display text-purple-400 mb-2">$12,450.00</div>
                       <div className="text-xs">Demo Bridge Volume</div>
                     </div>
                   </div>
                 ) : (
-                  <>
-                    <div className="flex items-center justify-between mb-4">
-                      <div>
-                        <div className="h-9 w-32 bg-slate-700/50 rounded animate-pulse"></div>
-                        <div className="h-3 w-28 bg-slate-700/30 rounded mt-1 animate-pulse"></div>
-                      </div>
-                      <div className="text-right">
-                        <div className="h-8 w-16 bg-slate-700/50 rounded animate-pulse ml-auto"></div>
-                        <div className="h-3 w-20 bg-slate-700/30 rounded mt-1 animate-pulse ml-auto"></div>
-                      </div>
-                    </div>
-                    <div className="flex-1 pt-3 border-t border-slate-700/50 flex flex-col min-h-0">
-                      <div className="h-3 w-20 bg-slate-700/30 rounded animate-pulse mb-2"></div>
-                      <div className="space-y-2">
-                        {[1, 2, 3].map((i) => (
-                          <div key={i} className="flex justify-between items-center">
-                            <div className="h-4 w-20 bg-slate-700/40 rounded animate-pulse"></div>
-                            <div className="h-4 w-24 bg-slate-700/40 rounded animate-pulse"></div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </>
+                  <div className="flex-1 flex flex-col justify-center">
+                    <div className="h-8 w-28 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+                    <div className="h-3 w-20 bg-slate-700/30 rounded animate-pulse"></div>
+                  </div>
                 )}
               </div>
             )}
           </div>
 
-          {/* Swap Volume Card - 50% width */}
-          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-cyan-500/20 bg-cyan-500/5 h-[300px] flex flex-col" style={{ animationDelay: '0.65s' }}>
+          {/* InkyPump Card */}
+          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-pink-500/20 bg-pink-500/5 h-[300px] flex flex-col" style={{ animationDelay: '0.7s' }}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                <img
+                  src="https://www.inkypump.com/favicon.ico"
+                  alt="InkyPump"
+                  className="w-6 h-6 rounded-full object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=IP&background=ec4899&color=fff&size=24';
+                  }}
+                />
+                InkyPump
+              </h3>
+              <div className="text-xs font-bold px-2 py-1 rounded border bg-white-900/30 border-white-500/30 text-white-400">
+                USD
+              </div>
+            </div>
+
+            <div className="mb-3">
+              <div className="text-2xl font-bold font-display text-white-400">$0.00</div>
+              <div className="text-xs text-slate-500">0 transactions</div>
+            </div>
+
+            <div className="flex-1 pt-3 border-t border-slate-700/50">
+              <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">By Action</span>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center text-[11px]">
+                  <span className="text-slate-400">Created Tokens</span>
+                  <span className="font-mono text-white">0</span>
+                </div>
+                <div className="flex justify-between items-center text-[11px]">
+                  <span className="text-slate-400">Buy Token volume</span>
+                  <span className="font-mono text-white">$0.00</span>
+                </div>
+                <div className="flex justify-between items-center text-[11px]">
+                  <span className="text-slate-400">Sell Token volume</span>
+                  <span className="font-mono text-white">$0.00</span>
+                </div>
+              </div>
+            </div>
+
+           
+          </div>
+
+          {/* Swap Volume Card */}
+          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-cyan-500/20 bg-cyan-500/5 h-[300px] flex flex-col" style={{ animationDelay: '0.75s' }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                 <div className="flex items-center -space-x-3">
@@ -1479,10 +1539,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                       key={i}
                       src={platform.logo}
                       alt={platform.name}
-                      className="w-7 h-7 rounded-full object-cover border-2 border-cyan-500 bg-slate-800"
+                      className="w-6 h-6 rounded-full object-cover bg-slate-800"
                       style={{ zIndex: 3 - i }}
                       onError={(e) => {
-                        (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${platform.name.charAt(0)}&background=334155&color=94a3b8&size=28`;
+                        (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${platform.name.charAt(0)}&background=334155&color=94a3b8&size=24`;
                       }}
                     />
                   ))}
@@ -1496,24 +1556,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
 
             {!isDemo && swapVolume ? (
               <>
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <div className="text-3xl font-bold font-display text-cyan-400">
-                      ${swapVolume.totalUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </div>
-                    <div className="text-xs text-slate-500">Total Swapped</div>
+                <div className="mb-3">
+                  <div className="text-2xl font-bold font-display text-cyan-400">
+                    ${swapVolume.totalUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </div>
-                  <div className="text-right">
-                    <div className="text-2xl font-bold font-display text-white">
-                      {swapVolume.txCount.toLocaleString()}
-                    </div>
-                    <div className="text-xs text-slate-500">Swaps</div>
-                  </div>
+                  <div className="text-xs text-slate-500">{swapVolume.txCount} swaps</div>
                 </div>
 
                 <div className="flex-1 pt-3 border-t border-slate-700/50 flex flex-col min-h-0">
-                  <span className="text-xs text-slate-500 uppercase tracking-wider mb-2">By Platform</span>
-                  <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar max-h-[140px]">
+                  <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">By Platform</span>
+                  <div className="flex-1 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
                     {Object.entries(DEX_PLATFORMS)
                       .map(([contractAddress, platformInfo]) => {
                         const platformData = swapVolume.byPlatform.find(
@@ -1528,33 +1580,28 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                       })
                       .sort((a, b) => b.usdValue - a.usdValue)
                       .map((platform, i) => (
-                        <div key={i} className="flex justify-between items-center text-xs py-0.5">
-                          <span className="text-slate-400 flex items-center gap-1.5">
+                        <div key={i} className="flex justify-between items-center text-[11px] py-0.5">
+                          <span className="text-slate-400 flex items-center gap-1">
                             <img
                               src={platform.platformInfo.logo}
                               alt={platform.platformInfo.name}
-                              className="w-3.5 h-3.5 rounded"
+                              className="w-3 h-3 rounded"
                               onError={(e) => {
                                 (e.target as HTMLImageElement).style.display = 'none';
                               }}
                             />
                             {platform.platformInfo.name}
                           </span>
-                          <div className="text-right">
-                            <span className="font-mono text-white text-xs">
-                              ${platform.usdValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </span>
-                            <span className="text-slate-500 text-[10px] ml-1.5">
-                              ({platform.txCount})
-                            </span>
-                          </div>
+                          <span className="font-mono text-white text-[10px]">
+                            ${platform.usdValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                          </span>
                         </div>
                       ))}
                   </div>
                 </div>
 
                 {swapVolume.txCount > 0 && (
-                  <div className="mt-3 text-xs text-cyan-400 opacity-80 flex items-center gap-1">
+                  <div className="mt-2 text-xs text-cyan-400 opacity-80 flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
                     Active Trader
                   </div>
@@ -1565,34 +1612,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                 {isDemo ? (
                   <div className="flex-1 flex items-center justify-center">
                     <div className="text-center text-slate-500">
-                      <div className="text-3xl font-bold font-display text-cyan-400 mb-2">$8,750.00</div>
+                      <div className="text-2xl font-bold font-display text-cyan-400 mb-2">$8,750.00</div>
                       <div className="text-xs">Demo Swap Volume</div>
                     </div>
                   </div>
                 ) : (
-                  <>
-                    <div className="flex items-center justify-between mb-4">
-                      <div>
-                        <div className="h-9 w-32 bg-slate-700/50 rounded animate-pulse"></div>
-                        <div className="h-3 w-24 bg-slate-700/30 rounded mt-1 animate-pulse"></div>
-                      </div>
-                      <div className="text-right">
-                        <div className="h-8 w-16 bg-slate-700/50 rounded animate-pulse ml-auto"></div>
-                        <div className="h-3 w-12 bg-slate-700/30 rounded mt-1 animate-pulse ml-auto"></div>
-                      </div>
-                    </div>
-                    <div className="flex-1 pt-3 border-t border-slate-700/50 flex flex-col min-h-0">
-                      <div className="h-3 w-20 bg-slate-700/30 rounded animate-pulse mb-2"></div>
-                      <div className="space-y-2">
-                        {[1, 2, 3].map((i) => (
-                          <div key={i} className="flex justify-between items-center">
-                            <div className="h-4 w-20 bg-slate-700/40 rounded animate-pulse"></div>
-                            <div className="h-4 w-24 bg-slate-700/40 rounded animate-pulse"></div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </>
+                  <div className="flex-1 flex flex-col justify-center">
+                    <div className="h-8 w-28 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+                    <div className="h-3 w-20 bg-slate-700/30 rounded animate-pulse"></div>
+                  </div>
                 )}
               </div>
             )}
@@ -1604,124 +1632,135 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
           <DynamicCardsCarouselRow3 cards={dynamicCardsRow3} />
         )}
 
-        {/* Row 4: GM Activity + InkySwap Volume + NFT Trading (3 columns) */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* GM Activity Card */}
-          <div className="glass-card p-6 rounded-xl animate-fade-in-up border border-yellow-500/20 bg-yellow-500/5 h-[200px] flex flex-col" style={{ animationDelay: '0.6s' }}>
+        {/* Row 4: ZNS Domain + Marvk + NFT2Mint + NFT Trading (4 columns) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {/* ZNS Domain Card */}
+          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-blue-500/20 bg-blue-500/5 h-[300px] flex flex-col" style={{ animationDelay: '0.8s' }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                 <img
-                  src="https://gm.inkonchain.com/favicon.ico"
-                  alt="GM"
-                  className="w-6 h-6 rounded"
+                  src="https://pbs.twimg.com/profile_images/1813882885406965760/7wkPAsLn_400x400.jpg"
+                  alt="ZNS"
+                  className="w-6 h-6 rounded-full object-cover"
                   onError={(e) => {
-                    (e.target as HTMLImageElement).style.display = 'none';
+                    (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=ZNS&background=3b82f6&color=fff&size=24';
                   }}
                 />
-                GM Activity
+                ZNS Connect
               </h3>
-              <div className="text-xs font-bold px-2 py-1 rounded border bg-yellow-900/30 border-yellow-500/30 text-yellow-400">
+              <div className="text-xs font-bold px-2 py-1 rounded border bg-lime-900/30 border-lime-500/30 text-lime-400">
                 COUNT
               </div>
             </div>
 
-            {!isDemo && !realGmData ? (
-              <div className="flex items-center justify-between flex-1">
-                <div>
-                  <div className="h-8 w-20 bg-slate-700/50 rounded animate-pulse"></div>
-                  <div className="h-3 w-24 bg-slate-700/30 rounded mt-1 animate-pulse"></div>
+            <div className="mb-3">
+              <div className="text-2xl font-bold font-display text-lime-400">0</div>
+              <div className="text-xs text-slate-500">0 transactions</div>
+            </div>
+
+            <div className="flex-1 pt-3 border-t border-slate-700/50">
+              <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">By Action</span>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center text-[11px]">
+                  <span className="text-slate-400">Say GM</span>
+                  <span className="font-mono text-white">0</span>
                 </div>
-                <div className="text-right">
-                  <div className="h-8 w-16 bg-slate-700/50 rounded animate-pulse ml-auto"></div>
-                  <div className="h-3 w-20 bg-slate-700/30 rounded mt-1 animate-pulse ml-auto"></div>
+                <div className="flex justify-between items-center text-[11px]">
+                  <span className="text-slate-400">Deploy</span>
+                  <span className="font-mono text-white">0</span>
+                </div>
+                <div className="flex justify-between items-center text-[11px]">
+                  <span className="text-slate-400">Buy Domain</span>
+                  <span className="font-mono text-white">0</span>
                 </div>
               </div>
-            ) : (
-              <>
-                <div className="flex items-center justify-between flex-1">
-                  <div>
-                    <div className="text-2xl font-bold font-display text-white">
-                      {!isDemo && realGmData ? realGmData.count : data.stats.gmInteractionCount} <span className="text-sm font-normal text-slate-400">txs</span>
-                    </div>
-                    <div className="text-xs text-slate-500">Total Interactions</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-2xl font-bold font-display text-yellow-500">
-                      +{((!isDemo && realGmData ? realGmData.count : data.stats.gmInteractionCount) * 2)}
-                    </div>
-                    <div className="text-xs text-slate-500">Points Earned</div>
-                  </div>
-                </div>
-                {((!isDemo && realGmData ? realGmData.count : data.stats.gmInteractionCount) > 0) && (
-                  <div className="mt-auto text-xs text-yellow-500/80 flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-yellow-500 animate-pulse"></span>
-                    Active GM Participant
-                  </div>
-                )}
-              </>
-            )}
+            </div>
+
           </div>
 
-          {/* InkySwap Volume Card */}
-          <div className="glass-card p-6 rounded-xl animate-fade-in-up border border-cyan-500/20 bg-cyan-500/5 h-[200px] flex flex-col" style={{ animationDelay: '0.65s' }}>
+          {/* Marvk Card */}
+          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-orange-500/20 bg-orange-500/5 h-[300px] flex flex-col" style={{ animationDelay: '0.85s' }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                 <img
-                  src="https://inkyswap.com/logo-mobile.svg"
-                  alt="InkySwap"
-                  className="w-6 h-6 rounded"
+                  src="https://pbs.twimg.com/profile_images/1969128458635689984/DRv5vIT2_400x400.jpg"
+                  alt="Marvk"
+                  className="w-6 h-6 rounded-full object-cover"
                   onError={(e) => {
-                    (e.target as HTMLImageElement).style.display = 'none';
+                    (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=M&background=f97316&color=fff&size=24';
                   }}
                 />
-                InkySwap Volume
+                Marvk
               </h3>
-              <div className="text-xs font-bold px-2 py-1 rounded border bg-cyan-900/30 border-cyan-500/30 text-cyan-400">
+              <div className="text-xs font-bold px-2 py-1 rounded border bg-violet-900/30 border-violet-500/30 text-violet-400">
                 USD
               </div>
             </div>
 
-            {!isDemo && !inkySwapVolume ? (
-              <div className="flex items-center justify-between flex-1">
-                <div>
-                  <div className="h-8 w-24 bg-slate-700/50 rounded animate-pulse"></div>
-                  <div className="h-3 w-20 bg-slate-700/30 rounded mt-1 animate-pulse"></div>
+            <div className="mb-3">
+              <div className="text-2xl font-bold font-display text-violet-400">$0.00</div>
+              <div className="text-xs text-slate-500">0 transactions</div>
+            </div>
+
+            <div className="flex-1 pt-3 border-t border-slate-700/50">
+              <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">By Action</span>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center text-[11px]">
+                  <span className="text-slate-400">Lock Token</span>
+                  <span className="font-mono text-white">$0.00</span>
                 </div>
-                <div className="text-right">
-                  <div className="h-8 w-14 bg-slate-700/50 rounded animate-pulse ml-auto"></div>
-                  <div className="h-3 w-20 bg-slate-700/30 rounded mt-1 animate-pulse ml-auto"></div>
+                <div className="flex justify-between items-center text-[11px]">
+                  <span className="text-slate-400">Vest Token</span>
+                  <span className="font-mono text-white">$0.00</span>
                 </div>
               </div>
-            ) : (
-              <>
-                <div className="flex items-center justify-between flex-1">
-                  <div>
-                    <div className="text-2xl font-bold font-display text-cyan-400">
-                      ${!isDemo && inkySwapVolume
-                        ? inkySwapVolume.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                        : '5,230.00'}
-                    </div>
-                    <div className="text-xs text-slate-500">Total Volume</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-2xl font-bold font-display text-white">
-                      {!isDemo && inkySwapVolume ? inkySwapVolume.totalCount.toLocaleString() : '42'}
-                    </div>
-                    <div className="text-xs text-slate-500">Transactions</div>
-                  </div>
+            </div>
+
+          </div>
+
+          {/* NFT2Me Card */}
+          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-emerald-500/20 bg-emerald-500/5 h-[300px] flex flex-col" style={{ animationDelay: '0.9s' }}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                <img
+                  src="https://pbs.twimg.com/profile_images/1626191411384053761/NoRNmw9L_400x400.png"
+                  alt="NFT2Me"
+                  className="w-6 h-6 rounded-full object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=N2M&background=10b981&color=fff&size=24';
+                  }}
+                />
+                NFT2Me
+              </h3>
+              <div className="text-xs font-bold px-2 py-1 rounded border bg-cyan-900/30 border-cyan-500/30 text-cyan-400">
+                COUNT
+              </div>
+            </div>
+
+            <div className="mb-3">
+              <div className="text-2xl font-bold font-display text-cyan-400">0</div>
+              <div className="text-xs text-slate-500">0 transactions</div>
+            </div>
+
+            <div className="flex-1 pt-3 border-t border-slate-700/50">
+              <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">By Action</span>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center text-[11px]">
+                  <span className="text-slate-400">Collections Created</span>
+                  <span className="font-mono text-white">0</span>
                 </div>
-                {((!isDemo && inkySwapVolume ? inkySwapVolume.totalCount : 42) > 0) && (
-                  <div className="mt-auto text-xs text-cyan-400 opacity-80 flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
-                    Active Swapper
-                  </div>
-                )}
-              </>
-            )}
+                <div className="flex justify-between items-center text-[11px]">
+                  <span className="text-slate-400">NFTs Minted</span>
+                  <span className="font-mono text-white">0</span>
+                </div>
+              </div>
+            </div>
+
+          
           </div>
 
           {/* NFT Trading Card */}
-          <div className="glass-card p-6 rounded-xl animate-fade-in-up border border-pink-500/20 bg-pink-500/5 h-[200px] flex flex-col" style={{ animationDelay: '0.75s' }}>
+          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-pink-500/20 bg-pink-500/5 h-[300px] flex flex-col" style={{ animationDelay: '0.95s' }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                 <div className="flex items-center -space-x-3">
@@ -1730,17 +1769,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                       key={i}
                       src={platform.logo}
                       alt={platform.name}
-                      className="w-7 h-7 rounded-full object-cover border-2 border-pink-500 bg-slate-800"
+                      className="w-6 h-6 rounded-full object-cover bg-slate-800"
                       style={{ zIndex: 3 - i }}
                       onError={(e) => {
-                        (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${platform.name.charAt(0)}&background=334155&color=94a3b8&size=28`;
+                        (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${platform.name.charAt(0)}&background=334155&color=94a3b8&size=24`;
                       }}
                     />
                   ))}
                 </div>
                 NFT Trading
               </h3>
-              <div className="text-xs font-bold px-2 py-1 rounded border bg-pink-900/30 border-pink-500/30 text-pink-400">
+              <div className="text-xs font-bold px-2 py-1 rounded border bg-green-900/30 border-green-500/30 text-green-400">
                 COUNT
               </div>
             </div>
@@ -1748,17 +1787,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
             {!isDemo ? (
               nftTrading ? (
                 <>
-                  <div className="flex items-center justify-between mb-3">
-                    <div>
-                      <div className="text-3xl font-bold font-display text-pink-400">
-                        {(nftTrading?.total_count || 0).toLocaleString()}
-                      </div>
-                      <div className="text-xs text-slate-500">Total NFTs Traded</div>
+                  <div className="mb-3">
+                    <div className="text-2xl font-bold font-display text-green-400">
+                      {(nftTrading?.total_count || 0).toLocaleString()}
                     </div>
+                    <div className="text-xs text-slate-500">Total NFTs Traded</div>
                   </div>
 
-                  <div className="flex-1 pt-3 border-t border-slate-700/50 flex items-center justify-center">
-                    <div className="flex items-center justify-center gap-6">
+                  <div className="flex-1 pt-3 border-t border-slate-700/50">
+                    <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-1 block">By Platform</span>
+                    <div className="space-y-1">
                       {Object.entries(NFT_PLATFORMS).map(([contractAddress, platformInfo], i) => {
                         const contractData = nftTrading?.by_contract.find(
                           (c) => c.contract_address.toLowerCase() === contractAddress.toLowerCase()
@@ -1766,18 +1804,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                         const count = contractData?.count || 0;
 
                         return (
-                          <div key={i} className="relative group" title={platformInfo.name}>
-                            <img
-                              src={platformInfo.logo}
-                              alt={platformInfo.name}
-                              className="w-10 h-10 rounded-full object-cover border-2 border-slate-700 group-hover:border-pink-500/50 transition-all bg-slate-800"
-                              onError={(e) => {
-                                (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${platformInfo.name.charAt(0)}&background=334155&color=94a3b8&size=40`;
-                              }}
-                            />
-                            <div className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-pink-500 text-white text-[10px] font-bold flex items-center justify-center shadow-lg">
-                              {count}
-                            </div>
+                          <div key={i} className="flex justify-between items-center text-[11px]">
+                            <span className="text-slate-400 flex items-center gap-1">
+                              <img
+                                src={platformInfo.logo}
+                                alt={platformInfo.name}
+                                className="w-3 h-3 rounded"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).style.display = 'none';
+                                }}
+                              />
+                              {platformInfo.name}
+                            </span>
+                            <span className="font-mono text-white">{count}</span>
                           </div>
                         );
                       })}
@@ -1785,39 +1824,46 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                   </div>
 
                   {(nftTrading?.total_count || 0) > 0 && (
-                    <div className="mt-auto text-xs text-pink-400 opacity-80 flex items-center gap-1">
+                    <div className="mt-2 text-xs text-pink-400 opacity-80 flex items-center gap-1">
                       <span className="w-1.5 h-1.5 rounded-full bg-pink-400 animate-pulse"></span>
                       Active NFT Trader
                     </div>
                   )}
                 </>
               ) : (
-                <>
-                  <div className="flex items-center justify-between mb-3">
-                    <div>
-                      <div className="h-9 w-16 bg-slate-700/50 rounded animate-pulse"></div>
-                      <div className="h-3 w-24 bg-slate-700/30 rounded mt-1 animate-pulse"></div>
-                    </div>
-                  </div>
-                  <div className="flex-1 pt-3 border-t border-slate-700/50 flex items-center justify-center">
-                    <div className="flex items-center justify-center gap-6">
-                      {[1, 2, 3].map((i) => (
-                        <div key={i} className="relative">
-                          <div className="w-10 h-10 rounded-full bg-slate-700/50 animate-pulse"></div>
-                          <div className="absolute -top-1 -right-1 w-[18px] h-[18px] rounded-full bg-slate-600/50 animate-pulse"></div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </>
+                <div className="flex-1 flex flex-col justify-center">
+                  <div className="h-8 w-16 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+                  <div className="h-3 w-24 bg-slate-700/30 rounded animate-pulse"></div>
+                </div>
               )
             ) : (
-              <div className="flex-1 flex items-center justify-center">
-                <div className="text-center text-slate-500">
-                  <div className="text-3xl font-bold font-display text-pink-400 mb-2">24</div>
-                  <div className="text-xs">Demo NFT Trades</div>
+              <>
+                <div className="mb-3">
+                  <div className="text-2xl font-bold font-display text-pink-400">24</div>
+                  <div className="text-xs text-slate-500">Demo NFT Trades</div>
                 </div>
-              </div>
+                <div className="flex-1 pt-3 border-t border-slate-700/50">
+                  <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-1 block">By Platform</span>
+                  <div className="space-y-1">
+                    {Object.entries(NFT_PLATFORMS).map(([, platformInfo], i) => (
+                      <div key={i} className="flex justify-between items-center text-[11px]">
+                        <span className="text-slate-400 flex items-center gap-1">
+                          <img
+                            src={platformInfo.logo}
+                            alt={platformInfo.name}
+                            className="w-3 h-3 rounded"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display = 'none';
+                            }}
+                          />
+                          {platformInfo.name}
+                        </span>
+                        <span className="font-mono text-white">{Math.floor(Math.random() * 10)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
             )}
           </div>
         </div>
