@@ -1,35 +1,26 @@
+import { assetsService, setWalletStatsCacheClearer } from './assets-service';
+import { TrackedAsset } from '../types/assets';
+
 const INK_CHAIN_ID = '57073';
 const ROUTESCAN_BASE_URL = 'https://cdn-canary.routescan.io/api';
 const DEXSCREENER_API = 'https://api.dexscreener.com/latest/dex/tokens';
 
-// Special NFT collections to track
-export const SPECIAL_NFT_COLLECTIONS = [
-  {
-    name: 'Shellies',
-    address: '0x1c9838cdC00fA39d953a54c755b95605Ed5Ea49c',
-    logo: 'https://pbs.twimg.com/profile_images/1948768160733175808/aNFNH1IH_400x400.jpg',
-  },
-  {
-    name: 'InkySquad',
-    address: '0xE4e5D5170Ba5cae36D1876893D4b218E8Ed19C91',
-    logo: 'https://pbs.twimg.com/profile_images/1953536918282444801/usC4AlFP_400x400.jpg',
-  },
-  {
-    name: 'BOI',
-    address: '0x63FEbFa0a5474803F4261a1628763b1B2cC3AB83',
-    logo: 'https://pbs.twimg.com/profile_images/1952287497477664768/B8jJLN33_400x400.jpg',
-  },
-  {
-    name: 'INK Bunnies',
-    address: '0x4443970B315d3c08C2f962fe00770c52396AFDb7',
-    logo: 'https://pbs.twimg.com/profile_images/1996167791347408896/ds6khpeY_400x400.jpg',
-  },
-  {
-    name: 'Rekt Ink',
-    address: '0x25aa78ab6785a4b0aeff5c170998992fd958d43d',
-    logo: 'https://pbs.twimg.com/profile_images/1957753909713203200/jGEz5WCQ_400x400.jpg',
-  },
-];
+// Legacy exports for backward compatibility (will be loaded from DB)
+export let SPECIAL_NFT_COLLECTIONS: Array<{
+  name: string;
+  address: string;
+  logo: string;
+}> = [];
+
+export let SPECIAL_TOKENS: Array<{
+  name: string;
+  symbol: string;
+  address: string;
+  logo: string;
+  decimals: number;
+  isStablecoin: boolean;
+  tokenType: TokenType;
+}> = [];
 
 export interface NftCollectionHolding {
   name: string;
@@ -39,82 +30,6 @@ export interface NftCollectionHolding {
 }
 
 export type TokenType = 'meme' | 'stablecoin' | 'native' | 'defi' | 'governance' | 'utility' | null;
-
-// Special ERC-20 tokens to track
-export const SPECIAL_TOKENS: Array<{
-  name: string;
-  symbol: string;
-  address: string;
-  logo: string;
-  decimals: number;
-  isStablecoin: boolean;
-  tokenType: TokenType;
-}> = [
-  {
-    name: 'ETH',
-    symbol: 'ETH',
-    address: '0x4200000000000000000000000000000000000006',
-    logo: 'https://pbs.twimg.com/profile_images/1878738447067652096/tXQbWfpf_400x400.jpg',
-    decimals: 18,
-    isStablecoin: false,
-    tokenType: 'native',
-  },
-  {
-    name: 'USDT0',
-    symbol: 'USDT0',
-    address: '0x0200C29006150606B650577BBE7B6248F58470c1',
-    logo: 'https://pbs.twimg.com/profile_images/1879546764971188224/SQISVYwX_400x400.jpg',
-    decimals: 6,
-    isStablecoin: true,
-    tokenType: 'stablecoin',
-  },
-  {
-    name: 'USDC0',
-    symbol: 'USDC0',
-    address: '0x2D270e6886d130D724215A266106e6832161EAEd',
-    logo: 'https://pbs.twimg.com/profile_images/1916937910928211968/CKblfanr_400x400.png',
-    decimals: 6,
-    isStablecoin: true,
-    tokenType: 'stablecoin',
-  },
-  {
-    name: 'Global Dollar',
-    symbol: 'USDGLO',
-    address: '0xe343167631d89B6Ffc58B88d6b7fB0228795491D',
-    logo: 'https://pbs.twimg.com/profile_images/1853549476360638464/IlD_0g8Y_400x400.png',
-    decimals: 18,
-    isStablecoin: true,
-    tokenType: 'stablecoin',
-  },
-  // Meme coins
-  {
-    name: 'ANITA',
-    symbol: 'ANITA',
-    address: '0x0606FC632ee812bA970af72F8489baAa443C4B98',
-    logo: 'https://pbs.twimg.com/profile_images/1948708709263089665/sCal-1rw_400x400.jpg',
-    decimals: 18,
-    isStablecoin: false,
-    tokenType: 'meme',
-  },
-  {
-    name: 'Cat on Ink',
-    symbol: 'CAT',
-    address: '0x20C69C12abf2B6F8D8ca33604DD25C700c7e70A5',
-    logo: 'https://pbs.twimg.com/profile_images/1880778671398809601/DV_dS5E9_400x400.png',
-    decimals: 18,
-    isStablecoin: false,
-    tokenType: 'meme',
-  },
-  {
-    name: 'Purple',
-    symbol: 'PURPLE',
-    address: '0xD642B49d10cc6e1BC1c6945725667c35e0875f22',
-    logo: 'https://pbs.twimg.com/profile_images/1887019906102853632/lbS2Mm4V_400x400.jpg',
-    decimals: 18,
-    isStablecoin: false,
-    tokenType: 'meme',
-  },
-];
 
 export interface TokenHolding {
   name: string;
@@ -153,6 +68,11 @@ interface StatsCache {
 }
 const walletStatsCache = new Map<string, StatsCache>();
 const STATS_CACHE_TTL = 30 * 1000; // 30 seconds
+
+// Function to clear wallet stats cache (called when assets are reordered)
+export function clearWalletStatsCache(): void {
+  walletStatsCache.clear();
+}
 
 export class WalletStatsService {
   // Get wallet overview (balance only - age is fetched separately for Ink chain)
@@ -271,11 +191,14 @@ export class WalletStatsService {
     }
   }
 
-  // Count holdings for special NFT collections
-  countSpecialCollections(
+  // Count holdings for special NFT collections (now loads from DB)
+  async countSpecialCollections(
     holdings: Array<{ tokenAddress: string; balance: string; type: string }>
-  ): NftCollectionHolding[] {
-    return SPECIAL_NFT_COLLECTIONS.map((collection) => {
+  ): Promise<NftCollectionHolding[]> {
+    // Load NFT collections from database
+    const nftCollections = await assetsService.getNftCollections();
+    
+    return nftCollections.map((collection) => {
       const collectionAddress = collection.address.toLowerCase();
 
       // Sum up all NFTs from this collection
@@ -286,49 +209,46 @@ export class WalletStatsService {
       return {
         name: collection.name,
         address: collection.address,
-        logo: collection.logo,
+        logo: collection.logo_url || '',
         count,
       };
     });
   }
 
-  // Fetch meme coin prices from DexScreener
-  async getMemeCoinPrices(): Promise<Map<string, number>> {
+  // Fetch token prices from DexScreener for tokens without Routescan prices
+  async getTokenPrices(tokenAddresses: string[]): Promise<Map<string, number>> {
     // Check cache first
     if (memeCoinPriceCache && Date.now() - memeCoinPriceCache.timestamp < PRICE_CACHE_TTL) {
       return memeCoinPriceCache.prices;
     }
 
     const prices = new Map<string, number>();
-    
-    // Get meme coin addresses (non-stablecoin, non-ETH tokens)
-    const memeCoins = SPECIAL_TOKENS.filter(t => !t.isStablecoin && t.symbol !== 'ETH');
-    
-    if (memeCoins.length === 0) {
+
+    if (tokenAddresses.length === 0) {
       return prices;
     }
 
     try {
       // DexScreener accepts comma-separated addresses
-      const addresses = memeCoins.map(t => t.address).join(',');
+      const addresses = tokenAddresses.join(',');
       const response = await fetch(`${DEXSCREENER_API}/${addresses}`);
-      
+
       if (!response.ok) {
         console.error(`DexScreener API error: ${response.status}`);
         return prices;
       }
 
       const data = await response.json();
-      
+
       // DexScreener returns pairs, we need to find the best price for each token
       if (data.pairs && Array.isArray(data.pairs)) {
         for (const pair of data.pairs) {
           // Only consider pairs on Ink chain (chainId: ink)
           if (pair.chainId !== 'ink') continue;
-          
+
           const tokenAddress = pair.baseToken?.address?.toLowerCase();
           const priceUsd = parseFloat(pair.priceUsd || '0');
-          
+
           if (tokenAddress && priceUsd > 0) {
             // Keep the highest liquidity pair's price
             const existingPrice = prices.get(tokenAddress);
@@ -347,9 +267,15 @@ export class WalletStatsService {
 
       return prices;
     } catch (error) {
-      console.error('Failed to fetch meme coin prices:', error);
+      console.error('Failed to fetch token prices:', error);
       return prices;
     }
+  }
+
+  // Legacy method for backward compatibility
+  async getMemeCoinPrices(): Promise<Map<string, number>> {
+    const memeCoins = await assetsService.getMemeCoins();
+    return this.getTokenPrices(memeCoins.map((t) => t.address));
   }
 
   // Get ERC-20 token holdings on Ink chain (paginated to get all)
@@ -414,22 +340,35 @@ export class WalletStatsService {
         hasMore = !!nextToken;
       }
 
-      // Fetch meme coin prices for tokens without USD value
-      const memeCoinPrices = await this.getMemeCoinPrices();
+      // Load all tokens from database (ERC20 + meme coins)
+      const allTokens = await assetsService.getAllTokens();
 
-      // Map special tokens to their holdings
-      return SPECIAL_TOKENS.map((token) => {
+      // Find tokens that need price lookup (have balance but no USD value from Routescan)
+      const tokensNeedingPrices = allTokens.filter((token) => {
+        const tokenData = tokenDataMap.get(token.address.toLowerCase());
+        const hasBalance = tokenData && parseFloat(tokenData.balance) > 0;
+        const hasNoUsdValue = !tokenData?.usdValue || tokenData.usdValue === 0;
+        return hasBalance && hasNoUsdValue;
+      });
+
+      // Fetch prices from DexScreener for tokens without USD values
+      const dexPrices = tokensNeedingPrices.length > 0
+        ? await this.getTokenPrices(tokensNeedingPrices.map((t) => t.address))
+        : new Map<string, number>();
+
+      // Map tokens to their holdings
+      return allTokens.map((token) => {
         const tokenData = tokenDataMap.get(token.address.toLowerCase());
         const rawBalance = tokenData?.balance || '0';
         const decimals = tokenData?.decimals || token.decimals;
         const balance = parseFloat(rawBalance) / Math.pow(10, decimals);
-        
+
         // Use Routescan USD value if available, otherwise calculate from DexScreener price
         let usdValue = tokenData?.usdValue || 0;
-        
+
         if (usdValue === 0 && balance > 0) {
-          // Try to get price from DexScreener for meme coins
-          const dexPrice = memeCoinPrices.get(token.address.toLowerCase());
+          // Try to get price from DexScreener
+          const dexPrice = dexPrices.get(token.address.toLowerCase());
           if (dexPrice) {
             usdValue = balance * dexPrice;
           }
@@ -437,26 +376,31 @@ export class WalletStatsService {
 
         return {
           name: token.name,
-          symbol: token.symbol,
+          symbol: token.symbol || '',
           address: token.address,
-          logo: token.logo,
+          logo: token.logo_url || '',
           balance,
           usdValue,
-          tokenType: token.tokenType, // Always use config's tokenType
+          tokenType: token.token_type as TokenType, // Use DB token_type
         };
       });
     } catch (error) {
       console.error('Failed to fetch token holdings:', error);
-      // Return empty holdings for all tokens with their configured types
-      return SPECIAL_TOKENS.map((token) => ({
-        name: token.name,
-        symbol: token.symbol,
-        address: token.address,
-        logo: token.logo,
-        balance: 0,
-        usdValue: 0,
-        tokenType: token.tokenType,
-      }));
+      // Return empty holdings for all tokens from DB
+      try {
+        const allTokens = await assetsService.getAllTokens();
+        return allTokens.map((token) => ({
+          name: token.name,
+          symbol: token.symbol || '',
+          address: token.address,
+          logo: token.logo_url || '',
+          balance: 0,
+          usdValue: 0,
+          tokenType: token.token_type as TokenType,
+        }));
+      } catch {
+        return [];
+      }
     }
   }
 
@@ -472,7 +416,7 @@ export class WalletStatsService {
     return diffDays;
   }
 
-  // Get all wallet stats in one call (optimized: 4 parallel API calls + caching)
+  // Get all wallet stats in one call (optimized: parallel API calls + caching)
   async getAllStats(walletAddress: string): Promise<WalletStatsData> {
     const wallet = walletAddress.toLowerCase();
 
@@ -496,8 +440,8 @@ export class WalletStatsService {
     // Calculate age based on Ink chain first transaction
     const ageDays = this.calculateAgeDays(txStats.firstTxDate);
 
-    // Count special NFT collections
-    const nftCollections = this.countSpecialCollections(nftData.holdings);
+    // Count special NFT collections (now async - loads from DB)
+    const nftCollections = await this.countSpecialCollections(nftData.holdings);
 
     const result: WalletStatsData = {
       balanceUsd: overview.balanceUsd,
@@ -518,3 +462,6 @@ export class WalletStatsService {
 }
 
 export const walletStatsService = new WalletStatsService();
+
+// Register the cache clearer with assets service
+setWalletStatsCacheClearer(clearWalletStatsCache);

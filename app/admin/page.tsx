@@ -14,8 +14,9 @@ import {
   CalculationMode,
 } from '@/lib/types/platforms';
 import { DashboardCardsTab } from './DashboardCardsTab';
+import { AssetsTab } from './AssetsTab';
 
-type TabType = 'metrics' | 'platforms' | 'contracts' | 'rules' | 'ranks' | 'dashboard';
+type TabType = 'metrics' | 'platforms' | 'contracts' | 'rules' | 'ranks' | 'dashboard' | 'assets';
 
 interface IndexingProgress {
   platforms: Array<{
@@ -172,6 +173,7 @@ export default function AdminPage() {
     { id: 'platforms', label: 'Platforms', count: platforms.length },
     { id: 'contracts', label: 'Contracts & Indexing', count: contracts.length },
     { id: 'metrics', label: 'Metrics', count: metrics.length },
+    { id: 'assets', label: 'Assets' },
     { id: 'rules', label: 'Points Rules', count: rules.length },
     { id: 'ranks', label: 'Ranks', count: ranks.length },
     { id: 'dashboard', label: 'Dashboard Cards' },
@@ -268,6 +270,10 @@ export default function AdminPage() {
             platforms={platforms}
             metrics={metrics}
           />
+        )}
+
+        {activeTab === 'assets' && (
+          <AssetsTab />
         )}
       </div>
 
