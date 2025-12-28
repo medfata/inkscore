@@ -17,20 +17,20 @@ const DELAY_BETWEEN_BATCHES_MS = 500; // Rate limiting
 // Create multiple RPC clients for load balancing
 // Each endpoint has 20 req/sec limit, so 2 endpoints = 40 req/sec effective
 const rpcClients: PublicClient[] = RPC_ENDPOINTS.map((url) =>
-  createPublicClient({
-    transport: http(url, {
-      retryCount: 2,
-      retryDelay: 500,
-    }),
-  })
+    createPublicClient({
+        transport: http(url, {
+            retryCount: 2,
+            retryDelay: 500,
+        }),
+    })
 );
 
 // Round-robin client selector
 let rpcClientIndex = 0;
 function getNextRpcClient(): PublicClient {
-  const client = rpcClients[rpcClientIndex];
-  rpcClientIndex = (rpcClientIndex + 1) % rpcClients.length;
-  return client;
+    const client = rpcClients[rpcClientIndex];
+    rpcClientIndex = (rpcClientIndex + 1) % rpcClients.length;
+    return client;
 }
 
 // With 2 RPCs at 20 req/sec each, we can do ~35 req/sec safely

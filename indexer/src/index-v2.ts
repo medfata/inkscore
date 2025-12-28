@@ -7,7 +7,7 @@
 
 import { config, CONTRACTS_TO_INDEX, BRIDGE_HOT_WALLETS } from './config.js';
 import { indexContract } from './indexer.js';
-import { indexContractTransactions, pollNewTransactions } from './txIndexer.js';
+import { indexContractTransactions, pollNewTransactions } from './txIndexer-v1.js';
 import { runBridgeIndexer, pollBridgeTransfers } from './bridge-indexer.js';
 import { pool } from './db/index.js';
 import { 
@@ -17,7 +17,7 @@ import {
   updateContractStatus,
   type IndexableContract 
 } from './db/contracts.js';
-import { getTxCursorStatus } from './txIndexer.js';
+import { getTxCursorStatus } from './txIndexer-v1.js';
 
 /**
  * Sync progress from tx_indexer_cursors to contracts table

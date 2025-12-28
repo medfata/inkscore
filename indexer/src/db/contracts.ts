@@ -24,7 +24,8 @@ export async function getContractsToIndex(): Promise<IndexableContract[]> {
 }
 
 /**
- * Get contracts that need backfill (not complete)
+ * Get contracts that need backfill (pending only, not already indexing)
+ * Also picks up contracts stuck in 'indexing' for more than 30 minutes (crashed indexer)
  */
 export async function getContractsForBackfill(): Promise<IndexableContract[]> {
   return query<IndexableContract>(`
@@ -32,7 +33,10 @@ export async function getContractsForBackfill(): Promise<IndexableContract[]> {
     FROM contracts
     WHERE indexing_enabled = true
       AND is_active = true
-      AND indexing_status != 'complete'
+      AND (
+        indexing_status NOT IN ('complete', 'indexing')
+        OR (indexing_status = 'indexing' AND updated_at < NOW() - INTERVAL '30 minutes')
+      )
     ORDER BY created_at ASC
   `);
 }

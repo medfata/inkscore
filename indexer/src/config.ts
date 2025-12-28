@@ -10,7 +10,6 @@ export const config = {
 
 // Multiple RPC endpoints for load balancing (official Ink RPCs only)
 export const RPC_ENDPOINTS = [
-  'https://rpc-gel.inkonchain.com',
   'https://rpc-qnd.inkonchain.com',
 ];
 

@@ -1,4 +1,4 @@
-import { type ContractConfig, RPC_ENDPOINTS } from './config.js';
+import { type ContractConfig, RPC_ENDPOINTS, config } from './config.js';
 import { insertTransactionDetails, type TransactionDetail } from './db/transactions.js';
 import { insertInteractions, type Interaction } from './db/interactions.js';
 import { pool } from './db/index.js';
@@ -182,15 +182,33 @@ function transformToTransactionDetail(
     tx_hash: tx.txHash,
     wallet_address: tx.from.id,
     contract_address: contractAddress,
+    to_address: tx.to?.id || null,
     function_selector: tx.methodId || null,
     function_name: tx.method ? tx.method.split('(')[0] : null,
-    input_data: tx.input || null, // Full calldata from Routescan
+    input_data: tx.input || null,
     eth_value: tx.value,
-    gas_used: tx.gasUsed ? parseInt(tx.gasUsed, 10) : null,
-    gas_price: tx.gasPrice,
+    gas_limit: tx.gasLimit || null,
+    gas_used: tx.gasUsed || null,
+    gas_price: tx.gasPrice || null,
+    effective_gas_price: null,
+    max_fee_per_gas: null,
+    max_priority_fee_per_gas: null,
+    tx_fee_wei: null,
+    burned_fees: tx.burnedFees || null,
     block_number: tx.blockNumber,
+    block_hash: null,
     block_timestamp: new Date(tx.timestamp),
+    transaction_index: tx.txIndex || null,
+    nonce: null,
+    tx_type: 0,
     status: tx.status ? 1 : 0,
+    chain_id: config.chainId,
+    l1_gas_price: null,
+    l1_gas_used: null,
+    l1_fee: null,
+    l1_base_fee_scalar: null,
+    l1_blob_base_fee: null,
+    l1_blob_base_fee_scalar: null,
   };
 }
 

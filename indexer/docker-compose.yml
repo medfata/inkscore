@@ -1,3 +1,12 @@
+# DEPRECATED: This indexer has been replaced by indexer-v1
+# Please use ../indexer-v1/docker-compose.yml instead
+#
+# To migrate:
+# 1. cd ../indexer-v1
+# 2. docker-compose up -d postgres
+# 3. docker-compose --profile setup run migrate
+# 4. docker-compose up -d indexer
+
 version: "3.8"
 
 services:
@@ -22,6 +31,7 @@ services:
       timeout: 5s
       retries: 5
 
+  # DEPRECATED - Use indexer-v1 instead
   indexer:
     build: .
     restart: always
@@ -32,8 +42,8 @@ services:
       DATABASE_URL: postgres://ink:${DB_PASSWORD}@postgres:5432/ink_analytics
       RPC_URL: ${RPC_URL}
       POLL_INTERVAL_MS: ${POLL_INTERVAL_MS:-15000}
-    # To use legacy indexer instead, override command:
-    # command: ["node", "dist/index.js"]
+    profiles:
+      - legacy  # Only runs with --profile legacy
 
 volumes:
   postgres_data:

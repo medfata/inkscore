@@ -1,5 +1,5 @@
 import { createPublicClient, http, type PublicClient, type Block, type Transaction } from 'viem';
-import { type ContractConfig, getNextRpc } from './config.js';
+import { type ContractConfig, getNextRpc, config } from './config.js';
 import { insertTransactionDetails, type TransactionDetail } from './db/transactions.js';
 import { insertInteractions, type Interaction } from './db/interactions.js';
 import { pool } from './db/index.js';
@@ -118,15 +118,33 @@ async function getTransactionsForContract(
         tx_hash: tx.hash,
         wallet_address: tx.from,
         contract_address: contractAddress.toLowerCase(),
+        to_address: tx.to?.toLowerCase() || null,
         function_selector: functionSelector,
         function_name: functionName,
         input_data: tx.input,
         eth_value: tx.value.toString(),
-        gas_used: receipt.gasUsed ? Number(receipt.gasUsed) : null,
-        gas_price: tx.gasPrice?.toString() || '0',
+        gas_limit: tx.gas?.toString() || null,
+        gas_used: receipt.gasUsed?.toString() || null,
+        gas_price: tx.gasPrice?.toString() || null,
+        effective_gas_price: receipt.effectiveGasPrice?.toString() || null,
+        max_fee_per_gas: tx.maxFeePerGas?.toString() || null,
+        max_priority_fee_per_gas: tx.maxPriorityFeePerGas?.toString() || null,
+        tx_fee_wei: null,
+        burned_fees: null,
         block_number: Number(block.number),
+        block_hash: block.hash || null,
         block_timestamp: new Date(Number(block.timestamp) * 1000),
+        transaction_index: tx.transactionIndex || null,
+        nonce: tx.nonce || null,
+        tx_type: tx.type ? parseInt(tx.type, 16) : 0,
         status: receipt.status === 'success' ? 1 : 0,
+        chain_id: config.chainId,
+        l1_gas_price: null,
+        l1_gas_used: null,
+        l1_fee: null,
+        l1_base_fee_scalar: null,
+        l1_blob_base_fee: null,
+        l1_blob_base_fee_scalar: null,
       };
 
       transactions.push(txDetail);

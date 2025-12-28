@@ -1,5 +1,5 @@
 import { createPublicClient, http, type PublicClient, type Block, type Transaction } from 'viem';
-import { type ContractConfig, getNextRpc } from './config.js';
+import { type ContractConfig, getNextRpc, config } from './config.js';
 import { insertTransactionDetails, type TransactionDetail } from './db/transactions.js';
 import { insertInteractions, type Interaction } from './db/interactions.js';
 import { pool } from './db/index.js';
@@ -152,15 +152,33 @@ async function getTransactionsViaRpc(
         tx_hash: tx.hash,
         wallet_address: tx.from,
         contract_address: contractAddress.toLowerCase(),
+        to_address: tx.to?.toLowerCase() || null,
         function_selector: functionSelector,
         function_name: functionName,
         input_data: tx.input,
         eth_value: tx.value.toString(),
-        gas_used: receipt.gasUsed ? Number(receipt.gasUsed) : null,
-        gas_price: tx.gasPrice?.toString() || '0',
+        gas_limit: tx.gas?.toString() || null,
+        gas_used: receipt.gasUsed?.toString() || null,
+        gas_price: tx.gasPrice?.toString() || null,
+        effective_gas_price: receipt.effectiveGasPrice?.toString() || null,
+        max_fee_per_gas: tx.maxFeePerGas?.toString() || null,
+        max_priority_fee_per_gas: tx.maxPriorityFeePerGas?.toString() || null,
+        tx_fee_wei: null,
+        burned_fees: null,
         block_number: Number(block.number),
+        block_hash: block.hash || null,
         block_timestamp: new Date(Number(block.timestamp) * 1000),
+        transaction_index: tx.transactionIndex || null,
+        nonce: tx.nonce || null,
+        tx_type: tx.type ? parseInt(tx.type, 16) : 0,
         status: receipt.status === 'success' ? 1 : 0,
+        chain_id: config.chainId,
+        l1_gas_price: null,
+        l1_gas_used: null,
+        l1_fee: null,
+        l1_base_fee_scalar: null,
+        l1_blob_base_fee: null,
+        l1_blob_base_fee_scalar: null,
       };
 
       transactions.push(txDetail);
@@ -223,15 +241,33 @@ function transformRoutescanTx(
     tx_hash: tx.txHash,
     wallet_address: tx.from.id,
     contract_address: contractAddress,
+    to_address: tx.to?.id || null,
     function_selector: tx.methodId || null,
     function_name: tx.method ? tx.method.split('(')[0] : null,
     input_data: null,
     eth_value: tx.value,
-    gas_used: tx.gasUsed ? parseInt(tx.gasUsed, 10) : null,
-    gas_price: tx.gasPrice,
+    gas_limit: tx.gasLimit || null,
+    gas_used: tx.gasUsed || null,
+    gas_price: tx.gasPrice || null,
+    effective_gas_price: null,
+    max_fee_per_gas: null,
+    max_priority_fee_per_gas: null,
+    tx_fee_wei: null,
+    burned_fees: tx.burnedFees || null,
     block_number: tx.blockNumber,
+    block_hash: null,
     block_timestamp: new Date(tx.timestamp),
+    transaction_index: tx.txIndex || null,
+    nonce: null,
+    tx_type: 0,
     status: tx.status ? 1 : 0,
+    chain_id: config.chainId,
+    l1_gas_price: null,
+    l1_gas_used: null,
+    l1_fee: null,
+    l1_base_fee_scalar: null,
+    l1_blob_base_fee: null,
+    l1_blob_base_fee_scalar: null,
   };
 }
 
@@ -240,7 +276,7 @@ async function getTransactionsViaRoutescan(
   nextToken?: string
 ): Promise<{ transactions: TransactionDetail[]; nextToken: string | null }> {
   const response = await fetchRoutescanPage(contractAddress, nextToken);
-  
+
   const transactions: TransactionDetail[] = [];
   const interactions: Interaction[] = [];
 
@@ -303,7 +339,7 @@ export async function indexContractTransactionsHybrid(contract: ContractConfig):
 
   let currentBlock = startBlock;
   let routescanToken = cursor?.last_routescan_token || undefined;
-  
+
   // Start with RouterScan since RPC is having issues with large block ranges
   useRpc = false;
   let rpcFailureCount = 0;
@@ -347,14 +383,14 @@ export async function indexContractTransactionsHybrid(contract: ContractConfig):
       } else {
         // Use RouterScan for this batch
         const result = await getTransactionsViaRoutescan(contractAddress, routescanToken);
-        
+
         totalTxProcessed += result.transactions.length;
         routescanToken = result.nextToken || undefined;
 
         if (result.transactions.length > 0) {
           const lastBlock = Math.max(...result.transactions.map(tx => tx.block_number));
           currentBlock = Math.max(currentBlock, lastBlock + 1);
-          
+
           await updateCursor(contractAddress, lastBlock, result.transactions.length, !result.nextToken, result.nextToken);
         }
 
@@ -375,12 +411,12 @@ export async function indexContractTransactionsHybrid(contract: ContractConfig):
 
     } catch (error) {
       console.error(`  [${contract.name}] Error (${useRpc ? 'RPC' : 'RouterScan'}):`, error);
-      
+
       if (useRpc) {
         rpcFailureCount++;
         console.log(`  [${contract.name}] RPC failure count: ${rpcFailureCount}/${MAX_RPC_FAILURES}`);
       }
-      
+
       // Switch to the other method on error
       useRpc = !useRpc;
       await new Promise(resolve => setTimeout(resolve, 2000));
