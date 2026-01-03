@@ -1,7 +1,6 @@
 import { createPublicClient, http, type PublicClient, type Block, type Transaction } from 'viem';
 import { type ContractConfig, getNextRpc, config } from './config.js';
 import { insertTransactionDetails, type TransactionDetail } from './db/transactions.js';
-import { insertInteractions, type Interaction } from './db/interactions.js';
 import { pool } from './db/index.js';
 
 const INK_CHAIN_ID = '57073';
@@ -126,7 +125,6 @@ async function getTransactionsViaRpc(
   toBlock: bigint
 ): Promise<TransactionDetail[]> {
   const transactions: TransactionDetail[] = [];
-  const interactions: Interaction[] = [];
 
   const blockPromises: Promise<Block>[] = [];
   for (let block = fromBlock; block <= toBlock; block++) {
@@ -182,25 +180,11 @@ async function getTransactionsViaRpc(
       };
 
       transactions.push(txDetail);
-
-      const interaction: Interaction = {
-        wallet_address: tx.from,
-        contract_address: contractAddress.toLowerCase(),
-        function_selector: functionSelector,
-        function_name: functionName,
-        tx_hash: tx.hash,
-        block_number: Number(block.number),
-        block_timestamp: new Date(Number(block.timestamp) * 1000),
-        status: receipt.status === 'success' ? 1 : 0,
-      };
-
-      interactions.push(interaction);
     }
   }
 
   if (transactions.length > 0) {
     await insertTransactionDetails(transactions);
-    await insertInteractions(interactions);
   }
 
   return transactions;
@@ -278,29 +262,14 @@ async function getTransactionsViaRoutescan(
   const response = await fetchRoutescanPage(contractAddress, nextToken);
 
   const transactions: TransactionDetail[] = [];
-  const interactions: Interaction[] = [];
 
   for (const tx of response.items) {
     const txDetail = transformRoutescanTx(tx, contractAddress);
     transactions.push(txDetail);
-
-    const interaction: Interaction = {
-      wallet_address: tx.from.id,
-      contract_address: contractAddress.toLowerCase(),
-      function_selector: tx.methodId || '0x',
-      function_name: tx.method ? tx.method.split('(')[0] : null,
-      tx_hash: tx.txHash,
-      block_number: tx.blockNumber,
-      block_timestamp: new Date(tx.timestamp),
-      status: tx.status ? 1 : 0,
-    };
-
-    interactions.push(interaction);
   }
 
   if (transactions.length > 0) {
     await insertTransactionDetails(transactions);
-    await insertInteractions(interactions);
   }
 
   return {

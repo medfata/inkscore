@@ -8,5 +8,8 @@ RUN npm install
 COPY . .
 RUN npm run build
 
-# Start the V2 indexer
-CMD ["node", "dist/index-v2.js"]
+# Create CSV exports directory
+RUN mkdir -p csv_exports
+
+# Start the indexer directly
+CMD ["npm", "run", "start"]

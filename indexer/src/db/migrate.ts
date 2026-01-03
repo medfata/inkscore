@@ -26,45 +26,7 @@ CREATE TABLE IF NOT EXISTS indexer_ranges (
   UNIQUE(contract_address, range_start, range_end)
 );
 
--- Wallet interactions (main analytics table)
-CREATE TABLE IF NOT EXISTS wallet_interactions (
-  id SERIAL PRIMARY KEY,
-  wallet_address VARCHAR(42) NOT NULL,
-  contract_address VARCHAR(42) NOT NULL,
-  function_selector VARCHAR(10) NOT NULL,
-  function_name VARCHAR(100),
-  tx_hash VARCHAR(66) NOT NULL,
-  block_number BIGINT NOT NULL,
-  block_timestamp TIMESTAMP NOT NULL,
-  chain_id INT NOT NULL,
-  status SMALLINT DEFAULT 1,
-  created_at TIMESTAMP DEFAULT NOW(),
-  UNIQUE(tx_hash, wallet_address, contract_address)
-);
-
--- Add status column if missing (migration for existing tables)
-ALTER TABLE wallet_interactions ADD COLUMN IF NOT EXISTS status SMALLINT DEFAULT 1;
-
--- Update existing index to include status for better query performance
--- This index covers: (wallet, contract, status), (wallet, contract), and (wallet) queries
-DROP INDEX IF EXISTS idx_wallet_contract;
-CREATE INDEX idx_wallet_contract ON wallet_interactions(wallet_address, contract_address, status);
-
--- Index for queries that filter by contract + status (platform stats, unique wallets)
-CREATE INDEX IF NOT EXISTS idx_contract_status 
-ON wallet_interactions(contract_address, status);
-
--- Indexes for fast queries
-CREATE INDEX IF NOT EXISTS idx_wallet_contract 
-ON wallet_interactions(wallet_address, contract_address);
-
-CREATE INDEX IF NOT EXISTS idx_wallet_contract_fn 
-ON wallet_interactions(wallet_address, contract_address, function_selector);
-
-CREATE INDEX IF NOT EXISTS idx_contract_block 
-ON wallet_interactions(contract_address, block_number);
-
--- Transaction details for contracts without events (routers, proxies)
+-- Transaction details - single source of truth for all transaction data
 CREATE TABLE IF NOT EXISTS transaction_details (
   tx_hash VARCHAR(66) PRIMARY KEY,
   wallet_address VARCHAR(42) NOT NULL,
@@ -82,22 +44,24 @@ CREATE TABLE IF NOT EXISTS transaction_details (
   created_at TIMESTAMP DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_txdetails_wallet 
-ON transaction_details(wallet_address);
-
-CREATE INDEX IF NOT EXISTS idx_txdetails_contract 
-ON transaction_details(contract_address);
-
-CREATE INDEX IF NOT EXISTS idx_txdetails_wallet_contract 
-ON transaction_details(wallet_address, contract_address);
-
--- Update indexes to include status for better query performance
-DROP INDEX IF EXISTS idx_txdetails_wallet_contract;
-CREATE INDEX idx_txdetails_wallet_contract 
+-- Optimized indexes for transaction_details (supports both count and volume queries)
+CREATE INDEX IF NOT EXISTS idx_td_wallet_contract_status 
 ON transaction_details(wallet_address, contract_address, status);
 
-CREATE INDEX IF NOT EXISTS idx_txdetails_contract_status 
+CREATE INDEX IF NOT EXISTS idx_td_contract_status 
 ON transaction_details(contract_address, status);
+
+CREATE INDEX IF NOT EXISTS idx_td_wallet_contract_function 
+ON transaction_details(wallet_address, contract_address, function_selector);
+
+CREATE INDEX IF NOT EXISTS idx_td_contract_block 
+ON transaction_details(contract_address, block_number);
+
+CREATE INDEX IF NOT EXISTS idx_td_function_name 
+ON transaction_details(function_name) WHERE function_name IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_td_contract_function_name 
+ON transaction_details(contract_address, function_name) WHERE function_name IS NOT NULL;
 `;
 
 async function migrate() {

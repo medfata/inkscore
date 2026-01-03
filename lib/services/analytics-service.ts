@@ -310,27 +310,8 @@ export class AnalyticsService {
       .filter(f => f.include_mode === 'include')
       .map(f => f.function_name);
 
-    // Determine which table to use
-    // Use transaction_details for ETH value (has eth_value column)
-    // Use wallet_interactions for count (has all transactions)
-    const useTransactionDetails = metric.aggregation_type === 'sum_eth_value';
-
-    // Check if data exists in transaction_details for these contracts
-    // If not, fall back to wallet_interactions
-    let table = useTransactionDetails ? 'transaction_details' : 'wallet_interactions';
-
-    if (useTransactionDetails) {
-      // Verify transaction_details has data for these contracts
-      const checkResult = await query<{ count: string }>(`
-        SELECT COUNT(*) as count FROM transaction_details 
-        WHERE contract_address = ANY($1) LIMIT 1
-      `, [contractAddresses]);
-
-      if (parseInt(checkResult[0]?.count || '0') === 0) {
-        // Fall back to wallet_interactions (won't have ETH values but will have counts)
-        table = 'wallet_interactions';
-      }
-    }
+    // Use transaction_details as the single source of truth for all metrics
+    // This table contains all transaction data including both count and volume information
 
     // Build query params
     const params: unknown[] = [walletAddress, contractAddresses];
@@ -341,7 +322,7 @@ export class AnalyticsService {
       params.push(functionNames);
     }
 
-    // Query based on aggregation type
+    // Query based on aggregation type - all from transaction_details
     let rows: {
       contract_address: string;
       function_name: string | null;
@@ -349,7 +330,8 @@ export class AnalyticsService {
       eth_total: string;
     }[];
 
-    if (table === 'transaction_details' && metric.aggregation_type === 'sum_eth_value') {
+    if (metric.aggregation_type === 'sum_eth_value') {
+      // Volume-based query with ETH values
       rows = await query(`
         SELECT 
           contract_address,
@@ -364,14 +346,14 @@ export class AnalyticsService {
         GROUP BY contract_address, function_name
       `, params);
     } else {
-      // Count-based query from wallet_interactions
+      // Count-based query from transaction_details (eth_value will be 0 for count-based contracts)
       rows = await query(`
         SELECT 
           contract_address,
           function_name,
           COUNT(*) as tx_count,
           0 as eth_total
-        FROM wallet_interactions
+        FROM transaction_details
         WHERE wallet_address = $1
           AND contract_address = ANY($2)
           AND status = 1

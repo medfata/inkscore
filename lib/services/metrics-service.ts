@@ -228,8 +228,8 @@ export class MetricsService {
 
   // Get functions for a contract (from indexed data)
   async getContractFunctions(contractAddress: string): Promise<ContractFunction[]> {
-    // Try transaction_details first (has more data)
-    let functions = await query<ContractFunction>(`
+    // Use transaction_details as the single source of truth
+    const functions = await query<ContractFunction>(`
       SELECT 
         function_name,
         function_selector,
@@ -241,22 +241,6 @@ export class MetricsService {
       GROUP BY function_name, function_selector
       ORDER BY tx_count DESC
     `, [contractAddress.toLowerCase()]);
-
-    // If no results, try wallet_interactions
-    if (functions.length === 0) {
-      functions = await query<ContractFunction>(`
-        SELECT 
-          function_name,
-          function_selector,
-          COUNT(*) as tx_count
-        FROM wallet_interactions
-        WHERE contract_address = $1
-          AND function_name IS NOT NULL
-          AND status = 1
-        GROUP BY function_name, function_selector
-        ORDER BY tx_count DESC
-      `, [contractAddress.toLowerCase()]);
-    }
 
     return functions;
   }

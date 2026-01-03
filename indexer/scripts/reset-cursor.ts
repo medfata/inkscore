@@ -40,12 +40,6 @@ async function resetCursor(contractAddress: string) {
   );
   console.log(`Deleted ${deleteResult.rowCount} transaction_details rows`);
   
-  const deleteInteractions = await pool.query(
-    `DELETE FROM wallet_interactions WHERE contract_address = $1`,
-    [address]
-  );
-  console.log(`Deleted ${deleteInteractions.rowCount} wallet_interactions rows`);
-  
   await pool.end();
 }
 

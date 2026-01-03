@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import ContractModal from '../components/ContractModal';
 import { MetricWithRelations, ContractFunction } from '@/lib/types/analytics';
 import {
   Platform,
@@ -15,8 +16,9 @@ import {
 } from '@/lib/types/platforms';
 import { DashboardCardsTab } from './DashboardCardsTab';
 import { AssetsTab } from './AssetsTab';
+import { BackfillTab } from './BackfillTab';
 
-type TabType = 'metrics' | 'platforms' | 'contracts' | 'rules' | 'ranks' | 'dashboard' | 'assets';
+type TabType = 'metrics' | 'platforms' | 'contracts' | 'rules' | 'ranks' | 'dashboard' | 'assets' | 'backfill';
 
 interface IndexingProgress {
   platforms: Array<{
@@ -63,6 +65,7 @@ export default function AdminPage() {
   const [showContractModal, setShowContractModal] = useState(false);
   const [showRuleModal, setShowRuleModal] = useState(false);
   const [showRankModal, setShowRankModal] = useState(false);
+  const [savingContract, setSavingContract] = useState(false);
 
   const [editingMetric, setEditingMetric] = useState<MetricWithRelations | null>(null);
   const [editingPlatform, setEditingPlatform] = useState<Platform | null>(null);
@@ -141,6 +144,49 @@ export default function AdminPage() {
     }
   }, []);
 
+  // Handle contract save with new hybrid indexer integration
+  const handleContractSave = async (formData: any) => {
+    setSavingContract(true);
+    
+    try {
+      // Convert platform_id to platform_ids array for compatibility
+      const payload = {
+        ...formData,
+        platform_ids: formData.platform_id ? [formData.platform_id] : [],
+      };
+
+      const url = editingContract
+        ? `/api/admin/platforms/contracts/${editingContract.address}`
+        : '/api/admin/platforms/contracts';
+      const method = editingContract ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || 'Failed to save contract');
+      }
+
+      // Close modal and refresh data
+      setShowContractModal(false);
+      setEditingContract(null);
+      await loadContracts();
+
+      // Show success message
+      console.log(`Contract ${editingContract ? 'updated' : 'created'} successfully`);
+      
+    } catch (error) {
+      console.error('Save failed:', error);
+      alert(error instanceof Error ? error.message : 'Failed to save contract');
+    } finally {
+      setSavingContract(false);
+    }
+  };
+
   // Initial load - fetch all data once
   useEffect(() => {
     const loadAllData = async () => {
@@ -172,6 +218,7 @@ export default function AdminPage() {
   const tabs: { id: TabType; label: string; count?: number }[] = [
     { id: 'platforms', label: 'Platforms', count: platforms.length },
     { id: 'contracts', label: 'Contracts & Indexing', count: contracts.length },
+    { id: 'backfill', label: 'Backfill Jobs' },
     { id: 'metrics', label: 'Metrics', count: metrics.length },
     { id: 'assets', label: 'Assets' },
     { id: 'rules', label: 'Points Rules', count: rules.length },
@@ -288,6 +335,10 @@ export default function AdminPage() {
         {activeTab === 'assets' && (
           <AssetsTab />
         )}
+
+        {activeTab === 'backfill' && (
+          <BackfillTab contracts={contracts.map(c => ({ id: c.id, address: c.address, name: c.name }))} />
+        )}
       </div>
 
       {/* Modals */}
@@ -309,10 +360,11 @@ export default function AdminPage() {
 
       {showContractModal && (
         <ContractModal
-          contract={editingContract}
+          contract={editingContract ?? undefined}
           platforms={platforms}
           onClose={() => setShowContractModal(false)}
-          onSave={() => { setShowContractModal(false); loadContracts(); }}
+          onSave={handleContractSave}
+          saving={savingContract}
         />
       )}
 
@@ -2299,189 +2351,6 @@ function PlatformModal({
               className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-slate-700 rounded-lg transition-colors"
             >
               {saving ? 'Saving...' : platform ? 'Update' : 'Create'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
-
-
-// ============================================================================
-// CONTRACT MODAL
-// ============================================================================
-
-function ContractModal({
-  contract,
-  platforms,
-  onClose,
-  onSave,
-}: {
-  contract: ContractWithPlatforms | null;
-  platforms: Platform[];
-  onClose: () => void;
-  onSave: () => void;
-}) {
-  const [formData, setFormData] = useState({
-    address: contract?.address || '',
-    name: contract?.name || '',
-    deploy_block: contract?.deploy_block || 0,
-    fetch_transactions: contract?.fetch_transactions ?? true,
-    indexing_enabled: contract?.indexing_enabled ?? true,
-  });
-  const [selectedPlatforms, setSelectedPlatforms] = useState<number[]>(
-    contract?.platforms?.map(p => p.id) || []
-  );
-  const [saving, setSaving] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-
-    try {
-      const payload = {
-        ...formData,
-        platform_ids: selectedPlatforms,
-      };
-
-      const url = contract
-        ? `/api/admin/platforms/contracts/${contract.address}`
-        : '/api/admin/platforms/contracts';
-      const method = contract ? 'PUT' : 'POST';
-
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.error || 'Failed to save contract');
-      }
-
-      onSave();
-    } catch (error) {
-      console.error('Save failed:', error);
-      alert(error instanceof Error ? error.message : 'Failed to save contract');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-slate-900 border border-slate-700 rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        <div className="p-6 border-b border-slate-700">
-          <h2 className="text-xl font-semibold">
-            {contract ? 'Edit Contract' : 'Add Contract'}
-          </h2>
-        </div>
-
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-400 mb-2">
-              Link to Platforms ({selectedPlatforms.length} selected)
-            </label>
-            <div className="bg-slate-800 border border-slate-700 rounded-lg p-3 max-h-48 overflow-y-auto space-y-2">
-              {platforms.map((platform) => (
-                <label key={platform.id} className="flex items-center gap-3 cursor-pointer hover:bg-slate-700/50 p-2 rounded">
-                  <input
-                    type="checkbox"
-                    checked={selectedPlatforms.includes(platform.id)}
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        setSelectedPlatforms([...selectedPlatforms, platform.id]);
-                      } else {
-                        setSelectedPlatforms(selectedPlatforms.filter(id => id !== platform.id));
-                      }
-                    }}
-                    className="rounded bg-slate-700 border-slate-600"
-                  />
-                  <div className="flex items-center gap-2">
-                    {platform.logo_url && (
-                      <img src={platform.logo_url} alt="" className="w-5 h-5 rounded" />
-                    )}
-                    <span>{platform.name}</span>
-                  </div>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-slate-400 mb-1">Contract Address</label>
-            <input
-              type="text"
-              value={formData.address}
-              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono"
-              placeholder="0x..."
-              required
-              disabled={!!contract}
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-slate-400 mb-1">Name</label>
-            <input
-              type="text"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
-              placeholder="Velodrome Router"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-slate-400 mb-1">Deploy Block</label>
-            <input
-              type="number"
-              value={formData.deploy_block}
-              onChange={(e) => setFormData({ ...formData, deploy_block: parseInt(e.target.value) || 0 })}
-              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
-              placeholder="0"
-              required
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={formData.fetch_transactions}
-                onChange={(e) => setFormData({ ...formData, fetch_transactions: e.target.checked })}
-                className="rounded bg-slate-700 border-slate-600"
-              />
-              <span className="text-sm text-slate-400">Fetch transactions</span>
-            </label>
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={formData.indexing_enabled}
-                onChange={(e) => setFormData({ ...formData, indexing_enabled: e.target.checked })}
-                className="rounded bg-slate-700 border-slate-600"
-              />
-              <span className="text-sm text-slate-400">Enable indexing</span>
-            </label>
-          </div>
-
-          <div className="flex justify-end gap-3 pt-4 border-t border-slate-700">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-slate-700 rounded-lg transition-colors"
-            >
-              {saving ? 'Saving...' : contract ? 'Update' : 'Create'}
             </button>
           </div>
         </form>

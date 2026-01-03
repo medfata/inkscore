@@ -544,13 +544,12 @@ export class PointsService {
 
     const stats = await queryOne<{ tx_count: string; usd_volume: string }>(`
       SELECT 
-        COUNT(DISTINCT wi.tx_hash) as tx_count,
+        COUNT(DISTINCT td.tx_hash) as tx_count,
         COALESCE(SUM(td.total_usd_value), 0) as usd_volume
-      FROM wallet_interactions wi
-      LEFT JOIN transaction_details td ON td.tx_hash = wi.tx_hash
-      WHERE wi.wallet_address = $1
-        AND wi.contract_address = ANY($2)
-        AND wi.status = 1
+      FROM transaction_details td
+      WHERE td.wallet_address = $1
+        AND td.contract_address = ANY($2)
+        AND td.status = 1
     `, [wallet, addresses]);
 
     const txCount = parseInt(stats?.tx_count || '0');

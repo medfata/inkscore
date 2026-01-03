@@ -1,10 +1,10 @@
 import pg from 'pg';
-import { config } from '../config.js';
+import 'dotenv/config';
 
 const { Pool } = pg;
 
 export const pool = new Pool({
-  connectionString: config.databaseUrl,
+  connectionString: process.env.DATABASE_URL,
 });
 
 export async function query<T>(text: string, params?: unknown[]): Promise<T[]> {

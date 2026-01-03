@@ -12,7 +12,6 @@
 
 import { type ContractConfig, RPC_ENDPOINTS, config } from './config.js';
 import { insertTransactionDetails, type TransactionDetail } from './db/transactions.js';
-import { insertInteractions, type Interaction } from './db/interactions.js';
 import { pool } from './db/index.js';
 
 // Routescan API configuration
@@ -235,20 +234,7 @@ export async function indexContractTransactions(contract: ContractConfig): Promi
                     return detail;
                 });
 
-                // Insert interactions (parent table)
-                const interactions: Interaction[] = txDetails.map((tx) => ({
-                    wallet_address: tx.wallet_address,
-                    contract_address: tx.contract_address,
-                    function_selector: tx.function_selector || '0x',
-                    function_name: tx.function_name,
-                    tx_hash: tx.tx_hash,
-                    block_number: tx.block_number,
-                    block_timestamp: tx.block_timestamp,
-                    status: tx.status,
-                }));
-                await insertInteractions(interactions);
-
-                // Insert transaction details (child table)
+                // Insert transaction details directly (no more wallet_interactions)
                 await insertTransactionDetails(txDetails);
 
                 totalTxProcessed += txDetails.length;
@@ -351,18 +337,7 @@ export async function pollNewTransactions(contract: ContractConfig): Promise<num
                     return detail;
                 });
 
-                const interactions: Interaction[] = txDetails.map((tx) => ({
-                    wallet_address: tx.wallet_address,
-                    contract_address: tx.contract_address,
-                    function_selector: tx.function_selector || '0x',
-                    function_name: tx.function_name,
-                    tx_hash: tx.tx_hash,
-                    block_number: tx.block_number,
-                    block_timestamp: tx.block_timestamp,
-                    status: tx.status,
-                }));
-
-                await insertInteractions(interactions);
+                // Insert transaction details directly (no more wallet_interactions)
                 await insertTransactionDetails(txDetails);
                 newTxCount += newTransactions.length;
             }

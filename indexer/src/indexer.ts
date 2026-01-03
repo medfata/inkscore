@@ -1,7 +1,7 @@
 import { createPublicClient, http, decodeEventLog, type PublicClient } from 'viem';
 import { config, CONTRACTS_TO_INDEX, RPC_ENDPOINTS, type ContractConfig } from './config.js';
 import { getOrCreateRanges, updateRangeProgress, areAllRangesComplete, type IndexerRange } from './db/ranges.js';
-import { insertInteractions, type Interaction } from './db/interactions.js';
+import { insertTransactionDetails, type TransactionDetail } from './db/transactions.js';
 
 // Create multiple RPC clients for load balancing
 const clients: PublicClient[] = RPC_ENDPOINTS.map((url) =>
@@ -101,14 +101,14 @@ async function processRange(
       });
 
       if (logs.length > 0) {
-        const interactions = processLogs(logs, abi, contractAddress);
+        const transactions = processLogs(logs, abi, contractAddress);
 
-        if (interactions.length > 0) {
-          await insertInteractions(interactions);
-          totalTxProcessed += interactions.length;
+        if (transactions.length > 0) {
+          await insertTransactionDetails(transactions);
+          totalTxProcessed += transactions.length;
 
           const progress = ((Number(currentBlock - rangeStart) / Number(totalRangeBlocks)) * 100).toFixed(1);
-          logStats(workerId, interactions.length, progress);
+          logStats(workerId, transactions.length, progress);
         }
       }
 
@@ -131,8 +131,8 @@ function processLogs(
   logs: Awaited<ReturnType<PublicClient['getLogs']>>,
   abi: ContractConfig['abi'],
   contractAddress: `0x${string}`
-): Interaction[] {
-  const interactions: Interaction[] = [];
+): TransactionDetail[] {
+  const transactions: TransactionDetail[] = [];
 
   // Get min/max blocks for timestamp estimation
   let minBlock = logs[0]?.blockNumber || 0n;
@@ -178,19 +178,41 @@ function processLogs(
     // Estimate timestamp based on block number
     const estimatedTs = baseTimestamp + (log.blockNumber - minBlock);
 
-    interactions.push({
+    transactions.push({
+      tx_hash: log.transactionHash,
       wallet_address: walletAddress,
       contract_address: contractAddress,
       function_selector: log.topics[0]?.slice(0, 10) || '0x',
       function_name: functionName,
-      tx_hash: log.transactionHash,
+      input_data: null,
+      eth_value: '0', // Events don't have ETH value
+      gas_used: null,
+      gas_price: null,
       block_number: Number(log.blockNumber),
       block_timestamp: new Date(Number(estimatedTs) * 1000),
       status: 1, // Events are only emitted for successful transactions
+      chain_id: config.chainId,
+      to_address: contractAddress,
+      block_hash: null,
+      transaction_index: null,
+      gas_limit: null,
+      effective_gas_price: null,
+      max_fee_per_gas: null,
+      max_priority_fee_per_gas: null,
+      tx_fee_wei: null,
+      burned_fees: null,
+      nonce: null,
+      tx_type: 0,
+      l1_gas_price: null,
+      l1_gas_used: null,
+      l1_fee: null,
+      l1_base_fee_scalar: null,
+      l1_blob_base_fee: null,
+      l1_blob_base_fee_scalar: null,
     });
   }
 
-  return interactions;
+  return transactions;
 }
 
 function sleep(ms: number): Promise<void> {

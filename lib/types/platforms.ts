@@ -36,6 +36,16 @@ export interface Contract {
   is_active: boolean;
   created_at: Date;
   updated_at: Date;
+  // Hybrid indexer fields
+  contract_type?: 'count' | 'volume';
+  creation_date?: string;
+  backfill_status?: 'pending' | 'in_progress' | 'completed' | 'failed';
+  backfill_progress?: number;
+  total_transactions?: number;
+  indexed_transactions?: number;
+  enrichment_status?: 'pending' | 'in_progress' | 'completed' | 'failed';
+  enrichment_progress?: number;
+  last_backfill_date?: Date;
 }
 
 export type IndexingStatus = 'pending' | 'indexing' | 'complete' | 'paused' | 'error';
@@ -280,6 +290,9 @@ export interface CreateContractRequest {
   deploy_block: number;
   fetch_transactions?: boolean;
   platform_ids?: number[];  // Link to platforms
+  // Hybrid indexer fields
+  contract_type?: 'count' | 'volume';
+  creation_date?: string;
 }
 
 export interface UpdateContractRequest {

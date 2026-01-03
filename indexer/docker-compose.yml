@@ -1,11 +1,13 @@
-# DEPRECATED: This indexer has been replaced by indexer-v1
-# Please use ../indexer-v1/docker-compose.yml instead
+# Ink Chain Indexer Services
+# 
+# Three separate services:
+# - indexer-backfill: Historical data backfill (CSV export based)
+# - indexer-realtime: Real-time transaction polling with adaptive intervals
+# - indexer-enrichment: Volume contract enrichment
 #
-# To migrate:
-# 1. cd ../indexer-v1
-# 2. docker-compose up -d postgres
-# 3. docker-compose --profile setup run migrate
-# 4. docker-compose up -d indexer
+# To start all:   docker-compose up -d
+# To start one:   docker-compose up -d indexer-realtime
+# To view logs:   docker-compose logs -f indexer-realtime
 
 version: "3.8"
 
@@ -31,8 +33,9 @@ services:
       timeout: 5s
       retries: 5
 
-  # DEPRECATED - Use indexer-v1 instead
-  indexer:
+  # Backfill Service - Historical data indexing via CSV exports
+  # Currently indexing DailyGM - DO NOT modify until complete
+  indexer-backfill:
     build: .
     restart: always
     depends_on:
@@ -42,8 +45,33 @@ services:
       DATABASE_URL: postgres://ink:${DB_PASSWORD}@postgres:5432/ink_analytics
       RPC_URL: ${RPC_URL}
       POLL_INTERVAL_MS: ${POLL_INTERVAL_MS:-15000}
-    profiles:
-      - legacy  # Only runs with --profile legacy
+    volumes:
+      - csv_exports:/app/csv_exports
+    command: npm run start:backfill
+
+  # Realtime Service - Adaptive polling for new transactions
+  # Polls active contracts every 15s, backs off idle ones up to 10min
+  indexer-realtime:
+    build: .
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://ink:${DB_PASSWORD}@postgres:5432/ink_analytics
+    command: npm run start:realtime
+
+  # Enrichment Service - Volume contract transaction enrichment
+  indexer-enrichment:
+    build: .
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://ink:${DB_PASSWORD}@postgres:5432/ink_analytics
+    command: npm run start:enrichment
 
 volumes:
   postgres_data:
+  csv_exports:

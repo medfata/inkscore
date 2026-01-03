@@ -1,7 +1,6 @@
 import { createPublicClient, http, type PublicClient, type Block, type Transaction } from 'viem';
 import { type ContractConfig, getNextRpc, config } from './config.js';
 import { insertTransactionDetails, type TransactionDetail } from './db/transactions.js';
-import { insertInteractions, type Interaction } from './db/interactions.js';
 import { pool } from './db/index.js';
 
 const INK_CHAIN_ID = 57073;
@@ -85,7 +84,6 @@ async function getTransactionsForContract(
   toBlock: bigint
 ): Promise<TransactionDetail[]> {
   const transactions: TransactionDetail[] = [];
-  const interactions: Interaction[] = [];
 
   // Fetch blocks in the range
   const blockPromises: Promise<Block>[] = [];
@@ -148,27 +146,12 @@ async function getTransactionsForContract(
       };
 
       transactions.push(txDetail);
-
-      // Create interaction record
-      const interaction: Interaction = {
-        wallet_address: tx.from,
-        contract_address: contractAddress.toLowerCase(),
-        function_selector: functionSelector,
-        function_name: functionName,
-        tx_hash: tx.hash,
-        block_number: Number(block.number),
-        block_timestamp: new Date(Number(block.timestamp) * 1000),
-        status: receipt.status === 'success' ? 1 : 0,
-      };
-
-      interactions.push(interaction);
     }
   }
 
   // Insert in batches
   if (transactions.length > 0) {
     await insertTransactionDetails(transactions);
-    await insertInteractions(interactions);
   }
 
   return transactions;

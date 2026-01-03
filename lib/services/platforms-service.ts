@@ -137,10 +137,20 @@ export class PlatformsService {
 
     async createContract(data: CreateContractRequest): Promise<Contract> {
         const result = await queryOne<Contract>(`
-      INSERT INTO contracts (address, name, deploy_block, fetch_transactions, indexing_status)
-      VALUES ($1, $2, $3, $4, 'pending')
+      INSERT INTO contracts (
+        address, name, deploy_block, fetch_transactions, indexing_status,
+        contract_type, creation_date, backfill_status
+      )
+      VALUES ($1, $2, $3, $4, 'pending', $5, $6, 'pending')
       RETURNING *
-    `, [data.address.toLowerCase(), data.name, data.deploy_block, data.fetch_transactions ?? true]);
+    `, [
+            data.address.toLowerCase(), 
+            data.name, 
+            data.deploy_block, 
+            data.fetch_transactions ?? true,
+            data.contract_type || 'count',
+            data.creation_date || new Date().toISOString()
+        ]);
 
         if (!result) throw new Error('Failed to create contract');
 
@@ -149,6 +159,15 @@ export class PlatformsService {
                 await query(`INSERT INTO platform_contracts (platform_id, contract_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, [platformId, result.id]);
             }
         }
+
+        // Queue backfill job for hybrid indexer
+        if (data.fetch_transactions) {
+            await query(`
+                INSERT INTO job_queue (job_type, contract_id, priority, payload)
+                VALUES ('backfill', $1, 5, '{}')
+            `, [result.id]);
+        }
+
         return result;
     }
 
@@ -228,7 +247,7 @@ export class PlatformsService {
         // For now, get unique wallet counts per contract (this query is fast with proper index)
         const walletStats = await query<{ contract_address: string; unique_wallets: string }>(`
       SELECT contract_address, COUNT(DISTINCT wallet_address) as unique_wallets
-      FROM wallet_interactions
+      FROM transaction_details
       WHERE status = 1
       GROUP BY contract_address
     `);
