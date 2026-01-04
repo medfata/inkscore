@@ -7,7 +7,6 @@ import {
   Platform,
   ContractWithPlatforms,
   PlatformType,
-  IndexingStatus,
   PointsRuleWithRelations,
   Rank,
   NativeMetric,
@@ -19,29 +18,6 @@ import { AssetsTab } from './AssetsTab';
 import { BackfillTab } from './BackfillTab';
 
 type TabType = 'metrics' | 'platforms' | 'contracts' | 'rules' | 'ranks' | 'dashboard' | 'assets' | 'backfill';
-
-interface IndexingProgress {
-  platforms: Array<{
-    id: number;
-    name: string;
-    logo_url: string | null;
-    contracts: Array<{
-      address: string;
-      name: string;
-      indexing_status: IndexingStatus;
-      progress_percent: number;
-      current_block: number;
-      total_blocks: number;
-    }>;
-  }>;
-  global_stats: {
-    total_contracts: number;
-    contracts_complete: number;
-    contracts_indexing: number;
-    total_transactions: number;
-    total_unique_wallets: number;
-  };
-}
 
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<TabType>('platforms');
@@ -55,7 +31,6 @@ export default function AdminPage() {
   const [rules, setRules] = useState<PointsRuleWithRelations[]>([]);
   const [ranks, setRanks] = useState<Rank[]>([]);
   const [nativeMetrics, setNativeMetrics] = useState<NativeMetric[]>([]);
-  const [indexingProgress, setIndexingProgress] = useState<IndexingProgress | null>(null);
 
   const [loading, setLoading] = useState(true);
 
@@ -134,16 +109,6 @@ export default function AdminPage() {
     }
   }, []);
 
-  const loadIndexingProgress = useCallback(async () => {
-    try {
-      const res = await fetch('/api/admin/indexing/progress');
-      const data = await res.json();
-      setIndexingProgress(data);
-    } catch (error) {
-      console.error('Failed to load indexing progress:', error);
-    }
-  }, []);
-
   // Handle contract save with new hybrid indexer integration
   const handleContractSave = async (formData: any) => {
     setSavingContract(true);
@@ -198,26 +163,17 @@ export default function AdminPage() {
           loadRules(),
           loadRanks(),
           loadNativeMetrics(),
-          loadIndexingProgress(),
         ]);
       } finally {
         setLoading(false);
       }
     };
     loadAllData();
-  }, [loadMetrics, loadPlatforms, loadContracts, loadRules, loadRanks, loadNativeMetrics, loadIndexingProgress]);
-
-  // Auto-refresh indexing progress - now for contracts tab too
-  useEffect(() => {
-    if (activeTab === 'contracts') {
-      const interval = setInterval(loadIndexingProgress, 5000);
-      return () => clearInterval(interval);
-    }
-  }, [activeTab, loadIndexingProgress]);
+  }, [loadMetrics, loadPlatforms, loadContracts, loadRules, loadRanks, loadNativeMetrics]);
 
   const tabs: { id: TabType; label: string; count?: number }[] = [
     { id: 'platforms', label: 'Platforms', count: platforms.length },
-    { id: 'contracts', label: 'Contracts & Indexing', count: contracts.length },
+    { id: 'contracts', label: 'Contracts', count: contracts.length },
     { id: 'backfill', label: 'Backfill Jobs' },
     { id: 'metrics', label: 'Metrics', count: metrics.length },
     { id: 'assets', label: 'Assets' },
@@ -239,20 +195,9 @@ export default function AdminPage() {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-              <p className="text-slate-400 mt-1">Manage platforms, contracts, metrics, and points system</p>
-            </div>
-            <a
-              href="/admin/contracts"
-              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-              </svg>
-              Indexer Contracts (v1)
-            </a>
+          <div>
+            <h1 className="text-3xl font-bold">Admin Dashboard</h1>
+            <p className="text-slate-400 mt-1">Manage platforms, contracts, metrics, and points system</p>
           </div>
         </div>
 
@@ -287,7 +232,7 @@ export default function AdminPage() {
         )}
 
         {activeTab === 'contracts' && (
-          <ContractsWithIndexingTab
+          <ContractsTab
             contracts={contracts}
             platforms={platforms}
             onCreateContract={() => { setEditingContract(null); setShowContractModal(true); }}
@@ -700,145 +645,20 @@ function ContractsTab({
   onEditContract: (c: ContractWithPlatforms) => void;
   onRefresh: () => void;
 }) {
-  return null; // Replaced by ContractsWithIndexingTab
-}
-
-// ============================================================================
-// CONTRACTS WITH INDEXING TAB - Merged view with real-time SSE + ETA
-// ============================================================================
-
-interface SSEContract {
-  id: number;
-  address: string;
-  name: string;
-  platforms: string[];
-  total_indexed: number;
-  api_total_count: number;
-  progress_percent: number;
-  is_complete: boolean;
-  status: string;
-  speed_per_sec: number;
-  eta_seconds: number | null;
-  is_active: boolean;
-}
-
-interface SSEIndexingData {
-  contracts: SSEContract[];
-  global_stats: {
-    total_contracts: number;
-    contracts_complete: number;
-    contracts_indexing: number;
-    contracts_pending: number;
-    total_indexed: number;
-    total_expected: number;
-    overall_progress: number;
-    total_speed: number;
-  };
-  timestamp: string;
-}
-
-function formatETA(seconds: number | null): string {
-  if (seconds === null || seconds <= 0) return '-';
-  if (seconds < 60) return `${seconds}s`;
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
-  const hours = Math.floor(seconds / 3600);
-  const mins = Math.floor((seconds % 3600) / 60);
-  return `${hours}h ${mins}m`;
-}
-
-function ContractsWithIndexingTab({
-  contracts,
-  platforms,
-  onCreateContract,
-  onEditContract,
-  onRefresh,
-}: {
-  contracts: ContractWithPlatforms[];
-  platforms: Platform[];
-  onCreateContract: () => void;
-  onEditContract: (c: ContractWithPlatforms) => void;
-  onRefresh: () => void;
-}) {
-  const [sseData, setSSEData] = useState<SSEIndexingData | null>(null);
-  const [isConnected, setIsConnected] = useState(false);
-  const [resetModal, setResetModal] = useState<{
-    isOpen: boolean;
-    contract: { address: string; name: string; total_indexed: number } | null;
-    isLoading: boolean;
-    result: { success: boolean; message: string; deleted?: { transaction_details: number; wallet_interactions: number } } | null;
-  }>({ isOpen: false, contract: null, isLoading: false, result: null });
-  const eventSourceRef = useRef<EventSource | null>(null);
-
-  useEffect(() => {
-    const es = new EventSource('/api/admin/indexing/progress/stream');
-    eventSourceRef.current = es;
-    es.onopen = () => setIsConnected(true);
-    es.onmessage = (e) => { try { setSSEData(JSON.parse(e.data)); } catch {} };
-    es.onerror = () => { setIsConnected(false); setTimeout(() => es.close(), 5000); };
-    return () => es.close();
-  }, []);
-
   const handleDelete = async (addr: string) => {
     if (!confirm('Delete this contract?')) return;
     await fetch(`/api/admin/contracts/${addr}`, { method: 'DELETE' });
     onRefresh();
   };
 
-  const openResetModal = (c: { address: string; name: string; total_indexed: number }) => 
-    setResetModal({ isOpen: true, contract: c, isLoading: false, result: null });
-  const closeResetModal = () => 
-    setResetModal({ isOpen: false, contract: null, isLoading: false, result: null });
-
-  const handleReset = async () => {
-    if (!resetModal.contract) return;
-    setResetModal(p => ({ ...p, isLoading: true }));
-    try {
-      const res = await fetch('/api/admin/indexing/reset', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contract_address: resetModal.contract.address }),
-      });
-      const data = await res.json();
-      setResetModal(p => ({ ...p, isLoading: false, result: res.ok 
-        ? { success: true, message: 'Reset successful!', deleted: data.deleted }
-        : { success: false, message: data.error || 'Failed' } }));
-    } catch { setResetModal(p => ({ ...p, isLoading: false, result: { success: false, message: 'Network error' } })); }
-  };
-
-  const statusColors: Record<string, string> = {
-    pending: 'bg-yellow-500/20 text-yellow-400', indexing: 'bg-blue-500/20 text-blue-400',
-    complete: 'bg-green-500/20 text-green-400', error: 'bg-red-500/20 text-red-400',
-  };
-  const stats = sseData?.global_stats;
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 text-sm">
-          <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
-          <span className="text-slate-400">{isConnected ? 'Live' : 'Reconnecting...'}</span>
-          {sseData && <span className="text-slate-500 ml-2">Updated: {new Date(sseData.timestamp).toLocaleTimeString()}</span>}
+        <div className="text-slate-400">
+          {contracts.length} contracts • {contracts.filter(c => c.is_active).length} active
         </div>
         <button onClick={onCreateContract} className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg font-medium">+ Add Contract</button>
       </div>
-
-      {stats && (
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-3"><div className="text-slate-400 text-xs">Contracts</div><div className="text-xl font-bold">{stats.total_contracts}</div></div>
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-3"><div className="text-slate-400 text-xs">Complete</div><div className="text-xl font-bold text-green-400">{stats.contracts_complete}</div></div>
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-3"><div className="text-slate-400 text-xs">Indexing</div><div className="text-xl font-bold text-blue-400">{stats.contracts_indexing}</div></div>
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-3"><div className="text-slate-400 text-xs">Pending</div><div className="text-xl font-bold text-yellow-400">{stats.contracts_pending}</div></div>
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-3"><div className="text-slate-400 text-xs">Indexed</div><div className="text-xl font-bold">{stats.total_indexed.toLocaleString()}</div></div>
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-3"><div className="text-slate-400 text-xs">Speed</div><div className="text-xl font-bold text-cyan-400">{stats.total_speed.toLocaleString()} tx/s</div></div>
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-3"><div className="text-slate-400 text-xs">Progress</div><div className="text-xl font-bold text-purple-400">{stats.overall_progress}%</div></div>
-        </div>
-      )}
-
-      {stats && stats.overall_progress < 100 && (
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-          <div className="flex justify-between mb-2 text-sm"><span className="text-slate-400">Overall Progress</span><span>{stats.total_indexed.toLocaleString()} / {stats.total_expected.toLocaleString()}</span></div>
-          <div className="h-2 bg-slate-700 rounded-full overflow-hidden"><div className="h-full bg-gradient-to-r from-purple-500 to-blue-500 transition-all" style={{ width: `${stats.overall_progress}%` }} /></div>
-        </div>
-      )}
 
       <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
         <table className="w-full">
@@ -847,46 +667,35 @@ function ContractsWithIndexingTab({
               <th className="text-left p-3 text-sm font-medium text-slate-400">Contract</th>
               <th className="text-left p-3 text-sm font-medium text-slate-400">Platforms</th>
               <th className="text-left p-3 text-sm font-medium text-slate-400">Status</th>
-              <th className="text-left p-3 text-sm font-medium text-slate-400">Progress</th>
               <th className="text-left p-3 text-sm font-medium text-slate-400">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-800">
-            {!sseData?.contracts.filter(c => c.is_active).length ? (
-              <tr><td colSpan={5} className="p-8 text-center text-slate-500">No contracts.</td></tr>
-            ) : sseData.contracts
+            {contracts.length === 0 ? (
+              <tr><td colSpan={4} className="p-8 text-center text-slate-500">No contracts configured.</td></tr>
+            ) : contracts
                 .filter(c => c.is_active)
-                .sort((a, b) => {
-                  const order: Record<string, number> = { indexing: 0, pending: 1, error: 2, complete: 3 };
-                  return (order[a.status] ?? 4) - (order[b.status] ?? 4);
-                })
                 .map((c) => (
               <tr key={c.address} className="hover:bg-slate-800/30">
-                <td className="p-3"><div className="font-medium">{c.name}</div><div className="text-xs text-slate-500 font-mono">{c.address.slice(0,10)}...{c.address.slice(-6)}</div></td>
-                <td className="p-3"><div className="flex flex-wrap gap-1">{c.platforms.length ? c.platforms.map((p,i) => <span key={i} className="text-xs bg-slate-700 px-2 py-0.5 rounded">{p}</span>) : <span className="text-xs text-slate-500">-</span>}</div></td>
-                <td className="p-3"><span className={`px-2 py-0.5 rounded text-xs font-medium ${statusColors[c.status]}`}>{c.status}</span></td>
                 <td className="p-3">
-                  <div className="flex items-center gap-2">
-                    <div className="w-24 h-2 bg-slate-700 rounded-full overflow-hidden"><div className={`h-full ${c.is_complete ? 'bg-green-500' : 'bg-purple-500'}`} style={{ width: `${c.progress_percent}%` }} /></div>
-                    <span className="text-xs text-slate-400 w-10">{c.progress_percent}%</span>
+                  <div className="font-medium">{c.name}</div>
+                  <div className="text-xs text-slate-500 font-mono">{c.address.slice(0,10)}...{c.address.slice(-6)}</div>
+                </td>
+                <td className="p-3">
+                  <div className="flex flex-wrap gap-1">
+                    {c.platforms?.length ? c.platforms.map((p) => (
+                      <span key={p.id} className="text-xs bg-slate-700 px-2 py-0.5 rounded">{p.name}</span>
+                    )) : <span className="text-xs text-slate-500">-</span>}
                   </div>
-                  <div className="text-xs text-slate-500 mt-1">{c.total_indexed.toLocaleString()} / {c.api_total_count.toLocaleString()} tx</div>
-                  {!c.is_complete && c.status !== 'pending' && (
-                    <div className="flex items-center gap-2 mt-1 text-xs">
-                      <span className="text-cyan-400">{c.speed_per_sec > 0 ? `${c.speed_per_sec.toLocaleString()} tx/s` : 'calculating...'}</span>
-                      {c.speed_per_sec > 0 && c.eta_seconds && c.eta_seconds > 0 && (
-                        <>
-                          <span className="text-slate-500">•</span>
-                          <span className="text-orange-400">~{formatETA(c.eta_seconds)}</span>
-                        </>
-                      )}
-                    </div>
-                  )}
+                </td>
+                <td className="p-3">
+                  <span className={`px-2 py-0.5 rounded text-xs font-medium ${c.is_active ? 'bg-green-500/20 text-green-400' : 'bg-slate-700 text-slate-400'}`}>
+                    {c.is_active ? 'Active' : 'Inactive'}
+                  </span>
                 </td>
                 <td className="p-3">
                   <div className="flex gap-1">
-                    <button onClick={() => { const x = contracts.find(y => y.address.toLowerCase() === c.address.toLowerCase()); if(x) onEditContract(x); }} className="px-2 py-1 text-xs bg-slate-700 hover:bg-slate-600 rounded">Edit</button>
-                    <button onClick={() => openResetModal({ address: c.address, name: c.name, total_indexed: c.total_indexed })} className="px-2 py-1 text-xs bg-orange-600/20 text-orange-400 hover:bg-orange-600/30 rounded">Reset</button>
+                    <button onClick={() => onEditContract(c)} className="px-2 py-1 text-xs bg-slate-700 hover:bg-slate-600 rounded">Edit</button>
                     <button onClick={() => handleDelete(c.address)} className="px-2 py-1 text-xs bg-red-600/20 text-red-400 hover:bg-red-600/30 rounded">Delete</button>
                   </div>
                 </td>
@@ -895,424 +704,16 @@ function ContractsWithIndexingTab({
           </tbody>
         </table>
       </div>
-
-      {resetModal.isOpen && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-          <div className="bg-slate-900 border border-slate-700 rounded-xl p-6 max-w-md w-full mx-4">
-            {!resetModal.result ? (<>
-              <h3 className="text-lg font-semibold mb-4">Reset Indexing Data</h3>
-              <div className="bg-slate-800 rounded-lg p-3 mb-4"><div className="font-medium">{resetModal.contract?.name}</div><div className="text-xs text-slate-400 font-mono">{resetModal.contract?.address}</div><div className="text-sm text-slate-400 mt-2">{resetModal.contract?.total_indexed.toLocaleString()} txs will be deleted</div></div>
-              <p className="text-red-400 text-sm mb-4">⚠️ Cannot be undone.</p>
-              <div className="flex gap-3"><button onClick={closeResetModal} disabled={resetModal.isLoading} className="flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg disabled:opacity-50">Cancel</button><button onClick={handleReset} disabled={resetModal.isLoading} className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg disabled:opacity-50">{resetModal.isLoading ? 'Resetting...' : 'Reset'}</button></div>
-            </>) : (<>
-              <h3 className={`text-lg font-semibold mb-4 ${resetModal.result.success ? 'text-green-400' : 'text-red-400'}`}>{resetModal.result.success ? 'Complete' : 'Failed'}</h3>
-              <p className="mb-4">{resetModal.result.message}</p>
-              {resetModal.result.deleted && <div className="bg-slate-800 rounded-lg p-3 mb-4 text-sm">Deleted {resetModal.result.deleted.transaction_details.toLocaleString()} txs, {resetModal.result.deleted.wallet_interactions.toLocaleString()} interactions</div>}
-              <button onClick={closeResetModal} className="w-full px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg">Close</button>
-            </>)}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
 
 
-// ============================================================================
-// INDEXING TAB - Real-time with SSE
-// ============================================================================
 
-interface SSEIndexingProgress {
-  contracts: Array<{
-    address: string;
-    name: string;
-    total_indexed: number;
-    api_total_count: number;
-    progress_percent: number;
-    is_complete: boolean;
-    status: string;
-    updated_at: string;
-  }>;
-  global_stats: {
-    total_contracts: number;
-    contracts_complete: number;
-    contracts_indexing: number;
-    total_indexed: number;
-    total_expected: number;
-    overall_progress: number;
-  };
-  timestamp: string;
-}
 
-interface ResetModalState {
-  isOpen: boolean;
-  contract: { address: string; name: string; total_indexed: number } | null;
-  isLoading: boolean;
-  result: { success: boolean; message: string; deleted?: { transaction_details: number; wallet_interactions: number } } | null;
-}
 
-function IndexingTab({ progress }: { progress: IndexingProgress | null }) {
-  const [sseProgress, setSSEProgress] = useState<SSEIndexingProgress | null>(null);
-  const [isConnected, setIsConnected] = useState(false);
-  const [resetModal, setResetModal] = useState<ResetModalState>({
-    isOpen: false,
-    contract: null,
-    isLoading: false,
-    result: null,
-  });
-  const eventSourceRef = useRef<EventSource | null>(null);
 
-  useEffect(() => {
-    // Connect to SSE endpoint
-    const eventSource = new EventSource('/api/admin/indexing/progress/stream');
-    eventSourceRef.current = eventSource;
 
-    eventSource.onopen = () => {
-      setIsConnected(true);
-    };
-
-    eventSource.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data) as SSEIndexingProgress;
-        setSSEProgress(data);
-      } catch (error) {
-        console.error('Failed to parse SSE data:', error);
-      }
-    };
-
-    eventSource.onerror = () => {
-      setIsConnected(false);
-      // Reconnect after 5 seconds
-      setTimeout(() => {
-        if (eventSourceRef.current) {
-          eventSourceRef.current.close();
-        }
-      }, 5000);
-    };
-
-    return () => {
-      eventSource.close();
-    };
-  }, []);
-
-  const openResetModal = (contract: { address: string; name: string; total_indexed: number }) => {
-    setResetModal({
-      isOpen: true,
-      contract,
-      isLoading: false,
-      result: null,
-    });
-  };
-
-  const closeResetModal = () => {
-    setResetModal({
-      isOpen: false,
-      contract: null,
-      isLoading: false,
-      result: null,
-    });
-  };
-
-  const handleReset = async () => {
-    if (!resetModal.contract) return;
-
-    setResetModal(prev => ({ ...prev, isLoading: true, result: null }));
-
-    try {
-      const response = await fetch('/api/admin/indexing/reset', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contract_address: resetModal.contract.address }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setResetModal(prev => ({
-          ...prev,
-          isLoading: false,
-          result: {
-            success: true,
-            message: 'Indexing data reset successfully!',
-            deleted: data.deleted,
-          },
-        }));
-      } else {
-        setResetModal(prev => ({
-          ...prev,
-          isLoading: false,
-          result: {
-            success: false,
-            message: data.error || 'Failed to reset indexing data',
-          },
-        }));
-      }
-    } catch (error) {
-      setResetModal(prev => ({
-        ...prev,
-        isLoading: false,
-        result: {
-          success: false,
-          message: 'Network error. Please try again.',
-        },
-      }));
-    }
-  };
-
-  const displayProgress = sseProgress;
-
-  if (!displayProgress && !progress) {
-    return (
-      <div className="text-center text-slate-500 py-8">
-        Loading indexing progress...
-      </div>
-    );
-  }
-
-  const statusColors: Record<string, string> = {
-    pending: 'bg-yellow-500/20 text-yellow-400',
-    indexing: 'bg-blue-500/20 text-blue-400',
-    complete: 'bg-green-500/20 text-green-400',
-    paused: 'bg-orange-500/20 text-orange-400',
-    error: 'bg-red-500/20 text-red-400',
-  };
-
-  return (
-    <div className="space-y-6">
-      {/* Connection Status */}
-      <div className="flex items-center gap-2 text-sm">
-        <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
-        <span className="text-slate-400">
-          {isConnected ? 'Live updates connected' : 'Reconnecting...'}
-        </span>
-        {displayProgress && (
-          <span className="text-slate-500 ml-auto">
-            Last update: {new Date(displayProgress.timestamp).toLocaleTimeString()}
-          </span>
-        )}
-      </div>
-
-      {/* Global Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-          <div className="text-slate-400 text-sm">Total Contracts</div>
-          <div className="text-2xl font-bold mt-1">{displayProgress?.global_stats.total_contracts || 0}</div>
-        </div>
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-          <div className="text-slate-400 text-sm">Complete</div>
-          <div className="text-2xl font-bold mt-1 text-green-400">{displayProgress?.global_stats.contracts_complete || 0}</div>
-        </div>
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-          <div className="text-slate-400 text-sm">Indexing</div>
-          <div className="text-2xl font-bold mt-1 text-blue-400">{displayProgress?.global_stats.contracts_indexing || 0}</div>
-        </div>
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-          <div className="text-slate-400 text-sm">Indexed TXs</div>
-          <div className="text-2xl font-bold mt-1">{(displayProgress?.global_stats.total_indexed || 0).toLocaleString()}</div>
-        </div>
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-          <div className="text-slate-400 text-sm">Expected TXs</div>
-          <div className="text-2xl font-bold mt-1">{(displayProgress?.global_stats.total_expected || 0).toLocaleString()}</div>
-        </div>
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-          <div className="text-slate-400 text-sm">Overall Progress</div>
-          <div className="text-2xl font-bold mt-1 text-purple-400">{displayProgress?.global_stats.overall_progress || 0}%</div>
-        </div>
-      </div>
-
-      {/* Overall Progress Bar */}
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-sm text-slate-400">Overall Indexing Progress</span>
-          <span className="text-sm font-medium">{displayProgress?.global_stats.overall_progress || 0}%</span>
-        </div>
-        <div className="h-3 bg-slate-700 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-gradient-to-r from-purple-500 to-blue-500 transition-all duration-500"
-            style={{ width: `${displayProgress?.global_stats.overall_progress || 0}%` }}
-          />
-        </div>
-      </div>
-
-      {/* Per-Contract Progress */}
-      <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
-        <div className="p-4 border-b border-slate-800">
-          <h2 className="text-xl font-semibold">Contract Indexing Progress</h2>
-          <p className="text-sm text-slate-400 mt-1">Real-time updates via Server-Sent Events</p>
-        </div>
-
-        {!displayProgress?.contracts.length ? (
-          <div className="p-8 text-center text-slate-500">
-            No contracts being indexed.
-          </div>
-        ) : (
-          <div className="divide-y divide-slate-800">
-            {displayProgress.contracts.map((contract) => (
-              <div key={contract.address} className="p-4 hover:bg-slate-800/30 transition-colors">
-                <div className="flex items-center gap-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium truncate">{contract.name}</span>
-                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${statusColors[contract.status] || statusColors.pending}`}>
-                        {contract.status}
-                      </span>
-                    </div>
-                    <div className="text-xs text-slate-500 font-mono mt-1">
-                      {contract.address}
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-4 flex-shrink-0">
-                    <div className="text-right">
-                      <div className="text-sm font-medium">
-                        {contract.total_indexed.toLocaleString()} / {contract.api_total_count.toLocaleString()}
-                      </div>
-                      <div className="text-xs text-slate-500">transactions</div>
-                    </div>
-                    
-                    <div className="w-32">
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1 h-2 bg-slate-700 rounded-full overflow-hidden">
-                          <div
-                            className={`h-full transition-all duration-300 ${
-                              contract.is_complete ? 'bg-green-500' : 'bg-purple-500'
-                            }`}
-                            style={{ width: `${contract.progress_percent}%` }}
-                          />
-                        </div>
-                        <span className="text-xs text-slate-400 w-10 text-right">
-                          {contract.progress_percent}%
-                        </span>
-                      </div>
-                    </div>
-
-                    <button
-                      onClick={() => openResetModal({
-                        address: contract.address,
-                        name: contract.name,
-                        total_indexed: contract.total_indexed,
-                      })}
-                      className="px-3 py-1.5 text-xs bg-red-600/20 text-red-400 hover:bg-red-600/30 rounded transition-colors"
-                      title="Reset indexing data"
-                    >
-                      Reset
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Reset Confirmation Modal */}
-      {resetModal.isOpen && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-          <div className="bg-slate-900 border border-slate-700 rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl">
-            {!resetModal.result ? (
-              <>
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center">
-                    <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                    </svg>
-                  </div>
-                  <h3 className="text-lg font-semibold text-white">Reset Indexing Data</h3>
-                </div>
-
-                <div className="mb-6">
-                  <p className="text-slate-300 mb-3">
-                    Are you sure you want to reset all indexed data for:
-                  </p>
-                  <div className="bg-slate-800 rounded-lg p-3">
-                    <div className="font-medium text-white">{resetModal.contract?.name}</div>
-                    <div className="text-xs text-slate-400 font-mono mt-1">{resetModal.contract?.address}</div>
-                    <div className="text-sm text-slate-400 mt-2">
-                      {resetModal.contract?.total_indexed.toLocaleString()} transactions will be deleted
-                    </div>
-                  </div>
-                  <p className="text-red-400 text-sm mt-3">
-                    ⚠️ This action cannot be undone. All transaction data and interactions for this contract will be permanently deleted.
-                  </p>
-                </div>
-
-                <div className="flex gap-3">
-                  <button
-                    onClick={closeResetModal}
-                    disabled={resetModal.isLoading}
-                    className="flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg font-medium transition-colors disabled:opacity-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleReset}
-                    disabled={resetModal.isLoading}
-                    className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                  >
-                    {resetModal.isLoading ? (
-                      <>
-                        <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                        </svg>
-                        Resetting...
-                      </>
-                    ) : (
-                      'Reset Data'
-                    )}
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="flex items-center gap-3 mb-4">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${resetModal.result.success ? 'bg-green-500/20' : 'bg-red-500/20'}`}>
-                    {resetModal.result.success ? (
-                      <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                    ) : (
-                      <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    )}
-                  </div>
-                  <h3 className="text-lg font-semibold text-white">
-                    {resetModal.result.success ? 'Reset Complete' : 'Reset Failed'}
-                  </h3>
-                </div>
-
-                <div className="mb-6">
-                  <p className={`${resetModal.result.success ? 'text-green-400' : 'text-red-400'}`}>
-                    {resetModal.result.message}
-                  </p>
-                  {resetModal.result.success && resetModal.result.deleted && (
-                    <div className="bg-slate-800 rounded-lg p-3 mt-3">
-                      <div className="text-sm text-slate-300">Deleted records:</div>
-                      <div className="text-sm text-slate-400 mt-1">
-                        • {resetModal.result.deleted.transaction_details.toLocaleString()} transaction details
-                      </div>
-                      <div className="text-sm text-slate-400">
-                        • {resetModal.result.deleted.wallet_interactions.toLocaleString()} wallet interactions
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <button
-                  onClick={closeResetModal}
-                  className="w-full px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg font-medium transition-colors"
-                >
-                  Close
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
 
 
 // ============================================================================

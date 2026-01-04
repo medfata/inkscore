@@ -1,0 +1,75 @@
+{
+    "chainId": "57073",
+    "ecosystems": [
+        "optimism"
+    ],
+    "blockNumber": 34022140,
+    "txIndex": 5,
+    "timestamp": "2026-01-04T09:55:51.000Z",
+    "from": {
+        "id": "0xD0C0AdE59C0c277D078216d57860486f5B4402A9",
+        "isContract": false
+    },
+    "to": {
+        "id": "0x4cD00E387622C35bDDB9b4c962C136462338BC31",
+        "isContract": true
+    },
+    "blockHash": "0xac7349b81e49df2f7056f2139c2f24c76a7a305b38056b509431546512609e7a",
+    "txHash": "0x74c3d3e1c89270dab0cf28ecb741dc900b36cc70ef7c7a70055de6b269dde837",
+    "value": "123424167888334",
+    "gasLimit": "37728",
+    "gasUsed": "24812",
+    "gasPrice": "2659",
+    "burnedFees": "65975108",
+    "methodId": "0x49290c1c",
+    "method": "depositNative(address depositor, bytes32 id) payable",
+    "contractVerified": true,
+    "type": "evm_tx",
+    "status": true,
+    "nonce": 36,
+    "deployments": [],
+    "input": "0x49290c1c000000000000000000000000d0c0ade59c0c277d078216d57860486f5b4402a940ddc0606a794cab3904ece68a730700c5e4c0060538e34e915ef74f07134501",
+    "indexingStatus": "completed",
+    "hasEIP7702Authorizations": false,
+    "logs": [
+        {
+            "index": 21,
+            "address": {
+                "id": "0x4cD00E387622C35bDDB9b4c962C136462338BC31",
+                "isContract": true
+            },
+            "topics": [
+                "0x8032066556caf3967d8fec4ad22a2d9e1e9576556b2903a0fcd5b1fd201e3477"
+            ],
+            "data": "0x000000000000000000000000d0c0ade59c0c277d078216d57860486f5b4402a900000000000000000000000000000000000000000000000000007040edaf05ce40ddc0606a794cab3904ece68a730700c5e4c0060538e34e915ef74f07134501",
+            "removed": false,
+            "event": "RelayNativeDeposit(address from, uint256 amount, bytes32 id)",
+            "contractVerified": true
+        }
+    ],
+    "operations": [
+        {
+            "index": 0,
+            "status": true,
+            "type": "CALL",
+            "from": {
+                "id": "0xD0C0AdE59C0c277D078216d57860486f5B4402A9",
+                "isContract": false
+            },
+            "to": {
+                "id": "0x4cD00E387622C35bDDB9b4c962C136462338BC31",
+                "isContract": true
+            },
+            "value": "123424167888334",
+            "gas": "37728",
+            "gasUsed": "24812",
+            "methodId": "0x49290c1c"
+        }
+    ],
+    "l1GasPrice": "61667671",
+    "l1GasUsed": "1727",
+    "l1Fee": "760107611",
+    "l1BaseFeeScalar": "4424",
+    "l1BlobBaseFee": "3297809",
+    "l1BlobBaseFeeScalar": "810831"
+}

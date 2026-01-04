@@ -77,12 +77,20 @@ interface BridgeVolumeResponse {
   totalEth: number;
   totalUsd: number;
   txCount: number;
+  bridgedInUsd?: number;
+  bridgedInCount?: number;
+  bridgedOutUsd?: number;
+  bridgedOutCount?: number;
   byPlatform: Array<{
     platform: string;
     subPlatform?: string;
     ethValue: number;
     usdValue: number;
     txCount: number;
+    bridgedInUsd?: number;
+    bridgedInCount?: number;
+    bridgedOutUsd?: number;
+    bridgedOutCount?: number;
   }>;
 }
 
@@ -128,6 +136,15 @@ interface TotalVolumeResponse {
     usd: number;
     count: number;
   };
+}
+
+// ZNS metrics response type
+interface ZnsMetricsResponse {
+  total_count: number;
+  deploy_count: number;
+  say_gm_count: number;
+  register_domain_count: number;
+  renew_domain_count: number;
 }
 
 interface DashboardProps {
@@ -323,6 +340,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
   const [nftTrading, setNftTrading] = useState<NftTradingResponse | null>(null);
   const [walletScore, setWalletScore] = useState<WalletScoreResponse | null>(null);
   const [totalVolume, setTotalVolume] = useState<TotalVolumeResponse | null>(null);
+  const [znsMetrics, setZnsMetrics] = useState<ZnsMetricsResponse | null>(null);
 
   // Dynamic dashboard cards state
   const [dynamicCardsRow3, setDynamicCardsRow3] = useState<DashboardCardData[]>([]);
@@ -364,6 +382,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
     setNftTrading(null);
     setWalletScore(null);
     setTotalVolume(null);
+    setZnsMetrics(null);
 
     try {
       const fetchPromises = [];
@@ -520,6 +539,24 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
             if (data) setTotalVolume(data);
           })
           .catch(err => console.error('Failed to refresh total volume:', err))
+      );
+
+      // ZNS metrics
+      fetchPromises.push(
+        fetch(`/api/analytics/${walletAddress}/zns`)
+          .then(res => res.ok ? res.json() : null)
+          .then(data => {
+            if (data) {
+              setZnsMetrics({
+                total_count: data.total_count || 0,
+                deploy_count: data.deploy_count || 0,
+                say_gm_count: data.say_gm_count || 0,
+                register_domain_count: data.register_domain_count || 0,
+                renew_domain_count: data.renew_domain_count || 0,
+              });
+            }
+          })
+          .catch(err => console.error('Failed to refresh ZNS metrics:', err))
       );
 
       await Promise.all(fetchPromises);
@@ -802,6 +839,31 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
     };
 
     fetchTotalVolume();
+  }, [walletAddress, isDemo]);
+
+  // Fetch ZNS metrics when not in demo mode
+  useEffect(() => {
+    if (isDemo || !walletAddress || walletAddress.length < 10) return;
+
+    const fetchZnsMetrics = async () => {
+      try {
+        const res = await fetch(`/api/analytics/${walletAddress}/zns`);
+        if (res.ok) {
+          const data = await res.json();
+          setZnsMetrics({
+            total_count: data.total_count || 0,
+            deploy_count: data.deploy_count || 0,
+            say_gm_count: data.say_gm_count || 0,
+            register_domain_count: data.register_domain_count || 0,
+            renew_domain_count: data.renew_domain_count || 0,
+          });
+        }
+      } catch (err) {
+        console.error('Failed to fetch ZNS metrics:', err);
+      }
+    };
+
+    fetchZnsMetrics();
   }, [walletAddress, isDemo]);
 
   // Fetch dynamic dashboard cards
@@ -1423,7 +1485,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
 
                 <div className="flex-1 pt-3 border-t border-slate-700/50 flex flex-col min-h-0">
                   <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">By Platform</span>
-                  <div className="flex-1 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
+                  <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar">
                     {Object.entries(BRIDGE_PLATFORM_LOGOS)
                       .map(([platformName, logoUrl]) => {
                         const platformData = bridgeVolume.byPlatform.find(
@@ -1434,25 +1496,44 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                           logoUrl,
                           usdValue: platformData?.usdValue || 0,
                           txCount: platformData?.txCount || 0,
+                          bridgedInUsd: platformData?.bridgedInUsd,
+                          bridgedInCount: platformData?.bridgedInCount,
+                          bridgedOutUsd: platformData?.bridgedOutUsd,
+                          bridgedOutCount: platformData?.bridgedOutCount,
                         };
                       })
                       .sort((a, b) => b.usdValue - a.usdValue)
                       .map((platform, i) => (
-                        <div key={i} className="flex justify-between items-center text-[11px] py-0.5">
-                          <span className="text-slate-400 flex items-center gap-1">
-                            <img
-                              src={platform.logoUrl}
-                              alt={platform.platformName}
-                              className="w-3 h-3 rounded"
-                              onError={(e) => {
-                                (e.target as HTMLImageElement).style.display = 'none';
-                              }}
-                            />
-                            <span className="truncate max-w-[80px]">{platform.platformName}</span>
-                          </span>
-                          <span className="font-mono text-white text-[10px]">
-                            ${platform.usdValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                          </span>
+                        <div key={i} className="text-[11px]">
+                          <div className="flex justify-between items-center py-0.5">
+                            <span className="text-slate-400 flex items-center gap-1">
+                              <img
+                                src={platform.logoUrl}
+                                alt={platform.platformName}
+                                className="w-3 h-3 rounded"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).style.display = 'none';
+                                }}
+                              />
+                              <span className="truncate max-w-[80px]">{platform.platformName}</span>
+                            </span>
+                            <span className="font-mono text-white text-[10px]">
+                              ${platform.usdValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                            </span>
+                          </div>
+                          {/* Show bridged in/out for Native Bridge (USDT0) */}
+                          {platform.platformName === 'Native Bridge (USDT0)' && (platform.bridgedInUsd !== undefined || platform.bridgedOutUsd !== undefined) && (
+                            <div className="ml-4 flex gap-3 text-[9px] text-slate-500">
+                              <span className="text-green-400">
+                                ↓ ${(platform.bridgedInUsd || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                <span className="text-slate-600 ml-0.5">({platform.bridgedInCount || 0})</span>
+                              </span>
+                              <span className="text-orange-400">
+                                ↑ ${(platform.bridgedOutUsd || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                <span className="text-slate-600 ml-0.5">({platform.bridgedOutCount || 0})</span>
+                              </span>
+                            </div>
+                          )}
                         </div>
                       ))}
                   </div>
@@ -1653,29 +1734,60 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
               </div>
             </div>
 
-            <div className="mb-3">
-              <div className="text-2xl font-bold font-display text-lime-400">0</div>
-              <div className="text-xs text-slate-500">0 transactions</div>
-            </div>
-
-            <div className="flex-1 pt-3 border-t border-slate-700/50">
-              <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">By Action</span>
-              <div className="space-y-2">
-                <div className="flex justify-between items-center text-[11px]">
-                  <span className="text-slate-400">Say GM</span>
-                  <span className="font-mono text-white">0</span>
-                </div>
-                <div className="flex justify-between items-center text-[11px]">
-                  <span className="text-slate-400">Deploy</span>
-                  <span className="font-mono text-white">0</span>
-                </div>
-                <div className="flex justify-between items-center text-[11px]">
-                  <span className="text-slate-400">Buy Domain</span>
-                  <span className="font-mono text-white">0</span>
-                </div>
+            {!isDemo && !znsMetrics ? (
+              <div className="flex-1 flex flex-col justify-center">
+                <div className="h-8 w-16 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+                <div className="h-3 w-24 bg-slate-700/30 rounded animate-pulse"></div>
               </div>
-            </div>
+            ) : (
+              <>
+                <div className="mb-3">
+                  <div className="text-2xl font-bold font-display text-lime-400">
+                    {!isDemo && znsMetrics ? znsMetrics.total_count : 0}
+                  </div>
+                  <div className="text-xs text-slate-500">
+                    {!isDemo && znsMetrics ? znsMetrics.total_count : 0} transactions
+                  </div>
+                </div>
 
+                <div className="flex-1 pt-3 border-t border-slate-700/50">
+                  <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">By Action</span>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">Deploy</span>
+                      <span className="font-mono text-white">
+                        {!isDemo && znsMetrics ? znsMetrics.deploy_count : 0}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">Say GM</span>
+                      <span className="font-mono text-white">
+                        {!isDemo && znsMetrics ? znsMetrics.say_gm_count : 0}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">Register Domain</span>
+                      <span className="font-mono text-white">
+                        {!isDemo && znsMetrics ? znsMetrics.register_domain_count : 0}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">Renew Domain</span>
+                      <span className="font-mono text-white">
+                        {!isDemo && znsMetrics ? znsMetrics.renew_domain_count : 0}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {!isDemo && znsMetrics && znsMetrics.total_count > 0 && (
+                  <div className="mt-2 text-xs text-lime-400 opacity-80 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-lime-400 animate-pulse"></span>
+                    Active ZNS User
+                  </div>
+                )}
+              </>
+            )}
           </div>
 
           {/* Marvk Card */}

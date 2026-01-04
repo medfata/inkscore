@@ -28,7 +28,6 @@ async function main() {
 
   // Test admin APIs
   await testAPI('Platforms List', `${BASE_URL}/api/admin/platforms`);
-  await testAPI('Indexing Progress', `${BASE_URL}/api/admin/indexing/progress`);
   await testAPI('Native Metrics', `${BASE_URL}/api/admin/points/native-metrics`);
   await testAPI('Ranks', `${BASE_URL}/api/admin/points/ranks`);
   await testAPI('Points Rules', `${BASE_URL}/api/admin/points/rules`);

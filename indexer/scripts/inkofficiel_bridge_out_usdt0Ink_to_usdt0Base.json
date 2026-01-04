@@ -1,0 +1,1671 @@
+{
+    "chainId": "57073",
+    "ecosystems": [
+        "optimism"
+    ],
+    "blockNumber": 34022258,
+    "txIndex": 2,
+    "timestamp": "2026-01-04T09:57:49.000Z",
+    "from": {
+        "id": "0xD0C0AdE59C0c277D078216d57860486f5B4402A9",
+        "isContract": false
+    },
+    "to": {
+        "id": "0xBBbfD134E9b44BfB5123898BA36b01dE7ab93d98",
+        "isContract": true
+    },
+    "blockHash": "0xf24ca7c4625c9d21209596e2b54dff7144bd602b4d79de11a88f9166c40a08d1",
+    "txHash": "0x597627a4fca8e437ef56267733e0921b1fcbaf702ebcdbb19bbb12467ae8c89b",
+    "value": "0",
+    "gasLimit": "773165",
+    "gasUsed": "422021",
+    "gasPrice": "100549",
+    "burnedFees": "42433789529",
+    "methodId": "0x30875056",
+    "method": "transferAndMulticall(address[] tokens, uint256[] amounts, (address target, bool allowFailure, uint256 value, bytes callData)[] calls, address refundTo, address nftRecipient) payable returns ((bool success, bytes returnData)[] returnData)",
+    "contractVerified": true,
+    "type": "evm_tx",
+    "status": true,
+    "nonce": 38,
+    "deployments": [],
+    "input": "0x3087505600000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000e00000000000000000000000000000000000000000000000000000000000000120000000000000000000000000f70da97812cb96acdf810712aa562db8dfa3dbef000000000000000000000000f70da97812cb96acdf810712aa562db8dfa3dbef00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000200c29006150606b650577bbe7b6248f58470c10000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000007562d00000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000016000000000000000000000000000000000000000000000000000000000000004a00000000000000000000000000200c29006150606b650577bbe7b6248f58470c10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000044095ea7b3000000000000000000000000177778f19e89dd1012bdbe603f144088a95c4b53000000000000000000000000000000000000000000000000000000000007562d00000000000000000000000000000000000000000000000000000000000000000000000000000000177778f19e89dd1012bdbe603f144088a95c4b5300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000002845ae401dc00000000000000000000000000000000000000000000000000000000695a3e3900000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000001a00000000000000000000000000000000000000000000000000000000000000124b858183f000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000007562d0000000000000000000000000000000000000000000000000000851c13652a2500000000000000000000000000000000000000000000000000000000000000420200c29006150606b650577bbe7b6248f58470c1000064f1815bd50389c46847f0bda824ec8da914045d14000064420000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004449404b7c0000000000000000000000000000000000000000000000000000851c13652a25000000000000000000000000f5042e6ffac5a625d4e7848e0b01373d8eb9e2220000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000f5042e6ffac5a625d4e7848e0b01373d8eb9e22200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000e45d1fe6a200000000000000000000000000000000000000000000000000000000000000000000000000000000000000004cd00e387622c35bddb9b4c962c136462338bc310000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000004449290c1c000000000000000000000000d0c0ade59c0c277d078216d57860486f5b4402a9db9f4c291263d76535629ff596dafe009783bf4c4fef35dbc00816237fa71ffe0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000db9f4c291263d76535629ff596dafe009783bf4c4fef35dbc00816237fa71ffe",
+    "indexingStatus": "completed",
+    "hasEIP7702Authorizations": false,
+    "logs": [
+        {
+            "index": 0,
+            "address": {
+                "id": "0x0200C29006150606B650577BBE7B6248F58470c1",
+                "alias": "USDT0",
+                "dapp": {
+                    "alias": "USDT0",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": []
+                },
+                "owner": "USDT0",
+                "icon": "https://cms-cdn.avascan.com/cms2/USDT0.a2be8f8b972f.svg",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/_8hp010bP9NFQsifKeCUbLv49hXAGcFj2kARI1CV0jg/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "64": "https://imgproxy-mainnet.routescan.io/Dr7R2CqkGcFp_XST1b8f8vwavBxGp1STy1Ui9AHmg24/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "256": "https://imgproxy-mainnet.routescan.io/FeiBn-bxqNvNosgdLEliorOSm4cg5lr0YDklMlrjep8/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "1024": "https://imgproxy-mainnet.routescan.io/4B0OrxYrfSAgOwHKnLCqbWm6EGA2_YGf64IWDOhmMk8/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw"
+                },
+                "tags": [
+                    "stablecoin",
+                    "payments"
+                ],
+                "isContract": false
+            },
+            "topics": [
+                "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+                "0x000000000000000000000000d0c0ade59c0c277d078216d57860486f5b4402a9",
+                "0x000000000000000000000000f5042e6ffac5a625d4e7848e0b01373d8eb9e222"
+            ],
+            "data": "0x000000000000000000000000000000000000000000000000000000000007562d",
+            "removed": false,
+            "event": "Transfer(address indexed _from, address indexed _to, uint256 _value)",
+            "contractVerified": false
+        },
+        {
+            "index": 1,
+            "address": {
+                "id": "0x0200C29006150606B650577BBE7B6248F58470c1",
+                "alias": "USDT0",
+                "dapp": {
+                    "alias": "USDT0",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": []
+                },
+                "owner": "USDT0",
+                "icon": "https://cms-cdn.avascan.com/cms2/USDT0.a2be8f8b972f.svg",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/_8hp010bP9NFQsifKeCUbLv49hXAGcFj2kARI1CV0jg/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "64": "https://imgproxy-mainnet.routescan.io/Dr7R2CqkGcFp_XST1b8f8vwavBxGp1STy1Ui9AHmg24/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "256": "https://imgproxy-mainnet.routescan.io/FeiBn-bxqNvNosgdLEliorOSm4cg5lr0YDklMlrjep8/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "1024": "https://imgproxy-mainnet.routescan.io/4B0OrxYrfSAgOwHKnLCqbWm6EGA2_YGf64IWDOhmMk8/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw"
+                },
+                "tags": [
+                    "stablecoin",
+                    "payments"
+                ],
+                "isContract": false
+            },
+            "topics": [
+                "0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925",
+                "0x000000000000000000000000d0c0ade59c0c277d078216d57860486f5b4402a9",
+                "0x000000000000000000000000bbbfd134e9b44bfb5123898ba36b01de7ab93d98"
+            ],
+            "data": "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "removed": false,
+            "event": "Approval(address indexed _owner, address indexed _spender, uint256 _value)",
+            "contractVerified": false
+        },
+        {
+            "index": 2,
+            "address": {
+                "id": "0x0200C29006150606B650577BBE7B6248F58470c1",
+                "alias": "USDT0",
+                "dapp": {
+                    "alias": "USDT0",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": []
+                },
+                "owner": "USDT0",
+                "icon": "https://cms-cdn.avascan.com/cms2/USDT0.a2be8f8b972f.svg",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/_8hp010bP9NFQsifKeCUbLv49hXAGcFj2kARI1CV0jg/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "64": "https://imgproxy-mainnet.routescan.io/Dr7R2CqkGcFp_XST1b8f8vwavBxGp1STy1Ui9AHmg24/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "256": "https://imgproxy-mainnet.routescan.io/FeiBn-bxqNvNosgdLEliorOSm4cg5lr0YDklMlrjep8/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "1024": "https://imgproxy-mainnet.routescan.io/4B0OrxYrfSAgOwHKnLCqbWm6EGA2_YGf64IWDOhmMk8/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw"
+                },
+                "tags": [
+                    "stablecoin",
+                    "payments"
+                ],
+                "isContract": false
+            },
+            "topics": [
+                "0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925",
+                "0x000000000000000000000000f5042e6ffac5a625d4e7848e0b01373d8eb9e222",
+                "0x000000000000000000000000177778f19e89dd1012bdbe603f144088a95c4b53"
+            ],
+            "data": "0x000000000000000000000000000000000000000000000000000000000007562d",
+            "removed": false,
+            "event": "Approval(address indexed _owner, address indexed _spender, uint256 _value)",
+            "contractVerified": false
+        },
+        {
+            "index": 3,
+            "address": {
+                "id": "0xF5042e6ffaC5a625D4E7848e0b01373D8eB9e222",
+                "isContract": true
+            },
+            "topics": [
+                "0x93485dcd31a905e3ffd7b012abe3438fa8fa77f98ddc9f50e879d3fa7ccdc324"
+            ],
+            "data": "0x0000000000000000000000000200c29006150606b650577bbe7b6248f58470c1000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000044095ea7b3000000000000000000000000177778f19e89dd1012bdbe603f144088a95c4b53000000000000000000000000000000000000000000000000000000000007562d00000000000000000000000000000000000000000000000000000000",
+            "removed": false,
+            "event": "SolverCallExecuted(address to, bytes data, uint256 amount)",
+            "contractVerified": true
+        },
+        {
+            "index": 4,
+            "address": {
+                "id": "0xF1815bd50389c46847f0Bda824eC8da914045D14",
+                "alias": "Bridged USDC",
+                "dapp": {
+                    "alias": "Stargate Finance",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": []
+                },
+                "owner": "Stargate Finance",
+                "icon": "https://cms-cdn.avascan.com/cms2/usd-coin-usdc-logo.3b5972c16a97.svg",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/_CkjIoBgQPOtUj_iXbgW7Af947je2xGUJnwXLMxMhmI/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdXNkLWNvaW4tdXNkYy1sb2dvLjNiNTk3MmMxNmE5Ny5zdmc",
+                    "64": "https://imgproxy-mainnet.routescan.io/ZusKCBSINSGFHhndhNDegoV4nuycmwYEGKgkvHBPnAs/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdXNkLWNvaW4tdXNkYy1sb2dvLjNiNTk3MmMxNmE5Ny5zdmc",
+                    "256": "https://imgproxy-mainnet.routescan.io/5GpLVQkzuUGSTHkGYq8I9Uaka74vs65LvqEdOEip9fo/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdXNkLWNvaW4tdXNkYy1sb2dvLjNiNTk3MmMxNmE5Ny5zdmc",
+                    "1024": "https://imgproxy-mainnet.routescan.io/k6sELiQJurmB2xHQfStZR1ZZeZIpmovMLlNT2NmlNK4/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdXNkLWNvaW4tdXNkYy1sb2dvLjNiNTk3MmMxNmE5Ny5zdmc"
+                },
+                "tags": [
+                    "stablecoin",
+                    "erc20",
+                    "bridged"
+                ],
+                "isContract": true
+            },
+            "topics": [
+                "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+                "0x000000000000000000000000dfa03426d54e4f19ce789973731b82a2e7f5dc87",
+                "0x000000000000000000000000177778f19e89dd1012bdbe603f144088a95c4b53"
+            ],
+            "data": "0x00000000000000000000000000000000000000000000000000000000000755a8",
+            "removed": false,
+            "event": "Transfer(address indexed _from, address indexed _to, uint256 _value)",
+            "contractVerified": false
+        },
+        {
+            "index": 5,
+            "address": {
+                "id": "0x0200C29006150606B650577BBE7B6248F58470c1",
+                "alias": "USDT0",
+                "dapp": {
+                    "alias": "USDT0",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": []
+                },
+                "owner": "USDT0",
+                "icon": "https://cms-cdn.avascan.com/cms2/USDT0.a2be8f8b972f.svg",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/_8hp010bP9NFQsifKeCUbLv49hXAGcFj2kARI1CV0jg/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "64": "https://imgproxy-mainnet.routescan.io/Dr7R2CqkGcFp_XST1b8f8vwavBxGp1STy1Ui9AHmg24/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "256": "https://imgproxy-mainnet.routescan.io/FeiBn-bxqNvNosgdLEliorOSm4cg5lr0YDklMlrjep8/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "1024": "https://imgproxy-mainnet.routescan.io/4B0OrxYrfSAgOwHKnLCqbWm6EGA2_YGf64IWDOhmMk8/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw"
+                },
+                "tags": [
+                    "stablecoin",
+                    "payments"
+                ],
+                "isContract": false
+            },
+            "topics": [
+                "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+                "0x000000000000000000000000f5042e6ffac5a625d4e7848e0b01373d8eb9e222",
+                "0x000000000000000000000000dfa03426d54e4f19ce789973731b82a2e7f5dc87"
+            ],
+            "data": "0x000000000000000000000000000000000000000000000000000000000007562d",
+            "removed": false,
+            "event": "Transfer(address indexed _from, address indexed _to, uint256 _value)",
+            "contractVerified": false
+        },
+        {
+            "index": 6,
+            "address": {
+                "id": "0x0200C29006150606B650577BBE7B6248F58470c1",
+                "alias": "USDT0",
+                "dapp": {
+                    "alias": "USDT0",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": []
+                },
+                "owner": "USDT0",
+                "icon": "https://cms-cdn.avascan.com/cms2/USDT0.a2be8f8b972f.svg",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/_8hp010bP9NFQsifKeCUbLv49hXAGcFj2kARI1CV0jg/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "64": "https://imgproxy-mainnet.routescan.io/Dr7R2CqkGcFp_XST1b8f8vwavBxGp1STy1Ui9AHmg24/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "256": "https://imgproxy-mainnet.routescan.io/FeiBn-bxqNvNosgdLEliorOSm4cg5lr0YDklMlrjep8/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "1024": "https://imgproxy-mainnet.routescan.io/4B0OrxYrfSAgOwHKnLCqbWm6EGA2_YGf64IWDOhmMk8/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw"
+                },
+                "tags": [
+                    "stablecoin",
+                    "payments"
+                ],
+                "isContract": false
+            },
+            "topics": [
+                "0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925",
+                "0x000000000000000000000000f5042e6ffac5a625d4e7848e0b01373d8eb9e222",
+                "0x000000000000000000000000177778f19e89dd1012bdbe603f144088a95c4b53"
+            ],
+            "data": "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "removed": false,
+            "event": "Approval(address indexed _owner, address indexed _spender, uint256 _value)",
+            "contractVerified": false
+        },
+        {
+            "index": 7,
+            "address": {
+                "id": "0xDFa03426d54E4f19ce789973731B82A2E7F5DC87",
+                "alias": "Pool USD₮0 (USD₮0)/Bridged USDC (USDC.e)",
+                "dapp": {
+                    "alias": "Uniswap V3",
+                    "description": "Uniswap is a protocol for exchanging ERC-20 tokens on Ethereum. It eliminates trusted intermediaries and unnecessary forms of rent extraction, allowing for fast, efficient trading. Where it makes tradeoffs decentralization, censorship resistance, and security are prioritized.",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": [
+                        "dex"
+                    ]
+                },
+                "owner": "Uniswap V3",
+                "tags": [],
+                "isContract": true
+            },
+            "topics": [
+                "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67",
+                "0x000000000000000000000000177778f19e89dd1012bdbe603f144088a95c4b53",
+                "0x000000000000000000000000177778f19e89dd1012bdbe603f144088a95c4b53"
+            ],
+            "data": "0x000000000000000000000000000000000000000000000000000000000007562dfffffffffffffffffffffffffffffffffffffffffffffffffffffffffff8aa580000000000000000000000000000000000000000fffa45a07c0e4fa618f34882000000000000000000000000000000000000000000000000000000ca8268217afffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe",
+            "removed": false,
+            "event": "Swap(address indexed sender, address indexed recipient, int256 amount0, int256 amount1, uint160 sqrtPriceX96, uint128 liquidity, int24 tick)",
+            "contractVerified": true
+        },
+        {
+            "index": 8,
+            "address": {
+                "id": "0x4200000000000000000000000000000000000006",
+                "alias": "Wrapped Ether",
+                "dapp": {
+                    "alias": "Across V3 Bridge",
+                    "description": "Across V3 is a cross-chain optimistic bridge that uses actors called Relayers to fulfill user transfer requests on the destination chain.\n\nRelayers are later reimbursed by providing a proof of their action to an Optimistic Oracle on Ethereum. Relayer reimbursements over a specific block range are bundled and posted onchain as merkle roots which uniquely identify the set of all repayments and rebalance instructions.",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": [
+                        "bridge"
+                    ]
+                },
+                "owner": "Across V3 Bridge",
+                "icon": "https://cms-cdn.avascan.com/cms2/Wrapped Ether.b659cc6de243.png",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/uwgjrDhFV1UvNrZlJ53Rt5CbqKcCfpM8hKKXE2k91-c/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvV3JhcHBlZCBFdGhlci5iNjU5Y2M2ZGUyNDMucG5n",
+                    "64": "https://imgproxy-mainnet.routescan.io/Pq68M7PwsRZf0z1lqPyrADmMp6JKdTq8KSm9isZ7mGY/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvV3JhcHBlZCBFdGhlci5iNjU5Y2M2ZGUyNDMucG5n",
+                    "256": "https://imgproxy-mainnet.routescan.io/LlU5ssfXOpomtqkqagiBoIkYhcNCv8Ynfh_mWMQ_UDg/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvV3JhcHBlZCBFdGhlci5iNjU5Y2M2ZGUyNDMucG5n",
+                    "1024": "https://imgproxy-mainnet.routescan.io/Lmxug5HR3IX9cVhlu-gSptb8rToU2eOnNN54XgQkKT0/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvV3JhcHBlZCBFdGhlci5iNjU5Y2M2ZGUyNDMucG5n"
+                },
+                "tags": [
+                    "wrapped_token",
+                    "bridged_token"
+                ],
+                "isContract": false
+            },
+            "topics": [
+                "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+                "0x000000000000000000000000d0a60907f65ac19f61b7636606e1c4e33d055c24",
+                "0x000000000000000000000000177778f19e89dd1012bdbe603f144088a95c4b53"
+            ],
+            "data": "0x00000000000000000000000000000000000000000000000000008b27212d98f6",
+            "removed": false,
+            "event": "Transfer(address indexed _from, address indexed _to, uint256 _value)",
+            "contractVerified": false
+        },
+        {
+            "index": 9,
+            "address": {
+                "id": "0xF1815bd50389c46847f0Bda824eC8da914045D14",
+                "alias": "Bridged USDC",
+                "dapp": {
+                    "alias": "Stargate Finance",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": []
+                },
+                "owner": "Stargate Finance",
+                "icon": "https://cms-cdn.avascan.com/cms2/usd-coin-usdc-logo.3b5972c16a97.svg",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/_CkjIoBgQPOtUj_iXbgW7Af947je2xGUJnwXLMxMhmI/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdXNkLWNvaW4tdXNkYy1sb2dvLjNiNTk3MmMxNmE5Ny5zdmc",
+                    "64": "https://imgproxy-mainnet.routescan.io/ZusKCBSINSGFHhndhNDegoV4nuycmwYEGKgkvHBPnAs/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdXNkLWNvaW4tdXNkYy1sb2dvLjNiNTk3MmMxNmE5Ny5zdmc",
+                    "256": "https://imgproxy-mainnet.routescan.io/5GpLVQkzuUGSTHkGYq8I9Uaka74vs65LvqEdOEip9fo/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdXNkLWNvaW4tdXNkYy1sb2dvLjNiNTk3MmMxNmE5Ny5zdmc",
+                    "1024": "https://imgproxy-mainnet.routescan.io/k6sELiQJurmB2xHQfStZR1ZZeZIpmovMLlNT2NmlNK4/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdXNkLWNvaW4tdXNkYy1sb2dvLjNiNTk3MmMxNmE5Ny5zdmc"
+                },
+                "tags": [
+                    "stablecoin",
+                    "erc20",
+                    "bridged"
+                ],
+                "isContract": true
+            },
+            "topics": [
+                "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+                "0x000000000000000000000000177778f19e89dd1012bdbe603f144088a95c4b53",
+                "0x000000000000000000000000d0a60907f65ac19f61b7636606e1c4e33d055c24"
+            ],
+            "data": "0x00000000000000000000000000000000000000000000000000000000000755a8",
+            "removed": false,
+            "event": "Transfer(address indexed _from, address indexed _to, uint256 _value)",
+            "contractVerified": false
+        },
+        {
+            "index": 10,
+            "address": {
+                "id": "0xD0a60907f65ac19F61B7636606e1c4E33d055C24",
+                "alias": "Pool Bridged USDC (USDC.e)/Wrapped Ether (WETH)",
+                "dapp": {
+                    "alias": "Uniswap V3",
+                    "description": "Uniswap is a protocol for exchanging ERC-20 tokens on Ethereum. It eliminates trusted intermediaries and unnecessary forms of rent extraction, allowing for fast, efficient trading. Where it makes tradeoffs decentralization, censorship resistance, and security are prioritized.",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": [
+                        "dex"
+                    ]
+                },
+                "owner": "Uniswap V3",
+                "tags": [],
+                "isContract": true
+            },
+            "topics": [
+                "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67",
+                "0x000000000000000000000000177778f19e89dd1012bdbe603f144088a95c4b53",
+                "0x000000000000000000000000177778f19e89dd1012bdbe603f144088a95c4b53"
+            ],
+            "data": "0xffffffffffffffffffffffffffffffffffffffffffffffffffff74d8ded2670a00000000000000000000000000000000000000000000000000000000000755a800000000000000000000000000000000000000000003ac67f73f7075935e6bcd000000000000000000000000000000000000000000000000000035213747cc8afffffffffffffffffffffffffffffffffffffffffffffffffffffffffffd032d",
+            "removed": false,
+            "event": "Swap(address indexed sender, address indexed recipient, int256 amount0, int256 amount1, uint160 sqrtPriceX96, uint128 liquidity, int24 tick)",
+            "contractVerified": true
+        },
+        {
+            "index": 11,
+            "address": {
+                "id": "0x4200000000000000000000000000000000000006",
+                "alias": "Wrapped Ether",
+                "dapp": {
+                    "alias": "Across V3 Bridge",
+                    "description": "Across V3 is a cross-chain optimistic bridge that uses actors called Relayers to fulfill user transfer requests on the destination chain.\n\nRelayers are later reimbursed by providing a proof of their action to an Optimistic Oracle on Ethereum. Relayer reimbursements over a specific block range are bundled and posted onchain as merkle roots which uniquely identify the set of all repayments and rebalance instructions.",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": [
+                        "bridge"
+                    ]
+                },
+                "owner": "Across V3 Bridge",
+                "icon": "https://cms-cdn.avascan.com/cms2/Wrapped Ether.b659cc6de243.png",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/uwgjrDhFV1UvNrZlJ53Rt5CbqKcCfpM8hKKXE2k91-c/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvV3JhcHBlZCBFdGhlci5iNjU5Y2M2ZGUyNDMucG5n",
+                    "64": "https://imgproxy-mainnet.routescan.io/Pq68M7PwsRZf0z1lqPyrADmMp6JKdTq8KSm9isZ7mGY/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvV3JhcHBlZCBFdGhlci5iNjU5Y2M2ZGUyNDMucG5n",
+                    "256": "https://imgproxy-mainnet.routescan.io/LlU5ssfXOpomtqkqagiBoIkYhcNCv8Ynfh_mWMQ_UDg/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvV3JhcHBlZCBFdGhlci5iNjU5Y2M2ZGUyNDMucG5n",
+                    "1024": "https://imgproxy-mainnet.routescan.io/Lmxug5HR3IX9cVhlu-gSptb8rToU2eOnNN54XgQkKT0/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvV3JhcHBlZCBFdGhlci5iNjU5Y2M2ZGUyNDMucG5n"
+                },
+                "tags": [
+                    "wrapped_token",
+                    "bridged_token"
+                ],
+                "isContract": false
+            },
+            "topics": [
+                "0x7fcf532c15f0a6db0bd6d0e038bea71d30d808c7d98cb3bf7268a95bf5081b65",
+                "0x000000000000000000000000177778f19e89dd1012bdbe603f144088a95c4b53"
+            ],
+            "data": "0x00000000000000000000000000000000000000000000000000008b27212d98f6",
+            "removed": false,
+            "event": "Withdrawal(address indexed caller, uint256 amount)",
+            "contractVerified": false
+        },
+        {
+            "index": 12,
+            "address": {
+                "id": "0xF5042e6ffaC5a625D4E7848e0b01373D8eB9e222",
+                "isContract": true
+            },
+            "topics": [
+                "0xd35467972d1fda5b63c735f59d3974fa51785a41a92aa3ed1b70832836f8dba6"
+            ],
+            "data": "0x000000000000000000000000f5042e6ffac5a625d4e7848e0b01373d8eb9e22200000000000000000000000000000000000000000000000000008b27212d98f6",
+            "removed": false,
+            "event": "SolverNativeTransfer(address to, uint256 amount)",
+            "contractVerified": true
+        },
+        {
+            "index": 13,
+            "address": {
+                "id": "0xF5042e6ffaC5a625D4E7848e0b01373D8eB9e222",
+                "isContract": true
+            },
+            "topics": [
+                "0x93485dcd31a905e3ffd7b012abe3438fa8fa77f98ddc9f50e879d3fa7ccdc324"
+            ],
+            "data": "0x000000000000000000000000177778f19e89dd1012bdbe603f144088a95c4b530000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002845ae401dc00000000000000000000000000000000000000000000000000000000695a3e3900000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000001a00000000000000000000000000000000000000000000000000000000000000124b858183f000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000007562d0000000000000000000000000000000000000000000000000000851c13652a2500000000000000000000000000000000000000000000000000000000000000420200c29006150606b650577bbe7b6248f58470c1000064f1815bd50389c46847f0bda824ec8da914045d14000064420000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004449404b7c0000000000000000000000000000000000000000000000000000851c13652a25000000000000000000000000f5042e6ffac5a625d4e7848e0b01373d8eb9e2220000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+            "removed": false,
+            "event": "SolverCallExecuted(address to, bytes data, uint256 amount)",
+            "contractVerified": true
+        },
+        {
+            "index": 14,
+            "address": {
+                "id": "0x4cD00E387622C35bDDB9b4c962C136462338BC31",
+                "isContract": true
+            },
+            "topics": [
+                "0x8032066556caf3967d8fec4ad22a2d9e1e9576556b2903a0fcd5b1fd201e3477"
+            ],
+            "data": "0x000000000000000000000000d0c0ade59c0c277d078216d57860486f5b4402a900000000000000000000000000000000000000000000000000008b27212d98f6db9f4c291263d76535629ff596dafe009783bf4c4fef35dbc00816237fa71ffe",
+            "removed": false,
+            "event": "RelayNativeDeposit(address from, uint256 amount, bytes32 id)",
+            "contractVerified": true
+        },
+        {
+            "index": 15,
+            "address": {
+                "id": "0xF5042e6ffaC5a625D4E7848e0b01373D8eB9e222",
+                "isContract": true
+            },
+            "topics": [
+                "0x93485dcd31a905e3ffd7b012abe3438fa8fa77f98ddc9f50e879d3fa7ccdc324"
+            ],
+            "data": "0x000000000000000000000000f5042e6ffac5a625d4e7848e0b01373d8eb9e2220000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e45d1fe6a200000000000000000000000000000000000000000000000000000000000000000000000000000000000000004cd00e387622c35bddb9b4c962c136462338bc310000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000004449290c1c000000000000000000000000d0c0ade59c0c277d078216d57860486f5b4402a9db9f4c291263d76535629ff596dafe009783bf4c4fef35dbc00816237fa71ffe0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+            "removed": false,
+            "event": "SolverCallExecuted(address to, bytes data, uint256 amount)",
+            "contractVerified": true
+        }
+    ],
+    "operations": [
+        {
+            "index": 0,
+            "status": true,
+            "type": "CALL",
+            "from": {
+                "id": "0xD0C0AdE59C0c277D078216d57860486f5B4402A9",
+                "isContract": false
+            },
+            "to": {
+                "id": "0xBBbfD134E9b44BfB5123898BA36b01dE7ab93d98",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "773165",
+            "gasUsed": "422021",
+            "methodId": "0x30875056"
+        },
+        {
+            "index": 1,
+            "status": true,
+            "type": "CALL",
+            "from": {
+                "id": "0xBBbfD134E9b44BfB5123898BA36b01dE7ab93d98",
+                "isContract": true
+            },
+            "to": {
+                "id": "0x0200C29006150606B650577BBE7B6248F58470c1",
+                "alias": "USDT0",
+                "dapp": {
+                    "alias": "USDT0",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": []
+                },
+                "owner": "USDT0",
+                "icon": "https://cms-cdn.avascan.com/cms2/USDT0.a2be8f8b972f.svg",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/_8hp010bP9NFQsifKeCUbLv49hXAGcFj2kARI1CV0jg/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "64": "https://imgproxy-mainnet.routescan.io/Dr7R2CqkGcFp_XST1b8f8vwavBxGp1STy1Ui9AHmg24/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "256": "https://imgproxy-mainnet.routescan.io/FeiBn-bxqNvNosgdLEliorOSm4cg5lr0YDklMlrjep8/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "1024": "https://imgproxy-mainnet.routescan.io/4B0OrxYrfSAgOwHKnLCqbWm6EGA2_YGf64IWDOhmMk8/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw"
+                },
+                "tags": [
+                    "stablecoin",
+                    "payments"
+                ],
+                "isContract": false
+            },
+            "value": "0",
+            "gas": "719167",
+            "gasUsed": "48878",
+            "methodId": "0x23b872dd"
+        },
+        {
+            "index": 2,
+            "status": true,
+            "type": "DELEGATECALL",
+            "from": {
+                "id": "0x0200C29006150606B650577BBE7B6248F58470c1",
+                "alias": "USDT0",
+                "dapp": {
+                    "alias": "USDT0",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": []
+                },
+                "owner": "USDT0",
+                "icon": "https://cms-cdn.avascan.com/cms2/USDT0.a2be8f8b972f.svg",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/_8hp010bP9NFQsifKeCUbLv49hXAGcFj2kARI1CV0jg/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "64": "https://imgproxy-mainnet.routescan.io/Dr7R2CqkGcFp_XST1b8f8vwavBxGp1STy1Ui9AHmg24/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "256": "https://imgproxy-mainnet.routescan.io/FeiBn-bxqNvNosgdLEliorOSm4cg5lr0YDklMlrjep8/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "1024": "https://imgproxy-mainnet.routescan.io/4B0OrxYrfSAgOwHKnLCqbWm6EGA2_YGf64IWDOhmMk8/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw"
+                },
+                "tags": [
+                    "stablecoin",
+                    "payments"
+                ],
+                "isContract": false
+            },
+            "to": {
+                "id": "0x06d886Ff518b5E642E7E6aaD3cE797B7DABD8e9a",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "700914",
+            "gasUsed": "41709",
+            "methodId": "0x23b872dd"
+        },
+        {
+            "index": 3,
+            "status": true,
+            "type": "CALL",
+            "from": {
+                "id": "0xBBbfD134E9b44BfB5123898BA36b01dE7ab93d98",
+                "isContract": true
+            },
+            "to": {
+                "id": "0xF5042e6ffaC5a625D4E7848e0b01373D8eB9e222",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "661083",
+            "gasUsed": "403502",
+            "methodId": "0x30be5567"
+        },
+        {
+            "index": 4,
+            "status": true,
+            "type": "CALL",
+            "from": {
+                "id": "0xF5042e6ffaC5a625D4E7848e0b01373D8eB9e222",
+                "isContract": true
+            },
+            "to": {
+                "id": "0x0200C29006150606B650577BBE7B6248F58470c1",
+                "alias": "USDT0",
+                "dapp": {
+                    "alias": "USDT0",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": []
+                },
+                "owner": "USDT0",
+                "icon": "https://cms-cdn.avascan.com/cms2/USDT0.a2be8f8b972f.svg",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/_8hp010bP9NFQsifKeCUbLv49hXAGcFj2kARI1CV0jg/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "64": "https://imgproxy-mainnet.routescan.io/Dr7R2CqkGcFp_XST1b8f8vwavBxGp1STy1Ui9AHmg24/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "256": "https://imgproxy-mainnet.routescan.io/FeiBn-bxqNvNosgdLEliorOSm4cg5lr0YDklMlrjep8/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "1024": "https://imgproxy-mainnet.routescan.io/4B0OrxYrfSAgOwHKnLCqbWm6EGA2_YGf64IWDOhmMk8/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw"
+                },
+                "tags": [
+                    "stablecoin",
+                    "payments"
+                ],
+                "isContract": false
+            },
+            "value": "0",
+            "gas": "640038",
+            "gasUsed": "25269",
+            "methodId": "0x095ea7b3"
+        },
+        {
+            "index": 5,
+            "status": true,
+            "type": "DELEGATECALL",
+            "from": {
+                "id": "0x0200C29006150606B650577BBE7B6248F58470c1",
+                "alias": "USDT0",
+                "dapp": {
+                    "alias": "USDT0",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": []
+                },
+                "owner": "USDT0",
+                "icon": "https://cms-cdn.avascan.com/cms2/USDT0.a2be8f8b972f.svg",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/_8hp010bP9NFQsifKeCUbLv49hXAGcFj2kARI1CV0jg/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "64": "https://imgproxy-mainnet.routescan.io/Dr7R2CqkGcFp_XST1b8f8vwavBxGp1STy1Ui9AHmg24/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "256": "https://imgproxy-mainnet.routescan.io/FeiBn-bxqNvNosgdLEliorOSm4cg5lr0YDklMlrjep8/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "1024": "https://imgproxy-mainnet.routescan.io/4B0OrxYrfSAgOwHKnLCqbWm6EGA2_YGf64IWDOhmMk8/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw"
+                },
+                "tags": [
+                    "stablecoin",
+                    "payments"
+                ],
+                "isContract": false
+            },
+            "to": {
+                "id": "0x06d886Ff518b5E642E7E6aaD3cE797B7DABD8e9a",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "629426",
+            "gasUsed": "24606",
+            "methodId": "0x095ea7b3"
+        },
+        {
+            "index": 6,
+            "status": true,
+            "type": "CALL",
+            "from": {
+                "id": "0xF5042e6ffaC5a625D4E7848e0b01373D8eB9e222",
+                "isContract": true
+            },
+            "to": {
+                "id": "0x177778F19E89dD1012BdBe603F144088A95C4B53",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "607299",
+            "gasUsed": "325209",
+            "methodId": "0x5ae401dc"
+        },
+        {
+            "index": 7,
+            "status": true,
+            "type": "DELEGATECALL",
+            "from": {
+                "id": "0x177778F19E89dD1012BdBe603F144088A95C4B53",
+                "isContract": true
+            },
+            "to": {
+                "id": "0x177778F19E89dD1012BdBe603F144088A95C4B53",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "596462",
+            "gasUsed": "301967",
+            "methodId": "0xb858183f"
+        },
+        {
+            "index": 8,
+            "status": true,
+            "type": "CALL",
+            "from": {
+                "id": "0x177778F19E89dD1012BdBe603F144088A95C4B53",
+                "isContract": true
+            },
+            "to": {
+                "id": "0xDFa03426d54E4f19ce789973731B82A2E7F5DC87",
+                "alias": "Pool USD₮0 (USD₮0)/Bridged USDC (USDC.e)",
+                "dapp": {
+                    "alias": "Uniswap V3",
+                    "description": "Uniswap is a protocol for exchanging ERC-20 tokens on Ethereum. It eliminates trusted intermediaries and unnecessary forms of rent extraction, allowing for fast, efficient trading. Where it makes tradeoffs decentralization, censorship resistance, and security are prioritized.",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": [
+                        "dex"
+                    ]
+                },
+                "owner": "Uniswap V3",
+                "tags": [],
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "579822",
+            "gasUsed": "97461",
+            "methodId": "0x128acb08"
+        },
+        {
+            "index": 9,
+            "status": true,
+            "type": "CALL",
+            "from": {
+                "id": "0xDFa03426d54E4f19ce789973731B82A2E7F5DC87",
+                "alias": "Pool USD₮0 (USD₮0)/Bridged USDC (USDC.e)",
+                "dapp": {
+                    "alias": "Uniswap V3",
+                    "description": "Uniswap is a protocol for exchanging ERC-20 tokens on Ethereum. It eliminates trusted intermediaries and unnecessary forms of rent extraction, allowing for fast, efficient trading. Where it makes tradeoffs decentralization, censorship resistance, and security are prioritized.",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": [
+                        "dex"
+                    ]
+                },
+                "owner": "Uniswap V3",
+                "tags": [],
+                "isContract": true
+            },
+            "to": {
+                "id": "0xF1815bd50389c46847f0Bda824eC8da914045D14",
+                "alias": "Bridged USDC",
+                "dapp": {
+                    "alias": "Stargate Finance",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": []
+                },
+                "owner": "Stargate Finance",
+                "icon": "https://cms-cdn.avascan.com/cms2/usd-coin-usdc-logo.3b5972c16a97.svg",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/_CkjIoBgQPOtUj_iXbgW7Af947je2xGUJnwXLMxMhmI/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdXNkLWNvaW4tdXNkYy1sb2dvLjNiNTk3MmMxNmE5Ny5zdmc",
+                    "64": "https://imgproxy-mainnet.routescan.io/ZusKCBSINSGFHhndhNDegoV4nuycmwYEGKgkvHBPnAs/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdXNkLWNvaW4tdXNkYy1sb2dvLjNiNTk3MmMxNmE5Ny5zdmc",
+                    "256": "https://imgproxy-mainnet.routescan.io/5GpLVQkzuUGSTHkGYq8I9Uaka74vs65LvqEdOEip9fo/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdXNkLWNvaW4tdXNkYy1sb2dvLjNiNTk3MmMxNmE5Ny5zdmc",
+                    "1024": "https://imgproxy-mainnet.routescan.io/k6sELiQJurmB2xHQfStZR1ZZeZIpmovMLlNT2NmlNK4/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdXNkLWNvaW4tdXNkYy1sb2dvLjNiNTk3MmMxNmE5Ny5zdmc"
+                },
+                "tags": [
+                    "stablecoin",
+                    "erc20",
+                    "bridged"
+                ],
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "542582",
+            "gasUsed": "40563",
+            "methodId": "0xa9059cbb"
+        },
+        {
+            "index": 10,
+            "status": true,
+            "type": "DELEGATECALL",
+            "from": {
+                "id": "0xF1815bd50389c46847f0Bda824eC8da914045D14",
+                "alias": "Bridged USDC",
+                "dapp": {
+                    "alias": "Stargate Finance",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": []
+                },
+                "owner": "Stargate Finance",
+                "icon": "https://cms-cdn.avascan.com/cms2/usd-coin-usdc-logo.3b5972c16a97.svg",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/_CkjIoBgQPOtUj_iXbgW7Af947je2xGUJnwXLMxMhmI/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdXNkLWNvaW4tdXNkYy1sb2dvLjNiNTk3MmMxNmE5Ny5zdmc",
+                    "64": "https://imgproxy-mainnet.routescan.io/ZusKCBSINSGFHhndhNDegoV4nuycmwYEGKgkvHBPnAs/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdXNkLWNvaW4tdXNkYy1sb2dvLjNiNTk3MmMxNmE5Ny5zdmc",
+                    "256": "https://imgproxy-mainnet.routescan.io/5GpLVQkzuUGSTHkGYq8I9Uaka74vs65LvqEdOEip9fo/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdXNkLWNvaW4tdXNkYy1sb2dvLjNiNTk3MmMxNmE5Ny5zdmc",
+                    "1024": "https://imgproxy-mainnet.routescan.io/k6sELiQJurmB2xHQfStZR1ZZeZIpmovMLlNT2NmlNK4/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdXNkLWNvaW4tdXNkYy1sb2dvLjNiNTk3MmMxNmE5Ny5zdmc"
+                },
+                "tags": [
+                    "stablecoin",
+                    "erc20",
+                    "bridged"
+                ],
+                "isContract": true
+            },
+            "to": {
+                "id": "0xB1EeAD6959cb5bB9B20417d6689922523B2B86C3",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "527058",
+            "gasUsed": "33363",
+            "methodId": "0xa9059cbb"
+        },
+        {
+            "index": 11,
+            "status": true,
+            "type": "STATICCALL",
+            "from": {
+                "id": "0xDFa03426d54E4f19ce789973731B82A2E7F5DC87",
+                "alias": "Pool USD₮0 (USD₮0)/Bridged USDC (USDC.e)",
+                "dapp": {
+                    "alias": "Uniswap V3",
+                    "description": "Uniswap is a protocol for exchanging ERC-20 tokens on Ethereum. It eliminates trusted intermediaries and unnecessary forms of rent extraction, allowing for fast, efficient trading. Where it makes tradeoffs decentralization, censorship resistance, and security are prioritized.",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": [
+                        "dex"
+                    ]
+                },
+                "owner": "Uniswap V3",
+                "tags": [],
+                "isContract": true
+            },
+            "to": {
+                "id": "0x0200C29006150606B650577BBE7B6248F58470c1",
+                "alias": "USDT0",
+                "dapp": {
+                    "alias": "USDT0",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": []
+                },
+                "owner": "USDT0",
+                "icon": "https://cms-cdn.avascan.com/cms2/USDT0.a2be8f8b972f.svg",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/_8hp010bP9NFQsifKeCUbLv49hXAGcFj2kARI1CV0jg/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "64": "https://imgproxy-mainnet.routescan.io/Dr7R2CqkGcFp_XST1b8f8vwavBxGp1STy1Ui9AHmg24/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "256": "https://imgproxy-mainnet.routescan.io/FeiBn-bxqNvNosgdLEliorOSm4cg5lr0YDklMlrjep8/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "1024": "https://imgproxy-mainnet.routescan.io/4B0OrxYrfSAgOwHKnLCqbWm6EGA2_YGf64IWDOhmMk8/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw"
+                },
+                "tags": [
+                    "stablecoin",
+                    "payments"
+                ],
+                "isContract": false
+            },
+            "value": "0",
+            "gas": "501782",
+            "gasUsed": "3240",
+            "methodId": "0x70a08231"
+        },
+        {
+            "index": 12,
+            "status": true,
+            "type": "DELEGATECALL",
+            "from": {
+                "id": "0x0200C29006150606B650577BBE7B6248F58470c1",
+                "alias": "USDT0",
+                "dapp": {
+                    "alias": "USDT0",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": []
+                },
+                "owner": "USDT0",
+                "icon": "https://cms-cdn.avascan.com/cms2/USDT0.a2be8f8b972f.svg",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/_8hp010bP9NFQsifKeCUbLv49hXAGcFj2kARI1CV0jg/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "64": "https://imgproxy-mainnet.routescan.io/Dr7R2CqkGcFp_XST1b8f8vwavBxGp1STy1Ui9AHmg24/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "256": "https://imgproxy-mainnet.routescan.io/FeiBn-bxqNvNosgdLEliorOSm4cg5lr0YDklMlrjep8/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "1024": "https://imgproxy-mainnet.routescan.io/4B0OrxYrfSAgOwHKnLCqbWm6EGA2_YGf64IWDOhmMk8/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw"
+                },
+                "tags": [
+                    "stablecoin",
+                    "payments"
+                ],
+                "isContract": false
+            },
+            "to": {
+                "id": "0x06d886Ff518b5E642E7E6aaD3cE797B7DABD8e9a",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "493333",
+            "gasUsed": "2580",
+            "methodId": "0x70a08231"
+        },
+        {
+            "index": 13,
+            "status": true,
+            "type": "CALL",
+            "from": {
+                "id": "0xDFa03426d54E4f19ce789973731B82A2E7F5DC87",
+                "alias": "Pool USD₮0 (USD₮0)/Bridged USDC (USDC.e)",
+                "dapp": {
+                    "alias": "Uniswap V3",
+                    "description": "Uniswap is a protocol for exchanging ERC-20 tokens on Ethereum. It eliminates trusted intermediaries and unnecessary forms of rent extraction, allowing for fast, efficient trading. Where it makes tradeoffs decentralization, censorship resistance, and security are prioritized.",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": [
+                        "dex"
+                    ]
+                },
+                "owner": "Uniswap V3",
+                "tags": [],
+                "isContract": true
+            },
+            "to": {
+                "id": "0x177778F19E89dD1012BdBe603F144088A95C4B53",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "497803",
+            "gasUsed": "17755",
+            "methodId": "0xfa461e33"
+        },
+        {
+            "index": 14,
+            "status": true,
+            "type": "CALL",
+            "from": {
+                "id": "0x177778F19E89dD1012BdBe603F144088A95C4B53",
+                "isContract": true
+            },
+            "to": {
+                "id": "0x0200C29006150606B650577BBE7B6248F58470c1",
+                "alias": "USDT0",
+                "dapp": {
+                    "alias": "USDT0",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": []
+                },
+                "owner": "USDT0",
+                "icon": "https://cms-cdn.avascan.com/cms2/USDT0.a2be8f8b972f.svg",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/_8hp010bP9NFQsifKeCUbLv49hXAGcFj2kARI1CV0jg/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "64": "https://imgproxy-mainnet.routescan.io/Dr7R2CqkGcFp_XST1b8f8vwavBxGp1STy1Ui9AHmg24/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "256": "https://imgproxy-mainnet.routescan.io/FeiBn-bxqNvNosgdLEliorOSm4cg5lr0YDklMlrjep8/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "1024": "https://imgproxy-mainnet.routescan.io/4B0OrxYrfSAgOwHKnLCqbWm6EGA2_YGf64IWDOhmMk8/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw"
+                },
+                "tags": [
+                    "stablecoin",
+                    "payments"
+                ],
+                "isContract": false
+            },
+            "value": "0",
+            "gas": "486327",
+            "gasUsed": "13678",
+            "methodId": "0x23b872dd"
+        },
+        {
+            "index": 15,
+            "status": true,
+            "type": "DELEGATECALL",
+            "from": {
+                "id": "0x0200C29006150606B650577BBE7B6248F58470c1",
+                "alias": "USDT0",
+                "dapp": {
+                    "alias": "USDT0",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": []
+                },
+                "owner": "USDT0",
+                "icon": "https://cms-cdn.avascan.com/cms2/USDT0.a2be8f8b972f.svg",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/_8hp010bP9NFQsifKeCUbLv49hXAGcFj2kARI1CV0jg/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "64": "https://imgproxy-mainnet.routescan.io/Dr7R2CqkGcFp_XST1b8f8vwavBxGp1STy1Ui9AHmg24/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "256": "https://imgproxy-mainnet.routescan.io/FeiBn-bxqNvNosgdLEliorOSm4cg5lr0YDklMlrjep8/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "1024": "https://imgproxy-mainnet.routescan.io/4B0OrxYrfSAgOwHKnLCqbWm6EGA2_YGf64IWDOhmMk8/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw"
+                },
+                "tags": [
+                    "stablecoin",
+                    "payments"
+                ],
+                "isContract": false
+            },
+            "to": {
+                "id": "0x06d886Ff518b5E642E7E6aaD3cE797B7DABD8e9a",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "478110",
+            "gasUsed": "13009",
+            "methodId": "0x23b872dd"
+        },
+        {
+            "index": 16,
+            "status": true,
+            "type": "STATICCALL",
+            "from": {
+                "id": "0xDFa03426d54E4f19ce789973731B82A2E7F5DC87",
+                "alias": "Pool USD₮0 (USD₮0)/Bridged USDC (USDC.e)",
+                "dapp": {
+                    "alias": "Uniswap V3",
+                    "description": "Uniswap is a protocol for exchanging ERC-20 tokens on Ethereum. It eliminates trusted intermediaries and unnecessary forms of rent extraction, allowing for fast, efficient trading. Where it makes tradeoffs decentralization, censorship resistance, and security are prioritized.",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": [
+                        "dex"
+                    ]
+                },
+                "owner": "Uniswap V3",
+                "tags": [],
+                "isContract": true
+            },
+            "to": {
+                "id": "0x0200C29006150606B650577BBE7B6248F58470c1",
+                "alias": "USDT0",
+                "dapp": {
+                    "alias": "USDT0",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": []
+                },
+                "owner": "USDT0",
+                "icon": "https://cms-cdn.avascan.com/cms2/USDT0.a2be8f8b972f.svg",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/_8hp010bP9NFQsifKeCUbLv49hXAGcFj2kARI1CV0jg/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "64": "https://imgproxy-mainnet.routescan.io/Dr7R2CqkGcFp_XST1b8f8vwavBxGp1STy1Ui9AHmg24/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "256": "https://imgproxy-mainnet.routescan.io/FeiBn-bxqNvNosgdLEliorOSm4cg5lr0YDklMlrjep8/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "1024": "https://imgproxy-mainnet.routescan.io/4B0OrxYrfSAgOwHKnLCqbWm6EGA2_YGf64IWDOhmMk8/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw"
+                },
+                "tags": [
+                    "stablecoin",
+                    "payments"
+                ],
+                "isContract": false
+            },
+            "value": "0",
+            "gas": "479692",
+            "gasUsed": "1240",
+            "methodId": "0x70a08231"
+        },
+        {
+            "index": 17,
+            "status": true,
+            "type": "DELEGATECALL",
+            "from": {
+                "id": "0x0200C29006150606B650577BBE7B6248F58470c1",
+                "alias": "USDT0",
+                "dapp": {
+                    "alias": "USDT0",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": []
+                },
+                "owner": "USDT0",
+                "icon": "https://cms-cdn.avascan.com/cms2/USDT0.a2be8f8b972f.svg",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/_8hp010bP9NFQsifKeCUbLv49hXAGcFj2kARI1CV0jg/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "64": "https://imgproxy-mainnet.routescan.io/Dr7R2CqkGcFp_XST1b8f8vwavBxGp1STy1Ui9AHmg24/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "256": "https://imgproxy-mainnet.routescan.io/FeiBn-bxqNvNosgdLEliorOSm4cg5lr0YDklMlrjep8/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "1024": "https://imgproxy-mainnet.routescan.io/4B0OrxYrfSAgOwHKnLCqbWm6EGA2_YGf64IWDOhmMk8/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw"
+                },
+                "tags": [
+                    "stablecoin",
+                    "payments"
+                ],
+                "isContract": false
+            },
+            "to": {
+                "id": "0x06d886Ff518b5E642E7E6aaD3cE797B7DABD8e9a",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "471588",
+            "gasUsed": "580",
+            "methodId": "0x70a08231"
+        },
+        {
+            "index": 18,
+            "status": true,
+            "type": "CALL",
+            "from": {
+                "id": "0x177778F19E89dD1012BdBe603F144088A95C4B53",
+                "isContract": true
+            },
+            "to": {
+                "id": "0xD0a60907f65ac19F61B7636606e1c4E33d055C24",
+                "alias": "Pool Bridged USDC (USDC.e)/Wrapped Ether (WETH)",
+                "dapp": {
+                    "alias": "Uniswap V3",
+                    "description": "Uniswap is a protocol for exchanging ERC-20 tokens on Ethereum. It eliminates trusted intermediaries and unnecessary forms of rent extraction, allowing for fast, efficient trading. Where it makes tradeoffs decentralization, censorship resistance, and security are prioritized.",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": [
+                        "dex"
+                    ]
+                },
+                "owner": "Uniswap V3",
+                "tags": [],
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "476719",
+            "gasUsed": "189325",
+            "methodId": "0x128acb08"
+        },
+        {
+            "index": 19,
+            "status": true,
+            "type": "CALL",
+            "from": {
+                "id": "0xD0a60907f65ac19F61B7636606e1c4E33d055C24",
+                "alias": "Pool Bridged USDC (USDC.e)/Wrapped Ether (WETH)",
+                "dapp": {
+                    "alias": "Uniswap V3",
+                    "description": "Uniswap is a protocol for exchanging ERC-20 tokens on Ethereum. It eliminates trusted intermediaries and unnecessary forms of rent extraction, allowing for fast, efficient trading. Where it makes tradeoffs decentralization, censorship resistance, and security are prioritized.",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": [
+                        "dex"
+                    ]
+                },
+                "owner": "Uniswap V3",
+                "tags": [],
+                "isContract": true
+            },
+            "to": {
+                "id": "0x4200000000000000000000000000000000000006",
+                "alias": "Wrapped Ether",
+                "dapp": {
+                    "alias": "Across V3 Bridge",
+                    "description": "Across V3 is a cross-chain optimistic bridge that uses actors called Relayers to fulfill user transfer requests on the destination chain.\n\nRelayers are later reimbursed by providing a proof of their action to an Optimistic Oracle on Ethereum. Relayer reimbursements over a specific block range are bundled and posted onchain as merkle roots which uniquely identify the set of all repayments and rebalance instructions.",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": [
+                        "bridge"
+                    ]
+                },
+                "owner": "Across V3 Bridge",
+                "icon": "https://cms-cdn.avascan.com/cms2/Wrapped Ether.b659cc6de243.png",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/uwgjrDhFV1UvNrZlJ53Rt5CbqKcCfpM8hKKXE2k91-c/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvV3JhcHBlZCBFdGhlci5iNjU5Y2M2ZGUyNDMucG5n",
+                    "64": "https://imgproxy-mainnet.routescan.io/Pq68M7PwsRZf0z1lqPyrADmMp6JKdTq8KSm9isZ7mGY/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvV3JhcHBlZCBFdGhlci5iNjU5Y2M2ZGUyNDMucG5n",
+                    "256": "https://imgproxy-mainnet.routescan.io/LlU5ssfXOpomtqkqagiBoIkYhcNCv8Ynfh_mWMQ_UDg/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvV3JhcHBlZCBFdGhlci5iNjU5Y2M2ZGUyNDMucG5n",
+                    "1024": "https://imgproxy-mainnet.routescan.io/Lmxug5HR3IX9cVhlu-gSptb8rToU2eOnNN54XgQkKT0/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvV3JhcHBlZCBFdGhlci5iNjU5Y2M2ZGUyNDMucG5n"
+                },
+                "tags": [
+                    "wrapped_token",
+                    "bridged_token"
+                ],
+                "isContract": false
+            },
+            "value": "0",
+            "gas": "334782",
+            "gasUsed": "30006",
+            "methodId": "0xa9059cbb"
+        },
+        {
+            "index": 20,
+            "status": true,
+            "type": "STATICCALL",
+            "from": {
+                "id": "0xD0a60907f65ac19F61B7636606e1c4E33d055C24",
+                "alias": "Pool Bridged USDC (USDC.e)/Wrapped Ether (WETH)",
+                "dapp": {
+                    "alias": "Uniswap V3",
+                    "description": "Uniswap is a protocol for exchanging ERC-20 tokens on Ethereum. It eliminates trusted intermediaries and unnecessary forms of rent extraction, allowing for fast, efficient trading. Where it makes tradeoffs decentralization, censorship resistance, and security are prioritized.",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": [
+                        "dex"
+                    ]
+                },
+                "owner": "Uniswap V3",
+                "tags": [],
+                "isContract": true
+            },
+            "to": {
+                "id": "0xF1815bd50389c46847f0Bda824eC8da914045D14",
+                "alias": "Bridged USDC",
+                "dapp": {
+                    "alias": "Stargate Finance",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": []
+                },
+                "owner": "Stargate Finance",
+                "icon": "https://cms-cdn.avascan.com/cms2/usd-coin-usdc-logo.3b5972c16a97.svg",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/_CkjIoBgQPOtUj_iXbgW7Af947je2xGUJnwXLMxMhmI/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdXNkLWNvaW4tdXNkYy1sb2dvLjNiNTk3MmMxNmE5Ny5zdmc",
+                    "64": "https://imgproxy-mainnet.routescan.io/ZusKCBSINSGFHhndhNDegoV4nuycmwYEGKgkvHBPnAs/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdXNkLWNvaW4tdXNkYy1sb2dvLjNiNTk3MmMxNmE5Ny5zdmc",
+                    "256": "https://imgproxy-mainnet.routescan.io/5GpLVQkzuUGSTHkGYq8I9Uaka74vs65LvqEdOEip9fo/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdXNkLWNvaW4tdXNkYy1sb2dvLjNiNTk3MmMxNmE5Ny5zdmc",
+                    "1024": "https://imgproxy-mainnet.routescan.io/k6sELiQJurmB2xHQfStZR1ZZeZIpmovMLlNT2NmlNK4/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdXNkLWNvaW4tdXNkYy1sb2dvLjNiNTk3MmMxNmE5Ny5zdmc"
+                },
+                "tags": [
+                    "stablecoin",
+                    "erc20",
+                    "bridged"
+                ],
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "304374",
+            "gasUsed": "3250",
+            "methodId": "0x70a08231"
+        },
+        {
+            "index": 21,
+            "status": true,
+            "type": "DELEGATECALL",
+            "from": {
+                "id": "0xF1815bd50389c46847f0Bda824eC8da914045D14",
+                "alias": "Bridged USDC",
+                "dapp": {
+                    "alias": "Stargate Finance",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": []
+                },
+                "owner": "Stargate Finance",
+                "icon": "https://cms-cdn.avascan.com/cms2/usd-coin-usdc-logo.3b5972c16a97.svg",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/_CkjIoBgQPOtUj_iXbgW7Af947je2xGUJnwXLMxMhmI/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdXNkLWNvaW4tdXNkYy1sb2dvLjNiNTk3MmMxNmE5Ny5zdmc",
+                    "64": "https://imgproxy-mainnet.routescan.io/ZusKCBSINSGFHhndhNDegoV4nuycmwYEGKgkvHBPnAs/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdXNkLWNvaW4tdXNkYy1sb2dvLjNiNTk3MmMxNmE5Ny5zdmc",
+                    "256": "https://imgproxy-mainnet.routescan.io/5GpLVQkzuUGSTHkGYq8I9Uaka74vs65LvqEdOEip9fo/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdXNkLWNvaW4tdXNkYy1sb2dvLjNiNTk3MmMxNmE5Ny5zdmc",
+                    "1024": "https://imgproxy-mainnet.routescan.io/k6sELiQJurmB2xHQfStZR1ZZeZIpmovMLlNT2NmlNK4/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdXNkLWNvaW4tdXNkYy1sb2dvLjNiNTk3MmMxNmE5Ny5zdmc"
+                },
+                "tags": [
+                    "stablecoin",
+                    "erc20",
+                    "bridged"
+                ],
+                "isContract": true
+            },
+            "to": {
+                "id": "0xB1EeAD6959cb5bB9B20417d6689922523B2B86C3",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "298973",
+            "gasUsed": "2553",
+            "methodId": "0x70a08231"
+        },
+        {
+            "index": 22,
+            "status": true,
+            "type": "CALL",
+            "from": {
+                "id": "0xD0a60907f65ac19F61B7636606e1c4E33d055C24",
+                "alias": "Pool Bridged USDC (USDC.e)/Wrapped Ether (WETH)",
+                "dapp": {
+                    "alias": "Uniswap V3",
+                    "description": "Uniswap is a protocol for exchanging ERC-20 tokens on Ethereum. It eliminates trusted intermediaries and unnecessary forms of rent extraction, allowing for fast, efficient trading. Where it makes tradeoffs decentralization, censorship resistance, and security are prioritized.",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": [
+                        "dex"
+                    ]
+                },
+                "owner": "Uniswap V3",
+                "tags": [],
+                "isContract": true
+            },
+            "to": {
+                "id": "0x177778F19E89dD1012BdBe603F144088A95C4B53",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "300383",
+            "gasUsed": "12170",
+            "methodId": "0xfa461e33"
+        },
+        {
+            "index": 23,
+            "status": true,
+            "type": "CALL",
+            "from": {
+                "id": "0x177778F19E89dD1012BdBe603F144088A95C4B53",
+                "isContract": true
+            },
+            "to": {
+                "id": "0xF1815bd50389c46847f0Bda824eC8da914045D14",
+                "alias": "Bridged USDC",
+                "dapp": {
+                    "alias": "Stargate Finance",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": []
+                },
+                "owner": "Stargate Finance",
+                "icon": "https://cms-cdn.avascan.com/cms2/usd-coin-usdc-logo.3b5972c16a97.svg",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/_CkjIoBgQPOtUj_iXbgW7Af947je2xGUJnwXLMxMhmI/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdXNkLWNvaW4tdXNkYy1sb2dvLjNiNTk3MmMxNmE5Ny5zdmc",
+                    "64": "https://imgproxy-mainnet.routescan.io/ZusKCBSINSGFHhndhNDegoV4nuycmwYEGKgkvHBPnAs/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdXNkLWNvaW4tdXNkYy1sb2dvLjNiNTk3MmMxNmE5Ny5zdmc",
+                    "256": "https://imgproxy-mainnet.routescan.io/5GpLVQkzuUGSTHkGYq8I9Uaka74vs65LvqEdOEip9fo/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdXNkLWNvaW4tdXNkYy1sb2dvLjNiNTk3MmMxNmE5Ny5zdmc",
+                    "1024": "https://imgproxy-mainnet.routescan.io/k6sELiQJurmB2xHQfStZR1ZZeZIpmovMLlNT2NmlNK4/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdXNkLWNvaW4tdXNkYy1sb2dvLjNiNTk3MmMxNmE5Ny5zdmc"
+                },
+                "tags": [
+                    "stablecoin",
+                    "erc20",
+                    "bridged"
+                ],
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "292070",
+            "gasUsed": "8163",
+            "methodId": "0xa9059cbb"
+        },
+        {
+            "index": 24,
+            "status": true,
+            "type": "DELEGATECALL",
+            "from": {
+                "id": "0xF1815bd50389c46847f0Bda824eC8da914045D14",
+                "alias": "Bridged USDC",
+                "dapp": {
+                    "alias": "Stargate Finance",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": []
+                },
+                "owner": "Stargate Finance",
+                "icon": "https://cms-cdn.avascan.com/cms2/usd-coin-usdc-logo.3b5972c16a97.svg",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/_CkjIoBgQPOtUj_iXbgW7Af947je2xGUJnwXLMxMhmI/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdXNkLWNvaW4tdXNkYy1sb2dvLjNiNTk3MmMxNmE5Ny5zdmc",
+                    "64": "https://imgproxy-mainnet.routescan.io/ZusKCBSINSGFHhndhNDegoV4nuycmwYEGKgkvHBPnAs/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdXNkLWNvaW4tdXNkYy1sb2dvLjNiNTk3MmMxNmE5Ny5zdmc",
+                    "256": "https://imgproxy-mainnet.routescan.io/5GpLVQkzuUGSTHkGYq8I9Uaka74vs65LvqEdOEip9fo/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdXNkLWNvaW4tdXNkYy1sb2dvLjNiNTk3MmMxNmE5Ny5zdmc",
+                    "1024": "https://imgproxy-mainnet.routescan.io/k6sELiQJurmB2xHQfStZR1ZZeZIpmovMLlNT2NmlNK4/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdXNkLWNvaW4tdXNkYy1sb2dvLjNiNTk3MmMxNmE5Ny5zdmc"
+                },
+                "tags": [
+                    "stablecoin",
+                    "erc20",
+                    "bridged"
+                ],
+                "isContract": true
+            },
+            "to": {
+                "id": "0xB1EeAD6959cb5bB9B20417d6689922523B2B86C3",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "286858",
+            "gasUsed": "7463",
+            "methodId": "0xa9059cbb"
+        },
+        {
+            "index": 25,
+            "status": true,
+            "type": "STATICCALL",
+            "from": {
+                "id": "0xD0a60907f65ac19F61B7636606e1c4E33d055C24",
+                "alias": "Pool Bridged USDC (USDC.e)/Wrapped Ether (WETH)",
+                "dapp": {
+                    "alias": "Uniswap V3",
+                    "description": "Uniswap is a protocol for exchanging ERC-20 tokens on Ethereum. It eliminates trusted intermediaries and unnecessary forms of rent extraction, allowing for fast, efficient trading. Where it makes tradeoffs decentralization, censorship resistance, and security are prioritized.",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": [
+                        "dex"
+                    ]
+                },
+                "owner": "Uniswap V3",
+                "tags": [],
+                "isContract": true
+            },
+            "to": {
+                "id": "0xF1815bd50389c46847f0Bda824eC8da914045D14",
+                "alias": "Bridged USDC",
+                "dapp": {
+                    "alias": "Stargate Finance",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": []
+                },
+                "owner": "Stargate Finance",
+                "icon": "https://cms-cdn.avascan.com/cms2/usd-coin-usdc-logo.3b5972c16a97.svg",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/_CkjIoBgQPOtUj_iXbgW7Af947je2xGUJnwXLMxMhmI/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdXNkLWNvaW4tdXNkYy1sb2dvLjNiNTk3MmMxNmE5Ny5zdmc",
+                    "64": "https://imgproxy-mainnet.routescan.io/ZusKCBSINSGFHhndhNDegoV4nuycmwYEGKgkvHBPnAs/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdXNkLWNvaW4tdXNkYy1sb2dvLjNiNTk3MmMxNmE5Ny5zdmc",
+                    "256": "https://imgproxy-mainnet.routescan.io/5GpLVQkzuUGSTHkGYq8I9Uaka74vs65LvqEdOEip9fo/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdXNkLWNvaW4tdXNkYy1sb2dvLjNiNTk3MmMxNmE5Ny5zdmc",
+                    "1024": "https://imgproxy-mainnet.routescan.io/k6sELiQJurmB2xHQfStZR1ZZeZIpmovMLlNT2NmlNK4/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdXNkLWNvaW4tdXNkYy1sb2dvLjNiNTk3MmMxNmE5Ny5zdmc"
+                },
+                "tags": [
+                    "stablecoin",
+                    "erc20",
+                    "bridged"
+                ],
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "287771",
+            "gasUsed": "1250",
+            "methodId": "0x70a08231"
+        },
+        {
+            "index": 26,
+            "status": true,
+            "type": "DELEGATECALL",
+            "from": {
+                "id": "0xF1815bd50389c46847f0Bda824eC8da914045D14",
+                "alias": "Bridged USDC",
+                "dapp": {
+                    "alias": "Stargate Finance",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": []
+                },
+                "owner": "Stargate Finance",
+                "icon": "https://cms-cdn.avascan.com/cms2/usd-coin-usdc-logo.3b5972c16a97.svg",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/_CkjIoBgQPOtUj_iXbgW7Af947je2xGUJnwXLMxMhmI/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdXNkLWNvaW4tdXNkYy1sb2dvLjNiNTk3MmMxNmE5Ny5zdmc",
+                    "64": "https://imgproxy-mainnet.routescan.io/ZusKCBSINSGFHhndhNDegoV4nuycmwYEGKgkvHBPnAs/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdXNkLWNvaW4tdXNkYy1sb2dvLjNiNTk3MmMxNmE5Ny5zdmc",
+                    "256": "https://imgproxy-mainnet.routescan.io/5GpLVQkzuUGSTHkGYq8I9Uaka74vs65LvqEdOEip9fo/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdXNkLWNvaW4tdXNkYy1sb2dvLjNiNTk3MmMxNmE5Ny5zdmc",
+                    "1024": "https://imgproxy-mainnet.routescan.io/k6sELiQJurmB2xHQfStZR1ZZeZIpmovMLlNT2NmlNK4/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdXNkLWNvaW4tdXNkYy1sb2dvLjNiNTk3MmMxNmE5Ny5zdmc"
+                },
+                "tags": [
+                    "stablecoin",
+                    "erc20",
+                    "bridged"
+                ],
+                "isContract": true
+            },
+            "to": {
+                "id": "0xB1EeAD6959cb5bB9B20417d6689922523B2B86C3",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "282629",
+            "gasUsed": "553",
+            "methodId": "0x70a08231"
+        },
+        {
+            "index": 27,
+            "status": true,
+            "type": "DELEGATECALL",
+            "from": {
+                "id": "0x177778F19E89dD1012BdBe603F144088A95C4B53",
+                "isContract": true
+            },
+            "to": {
+                "id": "0x177778F19E89dD1012BdBe603F144088A95C4B53",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "298516",
+            "gasUsed": "20071",
+            "methodId": "0x49404b7c"
+        },
+        {
+            "index": 28,
+            "status": true,
+            "type": "STATICCALL",
+            "from": {
+                "id": "0x177778F19E89dD1012BdBe603F144088A95C4B53",
+                "isContract": true
+            },
+            "to": {
+                "id": "0x4200000000000000000000000000000000000006",
+                "alias": "Wrapped Ether",
+                "dapp": {
+                    "alias": "Across V3 Bridge",
+                    "description": "Across V3 is a cross-chain optimistic bridge that uses actors called Relayers to fulfill user transfer requests on the destination chain.\n\nRelayers are later reimbursed by providing a proof of their action to an Optimistic Oracle on Ethereum. Relayer reimbursements over a specific block range are bundled and posted onchain as merkle roots which uniquely identify the set of all repayments and rebalance instructions.",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": [
+                        "bridge"
+                    ]
+                },
+                "owner": "Across V3 Bridge",
+                "icon": "https://cms-cdn.avascan.com/cms2/Wrapped Ether.b659cc6de243.png",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/uwgjrDhFV1UvNrZlJ53Rt5CbqKcCfpM8hKKXE2k91-c/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvV3JhcHBlZCBFdGhlci5iNjU5Y2M2ZGUyNDMucG5n",
+                    "64": "https://imgproxy-mainnet.routescan.io/Pq68M7PwsRZf0z1lqPyrADmMp6JKdTq8KSm9isZ7mGY/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvV3JhcHBlZCBFdGhlci5iNjU5Y2M2ZGUyNDMucG5n",
+                    "256": "https://imgproxy-mainnet.routescan.io/LlU5ssfXOpomtqkqagiBoIkYhcNCv8Ynfh_mWMQ_UDg/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvV3JhcHBlZCBFdGhlci5iNjU5Y2M2ZGUyNDMucG5n",
+                    "1024": "https://imgproxy-mainnet.routescan.io/Lmxug5HR3IX9cVhlu-gSptb8rToU2eOnNN54XgQkKT0/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvV3JhcHBlZCBFdGhlci5iNjU5Y2M2ZGUyNDMucG5n"
+                },
+                "tags": [
+                    "wrapped_token",
+                    "bridged_token"
+                ],
+                "isContract": false
+            },
+            "value": "0",
+            "gas": "293146",
+            "gasUsed": "555",
+            "methodId": "0x70a08231"
+        },
+        {
+            "index": 29,
+            "status": true,
+            "type": "CALL",
+            "from": {
+                "id": "0x177778F19E89dD1012BdBe603F144088A95C4B53",
+                "isContract": true
+            },
+            "to": {
+                "id": "0x4200000000000000000000000000000000000006",
+                "alias": "Wrapped Ether",
+                "dapp": {
+                    "alias": "Across V3 Bridge",
+                    "description": "Across V3 is a cross-chain optimistic bridge that uses actors called Relayers to fulfill user transfer requests on the destination chain.\n\nRelayers are later reimbursed by providing a proof of their action to an Optimistic Oracle on Ethereum. Relayer reimbursements over a specific block range are bundled and posted onchain as merkle roots which uniquely identify the set of all repayments and rebalance instructions.",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": [
+                        "bridge"
+                    ]
+                },
+                "owner": "Across V3 Bridge",
+                "icon": "https://cms-cdn.avascan.com/cms2/Wrapped Ether.b659cc6de243.png",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/uwgjrDhFV1UvNrZlJ53Rt5CbqKcCfpM8hKKXE2k91-c/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvV3JhcHBlZCBFdGhlci5iNjU5Y2M2ZGUyNDMucG5n",
+                    "64": "https://imgproxy-mainnet.routescan.io/Pq68M7PwsRZf0z1lqPyrADmMp6JKdTq8KSm9isZ7mGY/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvV3JhcHBlZCBFdGhlci5iNjU5Y2M2ZGUyNDMucG5n",
+                    "256": "https://imgproxy-mainnet.routescan.io/LlU5ssfXOpomtqkqagiBoIkYhcNCv8Ynfh_mWMQ_UDg/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvV3JhcHBlZCBFdGhlci5iNjU5Y2M2ZGUyNDMucG5n",
+                    "1024": "https://imgproxy-mainnet.routescan.io/Lmxug5HR3IX9cVhlu-gSptb8rToU2eOnNN54XgQkKT0/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvV3JhcHBlZCBFdGhlci5iNjU5Y2M2ZGUyNDMucG5n"
+                },
+                "tags": [
+                    "wrapped_token",
+                    "bridged_token"
+                ],
+                "isContract": false
+            },
+            "value": "0",
+            "gas": "292157",
+            "gasUsed": "9242",
+            "methodId": "0x2e1a7d4d"
+        },
+        {
+            "index": 30,
+            "status": true,
+            "type": "CALL",
+            "from": {
+                "id": "0x4200000000000000000000000000000000000006",
+                "alias": "Wrapped Ether",
+                "dapp": {
+                    "alias": "Across V3 Bridge",
+                    "description": "Across V3 is a cross-chain optimistic bridge that uses actors called Relayers to fulfill user transfer requests on the destination chain.\n\nRelayers are later reimbursed by providing a proof of their action to an Optimistic Oracle on Ethereum. Relayer reimbursements over a specific block range are bundled and posted onchain as merkle roots which uniquely identify the set of all repayments and rebalance instructions.",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": [
+                        "bridge"
+                    ]
+                },
+                "owner": "Across V3 Bridge",
+                "icon": "https://cms-cdn.avascan.com/cms2/Wrapped Ether.b659cc6de243.png",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/uwgjrDhFV1UvNrZlJ53Rt5CbqKcCfpM8hKKXE2k91-c/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvV3JhcHBlZCBFdGhlci5iNjU5Y2M2ZGUyNDMucG5n",
+                    "64": "https://imgproxy-mainnet.routescan.io/Pq68M7PwsRZf0z1lqPyrADmMp6JKdTq8KSm9isZ7mGY/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvV3JhcHBlZCBFdGhlci5iNjU5Y2M2ZGUyNDMucG5n",
+                    "256": "https://imgproxy-mainnet.routescan.io/LlU5ssfXOpomtqkqagiBoIkYhcNCv8Ynfh_mWMQ_UDg/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvV3JhcHBlZCBFdGhlci5iNjU5Y2M2ZGUyNDMucG5n",
+                    "1024": "https://imgproxy-mainnet.routescan.io/Lmxug5HR3IX9cVhlu-gSptb8rToU2eOnNN54XgQkKT0/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvV3JhcHBlZCBFdGhlci5iNjU5Y2M2ZGUyNDMucG5n"
+                },
+                "tags": [
+                    "wrapped_token",
+                    "bridged_token"
+                ],
+                "isContract": false
+            },
+            "to": {
+                "id": "0x177778F19E89dD1012BdBe603F144088A95C4B53",
+                "isContract": true
+            },
+            "value": "153000176621814",
+            "gas": "2300",
+            "gasUsed": "83",
+            "methodId": "0x"
+        },
+        {
+            "index": 31,
+            "status": true,
+            "type": "CALL",
+            "from": {
+                "id": "0x177778F19E89dD1012BdBe603F144088A95C4B53",
+                "isContract": true
+            },
+            "to": {
+                "id": "0xF5042e6ffaC5a625D4E7848e0b01373D8eB9e222",
+                "isContract": true
+            },
+            "value": "153000176621814",
+            "gas": "276059",
+            "gasUsed": "1857",
+            "methodId": "0x"
+        },
+        {
+            "index": 32,
+            "status": true,
+            "type": "CALL",
+            "from": {
+                "id": "0xF5042e6ffaC5a625D4E7848e0b01373D8eB9e222",
+                "isContract": true
+            },
+            "to": {
+                "id": "0xF5042e6ffaC5a625D4E7848e0b01373D8eB9e222",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "277222",
+            "gasUsed": "13917",
+            "methodId": "0x5d1fe6a2"
+        },
+        {
+            "index": 33,
+            "status": true,
+            "type": "CALL",
+            "from": {
+                "id": "0xF5042e6ffaC5a625D4E7848e0b01373D8eB9e222",
+                "isContract": true
+            },
+            "to": {
+                "id": "0x4cD00E387622C35bDDB9b4c962C136462338BC31",
+                "isContract": true
+            },
+            "value": "153000176621814",
+            "gas": "262283",
+            "gasUsed": "2880",
+            "methodId": "0x49290c1c"
+        }
+    ],
+    "l1GasPrice": "66631640",
+    "l1GasUsed": "7389",
+    "l1Fee": "3684858246",
+    "l1BaseFeeScalar": "4424",
+    "l1BlobBaseFee": "4023614",
+    "l1BlobBaseFeeScalar": "810831"
+}

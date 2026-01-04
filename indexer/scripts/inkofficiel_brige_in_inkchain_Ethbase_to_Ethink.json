@@ -1,0 +1,107 @@
+{
+    "chainId": "8453",
+    "ecosystems": [
+        "ethereum",
+        "optimism",
+        "nomina"
+    ],
+    "blockNumber": 39719216,
+    "txIndex": 122,
+    "timestamp": "2025-12-20T10:49:39.000Z",
+    "from": {
+        "id": "0xD0C0AdE59C0c277D078216d57860486f5B4402A9",
+        "isContract": false
+    },
+    "to": {
+        "id": "0x4cD00E387622C35bDDB9b4c962C136462338BC31",
+        "alias": "Depository",
+        "dapp": {
+            "alias": "Relay",
+            "socialProfile": {
+                "items": []
+            },
+            "tags": []
+        },
+        "owner": "Relay",
+        "tags": [],
+        "isContract": true
+    },
+    "blockHash": "0x67d501c3992b9b7b71532c9ba2d7bd92b1bddf676fe096ea3badb8f61f8a47e3",
+    "txHash": "0x9a60f235b69eee868adbc10dad43e33b3ca00a688e4b8c87add42e9ae695e071",
+    "value": "46815554919982",
+    "gasLimit": "37746",
+    "gasUsed": "24824",
+    "gasPrice": "1500820",
+    "burnedFees": "37256355680",
+    "methodId": "0x49290c1c",
+    "method": "depositNative(address depositor, bytes32 id) payable",
+    "contractVerified": true,
+    "type": "evm_tx",
+    "status": true,
+    "nonce": 20,
+    "deployments": [],
+    "input": "0x49290c1c000000000000000000000000d0c0ade59c0c277d078216d57860486f5b4402a9ce033e52aed44be5813d391801c163b5aa151432b9650bfc0332ee50b5a97e94",
+    "indexingStatus": "completed",
+    "hasEIP7702Authorizations": false,
+    "logs": [
+        {
+            "index": 446,
+            "address": {
+                "id": "0x4cD00E387622C35bDDB9b4c962C136462338BC31",
+                "alias": "Depository",
+                "dapp": {
+                    "alias": "Relay",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": []
+                },
+                "owner": "Relay",
+                "tags": [],
+                "isContract": true
+            },
+            "topics": [
+                "0x8032066556caf3967d8fec4ad22a2d9e1e9576556b2903a0fcd5b1fd201e3477"
+            ],
+            "data": "0x000000000000000000000000d0c0ade59c0c277d078216d57860486f5b4402a900000000000000000000000000000000000000000000000000002a9418855e2ece033e52aed44be5813d391801c163b5aa151432b9650bfc0332ee50b5a97e94",
+            "removed": false,
+            "event": "RelayNativeDeposit(address from, uint256 amount, bytes32 id)",
+            "contractVerified": true
+        }
+    ],
+    "operations": [
+        {
+            "index": 0,
+            "status": true,
+            "type": "CALL",
+            "from": {
+                "id": "0xD0C0AdE59C0c277D078216d57860486f5B4402A9",
+                "isContract": false
+            },
+            "to": {
+                "id": "0x4cD00E387622C35bDDB9b4c962C136462338BC31",
+                "alias": "Depository",
+                "dapp": {
+                    "alias": "Relay",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": []
+                },
+                "owner": "Relay",
+                "tags": [],
+                "isContract": true
+            },
+            "value": "46815554919982",
+            "gas": "37746",
+            "gasUsed": "24824",
+            "methodId": "0x49290c1c"
+        }
+    ],
+    "l1GasPrice": "26971769",
+    "l1GasUsed": "1754",
+    "l1Fee": "292285780",
+    "l1BaseFeeScalar": "2269",
+    "l1BlobBaseFee": "1597199",
+    "l1BlobBaseFeeScalar": "1055762"
+}

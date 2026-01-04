@@ -89,7 +89,6 @@ Uses static `config.ts` (unchanged behavior).
 | `/api/admin/points/ranks` | GET, POST | List/create ranks |
 | `/api/admin/points/ranks/[id]` | GET, PUT, DELETE | Manage single rank |
 | `/api/admin/points/native-metrics` | GET | List native metrics |
-| `/api/admin/indexing/progress` | GET | Get indexing progress |
 
 ### Wallet APIs
 
@@ -176,7 +175,6 @@ For each platform, points are calculated based on:
 - `app/api/admin/points/ranks/route.ts`
 - `app/api/admin/points/ranks/[id]/route.ts`
 - `app/api/admin/points/native-metrics/route.ts`
-- `app/api/admin/indexing/progress/route.ts`
 - `app/api/wallet/[address]/score/route.ts`
 
 ### Indexer
