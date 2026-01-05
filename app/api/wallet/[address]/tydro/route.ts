@@ -379,6 +379,28 @@ export async function GET(
     `, [wallet, TYDRO_CONTRACTS, allMethods]);
 
     console.log(`[Tydro] Found ${txs.length} transactions for wallet ${wallet}`);
+    
+    if (txs.length === 0) {
+      const emptyResponse: TydroResponse = {
+        currentSupplyUsd: 0,
+        currentSupplyEth: 0,
+        totalDepositedUsd: 0,
+        totalDepositedEth: 0,
+        totalWithdrawnUsd: 0,
+        totalWithdrawnEth: 0,
+        depositCount: 0,
+        withdrawCount: 0,
+        currentBorrowUsd: 0,
+        currentBorrowEth: 0,
+        totalBorrowedUsd: 0,
+        totalBorrowedEth: 0,
+        totalRepaidUsd: 0,
+        totalRepaidEth: 0,
+        borrowCount: 0,
+        repayCount: 0,
+      };
+      return NextResponse.json(emptyResponse);
+    }
 
     // Track per-reserve balances for current position calculation
     const supplyBalances: Map<string, number> = new Map();
@@ -394,11 +416,8 @@ export async function GET(
     for (const tx of txs) {
       const parsed = await parseTydroTransaction(tx, ethPrice);
       if (!parsed) {
-        console.log(`[Tydro] Failed to parse tx ${tx.tx_hash}, method: ${tx.method_id}, value: ${tx.value}, logs: ${tx.logs ? 'present' : 'null'}`);
         continue;
       }
-
-      console.log(`[Tydro] Parsed tx ${tx.tx_hash}: action=${parsed.action}, usd=${parsed.amountUsd}, eth=${parsed.amountEth}`);
 
       const { action, amountUsd, amountEth, reserve } = parsed;
 
@@ -407,66 +426,66 @@ export async function GET(
           depositCount++;
           totalDepositedUsd += amountUsd;
           totalDepositedEth += amountEth;
-          supplyBalances.set(reserve, (supplyBalances.get(reserve) || 0) + amountUsd);
+          // Round to avoid precision issues
+          const currentSupplyBalance = supplyBalances.get(reserve) || 0;
+          supplyBalances.set(reserve, Math.round((currentSupplyBalance + amountUsd) * 100) / 100);
           break;
         case 'withdraw':
           withdrawCount++;
           totalWithdrawnUsd += amountUsd;
           totalWithdrawnEth += amountEth;
-          supplyBalances.set(reserve, Math.max(0, (supplyBalances.get(reserve) || 0) - amountUsd));
+          // Round to avoid precision issues and ensure non-negative
+          const currentSupplyBalanceWithdraw = supplyBalances.get(reserve) || 0;
+          supplyBalances.set(reserve, Math.max(0, Math.round((currentSupplyBalanceWithdraw - amountUsd) * 100) / 100));
           break;
         case 'borrow':
           borrowCount++;
           totalBorrowedUsd += amountUsd;
           totalBorrowedEth += amountEth;
-          borrowBalances.set(reserve, (borrowBalances.get(reserve) || 0) + amountUsd);
+          // Round to avoid precision issues
+          const currentBorrowBalance = borrowBalances.get(reserve) || 0;
+          borrowBalances.set(reserve, Math.round((currentBorrowBalance + amountUsd) * 100) / 100);
           break;
         case 'repay':
           repayCount++;
           totalRepaidUsd += amountUsd;
           totalRepaidEth += amountEth;
-          borrowBalances.set(reserve, Math.max(0, (borrowBalances.get(reserve) || 0) - amountUsd));
+          // Round to avoid precision issues and ensure non-negative
+          const currentBorrowBalanceRepay = borrowBalances.get(reserve) || 0;
+          borrowBalances.set(reserve, Math.max(0, Math.round((currentBorrowBalanceRepay - amountUsd) * 100) / 100));
           break;
       }
     }
 
-    // Calculate current positions
-    let currentSupplyUsd = 0, currentSupplyEth = 0;
-    let currentBorrowUsd = 0, currentBorrowEth = 0;
+    // Calculate current positions (simplified - just use totals)
+    // Current Supply = Total Deposited - Total Withdrawn
+    // Current Borrow = Total Borrowed - Total Repaid
+    let currentSupplyUsd = Math.max(0, totalDepositedUsd - totalWithdrawnUsd);
+    let currentSupplyEth = Math.max(0, totalDepositedEth - totalWithdrawnEth);
+    let currentBorrowUsd = Math.max(0, totalBorrowedUsd - totalRepaidUsd);
+    let currentBorrowEth = Math.max(0, totalBorrowedEth - totalRepaidEth);
 
-    for (const [reserve, balance] of supplyBalances) {
-      if (balance > 0) {
-        currentSupplyUsd += balance;
-        if (KNOWN_TOKENS[reserve]?.ethPegged) {
-          currentSupplyEth += balance / ethPrice;
-        }
-      }
-    }
-
-    for (const [reserve, balance] of borrowBalances) {
-      if (balance > 0) {
-        currentBorrowUsd += balance;
-        if (KNOWN_TOKENS[reserve]?.ethPegged) {
-          currentBorrowEth += balance / ethPrice;
-        }
-      }
-    }
+    // Round to avoid floating point precision issues
+    currentSupplyUsd = Math.round(currentSupplyUsd * 100) / 100;
+    currentSupplyEth = Math.round(currentSupplyEth * 10000) / 10000;
+    currentBorrowUsd = Math.round(currentBorrowUsd * 100) / 100;
+    currentBorrowEth = Math.round(currentBorrowEth * 10000) / 10000;
 
     const response: TydroResponse = {
-      currentSupplyUsd,
-      currentSupplyEth,
-      totalDepositedUsd,
-      totalDepositedEth,
-      totalWithdrawnUsd,
-      totalWithdrawnEth,
+      currentSupplyUsd: Math.round(currentSupplyUsd * 100) / 100,
+      currentSupplyEth: Math.round(currentSupplyEth * 10000) / 10000,
+      totalDepositedUsd: Math.round(totalDepositedUsd * 100) / 100,
+      totalDepositedEth: Math.round(totalDepositedEth * 10000) / 10000,
+      totalWithdrawnUsd: Math.round(totalWithdrawnUsd * 100) / 100,
+      totalWithdrawnEth: Math.round(totalWithdrawnEth * 10000) / 10000,
       depositCount,
       withdrawCount,
-      currentBorrowUsd,
-      currentBorrowEth,
-      totalBorrowedUsd,
-      totalBorrowedEth,
-      totalRepaidUsd,
-      totalRepaidEth,
+      currentBorrowUsd: Math.round(currentBorrowUsd * 100) / 100,
+      currentBorrowEth: Math.round(currentBorrowEth * 10000) / 10000,
+      totalBorrowedUsd: Math.round(totalBorrowedUsd * 100) / 100,
+      totalBorrowedEth: Math.round(totalBorrowedEth * 10000) / 10000,
+      totalRepaidUsd: Math.round(totalRepaidUsd * 100) / 100,
+      totalRepaidEth: Math.round(totalRepaidEth * 10000) / 10000,
       borrowCount,
       repayCount,
     };

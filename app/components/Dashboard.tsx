@@ -722,11 +722,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
         const res = await fetch(`/api/analytics/${walletAddress}`);
         if (res.ok) {
           const data = await res.json();
-          console.log('Analytics data:', data); // Debug log
           const supplyMetric = data.metrics?.find((m: { slug: string }) => m.slug === 'tydro_usd_supply');
           const borrowMetric = data.metrics?.find((m: { slug: string }) => m.slug === 'Tydro_usd_borrow');
-
-          console.log('Tydro metrics:', { supplyMetric, borrowMetric }); // Debug log
 
           setRealTydroData({
             supplyVolume: parseFloat(supplyMetric?.total_value || '0'),
@@ -752,7 +749,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
         const res = await fetch(`/api/wallet/${walletAddress}/tydro`);
         if (res.ok) {
           const data = await res.json();
-          console.log('Tydro current supply data:', data); // Debug log
           setTydroCurrentSupply({
             currentSupplyUsd: data.currentSupplyUsd || 0,
             currentSupplyEth: data.currentSupplyEth || 0,
@@ -1136,7 +1132,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
             {
               label: 'Net Worth Estimate',
               value: !isDemo && realWalletStats
-                ? `$${(realWalletStats.balanceUsd + realWalletStats.tokenHoldings.filter(t => t.symbol !== 'ETH').reduce((sum, t) => sum + t.usdValue, 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                ? `$${(realWalletStats.balanceUsd + realWalletStats.tokenHoldings.filter(t => t.symbol !== 'ETH').reduce((sum, t) => sum + t.usdValue, 0)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                 : `$${data.stats.tokenHoldingsUsd.toLocaleString()}`,
               icon: Wallet,
               color: 'blue',
@@ -1156,7 +1152,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
             {
               label: 'Circulated Volume',
               value: !isDemo && totalVolume
-                ? `$${totalVolume.totalUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                ? `$${totalVolume.totalUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                 : '$0.00',
               subValue: !isDemo && totalVolume
                 ? `${totalVolume.totalEth.toFixed(4)} ETH`
@@ -1363,7 +1359,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                     </div>
                     <div className="text-2xl font-bold font-display text-green-400">
                       ${!isDemo && tydroCurrentSupply
-                        ? tydroCurrentSupply.currentSupplyUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                        ? tydroCurrentSupply.currentSupplyUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                         : '0.00'}
                     </div>
                     {!isDemo && tydroCurrentSupply && tydroCurrentSupply.currentSupplyEth > 0 && (
@@ -1386,7 +1382,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                     </div>
                     <div className="text-2xl font-bold font-display text-orange-400">
                       ${!isDemo && tydroCurrentSupply
-                        ? tydroCurrentSupply.currentBorrowUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                        ? tydroCurrentSupply.currentBorrowUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                         : '0.00'}
                     </div>
                     {!isDemo && tydroCurrentSupply && tydroCurrentSupply.currentBorrowEth > 0 && (
@@ -1410,7 +1406,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                         <div className="text-xs text-green-400 mb-0.5">Supply</div>
                         <div className="text-sm font-bold font-display text-white">
                           ${!isDemo && tydroCurrentSupply
-                            ? tydroCurrentSupply.totalDepositedUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                            ? tydroCurrentSupply.totalDepositedUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                             : '0.00'}
                           <div className=" pl-[2px] inline text-[10px] text-slate-500"> /
                             {!isDemo && tydroCurrentSupply ? tydroCurrentSupply.depositCount : 0} tx
@@ -1421,7 +1417,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                         <div className="text-xs text-red-400 mb-0.5">Withdraw</div>
                         <div className="text-sm font-bold font-display text-white">
                           ${!isDemo && tydroCurrentSupply
-                            ? tydroCurrentSupply.totalWithdrawnUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                            ? tydroCurrentSupply.totalWithdrawnUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                             : '0.00'}
                           <div className="pl-[2px] inline text-[10px] text-slate-500"> /
                             {!isDemo && tydroCurrentSupply ? tydroCurrentSupply.withdrawCount : 0} tx
@@ -1443,7 +1439,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                         <div className="text-xs text-orange-400 mb-0.5">Borrow</div>
                         <div className="text-sm font-bold font-display text-white">
                           ${!isDemo && tydroCurrentSupply
-                            ? tydroCurrentSupply.totalBorrowedUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                            ? tydroCurrentSupply.totalBorrowedUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                             : '0.00'}
                           <div className="pl-[2px] inline text-[10px] text-slate-500"> /
                             {!isDemo && tydroCurrentSupply ? tydroCurrentSupply.borrowCount : 0} tx
