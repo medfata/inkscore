@@ -5,6 +5,15 @@ import { query } from '@/lib/db';
 // GM contract address
 const GM_CONTRACT_ADDRESS = '0x9f500d075118272b3564ac6ef2c70a9067fd2d3f';
 
+// InkyPump contract address and methods
+const INKYPUMP_CONTRACT_ADDRESS = '0x1d74317d760f2c72a94386f50e8d10f2c902b899';
+const INKYPUMP_CREATE_TOKEN_FUNCTION = '0xa07849e6';
+
+// InkySwap router contract and methods for InkyPump trading
+const INKYSWAP_ROUTER_ADDRESS = '0xa8c1c38ff57428e5c3a34e0899be5cb385476507';
+const SWAP_EXACT_ETH_FOR_TOKENS = '0x7ff36ab5'; // Buy tokens
+const SWAP_EXACT_TOKENS_FOR_ETH = '0x18cbafe5'; // Sell tokens
+
 // GET /api/analytics/[wallet]/[metric] - Get specific metric for a wallet
 export async function GET(
   _request: NextRequest,
@@ -39,6 +48,92 @@ export async function GET(
         currency: 'COUNT',
         total_count: count,
         total_value: count.toString(),
+        sub_aggregates: [],
+        last_updated: new Date(),
+      });
+    }
+
+    // Special handling for inkypump_created_tokens - count of Create Token transactions
+    if (metric === 'inkypump_created_tokens') {
+      const rows = await query<{ count: string }>(`
+        SELECT count(tx_hash) as count 
+        FROM transaction_details 
+        WHERE contract_address = $1 
+          AND wallet_address = lower($2)
+          AND function_name = $3
+      `, [INKYPUMP_CONTRACT_ADDRESS, wallet, INKYPUMP_CREATE_TOKEN_FUNCTION]);
+
+      const count = parseInt(rows[0]?.count || '0', 10);
+
+      return NextResponse.json({
+        slug: 'inkypump_created_tokens',
+        name: 'InkyPump Created Tokens',
+        icon: '🚀',
+        currency: 'COUNT',
+        total_count: count,
+        total_value: count.toString(),
+        sub_aggregates: [],
+        last_updated: new Date(),
+      });
+    }
+
+    // Special handling for inkypump_buy_volume - USD volume of buy transactions
+    if (metric === 'inkypump_buy_volume') {
+      const rows = await query<{ 
+        total_volume: string;
+        count: string;
+      }>(`
+        SELECT 
+          COALESCE(SUM(value_in_eth * historical_eth_price), 0) as total_volume,
+          COUNT(*) as count
+        FROM transaction_details
+        WHERE contract_address = lower($1) 
+          AND wallet_address = lower($2)
+          AND function_name IN ('SwapExactETHForTokens', 'SwapETHForExactTokens')
+          AND value_in_eth > 0
+          AND historical_eth_price > 0
+      `, [INKYSWAP_ROUTER_ADDRESS, wallet]);
+
+      const totalVolume = parseFloat(rows[0]?.total_volume || '0');
+      const count = parseInt(rows[0]?.count || '0', 10);
+
+      return NextResponse.json({
+        slug: 'inkypump_buy_volume',
+        name: 'InkyPump Buy Volume',
+        icon: '📈',
+        currency: 'USD',
+        total_count: count,
+        total_value: totalVolume.toFixed(2),
+        sub_aggregates: [],
+        last_updated: new Date(),
+      });
+    }
+
+    // Special handling for inkypump_sell_volume - USD volume of sell transactions
+    if (metric === 'inkypump_sell_volume') {
+      const rows = await query<{ 
+        count: string;
+      }>(`
+        SELECT 
+          COUNT(*) as count
+        FROM transaction_details
+        WHERE contract_address = lower($1) 
+          AND wallet_address = lower($2)
+          AND function_name IN ('SwapExactTokensForETH', 'SwapTokensForExactETH', 'SwapExactTokensForETHSupportingFeeOnTransferTokens')
+      `, [INKYSWAP_ROUTER_ADDRESS, wallet]);
+
+      const count = parseInt(rows[0]?.count || '0', 10);
+      // For now, we can't calculate USD volume for sell transactions without ETH amounts
+      // This would require parsing transaction logs or having value_out_eth populated
+      const totalVolume = 0;
+
+      return NextResponse.json({
+        slug: 'inkypump_sell_volume',
+        name: 'InkyPump Sell Volume',
+        icon: '📉',
+        currency: 'USD',
+        total_count: count,
+        total_value: totalVolume.toFixed(2),
         sub_aggregates: [],
         last_updated: new Date(),
       });

@@ -341,6 +341,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
   const [walletScore, setWalletScore] = useState<WalletScoreResponse | null>(null);
   const [totalVolume, setTotalVolume] = useState<TotalVolumeResponse | null>(null);
   const [znsMetrics, setZnsMetrics] = useState<ZnsMetricsResponse | null>(null);
+  const [inkyPumpCreatedTokens, setInkyPumpCreatedTokens] = useState<{ count: number } | null>(null);
+  const [inkyPumpBuyVolume, setInkyPumpBuyVolume] = useState<{ total_value: string; total_count: number } | null>(null);
+  const [inkyPumpSellVolume, setInkyPumpSellVolume] = useState<{ total_value: string; total_count: number } | null>(null);
 
   // Dynamic dashboard cards state
   const [dynamicCardsRow3, setDynamicCardsRow3] = useState<DashboardCardData[]>([]);
@@ -383,6 +386,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
     setWalletScore(null);
     setTotalVolume(null);
     setZnsMetrics(null);
+    setInkyPumpCreatedTokens(null);
+    setInkyPumpBuyVolume(null);
+    setInkyPumpSellVolume(null);
 
     try {
       const fetchPromises = [];
@@ -418,6 +424,36 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
             if (data) setRealGmData({ count: data.total_count || 0 });
           })
           .catch(err => console.error('Failed to refresh GM data:', err))
+      );
+
+      // InkyPump created tokens data
+      fetchPromises.push(
+        fetch(`/api/analytics/${walletAddress}/inkypump_created_tokens`)
+          .then(res => res.ok ? res.json() : null)
+          .then(data => {
+            if (data) setInkyPumpCreatedTokens({ count: data.total_count || 0 });
+          })
+          .catch(err => console.error('Failed to refresh InkyPump created tokens data:', err))
+      );
+
+      // InkyPump buy volume data
+      fetchPromises.push(
+        fetch(`/api/analytics/${walletAddress}/inkypump_buy_volume`)
+          .then(res => res.ok ? res.json() : null)
+          .then(data => {
+            if (data) setInkyPumpBuyVolume({ total_value: data.total_value || '0.00', total_count: data.total_count || 0 });
+          })
+          .catch(err => console.error('Failed to refresh InkyPump buy volume data:', err))
+      );
+
+      // InkyPump sell volume data
+      fetchPromises.push(
+        fetch(`/api/analytics/${walletAddress}/inkypump_sell_volume`)
+          .then(res => res.ok ? res.json() : null)
+          .then(data => {
+            if (data) setInkyPumpSellVolume({ total_value: data.total_value || '0.00', total_count: data.total_count || 0 });
+          })
+          .catch(err => console.error('Failed to refresh InkyPump sell volume data:', err))
       );
 
       // Tydro data
@@ -641,6 +677,40 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
     };
 
     fetchGmData();
+  }, [walletAddress, isDemo]);
+
+  // Fetch InkyPump data when not in demo mode
+  useEffect(() => {
+    if (isDemo || !walletAddress || walletAddress.length < 10) return;
+
+    const fetchInkyPumpData = async () => {
+      try {
+        // Fetch created tokens
+        const createdTokensRes = await fetch(`/api/analytics/${walletAddress}/inkypump_created_tokens`);
+        if (createdTokensRes.ok) {
+          const data = await createdTokensRes.json();
+          setInkyPumpCreatedTokens({ count: data.total_count || 0 });
+        }
+
+        // Fetch buy volume
+        const buyVolumeRes = await fetch(`/api/analytics/${walletAddress}/inkypump_buy_volume`);
+        if (buyVolumeRes.ok) {
+          const data = await buyVolumeRes.json();
+          setInkyPumpBuyVolume({ total_value: data.total_value || '0.00', total_count: data.total_count || 0 });
+        }
+
+        // Fetch sell volume
+        const sellVolumeRes = await fetch(`/api/analytics/${walletAddress}/inkypump_sell_volume`);
+        if (sellVolumeRes.ok) {
+          const data = await sellVolumeRes.json();
+          setInkyPumpSellVolume({ total_value: data.total_value || '0.00', total_count: data.total_count || 0 });
+        }
+      } catch (err) {
+        console.error('Failed to fetch InkyPump data:', err);
+      }
+    };
+
+    fetchInkyPumpData();
   }, [walletAddress, isDemo]);
 
   // Fetch real Tydro data when not in demo mode
@@ -1421,26 +1491,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
             </div>
 
             {!isDemo && !realGmData ? (
-              <div className="flex-1 flex flex-col justify-center">
-                <div className="h-8 w-20 bg-slate-700/50 rounded animate-pulse mb-2"></div>
-                <div className="h-3 w-24 bg-slate-700/30 rounded animate-pulse"></div>
+              <div className="flex-1 flex flex-col items-center justify-center">
+                <div className="h-16 w-24 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+                <div className="h-4 w-32 bg-slate-700/30 rounded animate-pulse"></div>
               </div>
             ) : (
               <>
-                <div className="flex-1">
-                  <div className="text-3xl font-bold font-display text-white mb-1">
+                <div className="flex-1 flex flex-col items-center justify-center">
+                  <div className="text-5xl font-bold font-display text-white mb-2">
                     {!isDemo && realGmData ? realGmData.count : data.stats.gmInteractionCount}
                   </div>
-                  <div className="text-xs text-slate-500">Total Interactions</div>
-                  <div className="mt-4 pt-3 border-t border-slate-700/50">
-                    <div className="text-2xl font-bold font-display text-purple-500">
-                      +{((!isDemo && realGmData ? realGmData.count : data.stats.gmInteractionCount) * 2)}
-                    </div>
-                    <div className="text-xs text-slate-500">Points Earned</div>
-                  </div>
+                  <div className="text-sm text-slate-400">Total Transactions</div>
                 </div>
                 {((!isDemo && realGmData ? realGmData.count : data.stats.gmInteractionCount) > 0) && (
-                  <div className="mt-3 text-xs text-purple-500/80 flex items-center gap-1">
+                  <div className="mt-3 text-xs text-purple-500/80 flex items-center justify-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse"></span>
                     Active GM Participant
                   </div>
@@ -1579,35 +1643,55 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                 />
                 InkyPump
               </h3>
-              <div className="text-xs font-bold px-2 py-1 rounded border bg-white-900/30 border-white-500/30 text-white-400">
-                USD
+              <div className="text-xs font-bold px-2 py-1 rounded border bg-pink-900/30 border-pink-500/30 text-pink-400">
+                COUNT
               </div>
             </div>
 
-            <div className="mb-3">
-              <div className="text-2xl font-bold font-display text-white-400">$0.00</div>
-              <div className="text-xs text-slate-500">0 transactions</div>
-            </div>
-
-            <div className="flex-1 pt-3 border-t border-slate-700/50">
-              <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">By Action</span>
-              <div className="space-y-2">
-                <div className="flex justify-between items-center text-[11px]">
-                  <span className="text-slate-400">Created Tokens</span>
-                  <span className="font-mono text-white">0</span>
-                </div>
-                <div className="flex justify-between items-center text-[11px]">
-                  <span className="text-slate-400">Buy Token volume</span>
-                  <span className="font-mono text-white">$0.00</span>
-                </div>
-                <div className="flex justify-between items-center text-[11px]">
-                  <span className="text-slate-400">Sell Token volume</span>
-                  <span className="font-mono text-white">$0.00</span>
-                </div>
+            {!isDemo && (!inkyPumpCreatedTokens || !inkyPumpBuyVolume || !inkyPumpSellVolume) ? (
+              <div className="flex-1 flex flex-col justify-center">
+                <div className="h-8 w-20 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+                <div className="h-3 w-24 bg-slate-700/30 rounded animate-pulse mb-4"></div>
+                <div className="h-20 w-full bg-slate-700/30 rounded animate-pulse"></div>
               </div>
-            </div>
+            ) : (
+              <>
+                <div className="mb-3">
+                  <div className="text-2xl font-bold font-display text-pink-400">
+                    {!isDemo && inkyPumpCreatedTokens ? inkyPumpCreatedTokens.count : 0}
+                  </div>
+                  <div className="text-xs text-slate-500">Created Tokens</div>
+                </div>
 
-           
+                <div className="flex-1 pt-3 border-t border-slate-700/50">
+                  <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">By Action</span>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">Created Tokens</span>
+                      <span className="font-mono text-white">{!isDemo && inkyPumpCreatedTokens ? inkyPumpCreatedTokens.count : 0}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">Buy Token volume</span>
+                      <span className="font-mono text-white">
+                        ${!isDemo && inkyPumpBuyVolume ? parseFloat(inkyPumpBuyVolume.total_value).toFixed(2) : '0.00'}
+                        <span className="pl-[2px] text-[10px] text-slate-500"> /
+                          {!isDemo && inkyPumpBuyVolume ? inkyPumpBuyVolume.total_count || 0 : 0} tx
+                        </span>
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">Sell Token volume</span>
+                      <span className="font-mono text-white">
+                        ${!isDemo && inkyPumpSellVolume ? parseFloat(inkyPumpSellVolume.total_value).toFixed(2) : '0.00'}
+                        <span className="pl-[2px] text-[10px] text-slate-500"> /
+                          {!isDemo && inkyPumpSellVolume ? inkyPumpSellVolume.total_count || 0 : 0} tx
+                        </span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Swap Volume Card */}

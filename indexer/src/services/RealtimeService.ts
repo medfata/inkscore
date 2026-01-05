@@ -199,7 +199,7 @@ export class RealtimeService {
           txHash,                                        // tx_hash
           tx.from?.toLowerCase() || null,                // wallet_address
           contractAddress.toLowerCase(),                 // contract_address
-          tx.method?.split('(')[0] || null,              // function_name (e.g., "gm" from "gm()")
+          tx.method?.split('(')[0] || tx.methodId || null,  // function_name (e.g., "gm" from "gm()" or methodId like "0xa07849e6")
           tx.value,                                      // eth_value
           tx.blockNumber,                                // block_number
           new Date(tx.timestamp),                        // block_timestamp
