@@ -18,67 +18,29 @@ export interface SwapVolumeResponse {
   }>;
 }
 
-// Cache for swap metric config (rarely changes)
-interface SwapConfigCache {
-  metricId: number;
-  contractAddresses: string[];
-  functionNames: string[];
-  contractNames: Record<string, string>;
-  timestamp: number;
-}
-let swapConfigCache: SwapConfigCache | null = null;
-const CONFIG_CACHE_TTL = 60 * 1000; // 1 minute
-
 // Cache for swap results per wallet (30 second TTL)
 const swapResultsCache = new Map<string, { data: SwapVolumeResponse; timestamp: number }>();
 const RESULTS_CACHE_TTL = 30 * 1000;
 
-async function getSwapConfig(): Promise<SwapConfigCache | null> {
-  if (swapConfigCache && Date.now() - swapConfigCache.timestamp < CONFIG_CACHE_TTL) {
-    return swapConfigCache;
-  }
+// Known swap contract addresses and their platform names
+const SWAP_CONTRACTS: Record<string, string> = {
+  '0x551134e92e537ceaa217c2ef63210af3ce96a065': 'InkySwap',
+  // Add other swap contract addresses here as needed
+};
 
-  const metricResult = await pool.query(
-    `SELECT id FROM analytics_metrics WHERE slug = 'swap_volume' AND is_active = true`
-  );
-
-  if (metricResult.rows.length === 0) {
-    return null;
-  }
-
-  const metricId = metricResult.rows[0].id;
-
-  const [contractsResult, functionsResult, contractsMetadataResult] = await Promise.all([
-    pool.query(
-      `SELECT contract_address FROM analytics_metric_contracts 
-       WHERE metric_id = $1 AND include_mode = 'include'`,
-      [metricId]
-    ),
-    pool.query(
-      `SELECT function_name FROM analytics_metric_functions 
-       WHERE metric_id = $1 AND include_mode = 'include'`,
-      [metricId]
-    ),
-    pool.query(
-      `SELECT address, name FROM contracts_metadata WHERE category = 'dex'`
-    ),
-  ]);
-
-  const contractNames: Record<string, string> = {};
-  for (const row of contractsMetadataResult.rows) {
-    contractNames[row.address.toLowerCase()] = row.name;
-  }
-
-  swapConfigCache = {
-    metricId,
-    contractAddresses: contractsResult.rows.map(r => r.contract_address),
-    functionNames: functionsResult.rows.map(r => r.function_name),
-    contractNames,
-    timestamp: Date.now(),
-  };
-
-  return swapConfigCache;
-}
+// Common swap method IDs
+const SWAP_METHOD_IDS = [
+  '0x7ff36ab5', // swapExactETHForTokens
+  '0x18cbafe5', // swapExactTokensForETH
+  '0x38ed1739', // swapExactTokensForTokens
+  '0xfb3bdb41', // swapETHForExactTokens
+  '0x4a25d94a', // swapTokensForExactETH
+  '0x8803dbee', // swapTokensForExactTokens
+  '0xb6f9de95', // swapExactETHForTokensSupportingFeeOnTransferTokens
+  '0x791ac947', // swapExactTokensForETHSupportingFeeOnTransferTokens
+  '0x5c11d795', // swapExactTokensForTokensSupportingFeeOnTransferTokens
+  '0x3593564c', // execute (Universal Router - InkySwap, Uniswap V3, etc.)
+];
 
 // GET /api/wallet/[address]/swap - Get swap volume for a wallet
 export async function GET(
@@ -104,73 +66,65 @@ export async function GET(
       return NextResponse.json(cachedResult.data);
     }
 
-    // Get swap config (cached)
-    const config = await getSwapConfig();
-    if (!config || config.contractAddresses.length === 0 || config.functionNames.length === 0) {
-      return NextResponse.json({
-        totalEth: 0,
-        totalUsd: 0,
-        txCount: 0,
-        byPlatform: [],
-      });
-    }
-
-    // Get swap volume grouped by contract address
-    let result;
-    try {
-      result = await pool.query(
-        `SELECT 
-           contract_address,
-           SUM(CAST(eth_value AS NUMERIC) / 1e18) as total_eth,
-           COUNT(*) as tx_count
-         FROM transaction_details
-         WHERE wallet_address = $1
-           AND contract_address = ANY($2)
-           AND function_name = ANY($3)
-           AND status = 1
-         GROUP BY contract_address
-         ORDER BY total_eth DESC`,
-        [walletAddress, config.contractAddresses, config.functionNames]
-      );
-    } catch (dbError: unknown) {
-      const errorMessage = dbError instanceof Error ? dbError.message : String(dbError);
-      if (errorMessage.includes('does not exist')) {
-        return NextResponse.json({
-          totalEth: 0,
-          totalUsd: 0,
-          txCount: 0,
-          byPlatform: [],
-        });
-      }
-      throw dbError;
-    }
-
-    // Get current ETH price for USD conversion
-    let ethPrice = 3500;
-    try {
-      const priceResult = await pool.query(
-        `SELECT price_usd FROM eth_prices ORDER BY timestamp DESC LIMIT 1`
-      );
-      ethPrice = priceResult.rows[0]?.price_usd || 3500;
-    } catch {
-      // Use fallback price
-    }
+    // Get all swap transactions for this wallet, with improved volume calculation
+    const result = await pool.query(
+      `SELECT 
+         contract_address,
+         COUNT(*) as tx_count,
+         SUM(COALESCE(eth_value_decimal, 0)) as total_eth,
+         SUM(
+           CASE 
+             -- If we have total_usd_volume, use it
+             WHEN total_usd_volume > 0 THEN total_usd_volume
+             -- If we have token USD values, use them
+             WHEN COALESCE(tokens_in_usd_total, 0) + COALESCE(tokens_out_usd_total, 0) > 0 
+               THEN COALESCE(tokens_in_usd_total, 0) + COALESCE(tokens_out_usd_total, 0)
+             -- For ETH transactions, convert ETH value to USD
+             WHEN value::numeric > 0 THEN (value::numeric / 1e18) * COALESCE(eth_price_usd, 3500)
+             -- Fallback to eth_value_decimal
+             ELSE COALESCE(eth_value_decimal, 0) * COALESCE(eth_price_usd, 3500)
+           END
+         ) as total_usd
+       FROM transaction_enrichment
+       WHERE LOWER(wallet_address) = LOWER($1)
+         AND method_id = ANY($2)
+       GROUP BY contract_address
+       ORDER BY total_usd DESC`,
+      [address, SWAP_METHOD_IDS]
+    );
 
     let totalEth = 0;
+    let totalUsd = 0;
     let totalTxCount = 0;
     const byPlatform: SwapVolumeResponse['byPlatform'] = [];
 
     for (const row of result.rows) {
       const ethValue = parseFloat(row.total_eth || '0');
+      const usdValue = parseFloat(row.total_usd || '0');
       const txCount = parseInt(row.tx_count || '0');
-      const usdValue = ethValue * ethPrice;
       const contractAddr = row.contract_address.toLowerCase();
 
       totalEth += ethValue;
+      totalUsd += usdValue;
       totalTxCount += txCount;
 
+      // Get platform name from known contracts or try to get from contracts table
+      let platformName = SWAP_CONTRACTS[contractAddr];
+      
+      if (!platformName) {
+        try {
+          const contractResult = await pool.query(
+            `SELECT name FROM contracts WHERE LOWER(address) = LOWER($1)`,
+            [contractAddr]
+          );
+          platformName = contractResult.rows[0]?.name || 'Unknown DEX';
+        } catch {
+          platformName = 'Unknown DEX';
+        }
+      }
+
       byPlatform.push({
-        platform: config.contractNames[contractAddr] || 'Unknown DEX',
+        platform: platformName,
         contractAddress: contractAddr,
         ethValue,
         usdValue,
@@ -180,7 +134,7 @@ export async function GET(
 
     const response: SwapVolumeResponse = {
       totalEth,
-      totalUsd: totalEth * ethPrice,
+      totalUsd,
       txCount: totalTxCount,
       byPlatform,
     };

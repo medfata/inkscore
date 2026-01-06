@@ -11,9 +11,16 @@ const OFT_ADAPTER_ADDRESS = '0x1cb6de532588fca4a21b7209de7c456af8434a65';
 // LayerZero Executor contract (receives bridge IN transactions)
 const LZ_EXECUTOR_ADDRESS = '0xfebcf17b11376c724ab5a5229803c6e838b6eae5';
 
+// Bungee Socket Gateway contract address
+const BUNGEE_SOCKET_GATEWAY = '0x3a23f943181408eac424116af7b7790c94cb97a5';
+
 // Event signatures (topic0)
 const OFT_SENT_SIGNATURE = '0x85496b760a4b7f8d66384b9df21b381f5d1b1e79f229a47aaf4c232edc2fe59a';
 const OFT_RECEIVED_SIGNATURE = '0xefed6d3500546b29533b128a29e3a94d70788727f0507505ac12eaf2e578fd9c';
+
+// Bungee event signatures
+const SOCKET_BRIDGE_SIGNATURE = '0x74594da9e31ee4068e17809037db37db496702bf7d8d63afe6f97949277d1609';
+const SOCKET_SWAP_TOKENS_SIGNATURE = '0xb346a959ba6c0f1c7ba5426b10fd84fe4064e392a0dfcf6609e9640a0dd260d3';
 
 // USDT0 has 6 decimals
 const USDT0_DECIMALS = 6;
@@ -45,6 +52,56 @@ interface OftEventLog {
   topics: string[];
   data: string;
   event?: string;
+}
+
+/**
+ * Parse SocketBridge event data to extract amount and token
+ * Event: SocketBridge(uint256 amount, address token, uint256 toChainId, bytes32 bridgeName, address sender, address receiver, bytes32 metadata)
+ * Data layout: amount (32 bytes) + token (32 bytes) + toChainId (32 bytes) + bridgeName (32 bytes) + sender (32 bytes) + receiver (32 bytes) + metadata (32 bytes)
+ */
+function parseSocketBridgeEvent(data: string): { amount: bigint; token: string; toChainId: bigint } {
+  const cleanData = data.startsWith('0x') ? data.slice(2) : data;
+  
+  // amount is first 32 bytes
+  const amountHex = cleanData.slice(0, 64);
+  const amount = BigInt('0x' + amountHex);
+  
+  // token is second 32 bytes (address padded to 32 bytes)
+  const tokenHex = cleanData.slice(64, 128);
+  const token = '0x' + tokenHex.slice(-40).toLowerCase();
+  
+  // toChainId is third 32 bytes
+  const chainIdHex = cleanData.slice(128, 192);
+  const toChainId = BigInt('0x' + chainIdHex);
+  
+  return { amount, token, toChainId };
+}
+
+/**
+ * Parse SocketSwapTokens event data to extract buy/sell amounts
+ * Event: SocketSwapTokens(address fromToken, address toToken, uint256 buyAmount, uint256 sellAmount, bytes32 routeName, address receiver, bytes32 metadata)
+ * Data layout: fromToken (32 bytes) + toToken (32 bytes) + buyAmount (32 bytes) + sellAmount (32 bytes) + routeName (32 bytes) + receiver (32 bytes) + metadata (32 bytes)
+ */
+function parseSocketSwapTokensEvent(data: string): { fromToken: string; toToken: string; buyAmount: bigint; sellAmount: bigint } {
+  const cleanData = data.startsWith('0x') ? data.slice(2) : data;
+  
+  // fromToken is first 32 bytes (address padded)
+  const fromTokenHex = cleanData.slice(0, 64);
+  const fromToken = '0x' + fromTokenHex.slice(-40).toLowerCase();
+  
+  // toToken is second 32 bytes (address padded)
+  const toTokenHex = cleanData.slice(64, 128);
+  const toToken = '0x' + toTokenHex.slice(-40).toLowerCase();
+  
+  // buyAmount is third 32 bytes
+  const buyAmountHex = cleanData.slice(128, 192);
+  const buyAmount = BigInt('0x' + buyAmountHex);
+  
+  // sellAmount is fourth 32 bytes
+  const sellAmountHex = cleanData.slice(192, 256);
+  const sellAmount = BigInt('0x' + sellAmountHex);
+  
+  return { fromToken, toToken, buyAmount, sellAmount };
 }
 
 /**
@@ -107,6 +164,8 @@ export async function GET(
     let bridgedInCount = 0;
     let bridgedOutUsd = 0;
     let bridgedOutCount = 0;
+    let bungeeUsd = 0;
+    let bungeeTxCount = 0;
     const byPlatform: BridgeVolumeResponse['byPlatform'] = [];
 
     // Get current ETH price for USD conversion (for other bridges)
@@ -158,39 +217,20 @@ export async function GET(
         }
       }
 
-      // 1b. Bridge IN - Query transactions from LayerZero Executor that contain wallet in logs
-      // We filter by contract_address first (indexed), then check logs for wallet
-      const bridgeInResult = await pool.query(
-        `SELECT tx_hash, logs
-         FROM transaction_enrichment
-         WHERE contract_address = $1
-           AND logs IS NOT NULL
-           AND logs::text ILIKE $2`,
-        [LZ_EXECUTOR_ADDRESS, `%${walletAddress}%`]
-      );
-
-      for (const row of bridgeInResult.rows) {
-        const logs: OftEventLog[] = typeof row.logs === 'string' ? JSON.parse(row.logs) : row.logs;
-        if (!Array.isArray(logs)) continue;
-
-        for (const log of logs) {
-          const logAddress = (log.address?.id || '').toLowerCase();
-          const topic0 = log.topics?.[0]?.toLowerCase();
-          const topic2 = log.topics?.[2];
-
-          if (logAddress !== OFT_ADAPTER_ADDRESS) continue;
-          if (topic0 !== OFT_RECEIVED_SIGNATURE) continue;
-          if (!topic2) continue;
-
-          const eventWallet = extractAddressFromTopic(topic2);
-          if (eventWallet !== walletAddress) continue;
-
-          const amountRaw = parseOftReceivedAmount(log.data);
-          const amountUsd = Number(amountRaw) / Math.pow(10, USDT0_DECIMALS);
-          bridgedInUsd += amountUsd;
-          bridgedInCount++;
-        }
-      }
+      // 1b. Bridge IN - SKIP EXPENSIVE QUERY FOR NOW
+      // The LayerZero Executor query is extremely slow (45+ seconds) due to ILIKE on 1.2M rows
+      // TODO: Implement proper indexing strategy or alternative approach for bridge IN detection
+      // For now, we'll only track bridge OUT transactions which are much faster
+      
+      // Alternative approach: We could pre-process and store wallet addresses from logs
+      // in a separate indexed column, or use a materialized view for better performance
+      
+      console.log('Skipping LayerZero Executor bridge IN query for performance - only tracking bridge OUT');
+      
+      // If we need bridge IN data, we should either:
+      // 1. Add a separate indexed column with extracted wallet addresses from logs
+      // 2. Use a materialized view that pre-processes the log data
+      // 3. Implement a background job to index relevant log entries
 
       // Add Native Bridge (USDT0) to byPlatform if there's any activity
       if (bridgedInCount > 0 || bridgedOutCount > 0) {
@@ -216,7 +256,123 @@ export async function GET(
       // Continue with other bridges even if this fails
     }
 
-    // 2. Query other bridges from bridge_transfers table
+    // 2. Query Bungee Socket Gateway from transaction_enrichment
+    try {
+      const bungeeResult = await pool.query(
+        `SELECT tx_hash, logs, eth_value_decimal, total_usd_volume, value
+         FROM transaction_enrichment
+         WHERE contract_address = $1
+           AND wallet_address = $2
+           AND logs IS NOT NULL`,
+        [BUNGEE_SOCKET_GATEWAY, walletAddress]
+      );
+
+      for (const row of bungeeResult.rows) {
+        const logs: OftEventLog[] = typeof row.logs === 'string' ? JSON.parse(row.logs) : row.logs;
+        if (!Array.isArray(logs)) continue;
+
+        let hasBridgeActivity = false;
+        let txUsdValue = 0;
+
+        // Check for SocketBridge events (cross-chain bridging)
+        for (const log of logs) {
+          const logAddress = (log.address?.id || '').toLowerCase();
+          const topic0 = log.topics?.[0]?.toLowerCase();
+
+          if (logAddress !== BUNGEE_SOCKET_GATEWAY) continue;
+
+          if (topic0 === SOCKET_BRIDGE_SIGNATURE) {
+            // This is a bridge transaction
+            hasBridgeActivity = true;
+            
+            // Try to get USD value from enrichment data first
+            if (row.total_usd_volume && parseFloat(row.total_usd_volume) > 0) {
+              txUsdValue = parseFloat(row.total_usd_volume);
+            } else if (row.eth_value_decimal && parseFloat(row.eth_value_decimal) > 0) {
+              // Fallback to ETH value * price
+              txUsdValue = parseFloat(row.eth_value_decimal) * ethPrice;
+            } else if (row.value && parseFloat(row.value) > 0) {
+              // Use raw transaction value (in wei) as last resort
+              const ethAmount = parseFloat(row.value) / Math.pow(10, 18);
+              txUsdValue = ethAmount * ethPrice;
+            } else {
+              // Parse the event data to get amount
+              try {
+                const { amount, token } = parseSocketBridgeEvent(log.data);
+                
+                // Handle different token types
+                if (token === '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee') {
+                  // Native ETH
+                  const ethAmount = Number(amount) / Math.pow(10, 18);
+                  txUsdValue = ethAmount * ethPrice;
+                } else {
+                  // For other tokens, we'd need token price data
+                  // For now, use a minimal value to count the transaction
+                  txUsdValue = 0.01; // $0.01 placeholder
+                }
+              } catch (parseError) {
+                console.warn('Failed to parse SocketBridge event:', parseError);
+                // Use minimal value to count the transaction
+                txUsdValue = 0.01;
+              }
+            }
+            break;
+          } else if (topic0 === SOCKET_SWAP_TOKENS_SIGNATURE) {
+            // This is a swap transaction (like the CAT -> ETH example)
+            // We should include swaps that result in bridging
+            hasBridgeActivity = true;
+            
+            if (row.total_usd_volume && parseFloat(row.total_usd_volume) > 0) {
+              txUsdValue = parseFloat(row.total_usd_volume);
+            } else if (row.eth_value_decimal && parseFloat(row.eth_value_decimal) > 0) {
+              txUsdValue = parseFloat(row.eth_value_decimal) * ethPrice;
+            } else {
+              // Parse the swap event to get the output amount (buyAmount)
+              try {
+                const { buyAmount, toToken } = parseSocketSwapTokensEvent(log.data);
+                
+                if (toToken === '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee') {
+                  // Swapped to ETH
+                  const ethAmount = Number(buyAmount) / Math.pow(10, 18);
+                  txUsdValue = ethAmount * ethPrice;
+                } else {
+                  // Swapped to other token, use minimal value
+                  txUsdValue = 0.01;
+                }
+              } catch (parseError) {
+                console.warn('Failed to parse SocketSwapTokens event:', parseError);
+                txUsdValue = 0.01;
+              }
+            }
+            break;
+          }
+        }
+
+        if (hasBridgeActivity && txUsdValue > 0) {
+          bungeeUsd += txUsdValue;
+          bungeeTxCount++;
+        }
+      }
+
+      // Add Bungee to byPlatform if there's any activity
+      if (bungeeTxCount > 0) {
+        byPlatform.push({
+          platform: 'Bungee',
+          subPlatform: 'Socket Gateway',
+          ethValue: 0, // We're tracking USD directly
+          usdValue: bungeeUsd,
+          txCount: bungeeTxCount,
+        });
+
+        totalTxCount += bungeeTxCount;
+      }
+    } catch (dbError: unknown) {
+      const errorMessage = dbError instanceof Error ? dbError.message : String(dbError);
+      console.error('Error querying Bungee Socket Gateway:', errorMessage);
+      // Continue with other bridges even if this fails
+    }
+
+    // 3. Query other bridges from bridge_transfers table
     try {
       const result = await pool.query(
         `SELECT 
@@ -255,8 +411,8 @@ export async function GET(
       // Continue even if bridge_transfers table doesn't exist
     }
 
-    // Calculate total USD (ETH bridges + USDT0 bridge)
-    const totalUsd = (totalEth * ethPrice) + bridgedInUsd + bridgedOutUsd;
+    // Calculate total USD (ETH bridges + USDT0 bridge + Bungee bridge)
+    const totalUsd = (totalEth * ethPrice) + bridgedInUsd + bridgedOutUsd + bungeeUsd;
 
     const response: BridgeVolumeResponse = {
       totalEth,

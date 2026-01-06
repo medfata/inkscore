@@ -23,11 +23,10 @@ interface BridgeVolumeResponse {
 
 // Platform logos/icons
 const BRIDGE_PLATFORM_LOGOS: Record<string, string> = {
-  'Owlto': 'https://owlto.finance/favicon.ico',
-  'Orbiter': 'https://www.orbiter.finance/favicon.ico',
-  'Gas.zip': 'https://www.gas.zip/favicon.ico',
-  'Relay': 'https://relay.link/favicon.ico',
+  'Native Bridge (USDT0)': 'https://pbs.twimg.com/profile_images/1879546764971188224/SQISVYwX_400x400.jpg',
   'Ink Official': 'https://inkonchain.com/favicon.ico',
+  'Relay': 'https://relay.link/favicon.ico',
+  'Bungee': 'https://www.bungee.exchange/favicon.ico',
 };
 
 // Metric logos (for metrics with custom branding)

@@ -1535,77 +1535,87 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
             </div>
 
             {!isDemo && bridgeVolume ? (
-              <>
-                <div className="mb-3">
-                  <div className="text-2xl font-bold font-display text-teal-400">
-                    ${bridgeVolume.totalUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </div>
-                  <div className="text-xs text-slate-500">{bridgeVolume.txCount} transactions</div>
-                </div>
+              (() => {
+                // Calculate total from only displayed platforms
+                const displayedPlatforms = Object.entries(BRIDGE_PLATFORM_LOGOS)
+                  .map(([platformName, logoUrl]) => {
+                    const platformData = bridgeVolume.byPlatform.find(
+                      p => (p.subPlatform || p.platform) === platformName || p.platform === platformName
+                    );
+                    return {
+                      platformName,
+                      logoUrl,
+                      usdValue: platformData?.usdValue || 0,
+                      txCount: platformData?.txCount || 0,
+                      bridgedInUsd: platformData?.bridgedInUsd,
+                      bridgedInCount: platformData?.bridgedInCount,
+                      bridgedOutUsd: platformData?.bridgedOutUsd,
+                      bridgedOutCount: platformData?.bridgedOutCount,
+                    };
+                  });
+                
+                const displayedTotalUsd = displayedPlatforms.reduce((sum, platform) => sum + platform.usdValue, 0);
+                const displayedTotalTxCount = displayedPlatforms.reduce((sum, platform) => sum + platform.txCount, 0);
+                
+                return (
+                  <>
+                    <div className="mb-3">
+                      <div className="text-2xl font-bold font-display text-teal-400">
+                        ${displayedTotalUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </div>
+                      <div className="text-xs text-slate-500">{displayedTotalTxCount} transactions</div>
+                    </div>
 
-                <div className="flex-1 pt-3 border-t border-slate-700/50 flex flex-col min-h-0">
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">By Platform</span>
-                  <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar">
-                    {Object.entries(BRIDGE_PLATFORM_LOGOS)
-                      .map(([platformName, logoUrl]) => {
-                        const platformData = bridgeVolume.byPlatform.find(
-                          p => (p.subPlatform || p.platform) === platformName || p.platform === platformName
-                        );
-                        return {
-                          platformName,
-                          logoUrl,
-                          usdValue: platformData?.usdValue || 0,
-                          txCount: platformData?.txCount || 0,
-                          bridgedInUsd: platformData?.bridgedInUsd,
-                          bridgedInCount: platformData?.bridgedInCount,
-                          bridgedOutUsd: platformData?.bridgedOutUsd,
-                          bridgedOutCount: platformData?.bridgedOutCount,
-                        };
-                      })
-                      .sort((a, b) => b.usdValue - a.usdValue)
-                      .map((platform, i) => (
-                        <div key={i} className="text-[11px]">
-                          <div className="flex justify-between items-center py-0.5">
-                            <span className="text-slate-400 flex items-center gap-1">
-                              <img
-                                src={platform.logoUrl}
-                                alt={platform.platformName}
-                                className="w-3 h-3 rounded"
-                                onError={(e) => {
-                                  (e.target as HTMLImageElement).style.display = 'none';
-                                }}
-                              />
-                              <span className="truncate max-w-[80px]">{platform.platformName}</span>
-                            </span>
-                            <span className="font-mono text-white text-[10px]">
-                              ${platform.usdValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                            </span>
-                          </div>
-                          {/* Show bridged in/out for Native Bridge (USDT0) */}
-                          {platform.platformName === 'Native Bridge (USDT0)' && (platform.bridgedInUsd !== undefined || platform.bridgedOutUsd !== undefined) && (
-                            <div className="ml-4 flex gap-3 text-[9px] text-slate-500">
-                              <span className="text-green-400">
-                                ↓ ${(platform.bridgedInUsd || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                                <span className="text-slate-600 ml-0.5">({platform.bridgedInCount || 0})</span>
-                              </span>
-                              <span className="text-orange-400">
-                                ↑ ${(platform.bridgedOutUsd || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                                <span className="text-slate-600 ml-0.5">({platform.bridgedOutCount || 0})</span>
-                              </span>
+                    <div className="flex-1 pt-3 border-t border-slate-700/50 flex flex-col min-h-0">
+                      <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">By Platform</span>
+                      <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar">
+                        {displayedPlatforms
+                          .sort((a, b) => b.usdValue - a.usdValue)
+                          .map((platform, i) => (
+                            <div key={i} className="text-[11px]">
+                              <div className="flex justify-between items-center py-0.5">
+                                <span className="text-slate-400 flex items-center gap-1">
+                                  <img
+                                    src={platform.logoUrl}
+                                    alt={platform.platformName}
+                                    className="w-3 h-3 rounded"
+                                    onError={(e) => {
+                                      (e.target as HTMLImageElement).style.display = 'none';
+                                    }}
+                                  />
+                                  <span className="truncate max-w-[80px]">{platform.platformName}</span>
+                                </span>
+                                <span className="font-mono text-white text-[10px]">
+                                  ${platform.usdValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </span>
+                              </div>
+                              {/* Show bridged in/out for Native Bridge (USDT0) */}
+                              {platform.platformName === 'Native Bridge (USDT0)' && (platform.bridgedInUsd !== undefined || platform.bridgedOutUsd !== undefined) && (
+                                <div className="ml-4 flex gap-3 text-[9px] text-slate-500">
+                                  <span className="text-green-400">
+                                    ↓ ${(platform.bridgedInUsd || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                    <span className="text-slate-600 ml-0.5">({platform.bridgedInCount || 0})</span>
+                                  </span>
+                                  <span className="text-orange-400">
+                                    ↑ ${(platform.bridgedOutUsd || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                    <span className="text-slate-600 ml-0.5">({platform.bridgedOutCount || 0})</span>
+                                  </span>
+                                </div>
+                              )}
                             </div>
-                          )}
-                        </div>
-                      ))}
-                  </div>
-                </div>
+                          ))}
+                      </div>
+                    </div>
 
-                {bridgeVolume.txCount > 0 && (
-                  <div className="mt-2 text-xs text-teal-400 opacity-80 flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse"></span>
-                    Active Bridger
-                  </div>
-                )}
-              </>
+                    {displayedTotalTxCount > 0 && (
+                      <div className="mt-2 text-xs text-teal-400 opacity-80 flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse"></span>
+                        Active Bridger
+                      </div>
+                    )}
+                  </>
+                );
+              })()
             ) : (
               <div className="flex-1 flex flex-col">
                 {isDemo ? (
@@ -1754,7 +1764,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                             {platform.platformInfo.name}
                           </span>
                           <span className="font-mono text-white text-[10px]">
-                            ${platform.usdValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                            ${platform.usdValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </span>
                         </div>
                       ))}
