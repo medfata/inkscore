@@ -25,6 +25,8 @@ const RESULTS_CACHE_TTL = 30 * 1000;
 // Known swap contract addresses and their platform names
 const SWAP_CONTRACTS: Record<string, string> = {
   '0x551134e92e537ceaa217c2ef63210af3ce96a065': 'InkySwap',
+  '0xd7e72f3615aa65b92a4dbdc211e296a35512988b': 'Curve',
+  '0x9b17690de96fcfa80a3acaefe11d936629cd7a77': 'DyorSwap',
   // Add other swap contract addresses here as needed
 };
 
@@ -40,6 +42,7 @@ const SWAP_METHOD_IDS = [
   '0x791ac947', // swapExactTokensForETHSupportingFeeOnTransferTokens
   '0x5c11d795', // swapExactTokensForTokensSupportingFeeOnTransferTokens
   '0x3593564c', // execute (Universal Router - InkySwap, Uniswap V3, etc.)
+  '0xaad348a2', // exchange (Curve)
 ];
 
 // GET /api/wallet/[address]/swap - Get swap volume for a wallet
@@ -110,7 +113,7 @@ export async function GET(
 
       // Get platform name from known contracts or try to get from contracts table
       let platformName = SWAP_CONTRACTS[contractAddr];
-      
+
       if (!platformName) {
         try {
           const contractResult = await pool.query(
