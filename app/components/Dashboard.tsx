@@ -361,6 +361,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
   const [inkyPumpBuyVolume, setInkyPumpBuyVolume] = useState<{ total_value: string; total_count: number } | null>(null);
   const [inkyPumpSellVolume, setInkyPumpSellVolume] = useState<{ total_value: string; total_count: number } | null>(null);
 
+  // Shellies metrics state
+  const [shelliesJoinedRaffles, setShelliesJoinedRaffles] = useState<{ total_count: number } | null>(null);
+  const [shelliesPayToPlay, setShelliesPayToPlay] = useState<{ total_count: number } | null>(null);
+  const [shelliesStaking, setShelliesStaking] = useState<{ total_count: number } | null>(null);
+
   // Dynamic dashboard cards state
   const [dynamicCardsRow3, setDynamicCardsRow3] = useState<DashboardCardData[]>([]);
   const [dynamicCardsRow4, setDynamicCardsRow4] = useState<DashboardCardData[]>([]);
@@ -406,6 +411,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
     setInkyPumpCreatedTokens(null);
     setInkyPumpBuyVolume(null);
     setInkyPumpSellVolume(null);
+
+    // Clear Shellies data
+    setShelliesJoinedRaffles(null);
+    setShelliesPayToPlay(null);
+    setShelliesStaking(null);
 
     try {
       const fetchPromises = [];
@@ -642,6 +652,34 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
             }
           })
           .catch(err => console.error('Failed to refresh Marvk metrics:', err))
+      );
+
+      // Shellies metrics
+      fetchPromises.push(
+        fetch(`/api/analytics/${walletAddress}/shellies_joined_raffles`)
+          .then(res => res.ok ? res.json() : null)
+          .then(data => {
+            if (data) setShelliesJoinedRaffles({ total_count: data.total_count || 0 });
+          })
+          .catch(err => console.error('Failed to refresh Shellies joined raffles:', err))
+      );
+
+      fetchPromises.push(
+        fetch(`/api/analytics/${walletAddress}/shellies_pay_to_play`)
+          .then(res => res.ok ? res.json() : null)
+          .then(data => {
+            if (data) setShelliesPayToPlay({ total_count: data.total_count || 0 });
+          })
+          .catch(err => console.error('Failed to refresh Shellies pay to play:', err))
+      );
+
+      fetchPromises.push(
+        fetch(`/api/analytics/${walletAddress}/shellies_staking`)
+          .then(res => res.ok ? res.json() : null)
+          .then(data => {
+            if (data) setShelliesStaking({ total_count: data.total_count || 0 });
+          })
+          .catch(err => console.error('Failed to refresh Shellies staking:', err))
       );
 
       await Promise.all(fetchPromises);
@@ -999,6 +1037,86 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
     };
 
     fetchDynamicCards();
+  }, [walletAddress, isDemo]);
+
+  // Fetch Shellies metrics when not in demo mode
+  useEffect(() => {
+    if (isDemo || !walletAddress || walletAddress.length < 10) return;
+
+    const fetchShelliesMetrics = async () => {
+      try {
+        // Fetch joined raffles
+        const joinedRafflesRes = await fetch(`/api/analytics/${walletAddress}/shellies_joined_raffles`);
+        if (joinedRafflesRes.ok) {
+          const data = await joinedRafflesRes.json();
+          setShelliesJoinedRaffles({ total_count: data.total_count || 0 });
+        }
+
+        // Fetch pay to play
+        const payToPlayRes = await fetch(`/api/analytics/${walletAddress}/shellies_pay_to_play`);
+        if (payToPlayRes.ok) {
+          const data = await payToPlayRes.json();
+          setShelliesPayToPlay({ total_count: data.total_count || 0 });
+        }
+
+        // Fetch staking
+        const stakingRes = await fetch(`/api/analytics/${walletAddress}/shellies_staking`);
+        if (stakingRes.ok) {
+          const data = await stakingRes.json();
+          setShelliesStaking({ total_count: data.total_count || 0 });
+        }
+      } catch (err) {
+        console.error('Failed to fetch Shellies metrics:', err);
+      }
+    };
+
+    fetchShelliesMetrics();
+  }, [walletAddress, isDemo]);
+
+  // Fetch NFT2Me metrics when not in demo mode
+  useEffect(() => {
+    if (isDemo || !walletAddress || walletAddress.length < 10) return;
+
+    const fetchNft2meMetrics = async () => {
+      try {
+        const res = await fetch(`/api/wallet/${walletAddress}/nft2me`);
+        if (res.ok) {
+          const data = await res.json();
+          setNft2meMetrics({
+            collectionsCreated: data.collectionsCreated || 0,
+            nftsMinted: data.nftsMinted || 0,
+            totalTransactions: data.totalTransactions || 0,
+          });
+        }
+      } catch (err) {
+        console.error('Failed to fetch NFT2Me metrics:', err);
+      }
+    };
+
+    fetchNft2meMetrics();
+  }, [walletAddress, isDemo]);
+
+  // Fetch Marvk metrics when not in demo mode
+  useEffect(() => {
+    if (isDemo || !walletAddress || walletAddress.length < 10) return;
+
+    const fetchMarvkMetrics = async () => {
+      try {
+        const res = await fetch(`/api/marvk/${walletAddress}`);
+        if (res.ok) {
+          const data = await res.json();
+          setMarvkMetrics({
+            lockTokenCount: data.lockTokenCount || 0,
+            vestTokenCount: data.vestTokenCount || 0,
+            totalTransactions: data.totalTransactions || 0,
+          });
+        }
+      } catch (err) {
+        console.error('Failed to fetch Marvk metrics:', err);
+      }
+    };
+
+    fetchMarvkMetrics();
   }, [walletAddress, isDemo]);
 
   const handleAiAnalysis = async () => {
@@ -1596,10 +1714,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                       bridgedOutCount: platformData?.bridgedOutCount,
                     };
                   });
-                
+
                 const displayedTotalUsd = displayedPlatforms.reduce((sum, platform) => sum + platform.usdValue, 0);
                 const displayedTotalTxCount = displayedPlatforms.reduce((sum, platform) => sum + platform.txCount, 0);
-                
+
                 return (
                   <>
                     <div className="mb-3">
@@ -2210,6 +2328,81 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
         {!isDemo && dynamicCardsRow4.length > 0 && (
           <DynamicCardsCarouselRow4 cards={dynamicCardsRow4} />
         )}
+
+        {/* Row 5: Shellies and Future Cards (4 columns) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {/* Shellies Unified Card */}
+          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-violet-500/20 bg-violet-500/5 h-[300px] flex flex-col" style={{ animationDelay: '1.0s' }}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                <img
+                  src="https://pbs.twimg.com/profile_images/1948768160733175808/aNFNH1IH_400x400.jpg"
+                  alt="Shellies"
+                  className="w-6 h-6 rounded-full object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=S&background=8b5cf6&color=fff&size=24';
+                  }}
+                />
+                Shellies
+              </h3>
+            </div>
+
+            {!isDemo && (!shelliesJoinedRaffles || !shelliesPayToPlay || !shelliesStaking) ? (
+              <div className="flex-1 flex flex-col justify-center">
+                <div className="h-8 w-20 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+                <div className="h-3 w-32 bg-slate-700/30 rounded animate-pulse mb-4"></div>
+                <div className="space-y-2">
+                  <div className="h-4 w-full bg-slate-700/30 rounded animate-pulse"></div>
+                  <div className="h-4 w-full bg-slate-700/30 rounded animate-pulse"></div>
+                  <div className="h-4 w-full bg-slate-700/30 rounded animate-pulse"></div>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="mb-3">
+                  <div className="text-2xl font-bold font-display text-violet-400">
+                    {!isDemo && shelliesJoinedRaffles && shelliesPayToPlay && shelliesStaking
+                      ? (shelliesJoinedRaffles.total_count + shelliesPayToPlay.total_count + shelliesStaking.total_count)
+                      : 0}
+                  </div>
+                  <div className="text-xs text-slate-500">Total Transactions</div>
+                </div>
+
+                <div className="flex-1 pt-3 border-t border-slate-700/50">
+                  <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">By Activity</span>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">Joined Raffles</span>
+                      <span className="font-mono text-white">
+                        {!isDemo && shelliesJoinedRaffles ? shelliesJoinedRaffles.total_count : 0}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">Pay to Play</span>
+                      <span className="font-mono text-white">
+                        {!isDemo && shelliesPayToPlay ? shelliesPayToPlay.total_count : 0}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">Staking</span>
+                      <span className="font-mono text-white">
+                        {!isDemo && shelliesStaking ? shelliesStaking.total_count : 0}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {!isDemo && shelliesJoinedRaffles && shelliesPayToPlay && shelliesStaking &&
+                  (shelliesJoinedRaffles.total_count + shelliesPayToPlay.total_count + shelliesStaking.total_count) > 0 && (
+                    <div className="mt-2 text-xs text-violet-400 opacity-80 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse"></span>
+                      Active Shellies User
+                    </div>
+                  )}
+              </>
+            )}
+          </div>
+        </div>
 
         {/* Holdings Section - Tokens & NFTs */}
         {!isDemo && realWalletStats && (

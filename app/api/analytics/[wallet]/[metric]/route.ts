@@ -11,8 +11,15 @@ const INKYPUMP_CREATE_TOKEN_FUNCTION = '0xa07849e6';
 
 // InkySwap router contract and methods for InkyPump trading
 const INKYSWAP_ROUTER_ADDRESS = '0xa8c1c38ff57428e5c3a34e0899be5cb385476507';
-const SWAP_EXACT_ETH_FOR_TOKENS = '0x7ff36ab5'; // Buy tokens
 const SWAP_EXACT_TOKENS_FOR_ETH = '0x18cbafe5'; // Sell tokens
+
+// Shellies contract addresses and methods
+const SHELLIES_RAFFLE_CONTRACTS = [
+  '0x47a27a42525fff2b7264b342f74216e37a831332',
+  '0xe757e8aa82b7ad9f1ef8d4fe657d90341885c0de'
+];
+const SHELLIES_PAY_TO_PLAY_CONTRACT = '0x57d287dc46cb0782c4bce1e4e964cc52083bb358';
+const SHELLIES_STAKING_CONTRACT = '0xb39a48d294e1530a271e712b7a19243679d320d0';
 
 // GET /api/analytics/[wallet]/[metric] - Get specific metric for a wallet
 export async function GET(
@@ -79,7 +86,7 @@ export async function GET(
 
     // Special handling for inkypump_buy_volume - USD volume of buy transactions
     if (metric === 'inkypump_buy_volume') {
-      const rows = await query<{ 
+      const rows = await query<{
         total_volume: string;
         count: string;
       }>(`
@@ -111,7 +118,7 @@ export async function GET(
 
     // Special handling for inkypump_sell_volume - USD volume of sell transactions
     if (metric === 'inkypump_sell_volume') {
-      const rows = await query<{ 
+      const rows = await query<{
         count: string;
       }>(`
         SELECT 
@@ -160,7 +167,7 @@ export async function GET(
       const totalCount = parseInt(totalRows[0]?.count || '0', 10);
 
       // Get count by contract for breakdown
-      const contractRows = await query<{ 
+      const contractRows = await query<{
         contract_address: string;
         count: string;
       }>(`
@@ -187,6 +194,81 @@ export async function GET(
         total_count: totalCount,
         total_value: totalCount.toString(),
         by_contract: byContract,
+        sub_aggregates: [],
+        last_updated: new Date(),
+      });
+    }
+
+    // Special handling for shellies_joined_raffles - count of JoinRaffle transactions across both contracts
+    if (metric === 'shellies_joined_raffles') {
+      const rows = await query<{ count: string }>(`
+        SELECT COUNT(*) as count 
+        FROM transaction_details 
+        WHERE contract_address = ANY($1) 
+          AND wallet_address = lower($2)
+          AND function_name = 'JoinRaffle'
+          AND status = 1
+      `, [SHELLIES_RAFFLE_CONTRACTS, wallet]);
+
+      const count = parseInt(rows[0]?.count || '0', 10);
+
+      return NextResponse.json({
+        slug: 'shellies_joined_raffles',
+        name: 'Joined Raffles',
+        icon: '🎟️',
+        currency: 'COUNT',
+        total_count: count,
+        total_value: count.toString(),
+        sub_aggregates: [],
+        last_updated: new Date(),
+      });
+    }
+
+    // Special handling for shellies_pay_to_play - count of PayToPlay transactions
+    if (metric === 'shellies_pay_to_play') {
+      const rows = await query<{ count: string }>(`
+        SELECT COUNT(*) as count 
+        FROM transaction_details 
+        WHERE contract_address = lower($1) 
+          AND wallet_address = lower($2)
+          AND function_name IN ('PayToPlay', 'payToPlay')
+          AND status = 1
+      `, [SHELLIES_PAY_TO_PLAY_CONTRACT, wallet]);
+
+      const count = parseInt(rows[0]?.count || '0', 10);
+
+      return NextResponse.json({
+        slug: 'shellies_pay_to_play',
+        name: 'Pay to Play',
+        icon: '🎮',
+        currency: 'COUNT',
+        total_count: count,
+        total_value: count.toString(),
+        sub_aggregates: [],
+        last_updated: new Date(),
+      });
+    }
+
+    // Special handling for shellies_staking - count of StakeBatch transactions
+    if (metric === 'shellies_staking') {
+      const rows = await query<{ count: string }>(`
+        SELECT COUNT(*) as count 
+        FROM transaction_details 
+        WHERE contract_address = lower($1) 
+          AND wallet_address = lower($2)
+          AND function_name = 'StakeBatch'
+          AND status = 1
+      `, [SHELLIES_STAKING_CONTRACT, wallet]);
+
+      const count = parseInt(rows[0]?.count || '0', 10);
+
+      return NextResponse.json({
+        slug: 'shellies_staking',
+        name: 'Staking',
+        icon: '🔒',
+        currency: 'COUNT',
+        total_count: count,
+        total_value: count.toString(),
         sub_aggregates: [],
         last_updated: new Date(),
       });
