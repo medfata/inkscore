@@ -1530,9 +1530,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                 />
                 GM Activity
               </h3>
-              <div className="text-xs font-bold px-2 py-1 rounded border bg-purple-900/30 border-purple-500/30 text-purple-400">
-                COUNT
-              </div>
             </div>
 
             {!isDemo && !realGmData ? (
@@ -1578,9 +1575,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                 </div>
                 Bridge Volume
               </h3>
-              <div className="text-xs font-bold px-2 py-1 rounded border bg-teal-900/30 border-teal-500/30 text-teal-400">
-                USD
-              </div>
             </div>
 
             {!isDemo && bridgeVolume ? (
@@ -1698,9 +1692,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                 />
                 InkyPump
               </h3>
-              <div className="text-xs font-bold px-2 py-1 rounded border bg-pink-900/30 border-pink-500/30 text-pink-400">
-                COUNT
-              </div>
             </div>
 
             {!isDemo && (!inkyPumpCreatedTokens || !inkyPumpBuyVolume || !inkyPumpSellVolume) ? (
@@ -1769,9 +1760,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                 </div>
                 Swap Volume
               </h3>
-              <div className="text-xs font-bold px-2 py-1 rounded border bg-cyan-900/30 border-cyan-500/30 text-cyan-400">
-                USD
-              </div>
             </div>
 
             {!isDemo && swapVolume ? (
@@ -1868,9 +1856,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                 />
                 ZNS Connect
               </h3>
-              <div className="text-xs font-bold px-2 py-1 rounded border bg-lime-900/30 border-lime-500/30 text-lime-400">
-                COUNT
-              </div>
             </div>
 
             {!isDemo && !znsMetrics ? (
@@ -1943,9 +1928,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                 />
                 Marvk
               </h3>
-              <div className="text-xs font-bold px-2 py-1 rounded border bg-violet-900/30 border-violet-500/30 text-violet-400">
-                COUNT
-              </div>
             </div>
 
             {!isDemo ? (
@@ -2043,9 +2025,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                 />
                 NFT2Me
               </h3>
-              <div className="text-xs font-bold px-2 py-1 rounded border bg-cyan-900/30 border-cyan-500/30 text-cyan-400">
-                COUNT
-              </div>
             </div>
 
             {!isDemo ? (
@@ -2141,9 +2120,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                 </div>
                 NFT Trading
               </h3>
-              <div className="text-xs font-bold px-2 py-1 rounded border bg-green-900/30 border-green-500/30 text-green-400">
-                COUNT
-              </div>
             </div>
 
             {!isDemo ? (
