@@ -154,6 +154,13 @@ interface Nft2MeResponse {
   totalTransactions: number;
 }
 
+// Marvk metrics response type
+interface MarvkMetrics {
+  lockTokenCount: number;
+  vestTokenCount: number;
+  totalTransactions: number;
+}
+
 interface DashboardProps {
   walletAddress: string;
   isDemo?: boolean;
@@ -349,6 +356,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
   const [totalVolume, setTotalVolume] = useState<TotalVolumeResponse | null>(null);
   const [znsMetrics, setZnsMetrics] = useState<ZnsMetricsResponse | null>(null);
   const [nft2meMetrics, setNft2meMetrics] = useState<Nft2MeResponse | null>(null);
+  const [marvkMetrics, setMarvkMetrics] = useState<MarvkMetrics | null>(null);
   const [inkyPumpCreatedTokens, setInkyPumpCreatedTokens] = useState<{ count: number } | null>(null);
   const [inkyPumpBuyVolume, setInkyPumpBuyVolume] = useState<{ total_value: string; total_count: number } | null>(null);
   const [inkyPumpSellVolume, setInkyPumpSellVolume] = useState<{ total_value: string; total_count: number } | null>(null);
@@ -618,6 +626,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
             }
           })
           .catch(err => console.error('Failed to refresh NFT2Me metrics:', err))
+      );
+
+      // Marvk metrics
+      fetchPromises.push(
+        fetch(`/api/marvk/${walletAddress}`)
+          .then(res => res.ok ? res.json() : null)
+          .then(data => {
+            if (data) {
+              setMarvkMetrics({
+                lockTokenCount: data.lockTokenCount || 0,
+                vestTokenCount: data.vestTokenCount || 0,
+                totalTransactions: data.totalTransactions || 0,
+              });
+            }
+          })
+          .catch(err => console.error('Failed to refresh Marvk metrics:', err))
       );
 
       await Promise.all(fetchPromises);
@@ -1920,29 +1944,89 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                 Marvk
               </h3>
               <div className="text-xs font-bold px-2 py-1 rounded border bg-violet-900/30 border-violet-500/30 text-violet-400">
-                USD
+                COUNT
               </div>
             </div>
 
-            <div className="mb-3">
-              <div className="text-2xl font-bold font-display text-violet-400">$0.00</div>
-              <div className="text-xs text-slate-500">0 transactions</div>
-            </div>
+            {!isDemo ? (
+              marvkMetrics ? (
+                <>
+                  <div className="mb-3">
+                    <div className="text-2xl font-bold font-display text-violet-400">
+                      {marvkMetrics.totalTransactions.toLocaleString()}
+                    </div>
+                    <div className="text-xs text-slate-500">
+                      {marvkMetrics.totalTransactions} transaction{marvkMetrics.totalTransactions !== 1 ? 's' : ''}
+                    </div>
+                  </div>
 
-            <div className="flex-1 pt-3 border-t border-slate-700/50">
-              <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">By Action</span>
-              <div className="space-y-2">
-                <div className="flex justify-between items-center text-[11px]">
-                  <span className="text-slate-400">Lock Token</span>
-                  <span className="font-mono text-white">$0.00</span>
-                </div>
-                <div className="flex justify-between items-center text-[11px]">
-                  <span className="text-slate-400">Vest Token</span>
-                  <span className="font-mono text-white">$0.00</span>
-                </div>
-              </div>
-            </div>
+                  <div className="flex-1 pt-3 border-t border-slate-700/50">
+                    <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">By Action</span>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center text-[11px]">
+                        <span className="text-slate-400">Lock Token</span>
+                        <span className="font-mono text-white">{marvkMetrics.lockTokenCount}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-[11px]">
+                        <span className="text-slate-400">Vest Token</span>
+                        <span className="font-mono text-white">{marvkMetrics.vestTokenCount}</span>
+                      </div>
+                    </div>
+                  </div>
 
+                  {marvkMetrics.totalTransactions > 0 && (
+                    <div className="mt-2 text-xs text-orange-400 opacity-80 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse"></span>
+                      Active Marvk User
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <div className="mb-3">
+                    <div className="text-2xl font-bold font-display text-violet-400">
+                      <div className="animate-pulse bg-slate-700 h-8 w-16 rounded"></div>
+                    </div>
+                    <div className="text-xs text-slate-500">Loading...</div>
+                  </div>
+
+                  <div className="flex-1 pt-3 border-t border-slate-700/50">
+                    <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">By Action</span>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center text-[11px]">
+                        <span className="text-slate-400">Lock Token</span>
+                        <div className="animate-pulse bg-slate-700 h-3 w-8 rounded"></div>
+                      </div>
+                      <div className="flex justify-between items-center text-[11px]">
+                        <span className="text-slate-400">Vest Token</span>
+                        <div className="animate-pulse bg-slate-700 h-3 w-8 rounded"></div>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )
+            ) : (
+              <>
+                <div className="mb-3">
+                  <div className="text-2xl font-bold font-display text-violet-400">0</div>
+                  <div className="text-xs text-slate-500">0 transactions</div>
+                </div>
+
+                <div className="flex-1 pt-3 border-t border-slate-700/50">
+                  <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">By Action</span>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">Lock Token</span>
+                      <span className="font-mono text-white">0</span>
+                    </div>
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">Vest Token</span>
+                      <span className="font-mono text-white">0</span>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
 
           {/* NFT2Me Card */}
