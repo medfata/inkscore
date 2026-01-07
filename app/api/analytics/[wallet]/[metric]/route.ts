@@ -139,6 +139,59 @@ export async function GET(
       });
     }
 
+    // Special handling for nft_traded - count of NFT trading transactions by contract
+    if (metric === 'nft_traded') {
+      // NFT marketplace contract addresses
+      const nftContracts = [
+        '0xd00c96804e9ff35f10c7d2a92239c351ff3f94e5', // Net Protocol
+        '0xbd6a027b85fd5285b1623563bbef6fadbe396afb', // Mintiq
+        '0x9ebf93fdba9f32accab3d6716322dccd617a78f3', // Squid Market
+      ];
+
+      // Get total count across all NFT contracts
+      const totalRows = await query<{ count: string }>(`
+        SELECT COUNT(*) as count 
+        FROM transaction_details 
+        WHERE contract_address = ANY($1) 
+          AND wallet_address = lower($2)
+          AND status = 1
+      `, [nftContracts, wallet]);
+
+      const totalCount = parseInt(totalRows[0]?.count || '0', 10);
+
+      // Get count by contract for breakdown
+      const contractRows = await query<{ 
+        contract_address: string;
+        count: string;
+      }>(`
+        SELECT 
+          contract_address,
+          COUNT(*) as count 
+        FROM transaction_details 
+        WHERE contract_address = ANY($1) 
+          AND wallet_address = lower($2)
+          AND status = 1
+        GROUP BY contract_address
+      `, [nftContracts, wallet]);
+
+      const byContract = contractRows.map(row => ({
+        contract_address: row.contract_address.toLowerCase(),
+        count: parseInt(row.count, 10),
+      }));
+
+      return NextResponse.json({
+        slug: 'nft_traded',
+        name: 'NFT Trading',
+        icon: '🖼️',
+        currency: 'COUNT',
+        total_count: totalCount,
+        total_value: totalCount.toString(),
+        by_contract: byContract,
+        sub_aggregates: [],
+        last_updated: new Date(),
+      });
+    }
+
     // For other metrics, use the existing analytics service
     // TODO: Rework this metric logic later
     const result = await analyticsService.getWalletMetric(wallet, metric);

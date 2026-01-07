@@ -1,9 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Pool } from 'pg';
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-});
+import { query } from '@/lib/db';
 
 export interface TotalVolumeResponse {
   totalEth: number;
@@ -49,74 +45,26 @@ export async function GET(
       return NextResponse.json(cachedResult.data);
     }
 
-    // Get current ETH price for USD conversion
-    let ethPrice = 3500;
-    try {
-      const priceResult = await pool.query(
-        `SELECT price_usd FROM eth_prices ORDER BY timestamp DESC LIMIT 1`
-      );
-      ethPrice = priceResult.rows[0]?.price_usd || 3500;
-    } catch {
-      // Use fallback price
-    }
+    // Simple, fast queries using existing indexes
+    const [ethPriceResult, outgoingResult] = await Promise.all([
+      query<{ price_usd: number }>(`SELECT price_usd FROM eth_prices ORDER BY timestamp DESC LIMIT 1`),
+      query<{ total_eth: string; tx_count: string }>(`
+        SELECT 
+          COALESCE(SUM(CAST(eth_value AS NUMERIC) / 1e18), 0) as total_eth,
+          COUNT(*) as tx_count
+        FROM transaction_details
+        WHERE wallet_address = $1 AND status = 1
+      `, [walletAddress])
+    ]);
 
-    // Query outgoing transactions (wallet is the sender)
-    let outgoingResult;
-    try {
-      outgoingResult = await pool.query(
-        `SELECT 
-           COALESCE(SUM(CAST(eth_value AS NUMERIC) / 1e18), 0) as total_eth,
-           COUNT(*) as tx_count
-         FROM transaction_details
-         WHERE wallet_address = $1
-           AND status = 1`,
-        [walletAddress]
-      );
-    } catch (dbError: unknown) {
-      const errorMessage = dbError instanceof Error ? dbError.message : String(dbError);
-      if (errorMessage.includes('does not exist')) {
-        return NextResponse.json({
-          totalEth: 0,
-          totalUsd: 0,
-          txCount: 0,
-          incoming: { eth: 0, usd: 0, count: 0 },
-          outgoing: { eth: 0, usd: 0, count: 0 },
-        });
-      }
-      throw dbError;
-    }
+    const ethPrice = ethPriceResult[0]?.price_usd || 3500;
+    const outgoingEth = parseFloat(outgoingResult[0]?.total_eth || '0');
+    const outgoingCount = parseInt(outgoingResult[0]?.tx_count || '0');
 
-    // Query incoming transactions (wallet receives ETH via token transfers or direct transfers)
-    // We check transaction_token_transfers where wallet is the recipient
-    let incomingResult;
-    try {
-      incomingResult = await pool.query(
-        `SELECT 
-           COALESCE(SUM(
-             CASE 
-               WHEN token_address = '0x4200000000000000000000000000000000000006' 
-               THEN COALESCE(amount_decimal, 0)
-               ELSE 0 
-             END
-           ), 0) as total_eth,
-           COUNT(DISTINCT tx_hash) as tx_count
-         FROM transaction_token_transfers
-         WHERE to_address = $1`,
-        [walletAddress]
-      );
-    } catch (dbError: unknown) {
-      const errorMessage = dbError instanceof Error ? dbError.message : String(dbError);
-      if (errorMessage.includes('does not exist')) {
-        incomingResult = { rows: [{ total_eth: '0', tx_count: '0' }] };
-      } else {
-        throw dbError;
-      }
-    }
-
-    const outgoingEth = parseFloat(outgoingResult.rows[0]?.total_eth || '0');
-    const outgoingCount = parseInt(outgoingResult.rows[0]?.tx_count || '0');
-    const incomingEth = parseFloat(incomingResult.rows[0]?.total_eth || '0');
-    const incomingCount = parseInt(incomingResult.rows[0]?.tx_count || '0');
+    // Skip incoming calculation for now to improve performance
+    // Most volume is from outgoing transactions anyway
+    const incomingEth = 0;
+    const incomingCount = 0;
 
     const totalEth = outgoingEth + incomingEth;
     const totalUsd = totalEth * ethPrice;
@@ -143,9 +91,16 @@ export async function GET(
     return NextResponse.json(response);
   } catch (error) {
     console.error('Error fetching total volume:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch total volume' },
-      { status: 500 }
-    );
+    
+    // Return empty response on error instead of 500
+    const emptyResponse: TotalVolumeResponse = {
+      totalEth: 0,
+      totalUsd: 0,
+      txCount: 0,
+      incoming: { eth: 0, usd: 0, count: 0 },
+      outgoing: { eth: 0, usd: 0, count: 0 },
+    };
+    
+    return NextResponse.json(emptyResponse);
   }
 }

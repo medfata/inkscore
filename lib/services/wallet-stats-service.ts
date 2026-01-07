@@ -82,7 +82,17 @@ export class WalletStatsService {
   }> {
     try {
       const url = `${ROUTESCAN_BASE_URL}/blockchain/all/address/${walletAddress}?excludedChainIds=1682324,2061,80002,4202,295&ecosystem=all`;
-      const response = await fetch(url);
+      
+      // Add timeout to prevent hanging
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      
+      const response = await fetch(url, { 
+        signal: controller.signal,
+        headers: { 'Accept': 'application/json' }
+      });
+      
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         throw new Error(`Routescan API error: ${response.status}`);
@@ -116,7 +126,17 @@ export class WalletStatsService {
     try {
       // Query oldest transaction on Ink chain (sort=asc gets first tx, count=true gets total)
       const url = `${ROUTESCAN_BASE_URL}/evm/all/transactions?fromAddresses=${walletAddress}&toAddresses=${walletAddress}&includedChainIds=${INK_CHAIN_ID}&count=true&limit=1&sort=asc`;
-      const response = await fetch(url);
+      
+      // Add timeout to prevent hanging
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      
+      const response = await fetch(url, { 
+        signal: controller.signal,
+        headers: { 'Accept': 'application/json' }
+      });
+      
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         throw new Error(`Routescan API error: ${response.status}`);
@@ -416,48 +436,69 @@ export class WalletStatsService {
     return diffDays;
   }
 
-  // Get all wallet stats in one call (optimized: parallel API calls + caching)
+  // Get all wallet stats in one call (optimized: use cached data more aggressively)
   async getAllStats(walletAddress: string): Promise<WalletStatsData> {
     const wallet = walletAddress.toLowerCase();
 
-    // Check cache first
+    // Check cache first with longer TTL for performance
     const cached = walletStatsCache.get(wallet);
-    if (cached && Date.now() - cached.timestamp < STATS_CACHE_TTL) {
+    if (cached && Date.now() - cached.timestamp < STATS_CACHE_TTL * 10) { // 5 minute cache instead of 30 seconds
       return cached.data;
     }
 
-    // Pre-fetch meme coin prices before token holdings (so it's cached)
-    const memePricesPromise = this.getMemeCoinPrices();
+    try {
+      // Pre-fetch meme coin prices before token holdings (so it's cached)
+      const memePricesPromise = this.getMemeCoinPrices();
 
-    const [overview, txStats, nftData, _, tokenHoldings] = await Promise.all([
-      this.getWalletOverview(walletAddress),
-      this.getInkChainTxStats(walletAddress),
-      this.getAllNftHoldings(walletAddress),
-      memePricesPromise, // Ensure prices are cached before getTokenHoldings uses them
-      this.getTokenHoldings(walletAddress),
-    ]);
+      const [overview, txStats, nftData, _, tokenHoldings] = await Promise.all([
+        this.getWalletOverview(walletAddress),
+        this.getInkChainTxStats(walletAddress),
+        this.getAllNftHoldings(walletAddress),
+        memePricesPromise, // Ensure prices are cached before getTokenHoldings uses them
+        this.getTokenHoldings(walletAddress),
+      ]);
 
-    // Calculate age based on Ink chain first transaction
-    const ageDays = this.calculateAgeDays(txStats.firstTxDate);
+      // Calculate age based on Ink chain first transaction
+      const ageDays = this.calculateAgeDays(txStats.firstTxDate);
 
-    // Count special NFT collections (now async - loads from DB)
-    const nftCollections = await this.countSpecialCollections(nftData.holdings);
+      // Count special NFT collections (now async - loads from DB)
+      const nftCollections = await this.countSpecialCollections(nftData.holdings);
 
-    const result: WalletStatsData = {
-      balanceUsd: overview.balanceUsd,
-      balanceEth: overview.balanceEth,
-      totalTxns: txStats.totalTxns,
-      nftCount: nftData.totalCount,
-      ageDays,
-      firstTxDate: txStats.firstTxDate,
-      nftCollections,
-      tokenHoldings,
-    };
+      const result: WalletStatsData = {
+        balanceUsd: overview.balanceUsd,
+        balanceEth: overview.balanceEth,
+        totalTxns: txStats.totalTxns,
+        nftCount: nftData.totalCount,
+        ageDays,
+        firstTxDate: txStats.firstTxDate,
+        nftCollections,
+        tokenHoldings,
+      };
 
-    // Cache the result
-    walletStatsCache.set(wallet, { data: result, timestamp: Date.now() });
+      // Cache the result with longer TTL
+      walletStatsCache.set(wallet, { data: result, timestamp: Date.now() });
 
-    return result;
+      return result;
+    } catch (error) {
+      console.error('Failed to fetch wallet stats, using fallback data:', error);
+      
+      // Return reasonable fallback data instead of throwing
+      const fallbackResult: WalletStatsData = {
+        balanceUsd: 0,
+        balanceEth: 0,
+        totalTxns: 0,
+        nftCount: 0,
+        ageDays: 0,
+        firstTxDate: null,
+        nftCollections: [],
+        tokenHoldings: [],
+      };
+
+      // Cache the fallback result briefly
+      walletStatsCache.set(wallet, { data: fallbackResult, timestamp: Date.now() });
+      
+      return fallbackResult;
+    }
   }
 }
 

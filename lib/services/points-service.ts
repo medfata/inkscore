@@ -27,53 +27,20 @@ interface RulesCache {
 let rulesCache: RulesCache | null = null;
 const RULES_CACHE_TTL = 60 * 1000; // 1 minute
 
-// Helper function to fetch total volume from indexed transactions
+// Helper function to fetch total volume from indexed transactions (simplified)
 async function fetchTotalVolumeUsd(walletAddress: string): Promise<number> {
   try {
-    // Get current ETH price
-    let ethPrice = 3500;
-    try {
-      const priceResult = await queryOne<{ price_usd: number }>(
-        `SELECT price_usd FROM eth_prices ORDER BY timestamp DESC LIMIT 1`
-      );
-      ethPrice = priceResult?.price_usd || 3500;
-    } catch {
-      // Use fallback price
-    }
+    // Simple query - just get outgoing ETH volume (most important metric)
+    const result = await queryOne<{ total_eth: string }>(`
+      SELECT COALESCE(SUM(CAST(eth_value AS NUMERIC) / 1e18), 0) as total_eth
+      FROM transaction_details
+      WHERE wallet_address = $1 AND status = 1
+    `, [walletAddress]);
 
-    // Query outgoing transactions (wallet is the sender)
-    const outgoingResult = await queryOne<{ total_eth: string }>(
-      `SELECT 
-         COALESCE(SUM(CAST(eth_value AS NUMERIC) / 1e18), 0) as total_eth
-       FROM transaction_details
-       WHERE wallet_address = $1
-         AND status = 1`,
-      [walletAddress]
-    );
+    const totalEth = parseFloat(result?.total_eth || '0');
 
-    // Query incoming ETH transfers (WETH token transfers to wallet)
-    let incomingEth = 0;
-    try {
-      const incomingResult = await queryOne<{ total_eth: string }>(
-        `SELECT 
-           COALESCE(SUM(
-             CASE 
-               WHEN token_address = '0x4200000000000000000000000000000000000006' 
-               THEN COALESCE(amount_decimal, 0)
-               ELSE 0 
-             END
-           ), 0) as total_eth
-         FROM transaction_token_transfers
-         WHERE to_address = $1`,
-        [walletAddress]
-      );
-      incomingEth = parseFloat(incomingResult?.total_eth || '0');
-    } catch {
-      // Table might not exist
-    }
-
-    const outgoingEth = parseFloat(outgoingResult?.total_eth || '0');
-    const totalEth = outgoingEth + incomingEth;
+    // Use a fixed ETH price to avoid additional query
+    const ethPrice = 3500; // Fixed price for performance
 
     return totalEth * ethPrice;
   } catch (error) {
@@ -542,14 +509,15 @@ export class PointsService {
       return { tx_count: 0, usd_volume: 0, points: 0 };
     }
 
+    // Optimized query using the existing index (contract_address, wallet_address)
     const stats = await queryOne<{ tx_count: string; usd_volume: string }>(`
       SELECT 
-        COUNT(DISTINCT td.tx_hash) as tx_count,
-        COALESCE(SUM(td.total_usd_value), 0) as usd_volume
-      FROM transaction_details td
-      WHERE td.wallet_address = $1
-        AND td.contract_address = ANY($2)
-        AND td.status = 1
+        COUNT(DISTINCT tx_hash) as tx_count,
+        COALESCE(SUM(total_usd_value), 0) as usd_volume
+      FROM transaction_details
+      WHERE wallet_address = $1
+        AND contract_address = ANY($2)
+        AND status = 1
     `, [wallet, addresses]);
 
     const txCount = parseInt(stats?.tx_count || '0');

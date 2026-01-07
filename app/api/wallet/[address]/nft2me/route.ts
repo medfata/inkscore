@@ -31,30 +31,34 @@ export async function GET(
       return NextResponse.json({ error: 'Invalid wallet address format' }, { status: 400 });
     }
 
-    // Single optimized query to get both metrics at once
+    // Optimized query matching the pattern used by fast analytics endpoints
+    // Assumes addresses are stored in lowercase in the database
+    const walletLower = wallet.toLowerCase();
+    const factoryLower = NFT2ME_CONTRACTS.FACTORY.toLowerCase();
+    const minterLower = NFT2ME_CONTRACTS.MINTER.toLowerCase();
+
     const result = await query<{
       collections_created: string;
       nfts_minted: string;
     }>(`
       SELECT 
-        COUNT(*) FILTER (WHERE LOWER(contract_address) = LOWER($1) AND function_name = $2) as collections_created,
-        COUNT(*) FILTER (WHERE LOWER(contract_address) = LOWER($3) AND function_name = $4) as nfts_minted
+        COUNT(*) FILTER (WHERE contract_address = $1 AND function_name = $2) as collections_created,
+        COUNT(*) FILTER (WHERE contract_address = $3 AND function_name = $4) as nfts_minted
       FROM transaction_details
-      WHERE LOWER(wallet_address) = LOWER($5)
+      WHERE wallet_address = $5
         AND status = 1
         AND (
-          (LOWER(contract_address) = LOWER($1) AND function_name = $2) OR
-          (LOWER(contract_address) = LOWER($3) AND function_name = $4)
+          (contract_address = $1 AND function_name = $2) OR
+          (contract_address = $3 AND function_name = $4)
         )
     `, [
-      NFT2ME_CONTRACTS.FACTORY, TRACKED_FUNCTIONS.CREATE_COLLECTION,
-      NFT2ME_CONTRACTS.MINTER, TRACKED_FUNCTIONS.MINT,
-      wallet
+      factoryLower, TRACKED_FUNCTIONS.CREATE_COLLECTION,
+      minterLower, TRACKED_FUNCTIONS.MINT,
+      walletLower
     ]);
 
     const collectionsCreated = parseInt(result[0]?.collections_created || '0', 10);
     const nftsMinted = parseInt(result[0]?.nfts_minted || '0', 10);
-    const totalTransactions = collectionsCreated + nftsMinted;
 
     const response: Nft2MeResponse = {
       collectionsCreated: Number(collectionsCreated),
