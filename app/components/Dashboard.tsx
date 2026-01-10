@@ -17,6 +17,7 @@ import { HoldingsSection } from './HoldingsSection';
 import { WalletScoreResponse } from '../../lib/types/platforms';
 import { DashboardCardData } from '../../lib/types/dashboard';
 import { DynamicCardsCarouselRow3, DynamicCardsCarouselRow4 } from './DynamicDashboardCards';
+import { MintScoreNFT } from './MintScoreNFT';
 
 // Bridge platform logos
 const BRIDGE_PLATFORM_LOGOS: Record<string, string> = {
@@ -1420,6 +1421,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                     ? 'Points based on your on-chain activity.'
                     : 'Top 5% of active InkChain addresses.'}
                 </p>
+                {/* Mint Score NFT Button */}
+                {!isDemo && walletScore && (
+                  <div className="relative z-10 max-w-xs">
+                    <MintScoreNFT
+                      walletAddress={walletAddress}
+                      currentScore={walletScore.total_points}
+                      currentRank={walletScore.rank?.name || 'Unranked'}
+                      rankColor={walletScore.rank?.color || '#6366f1'}
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="h-[200px] w-full md:w-[240px] flex-shrink-0">

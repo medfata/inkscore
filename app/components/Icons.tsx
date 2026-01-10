@@ -30,7 +30,9 @@ import {
   RefreshCw,
   Send,
   Loader2,
-  Plus
+  Plus,
+  CheckCircle,
+  AlertCircle
 } from 'lucide-react';
 
 export {
@@ -63,5 +65,7 @@ export {
   RefreshCw,
   Send,
   Loader2,
-  Plus
+  Plus,
+  CheckCircle,
+  AlertCircle
 };
