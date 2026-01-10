@@ -78,6 +78,14 @@ export async function GET(
     const score = scoreData.total_points;
     const rank = scoreData.rank?.name || 'Unranked';
     const rankColor = scoreData.rank?.color || '#6366f1';
+    
+    // Calculate top percentage (simplified - you can enhance this with actual leaderboard data)
+    let topPercentage = 50;
+    if (score >= 5000) topPercentage = 1;
+    else if (score >= 2000) topPercentage = 5;
+    else if (score >= 1000) topPercentage = 10;
+    else if (score >= 500) topPercentage = 20;
+    else if (score >= 100) topPercentage = 30;
 
     // Generate SVG image
     const svgImage = generateScoreNFTSvg({
@@ -85,6 +93,7 @@ export async function GET(
       rank,
       rankColor,
       walletAddress,
+      topPercentage,
     });
 
     // Convert SVG to base64 data URI
