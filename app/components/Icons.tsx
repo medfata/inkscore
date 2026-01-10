@@ -27,7 +27,10 @@ import {
   ArrowLeftRight,
   Trophy,
   Star,
-  RefreshCw
+  RefreshCw,
+  Send,
+  Loader2,
+  Plus
 } from 'lucide-react';
 
 export {
@@ -57,5 +60,8 @@ export {
   ArrowLeftRight,
   Trophy,
   Star,
-  RefreshCw
+  RefreshCw,
+  Send,
+  Loader2,
+  Plus
 };

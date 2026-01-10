@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { ShieldCheck, Zap, Activity, Layers, Lock, BarChart3, ChevronRight, Award } from './Icons';
+import { Zap, Activity, Layers, Lock, BarChart3, ChevronRight, Award } from './Icons';
 import { Logo } from './Logo';
 
 interface LandingProps {

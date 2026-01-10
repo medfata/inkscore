@@ -5,8 +5,9 @@ import { useAccount, useDisconnect } from 'wagmi';
 import { useAppKit } from '@reown/appkit/react';
 import { Landing } from './components/Landing';
 import { Dashboard } from './components/Dashboard';
-import { Menu, X, ExternalLink } from './components/Icons';
+import { Menu, X, ExternalLink, Plus } from './components/Icons';
 import { Logo } from './components/Logo';
+import { PlatformRequestModal } from './components/PlatformRequestModal';
 
 enum View {
   LANDING,
@@ -17,6 +18,7 @@ export default function Home() {
   const [currentView, setCurrentView] = useState<View>(View.LANDING);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isDemo, setIsDemo] = useState(false);
+  const [isPlatformRequestModalOpen, setIsPlatformRequestModalOpen] = useState(false);
 
   const { address, isConnected, isConnecting } = useAccount();
   const { disconnect } = useDisconnect();
@@ -82,6 +84,14 @@ export default function Home() {
               Admin
               <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-ink-purple group-hover:w-full transition-all duration-300"></span>
             </a>
+            <button
+              onClick={() => setIsPlatformRequestModalOpen(true)}
+              className="text-sm font-medium text-ink-accent hover:text-white transition-colors relative group flex items-center gap-1"
+            >
+              <Plus size={14} />
+              Platform Request
+              <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-ink-purple group-hover:w-full transition-all duration-300"></span>
+            </button>
 
             {(isConnected || isDemo) ? (
               <div className="flex items-center gap-4 animate-fade-in-up">
@@ -125,6 +135,15 @@ export default function Home() {
             <a href="#" className="block text-slate-300">How it Works</a>
             <a href="#" className="block text-slate-300">Leaderboard</a>
             <a href="/admin" className="block text-slate-300">Admin</a>
+            <button 
+              onClick={() => {
+                setIsPlatformRequestModalOpen(true);
+                setIsMobileMenuOpen(false);
+              }} 
+              className="block text-ink-accent"
+            >
+              Platform Request
+            </button>
             {(isConnected || isDemo) ? (
               <button onClick={handleDisconnect} className="block w-full text-left text-red-400">Disconnect</button>
             ) : (
@@ -162,6 +181,11 @@ export default function Home() {
           </div>
         </div>
       </footer>
+
+      <PlatformRequestModal 
+        isOpen={isPlatformRequestModalOpen} 
+        onClose={() => setIsPlatformRequestModalOpen(false)} 
+      />
     </div>
   );
 }
