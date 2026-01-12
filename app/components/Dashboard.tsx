@@ -56,20 +56,20 @@ const DEX_NAME_OVERRIDES: Record<string, string> = {
 
 // NFT Marketplace platform logos and info (keyed by lowercase contract address)
 const NFT_PLATFORMS: Record<string, { name: string; logo: string; url: string }> = {
-  '0xd00c96804e9ff35f10c7d2a92239c351ff3f94e5': {
-    name: 'Net Protocol',
-    logo: 'https://www.netprotocol.app/favicon.ico',
-    url: 'https://www.netprotocol.app/',
+  '0x9ebf93fdba9f32accab3d6716322dccd617a78f3': {
+    name: 'Squid Market',
+    logo: 'https://www.squidmarket.xyz/favicon.ico',
+    url: 'https://www.squidmarket.xyz/',
   },
   '0xbd6a027b85fd5285b1623563bbef6fadbe396afb': {
     name: 'Mintiq',
     logo: 'https://i.ibb.co/bMN9ppS7/mmm.png',
     url: 'https://mintiq.market/',
   },
-  '0x9ebf93fdba9f32accab3d6716322dccd617a78f3': {
-    name: 'Squid Market',
-    logo: 'https://www.squidmarket.xyz/favicon.ico',
-    url: 'https://www.squidmarket.xyz/',
+  '0xd00c96804e9ff35f10c7d2a92239c351ff3f94e5': {
+    name: 'Net Protocol',
+    logo: 'https://www.netprotocol.app/favicon.ico',
+    url: 'https://www.netprotocol.app/',
   },
 };
 

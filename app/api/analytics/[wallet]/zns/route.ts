@@ -3,10 +3,10 @@ import { query } from '@/lib/db';
 
 // ZNS tracking config
 const ZNS_CONFIG = {
-  deploy: { contract: '0x63c489d31a2c3de0638360931f47ff066282473f', functions: ['Deploy'] },
+  deploy: { contract: '0x63c489d31a2c3de0638360931f47ff066282473f', functions: ['Deploy', 'deploy'] },
   sayGm: { contract: '0x3033d7ded400547d6442c55159da5c61f2721633', functions: ['SayGM', 'sayGM'] },
-  register: { contract: '0xfb2cd41a8aec89efbb19575c6c48d872ce97a0a5', functions: ['RegisterDomains'] },
-  renew: { contract: '0xfb2cd41a8aec89efbb19575c6c48d872ce97a0a5', functions: ['RenewDomain'] },
+  register: { contract: '0xfb2cd41a8aec89efbb19575c6c48d872ce97a0a5', functions: ['RegisterDomains', 'registerDomains'] },
+  renew: { contract: '0xfb2cd41a8aec89efbb19575c6c48d872ce97a0a5', functions: ['RenewDomain', 'renewDomain'] },
 };
 
 // GET /api/analytics/[wallet]/zns - Get ZNS metrics for a wallet

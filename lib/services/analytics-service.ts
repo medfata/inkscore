@@ -185,7 +185,7 @@ export class AnalyticsService {
   }
 
   // Fetch USD value from DeFi transactions (borrow, supply, etc.)
-  // Uses indexed input_data from database instead of RPC calls
+  // Uses indexed input from transaction_enrichment table
   private async getDefiUsdValues(
     walletAddress: string,
     contractAddresses: string[],
@@ -203,23 +203,24 @@ export class AnalyticsService {
     try {
       const abi = parseAbi([defiConfig?.abi || ethParamConfig?.abi || '']);
 
-      // Fetch input_data directly from indexed database instead of RPC
-      const txRows = await query<{ tx_hash: string; input_data: string }>(`
-        SELECT tx_hash, input_data 
-        FROM transaction_details
-        WHERE wallet_address = $1
-          AND contract_address = ANY($2)
-          AND function_name = $3
-          AND status = 1
-          AND input_data IS NOT NULL
+      // Fetch input from transaction_enrichment table (joined with transaction_details for function_name)
+      const txRows = await query<{ tx_hash: string; input: string }>(`
+        SELECT te.tx_hash, te.input 
+        FROM transaction_enrichment te
+        JOIN transaction_details td ON te.tx_hash = td.tx_hash
+        WHERE td.wallet_address = $1
+          AND td.contract_address = ANY($2)
+          AND td.function_name = $3
+          AND td.status = 1
+          AND te.input IS NOT NULL
       `, [walletAddress, contractAddresses, functionName]);
 
       for (const row of txRows) {
         try {
-          if (row.input_data && row.input_data.length > 10) {
+          if (row.input && row.input.length > 10) {
             const decoded = decodeFunctionData({
               abi,
-              data: row.input_data as `0x${string}`,
+              data: row.input as `0x${string}`,
             });
 
             if (defiConfig) {

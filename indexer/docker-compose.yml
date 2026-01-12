@@ -1,9 +1,9 @@
 # Ink Chain Indexer Services
-# 
+#
 # Three separate services:
 # - indexer-backfill: Historical data backfill (CSV export based)
 # - indexer-realtime: Real-time transaction polling with adaptive intervals
-# - indexer-enrichment: Multi-node volume contract enrichment with dedicated backlog workers
+# - indexer-enrichment: Volume contract enrichment with built-in backlog handling
 #
 # To start all:   docker-compose up -d
 # To start one:   docker-compose up -d indexer-realtime
@@ -61,9 +61,8 @@ services:
       DATABASE_URL: postgres://ink:${DB_PASSWORD}@postgres:5432/ink_analytics
     command: npm run start:realtime
 
-  # Multi-Node Enrichment Service - Volume contract transaction enrichment
-  # Spawns dedicated workers for contracts with 100+ pending transactions
-  # Handles quick wins (<100 pending) in main process for better performance
+  # Enrichment Service - Volume contract transaction enrichment
+  # Single-process service with built-in backlog handling
   indexer-enrichment:
     build: .
     restart: always
@@ -72,7 +71,7 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgres://ink:${DB_PASSWORD}@postgres:5432/ink_analytics
-    command: npm run start:multi-enrichment
+    command: npm run start:enrichment
 
 volumes:
   postgres_data:

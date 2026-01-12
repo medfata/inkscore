@@ -7,10 +7,10 @@ const NFT2ME_CONTRACTS = {
   MINTER: '0x00000000009a1e02f00e280dcfa4c81c55724212', // Minter contract for NFTs
 };
 
-// Function names to track
+// Function names to track (lowercase to match database storage)
 const TRACKED_FUNCTIONS = {
-  CREATE_COLLECTION: 'CreateCollectionN2M_000oEFvt',
-  MINT: 'Mint',
+  CREATE_COLLECTION: 'createCollectionN2M_000oEFvt',
+  MINT: 'mint',
 };
 
 interface Nft2MeResponse {

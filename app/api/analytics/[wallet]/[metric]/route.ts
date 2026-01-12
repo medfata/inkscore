@@ -9,9 +9,8 @@ const GM_CONTRACT_ADDRESS = '0x9f500d075118272b3564ac6ef2c70a9067fd2d3f';
 const INKYPUMP_CONTRACT_ADDRESS = '0x1d74317d760f2c72a94386f50e8d10f2c902b899';
 const INKYPUMP_CREATE_TOKEN_FUNCTION = '0xa07849e6';
 
-// InkySwap router contract and methods for InkyPump trading
+// InkySwap router contract for InkyPump trading
 const INKYSWAP_ROUTER_ADDRESS = '0xa8c1c38ff57428e5c3a34e0899be5cb385476507';
-const SWAP_EXACT_TOKENS_FOR_ETH = '0x18cbafe5'; // Sell tokens
 
 // Shellies contract addresses and methods
 const SHELLIES_RAFFLE_CONTRACTS = [
@@ -85,24 +84,40 @@ export async function GET(
     }
 
     // Special handling for inkypump_buy_volume - USD volume of buy transactions
+    // Buy = swapExactETHForTokens (user sends ETH, receives tokens)
     if (metric === 'inkypump_buy_volume') {
+      // Buy method IDs: swapExactETHForTokens, swapETHForExactTokens
+      const buyMethodIds = ['0x7ff36ab5', '0xfb3bdb41'];
+      
       const rows = await query<{
-        total_volume: string;
-        count: string;
+        tx_hash: string;
+        value: string;
+        eth_price_usd: string;
+        operations: string;
       }>(`
         SELECT 
-          COALESCE(SUM(value_in_eth * historical_eth_price), 0) as total_volume,
-          COUNT(*) as count
-        FROM transaction_details
+          tx_hash,
+          value,
+          COALESCE(eth_price_usd, 3500) as eth_price_usd,
+          operations
+        FROM transaction_enrichment
         WHERE contract_address = lower($1) 
           AND wallet_address = lower($2)
-          AND function_name IN ('SwapExactETHForTokens', 'SwapETHForExactTokens')
-          AND value_in_eth > 0
-          AND historical_eth_price > 0
-      `, [INKYSWAP_ROUTER_ADDRESS, wallet]);
+          AND method_id = ANY($3)
+      `, [INKYSWAP_ROUTER_ADDRESS, wallet, buyMethodIds]);
 
-      const totalVolume = parseFloat(rows[0]?.total_volume || '0');
-      const count = parseInt(rows[0]?.count || '0', 10);
+      let totalVolume = 0;
+      const count = rows.length;
+
+      for (const row of rows) {
+        const ethPrice = parseFloat(row.eth_price_usd || '3500');
+        
+        // For buy transactions, the ETH value is in the transaction value field
+        if (row.value && row.value !== '0') {
+          const ethValue = Number(BigInt(row.value)) / 1e18;
+          totalVolume += ethValue * ethPrice;
+        }
+      }
 
       return NextResponse.json({
         slug: 'inkypump_buy_volume',
@@ -117,22 +132,70 @@ export async function GET(
     }
 
     // Special handling for inkypump_sell_volume - USD volume of sell transactions
+    // Sell = swapExactTokensForETH (user sends tokens, receives ETH via internal tx)
     if (metric === 'inkypump_sell_volume') {
+      // Sell method IDs: swapExactTokensForETH, swapTokensForExactETH, swapExactTokensForETHSupportingFeeOnTransferTokens
+      const sellMethodIds = ['0x18cbafe5', '0x4a25d94a', '0x791ac947'];
+      
       const rows = await query<{
-        count: string;
+        tx_hash: string;
+        eth_price_usd: string;
+        operations: string;
+        internal_eth_out: string;
       }>(`
         SELECT 
-          COUNT(*) as count
-        FROM transaction_details
+          tx_hash,
+          COALESCE(eth_price_usd, 3500) as eth_price_usd,
+          operations,
+          COALESCE(internal_eth_out, 0) as internal_eth_out
+        FROM transaction_enrichment
         WHERE contract_address = lower($1) 
           AND wallet_address = lower($2)
-          AND function_name IN ('SwapExactTokensForETH', 'SwapTokensForExactETH', 'SwapExactTokensForETHSupportingFeeOnTransferTokens')
-      `, [INKYSWAP_ROUTER_ADDRESS, wallet]);
+          AND method_id = ANY($3)
+      `, [INKYSWAP_ROUTER_ADDRESS, wallet, sellMethodIds]);
 
-      const count = parseInt(rows[0]?.count || '0', 10);
-      // For now, we can't calculate USD volume for sell transactions without ETH amounts
-      // This would require parsing transaction logs or having value_out_eth populated
-      const totalVolume = 0;
+      let totalVolume = 0;
+      const count = rows.length;
+
+      for (const row of rows) {
+        const ethPrice = parseFloat(row.eth_price_usd || '3500');
+        
+        // First try the internal_eth_out column if populated
+        if (row.internal_eth_out && parseFloat(row.internal_eth_out) > 0) {
+          totalVolume += parseFloat(row.internal_eth_out) * ethPrice;
+          continue;
+        }
+        
+        // Otherwise parse operations to find ETH sent to the wallet
+        if (row.operations) {
+          try {
+            const operations = typeof row.operations === 'string' 
+              ? JSON.parse(row.operations) 
+              : row.operations;
+            
+            if (Array.isArray(operations)) {
+              // Find internal transactions where ETH is sent TO the wallet (user receives ETH)
+              for (const op of operations) {
+                const toAddress = (op.to?.id || '').toLowerCase();
+                const fromAddress = (op.from?.id || '').toLowerCase();
+                const value = op.value;
+                
+                // Look for ETH transfer to the wallet address (not from the wallet)
+                if (toAddress === wallet.toLowerCase() && 
+                    fromAddress !== wallet.toLowerCase() &&
+                    value && value !== '0') {
+                  const ethValue = Number(BigInt(value)) / 1e18;
+                  totalVolume += ethValue * ethPrice;
+                  break; // Take the first ETH transfer to wallet (the swap output)
+                }
+              }
+            }
+          } catch (e) {
+            // Skip if parsing fails
+            console.error('Failed to parse operations for tx:', row.tx_hash, e);
+          }
+        }
+      }
 
       return NextResponse.json({
         slug: 'inkypump_sell_volume',
@@ -206,7 +269,7 @@ export async function GET(
         FROM transaction_details 
         WHERE contract_address = ANY($1) 
           AND wallet_address = lower($2)
-          AND function_name = 'JoinRaffle'
+          AND function_name IN ('JoinRaffle', 'joinRaffle')
           AND status = 1
       `, [SHELLIES_RAFFLE_CONTRACTS, wallet]);
 
@@ -256,7 +319,7 @@ export async function GET(
         FROM transaction_details 
         WHERE contract_address = lower($1) 
           AND wallet_address = lower($2)
-          AND function_name = 'StakeBatch'
+          AND function_name IN ('StakeBatch', 'stakeBatch', '0x1e332260')
           AND status = 1
       `, [SHELLIES_STAKING_CONTRACT, wallet]);
 
