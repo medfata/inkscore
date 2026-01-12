@@ -26,6 +26,7 @@ interface HoldingsSectionProps {
   tokenHoldings: TokenHolding[];
   nftCollections: NftCollectionHolding[];
   nativeEthUsd: number;
+  nativeEthBalance: number;
 }
 
 // Token type badge styles
@@ -55,10 +56,19 @@ export const HoldingsSection: React.FC<HoldingsSectionProps> = ({
   tokenHoldings,
   nftCollections,
   nativeEthUsd,
+  nativeEthBalance,
 }) => {
-  // Separate meme coins from regular tokens
-  const memeCoins = tokenHoldings.filter(token => token.tokenType === 'meme');
-  const regularTokens = tokenHoldings.filter(token => token.tokenType !== 'meme');
+  // Filter out USDGLO token and separate meme coins from regular tokens
+  const filteredTokens = tokenHoldings.filter(token => token.symbol !== 'USDGLO');
+  const memeCoins = filteredTokens.filter(token => token.tokenType === 'meme');
+  const regularTokens = filteredTokens.filter(token => token.tokenType !== 'meme');
+
+  // Sort NFT collections to put Rekt Ink first
+  const sortedNftCollections = [...nftCollections].sort((a, b) => {
+    if (a.name === 'Rekt Ink') return -1;
+    if (b.name === 'Rekt Ink') return 1;
+    return 0;
+  });
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in-up" style={{ animationDelay: '0.3s' }}>
@@ -88,7 +98,10 @@ export const HoldingsSection: React.FC<HoldingsSectionProps> = ({
         </div>
         <div className="space-y-3 max-h-[280px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
           {regularTokens.map((token) => {
-            const displayUsdValue = token.symbol === 'ETH' ? nativeEthUsd : token.usdValue;
+            // For ETH token, use native balance and USD value
+            const isEthToken = token.symbol === 'ETH';
+            const displayUsdValue = isEthToken ? nativeEthUsd : token.usdValue;
+            const displayBalance = isEthToken ? nativeEthBalance : token.balance;
             return (
               <div
                 key={token.address}
@@ -116,7 +129,7 @@ export const HoldingsSection: React.FC<HoldingsSectionProps> = ({
                     ${displayUsdValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </div>
                   <div className="text-xs text-slate-500">
-                    {token.balance.toLocaleString(undefined, { maximumFractionDigits: 4 })} {token.symbol}
+                    {displayBalance.toLocaleString(undefined, { maximumFractionDigits: 4 })} {token.symbol}
                   </div>
                 </div>
               </div>
@@ -202,7 +215,7 @@ export const HoldingsSection: React.FC<HoldingsSectionProps> = ({
         <div className="flex items-center justify-between mb-5">
           <h3 className="text-lg font-semibold text-white flex items-center gap-2">
             <div className="flex items-center -space-x-3">
-              {nftCollections.slice(0, 3).map((collection, i) => (
+              {sortedNftCollections.slice(0, 3).map((collection, i) => (
                 <img
                   key={i}
                   src={collection.logo}
@@ -218,11 +231,11 @@ export const HoldingsSection: React.FC<HoldingsSectionProps> = ({
             NFT Collections
           </h3>
           <span className="text-xs text-slate-500 bg-slate-800 px-2 py-1 rounded">
-            {nftCollections.filter(c => c.count > 0).length} held
+            {sortedNftCollections.filter(c => c.count > 0).length} held
           </span>
         </div>
         <div className="space-y-3 max-h-[280px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
-          {nftCollections.map((collection) => (
+          {sortedNftCollections.map((collection) => (
             <div
               key={collection.address}
               className="flex items-center justify-between p-3 rounded-lg bg-slate-800/30 hover:bg-slate-800/50 transition-colors"

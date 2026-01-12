@@ -4,6 +4,12 @@ import { TrackedAsset } from '../types/assets';
 const INK_CHAIN_ID = '57073';
 const ROUTESCAN_BASE_URL = 'https://cdn-canary.routescan.io/api';
 const DEXSCREENER_API = 'https://api.dexscreener.com/latest/dex/tokens';
+const COINGECKO_API = 'https://api.coingecko.com/api/v3';
+
+// Known BTC-pegged token addresses (lowercase)
+const BTC_PEGGED_TOKENS = new Set([
+  '0x73e0c0d45e048d25fc26fa3159b0aa04bfa4db98', // kBTC
+]);
 
 // Legacy exports for backward compatibility (will be loaded from DB)
 export let SPECIAL_NFT_COLLECTIONS: Array<{
@@ -49,6 +55,14 @@ interface PriceCache {
 
 let memeCoinPriceCache: PriceCache | null = null;
 const PRICE_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+// Cache for BTC price (5 minute TTL)
+interface BtcPriceCache {
+  price: number;
+  timestamp: number;
+}
+
+let btcPriceCache: BtcPriceCache | null = null;
 
 export interface WalletStatsData {
   balanceUsd: number;
@@ -235,6 +249,34 @@ export class WalletStatsService {
     });
   }
 
+  // Fetch BTC price from CoinGecko (with caching)
+  async getBtcPrice(): Promise<number> {
+    // Check cache first
+    if (btcPriceCache && Date.now() - btcPriceCache.timestamp < PRICE_CACHE_TTL) {
+      return btcPriceCache.price;
+    }
+
+    try {
+      const response = await fetch(`${COINGECKO_API}/simple/price?ids=bitcoin&vs_currencies=usd`);
+      
+      if (!response.ok) {
+        console.error(`CoinGecko API error: ${response.status}`);
+        return btcPriceCache?.price || 100000; // Fallback to cached or default
+      }
+
+      const data = await response.json();
+      const price = data.bitcoin?.usd || 100000;
+
+      // Update cache
+      btcPriceCache = { price, timestamp: Date.now() };
+
+      return price;
+    } catch (error) {
+      console.error('Failed to fetch BTC price:', error);
+      return btcPriceCache?.price || 100000; // Fallback
+    }
+  }
+
   // Fetch token prices from DexScreener for tokens without Routescan prices
   async getTokenPrices(tokenAddresses: string[]): Promise<Map<string, number>> {
     // Check cache first
@@ -368,13 +410,26 @@ export class WalletStatsService {
         const tokenData = tokenDataMap.get(token.address.toLowerCase());
         const hasBalance = tokenData && parseFloat(tokenData.balance) > 0;
         const hasNoUsdValue = !tokenData?.usdValue || tokenData.usdValue === 0;
-        return hasBalance && hasNoUsdValue;
+        // Exclude BTC-pegged tokens from DexScreener lookup (we'll use CoinGecko)
+        const isBtcPegged = BTC_PEGGED_TOKENS.has(token.address.toLowerCase());
+        return hasBalance && hasNoUsdValue && !isBtcPegged;
       });
 
       // Fetch prices from DexScreener for tokens without USD values
       const dexPrices = tokensNeedingPrices.length > 0
         ? await this.getTokenPrices(tokensNeedingPrices.map((t) => t.address))
         : new Map<string, number>();
+
+      // Check if any BTC-pegged tokens need pricing
+      const hasBtcPeggedTokens = allTokens.some((token) => {
+        const tokenData = tokenDataMap.get(token.address.toLowerCase());
+        const hasBalance = tokenData && parseFloat(tokenData.balance) > 0;
+        const hasNoUsdValue = !tokenData?.usdValue || tokenData.usdValue === 0;
+        return hasBalance && hasNoUsdValue && BTC_PEGGED_TOKENS.has(token.address.toLowerCase());
+      });
+
+      // Fetch BTC price if needed
+      const btcPrice = hasBtcPeggedTokens ? await this.getBtcPrice() : 0;
 
       // Map tokens to their holdings
       return allTokens.map((token) => {
@@ -383,14 +438,21 @@ export class WalletStatsService {
         const decimals = tokenData?.decimals || token.decimals;
         const balance = parseFloat(rawBalance) / Math.pow(10, decimals);
 
-        // Use Routescan USD value if available, otherwise calculate from DexScreener price
+        // Use Routescan USD value if available, otherwise calculate from price sources
         let usdValue = tokenData?.usdValue || 0;
 
         if (usdValue === 0 && balance > 0) {
-          // Try to get price from DexScreener
-          const dexPrice = dexPrices.get(token.address.toLowerCase());
-          if (dexPrice) {
-            usdValue = balance * dexPrice;
+          const tokenAddressLower = token.address.toLowerCase();
+          
+          // Check if BTC-pegged token
+          if (BTC_PEGGED_TOKENS.has(tokenAddressLower)) {
+            usdValue = balance * btcPrice;
+          } else {
+            // Try to get price from DexScreener
+            const dexPrice = dexPrices.get(tokenAddressLower);
+            if (dexPrice) {
+              usdValue = balance * dexPrice;
+            }
           }
         }
 

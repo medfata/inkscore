@@ -145,7 +145,6 @@ interface ZnsMetricsResponse {
   deploy_count: number;
   say_gm_count: number;
   register_domain_count: number;
-  renew_domain_count: number;
 }
 
 // NFT2Me metrics response type
@@ -313,6 +312,7 @@ interface RealTokenHolding {
 
 interface RealWalletStats {
   balanceUsd: number;
+  balanceEth: number;
   totalTxns: number;
   nftCount: number;
   ageDays: number;
@@ -429,6 +429,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
             if (stats) {
               setRealWalletStats({
                 balanceUsd: Number(stats.balanceUsd) || 0,
+                balanceEth: Number(stats.balanceEth) || 0,
                 totalTxns: Number(stats.totalTxns) || 0,
                 nftCount: Number(stats.nftCount) || 0,
                 ageDays: Number(stats.ageDays) || 0,
@@ -616,7 +617,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                 deploy_count: data.deploy_count || 0,
                 say_gm_count: data.say_gm_count || 0,
                 register_domain_count: data.register_domain_count || 0,
-                renew_domain_count: data.renew_domain_count || 0,
               });
             }
           })
@@ -729,6 +729,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
           const stats = await res.json();
           setRealWalletStats({
             balanceUsd: Number(stats.balanceUsd) || 0,
+            balanceEth: Number(stats.balanceEth) || 0,
             totalTxns: Number(stats.totalTxns) || 0,
             nftCount: Number(stats.nftCount) || 0,
             ageDays: Number(stats.ageDays) || 0,
@@ -1009,7 +1010,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
             deploy_count: data.deploy_count || 0,
             say_gm_count: data.say_gm_count || 0,
             register_domain_count: data.register_domain_count || 0,
-            renew_domain_count: data.renew_domain_count || 0,
           });
         }
       } catch (err) {
@@ -2025,12 +2025,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                         {!isDemo && znsMetrics ? znsMetrics.register_domain_count : 0}
                       </span>
                     </div>
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-slate-400">Renew Domain</span>
-                      <span className="font-mono text-white">
-                        {!isDemo && znsMetrics ? znsMetrics.renew_domain_count : 0}
-                      </span>
-                    </div>
                   </div>
                 </div>
 
@@ -2422,6 +2416,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
             tokenHoldings={realWalletStats.tokenHoldings}
             nftCollections={realWalletStats.nftCollections}
             nativeEthUsd={realWalletStats.balanceUsd}
+            nativeEthBalance={realWalletStats.balanceEth}
           />
         )}
       </div>

@@ -12,7 +12,7 @@ import { VolumeEnrichmentService } from '../VolumeEnrichmentService.js';
  * 3. Verifies last_enriched_tx_hash is updated
  */
 
-const TEST_CONTRACT_ADDRESS = '0xd7e72f3615aa65b92a4dbdc211e296a35512988b';
+const TEST_CONTRACT_ADDRESS = '0xf70da97812cb96acdf810712aa562db8dfa3dbef';
 
 describe('VolumeEnrichmentService', () => {
   let service: VolumeEnrichmentService;
