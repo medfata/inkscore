@@ -19,39 +19,66 @@ import { DashboardCardData } from '../../lib/types/dashboard';
 import { DynamicCardsCarouselRow3, DynamicCardsCarouselRow4 } from './DynamicDashboardCards';
 import { MintScoreNFT } from './MintScoreNFT';
 
-// Bridge platform logos
-const BRIDGE_PLATFORM_LOGOS: Record<string, string> = {
-  'Native Bridge (USDT0)': 'https://pbs.twimg.com/profile_images/1879546764971188224/SQISVYwX_400x400.jpg',
-  'Ink Official': 'https://inkonchain.com/favicon.ico',
-  'Relay': 'https://relay.link/favicon.ico',
-  'Bungee': 'https://www.bungee.exchange/favicon.ico',
+// Bridge platform logos and URLs
+const BRIDGE_PLATFORMS: Record<string, { logo: string; url: string }> = {
+  'Native Bridge (USDT0)': {
+    logo: 'https://pbs.twimg.com/profile_images/1879546764971188224/SQISVYwX_400x400.jpg',
+    url: 'https://usdt0.to',
+  },
+  'Ink Official': {
+    logo: 'https://inkonchain.com/favicon.ico',
+    url: 'https://inkonchain.com/bridge',
+  },
+  'Relay': {
+    logo: 'https://relay.link/favicon.ico',
+    url: 'https://relay.link',
+  },
+  'Bungee': {
+    logo: 'https://www.bungee.exchange/favicon.ico',
+    url: 'https://www.bungee.exchange',
+  },
 };
 
 // DEX platform logos and info (keyed by lowercase contract address)
-const DEX_PLATFORMS: Record<string, { name: string; logo: string }> = {
+const DEX_PLATFORMS: Record<string, { name: string; logo: string; url: string }> = {
   '0x9b17690de96fcfa80a3acaefe11d936629cd7a77': {
     name: 'DyorSwap',
     logo: 'https://dyorswap.finance/favicon.ico',
+    url: 'https://dyorswap.finance',
   },
   '0x551134e92e537ceaa217c2ef63210af3ce96a065': {
     name: 'InkySwap',
     logo: 'https://inkyswap.com/logo-mobile.svg',
+    url: 'https://inkyswap.com',
   },
   '0x01d40099fcd87c018969b0e8d4ab1633fb34763c': {
     name: 'Velodrome',
     logo: 'https://velodrome.finance/images/VELO/favicon.ico',
+    url: 'https://velodrome.finance',
   },
   '0xd7e72f3615aa65b92a4dbdc211e296a35512988b': {
     name: 'Curve',
     logo: 'https://cdn.jsdelivr.net/gh/curvefi/curve-assets/branding/logo.png',
+    url: 'https://curve.fi',
   },
 };
 
-// Fallback name mapping for platform names from the API
+// DEX name overrides and platform URLs
 const DEX_NAME_OVERRIDES: Record<string, string> = {
   'Unknown DEX': 'Curve',
   'Velodrome UniversalRouter': 'Velodrome',
   'DyorRouterV2': 'DyorSwap',
+};
+
+// Platform URLs for single-logo cards
+const PLATFORM_URLS: Record<string, string> = {
+  'tydro': 'https://app.tydro.com',
+  'gm': 'https://gm.inkonchain.com',
+  'inkypump': 'https://www.inkypump.com',
+  'zns': 'https://zns.bio',
+  'marvk': 'https://marvk.io',
+  'nft2me': 'https://nft2me.com',
+  'shellies': 'https://shellies.xyz',
 };
 
 // NFT Marketplace platform logos and info (keyed by lowercase contract address)
@@ -1479,7 +1506,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
           >
             <div className="flex items-center justify-between mb-3 relative z-10">
               <h3 className="text-xl font-bold text-white flex items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-slate-800 flex items-center justify-center p-1.5">
+                <a
+                  href={PLATFORM_URLS.tydro}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-9 h-9 rounded-full bg-slate-800 flex items-center justify-center p-1.5 hover:ring-2 hover:ring-emerald-500/50 transition-all cursor-pointer"
+                  title="Visit Tydro"
+                >
                   <img
                     src="https://app.tydro.com/tydro-logo.svg"
                     alt="Tydro"
@@ -1488,12 +1521,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                       (e.target as HTMLImageElement).style.display = 'none';
                     }}
                   />
-                </div>
+                </a>
                 <span className="text-white font-display">Tydro DeFi</span>
               </h3>
-              <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/25 text-emerald-400">
-                PARTNER
-              </span>
+
             </div>
 
             {!isDemo && !realTydroData && !tydroCurrentSupply ? (
@@ -1650,14 +1681,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
           <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-yellow-500/20 bg-yellow-500/5 h-[300px] flex flex-col" style={{ animationDelay: '0.6s' }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                <img
-                  src="https://gm.inkonchain.com/favicon.ico"
-                  alt="GM"
-                  className="w-6 h-6 rounded"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).style.display = 'none';
-                  }}
-                />
+                <a
+                  href={PLATFORM_URLS.gm}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:ring-2 hover:ring-yellow-500/50 rounded transition-all cursor-pointer"
+                  title="Visit GM"
+                >
+                  <img
+                    src="https://gm.inkonchain.com/favicon.ico"
+                    alt="GM"
+                    className="w-6 h-6 rounded"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none';
+                    }}
+                  />
+                </a>
                 GM Activity
               </h3>
             </div>
@@ -1690,17 +1729,25 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                 <div className="flex items-center -space-x-3">
-                  {Object.entries(BRIDGE_PLATFORM_LOGOS).slice(0, 3).map(([name, logo], i) => (
-                    <img
+                  {Object.entries(BRIDGE_PLATFORMS).slice(0, 3).map(([name, platform], i) => (
+                    <a
                       key={i}
-                      src={logo}
-                      alt={name}
-                      className="w-6 h-6 rounded-full object-cover  bg-slate-800"
+                      href={platform.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="hover:z-10 hover:ring-2 hover:ring-purple-500/50 rounded-full transition-all cursor-pointer"
                       style={{ zIndex: 3 - i }}
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${name.charAt(0)}&background=334155&color=94a3b8&size=24`;
-                      }}
-                    />
+                      title={`Visit ${name}`}
+                    >
+                      <img
+                        src={platform.logo}
+                        alt={name}
+                        className="w-6 h-6 rounded-full object-cover bg-slate-800"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${name.charAt(0)}&background=334155&color=94a3b8&size=24`;
+                        }}
+                      />
+                    </a>
                   ))}
                 </div>
                 Bridge Volume
@@ -1710,14 +1757,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
             {!isDemo && bridgeVolume ? (
               (() => {
                 // Calculate total from only displayed platforms
-                const displayedPlatforms = Object.entries(BRIDGE_PLATFORM_LOGOS)
-                  .map(([platformName, logoUrl]) => {
+                const displayedPlatforms = Object.entries(BRIDGE_PLATFORMS)
+                  .map(([platformName, platformInfo]) => {
                     const platformData = bridgeVolume.byPlatform.find(
                       p => (p.subPlatform || p.platform) === platformName || p.platform === platformName
                     );
                     return {
                       platformName,
-                      logoUrl,
+                      logoUrl: platformInfo.logo,
+                      platformUrl: platformInfo.url,
                       usdValue: platformData?.usdValue || 0,
                       txCount: platformData?.txCount || 0,
                       bridgedInUsd: platformData?.bridgedInUsd,
@@ -1748,14 +1796,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                             <div key={i} className="text-[11px]">
                               <div className="flex justify-between items-center py-0.5">
                                 <span className="text-slate-400 flex items-center gap-1">
-                                  <img
-                                    src={platform.logoUrl}
-                                    alt={platform.platformName}
-                                    className="w-3 h-3 rounded"
-                                    onError={(e) => {
-                                      (e.target as HTMLImageElement).style.display = 'none';
-                                    }}
-                                  />
+                                  <a
+                                    href={platform.platformUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="hover:ring-2 hover:ring-purple-500/50 rounded transition-all cursor-pointer"
+                                    title={`Visit ${platform.platformName}`}
+                                  >
+                                    <img
+                                      src={platform.logoUrl}
+                                      alt={platform.platformName}
+                                      className="w-3 h-3 rounded"
+                                      onError={(e) => {
+                                        (e.target as HTMLImageElement).style.display = 'none';
+                                      }}
+                                    />
+                                  </a>
                                   <span className="truncate max-w-[80px]">{platform.platformName}</span>
                                 </span>
                                 <span className="font-mono text-white text-[10px]">
@@ -1812,14 +1868,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
           <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-pink-500/20 bg-pink-500/5 h-[300px] flex flex-col" style={{ animationDelay: '0.7s' }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                <img
-                  src="https://www.inkypump.com/favicon.ico"
-                  alt="InkyPump"
-                  className="w-6 h-6 rounded-full object-cover"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=IP&background=ec4899&color=fff&size=24';
-                  }}
-                />
+                <a
+                  href={PLATFORM_URLS.inkypump}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:ring-2 hover:ring-pink-500/50 rounded-full transition-all cursor-pointer"
+                  title="Visit InkyPump"
+                >
+                  <img
+                    src="https://www.inkypump.com/favicon.ico"
+                    alt="InkyPump"
+                    className="w-6 h-6 rounded-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=IP&background=ec4899&color=fff&size=24';
+                    }}
+                  />
+                </a>
                 InkyPump
               </h3>
             </div>
@@ -1876,16 +1940,24 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                 <div className="flex items-center -space-x-3">
                   {Object.values(DEX_PLATFORMS).slice(0, 3).map((platform, i) => (
-                    <img
+                    <a
                       key={i}
-                      src={platform.logo}
-                      alt={platform.name}
-                      className="w-6 h-6 rounded-full object-cover bg-slate-800"
+                      href={platform.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="hover:z-10 hover:ring-2 hover:ring-cyan-500/50 rounded-full transition-all cursor-pointer"
                       style={{ zIndex: 3 - i }}
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${platform.name.charAt(0)}&background=334155&color=94a3b8&size=24`;
-                      }}
-                    />
+                      title={`Visit ${platform.name}`}
+                    >
+                      <img
+                        src={platform.logo}
+                        alt={platform.name}
+                        className="w-6 h-6 rounded-full object-cover bg-slate-800"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${platform.name.charAt(0)}&background=334155&color=94a3b8&size=24`;
+                        }}
+                      />
+                    </a>
                   ))}
                 </div>
                 Swap Volume
@@ -1920,14 +1992,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                       .map((platform, i) => (
                         <div key={i} className="flex justify-between items-center text-[11px] py-0.5">
                           <span className="text-slate-400 flex items-center gap-1">
-                            <img
-                              src={platform.platformInfo.logo}
-                              alt={platform.platformInfo.name}
-                              className="w-3 h-3 rounded"
-                              onError={(e) => {
-                                (e.target as HTMLImageElement).style.display = 'none';
-                              }}
-                            />
+                            <a
+                              href={platform.platformInfo.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="hover:ring-2 hover:ring-cyan-500/50 rounded transition-all cursor-pointer"
+                              title={`Visit ${platform.platformInfo.name}`}
+                            >
+                              <img
+                                src={platform.platformInfo.logo}
+                                alt={platform.platformInfo.name}
+                                className="w-3 h-3 rounded"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).style.display = 'none';
+                                }}
+                              />
+                            </a>
                             {platform.platformInfo.name}
                           </span>
                           <span className="font-mono text-white text-[10px]">
@@ -1976,14 +2056,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
           <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-blue-500/20 bg-blue-500/5 h-[300px] flex flex-col" style={{ animationDelay: '0.8s' }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                <img
-                  src="https://pbs.twimg.com/profile_images/1813882885406965760/7wkPAsLn_400x400.jpg"
-                  alt="ZNS"
-                  className="w-6 h-6 rounded-full object-cover"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=ZNS&background=3b82f6&color=fff&size=24';
-                  }}
-                />
+                <a
+                  href={PLATFORM_URLS.zns}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:ring-2 hover:ring-blue-500/50 rounded-full transition-all cursor-pointer"
+                  title="Visit ZNS Connect"
+                >
+                  <img
+                    src="https://pbs.twimg.com/profile_images/1813882885406965760/7wkPAsLn_400x400.jpg"
+                    alt="ZNS"
+                    className="w-6 h-6 rounded-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=ZNS&background=3b82f6&color=fff&size=24';
+                    }}
+                  />
+                </a>
                 ZNS Connect
               </h3>
             </div>
@@ -2042,14 +2130,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
           <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-orange-500/20 bg-orange-500/5 h-[300px] flex flex-col" style={{ animationDelay: '0.85s' }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                <img
-                  src="https://pbs.twimg.com/profile_images/1969128458635689984/DRv5vIT2_400x400.jpg"
-                  alt="Marvk"
-                  className="w-6 h-6 rounded-full object-cover"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=M&background=f97316&color=fff&size=24';
-                  }}
-                />
+                <a
+                  href={PLATFORM_URLS.marvk}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:ring-2 hover:ring-orange-500/50 rounded-full transition-all cursor-pointer"
+                  title="Visit Marvk"
+                >
+                  <img
+                    src="https://pbs.twimg.com/profile_images/1969128458635689984/DRv5vIT2_400x400.jpg"
+                    alt="Marvk"
+                    className="w-6 h-6 rounded-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=M&background=f97316&color=fff&size=24';
+                    }}
+                  />
+                </a>
                 Marvk
               </h3>
             </div>
@@ -2139,14 +2235,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
           <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-emerald-500/20 bg-emerald-500/5 h-[300px] flex flex-col" style={{ animationDelay: '0.9s' }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                <img
-                  src="https://pbs.twimg.com/profile_images/1626191411384053761/NoRNmw9L_400x400.png"
-                  alt="NFT2Me"
-                  className="w-6 h-6 rounded-full object-cover"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=N2M&background=10b981&color=fff&size=24';
-                  }}
-                />
+                <a
+                  href={PLATFORM_URLS.nft2me}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:ring-2 hover:ring-emerald-500/50 rounded-full transition-all cursor-pointer"
+                  title="Visit NFT2Me"
+                >
+                  <img
+                    src="https://pbs.twimg.com/profile_images/1626191411384053761/NoRNmw9L_400x400.png"
+                    alt="NFT2Me"
+                    className="w-6 h-6 rounded-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=N2M&background=10b981&color=fff&size=24';
+                    }}
+                  />
+                </a>
                 NFT2Me
               </h3>
             </div>
@@ -2230,16 +2334,24 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                 <div className="flex items-center -space-x-3">
                   {Object.values(NFT_PLATFORMS).slice(0, 3).map((platform, i) => (
-                    <img
+                    <a
                       key={i}
-                      src={platform.logo}
-                      alt={platform.name}
-                      className="w-6 h-6 rounded-full object-cover bg-slate-800"
+                      href={platform.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="hover:z-10 hover:ring-2 hover:ring-pink-500/50 rounded-full transition-all cursor-pointer"
                       style={{ zIndex: 3 - i }}
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${platform.name.charAt(0)}&background=334155&color=94a3b8&size=24`;
-                      }}
-                    />
+                      title={`Visit ${platform.name}`}
+                    >
+                      <img
+                        src={platform.logo}
+                        alt={platform.name}
+                        className="w-6 h-6 rounded-full object-cover bg-slate-800"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${platform.name.charAt(0)}&background=334155&color=94a3b8&size=24`;
+                        }}
+                      />
+                    </a>
                   ))}
                 </div>
                 NFT Trading
@@ -2268,14 +2380,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                         return (
                           <div key={i} className="flex justify-between items-center text-[11px]">
                             <span className="text-slate-400 flex items-center gap-1">
-                              <img
-                                src={platformInfo.logo}
-                                alt={platformInfo.name}
-                                className="w-3 h-3 rounded"
-                                onError={(e) => {
-                                  (e.target as HTMLImageElement).style.display = 'none';
-                                }}
-                              />
+                              <a
+                                href={platformInfo.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="hover:ring-2 hover:ring-pink-500/50 rounded transition-all cursor-pointer"
+                                title={`Visit ${platformInfo.name}`}
+                              >
+                                <img
+                                  src={platformInfo.logo}
+                                  alt={platformInfo.name}
+                                  className="w-3 h-3 rounded"
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).style.display = 'none';
+                                  }}
+                                />
+                              </a>
                               {platformInfo.name}
                             </span>
                             <span className="font-mono text-white">{count}</span>
@@ -2310,14 +2430,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                     {Object.entries(NFT_PLATFORMS).map(([, platformInfo], i) => (
                       <div key={i} className="flex justify-between items-center text-[11px]">
                         <span className="text-slate-400 flex items-center gap-1">
-                          <img
-                            src={platformInfo.logo}
-                            alt={platformInfo.name}
-                            className="w-3 h-3 rounded"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).style.display = 'none';
-                            }}
-                          />
+                          <a
+                            href={platformInfo.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="hover:ring-2 hover:ring-pink-500/50 rounded transition-all cursor-pointer"
+                            title={`Visit ${platformInfo.name}`}
+                          >
+                            <img
+                              src={platformInfo.logo}
+                              alt={platformInfo.name}
+                              className="w-3 h-3 rounded"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).style.display = 'none';
+                              }}
+                            />
+                          </a>
                           {platformInfo.name}
                         </span>
                         <span className="font-mono text-white">{Math.floor(Math.random() * 10)}</span>
@@ -2341,14 +2469,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
           <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-violet-500/20 bg-violet-500/5 h-[300px] flex flex-col" style={{ animationDelay: '1.0s' }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                <img
-                  src="https://pbs.twimg.com/profile_images/1948768160733175808/aNFNH1IH_400x400.jpg"
-                  alt="Shellies"
-                  className="w-6 h-6 rounded-full object-cover"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=S&background=8b5cf6&color=fff&size=24';
-                  }}
-                />
+                <a
+                  href={PLATFORM_URLS.shellies}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:ring-2 hover:ring-violet-500/50 rounded-full transition-all cursor-pointer"
+                  title="Visit Shellies"
+                >
+                  <img
+                    src="https://pbs.twimg.com/profile_images/1948768160733175808/aNFNH1IH_400x400.jpg"
+                    alt="Shellies"
+                    className="w-6 h-6 rounded-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=S&background=8b5cf6&color=fff&size=24';
+                    }}
+                  />
+                </a>
                 Shellies
               </h3>
             </div>

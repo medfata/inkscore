@@ -27,7 +27,7 @@ const SWAP_CONTRACTS: Record<string, string> = {
   '0x551134e92e537ceaa217c2ef63210af3ce96a065': 'InkySwap',
   '0xd7e72f3615aa65b92a4dbdc211e296a35512988b': 'Curve',
   '0x9b17690de96fcfa80a3acaefe11d936629cd7a77': 'DyorSwap',
-  // Add other swap contract addresses here as needed
+  '0x01d40099fcd87c018969b0e8d4ab1633fb34763c': 'Velodrome',
 };
 
 // Common swap method IDs
@@ -62,17 +62,17 @@ const WETH_ADDRESSES = new Set([
 // Parse swap volume from logs JSON
 function parseSwapVolumeFromLogs(logs: any[], ethPriceUsd: number = 3500): number {
   if (!logs || !Array.isArray(logs)) return 0;
-  
+
   let totalUsd = 0;
-  
+
   for (const log of logs) {
     // Look for Transfer events
     if (log.event?.startsWith('Transfer(') && log.topics?.length >= 3) {
       const tokenAddress = log.address?.id?.toLowerCase();
       const data = log.data;
-      
+
       if (!tokenAddress || !data) continue;
-      
+
       // Check if it's a stablecoin transfer
       const decimals = STABLECOIN_ADDRESSES[tokenAddress];
       if (decimals !== undefined) {
@@ -86,7 +86,7 @@ function parseSwapVolumeFromLogs(logs: any[], ethPriceUsd: number = 3500): numbe
           // Skip if parsing fails
         }
       }
-      
+
       // Check if it's WETH transfer
       if (WETH_ADDRESSES.has(tokenAddress)) {
         try {
@@ -100,7 +100,7 @@ function parseSwapVolumeFromLogs(logs: any[], ethPriceUsd: number = 3500): numbe
         }
       }
     }
-    
+
     // Also check for Swap events which have amounts in data
     if (log.event?.startsWith('Swap(') && log.data) {
       // Swap events typically have amount0In, amount1In, amount0Out, amount1Out
@@ -114,7 +114,7 @@ function parseSwapVolumeFromLogs(logs: any[], ethPriceUsd: number = 3500): numbe
           if (cleanData.length >= 256) {
             const amount0In = BigInt('0x' + cleanData.slice(0, 64));
             const amount1Out = BigInt('0x' + cleanData.slice(192, 256));
-            
+
             // Check which is the stablecoin amount (smaller decimals = stablecoin)
             // USDT0/USDC have 6 decimals, WETH has 18
             const stableAmount = amount0In > 0 ? Number(amount0In) / 1e6 : Number(amount1Out) / 1e6;
@@ -128,7 +128,7 @@ function parseSwapVolumeFromLogs(logs: any[], ethPriceUsd: number = 3500): numbe
       }
     }
   }
-  
+
   return totalUsd;
 }
 
@@ -156,7 +156,10 @@ export async function GET(
       return NextResponse.json(cachedResult.data);
     }
 
-    // Get all swap transactions for this wallet with logs for volume calculation
+    // Only include these 4 DEX contracts
+    const ALLOWED_DEX_CONTRACTS = Object.keys(SWAP_CONTRACTS).map(addr => addr.toLowerCase());
+
+    // Get swap transactions only from allowed DEX contracts
     const result = await pool.query(
       `SELECT 
          contract_address,
@@ -170,8 +173,9 @@ export async function GET(
          COALESCE(eth_price_usd, 3500) as eth_price_usd
        FROM transaction_enrichment
        WHERE LOWER(wallet_address) = LOWER($1)
-         AND method_id = ANY($2)`,
-      [address, SWAP_METHOD_IDS]
+         AND method_id = ANY($2)
+         AND LOWER(contract_address) = ANY($3)`,
+      [address, SWAP_METHOD_IDS, ALLOWED_DEX_CONTRACTS]
     );
 
     // Aggregate results by contract address
@@ -179,14 +183,14 @@ export async function GET(
 
     for (const row of result.rows) {
       const contractAddr = row.contract_address.toLowerCase();
-      
+
       // Calculate USD value - try existing columns first, then parse from logs
       let usdValue = parseFloat(row.total_usd_volume || '0');
-      
+
       if (usdValue === 0) {
         usdValue = parseFloat(row.tokens_in_usd_total || '0') + parseFloat(row.tokens_out_usd_total || '0');
       }
-      
+
       if (usdValue === 0 && row.logs) {
         // Parse logs JSON and extract volume
         try {
@@ -197,7 +201,7 @@ export async function GET(
           // If parsing fails, try ETH value fallback
         }
       }
-      
+
       // Fallback to ETH value conversion
       if (usdValue === 0) {
         const ethValue = parseFloat(row.eth_value_decimal || '0');
