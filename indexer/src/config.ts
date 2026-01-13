@@ -7070,6 +7070,7 @@ export const BRIDGE_HOT_WALLETS: BridgeHotWallet[] = [
     logo: 'https://relay.link/favicon.ico',
     methodSelectors: [
       { selector: '0x0c6d9703', subPlatform: 'Ink Official' },
+      { selector: '0x5819bf3d', subPlatform: 'Ink Official' }, // Bridge IN method
       { selector: '0xce033e52', subPlatform: 'Relay' },
       { selector: '0xc9b9bfcc', subPlatform: 'Relay' },
     ],

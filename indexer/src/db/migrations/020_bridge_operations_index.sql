@@ -1,15 +1,22 @@
--- Migration: Add index for efficient bridge volume queries on operations JSONB
--- This index optimizes queries that search for wallet addresses in the operations array
+-- Migration: Indexes for bridge and analytics queries
+-- Your existing indexes use LOWER(), so queries must also use LOWER()
 
--- Create an index on contract_address for filtering by Relay wallet
-CREATE INDEX IF NOT EXISTS idx_tx_enrichment_contract_lower 
-ON transaction_enrichment(LOWER(contract_address::text));
+-- Existing indexes (already created):
+-- idx_tx_enrichment_contract_lower: btree (lower(contract_address::text))
+-- idx_tx_enrichment_contract_wallet: btree (lower(contract_address::text), lower(wallet_address::text))
+-- idx_tx_enrichment_operations_gin: gin (operations) WHERE operations IS NOT NULL
 
--- Create a GIN index on the operations JSONB column for fast searches
--- This helps with EXISTS queries on jsonb_array_elements
-CREATE INDEX IF NOT EXISTS idx_tx_enrichment_operations_gin 
-ON transaction_enrichment USING gin(operations)
-WHERE operations IS NOT NULL;
+-- GIN index on logs JSONB for faster ILIKE searches
+-- Note: GIN indexes help with @>, @?, but ILIKE still needs text scan
+-- However, the contract_address filter will narrow down rows first
+CREATE INDEX IF NOT EXISTS idx_tx_enrichment_logs_gin 
+ON transaction_enrichment USING gin(logs)
+WHERE logs IS NOT NULL;
 
-COMMENT ON INDEX idx_tx_enrichment_contract_lower IS 'Index for case-insensitive contract address lookups';
-COMMENT ON INDEX idx_tx_enrichment_operations_gin IS 'GIN index for JSONB operations searches (bridge queries)';
+-- For ILIKE searches on JSONB::text, we can use pg_trgm extension
+-- This requires: CREATE EXTENSION IF NOT EXISTS pg_trgm;
+-- Then create trigram indexes:
+-- CREATE INDEX idx_tx_enrichment_operations_trgm ON transaction_enrichment USING gin(operations::text gin_trgm_ops) WHERE operations IS NOT NULL;
+-- CREATE INDEX idx_tx_enrichment_logs_trgm ON transaction_enrichment USING gin(logs::text gin_trgm_ops) WHERE logs IS NOT NULL;
+
+COMMENT ON INDEX idx_tx_enrichment_logs_gin IS 'GIN index for JSONB logs containment queries';

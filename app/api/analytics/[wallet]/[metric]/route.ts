@@ -101,8 +101,8 @@ export async function GET(
           COALESCE(eth_price_usd, 3500) as eth_price_usd,
           operations
         FROM transaction_enrichment
-        WHERE contract_address = lower($1) 
-          AND wallet_address = lower($2)
+        WHERE LOWER(contract_address) = LOWER($1) 
+          AND LOWER(wallet_address) = LOWER($2)
           AND method_id = ANY($3)
       `, [INKYSWAP_ROUTER_ADDRESS, wallet, buyMethodIds]);
 
@@ -149,8 +149,8 @@ export async function GET(
           operations,
           COALESCE(internal_eth_out, 0) as internal_eth_out
         FROM transaction_enrichment
-        WHERE contract_address = lower($1) 
-          AND wallet_address = lower($2)
+        WHERE LOWER(contract_address) = LOWER($1) 
+          AND LOWER(wallet_address) = LOWER($2)
           AND method_id = ANY($3)
       `, [INKYSWAP_ROUTER_ADDRESS, wallet, sellMethodIds]);
 

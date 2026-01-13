@@ -88,16 +88,16 @@ const NFT_PLATFORMS: Record<string, { name: string; logo: string; url: string }>
     logo: 'https://www.squidmarket.xyz/favicon.ico',
     url: 'https://www.squidmarket.xyz/',
   },
-  '0xbd6a027b85fd5285b1623563bbef6fadbe396afb': {
-    name: 'Mintiq',
-    logo: 'https://i.ibb.co/bMN9ppS7/mmm.png',
-    url: 'https://mintiq.market/',
-  },
   '0xd00c96804e9ff35f10c7d2a92239c351ff3f94e5': {
     name: 'Net Protocol',
     logo: 'https://www.netprotocol.app/favicon.ico',
     url: 'https://www.netprotocol.app/',
   },
+  '0xbd6a027b85fd5285b1623563bbef6fadbe396afb': {
+    name: 'Mintiq',
+    logo: 'https://i.ibb.co/bMN9ppS7/mmm.png',
+    url: 'https://mintiq.market/',
+  }
 };
 
 // Bridge volume response type
@@ -1763,7 +1763,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                 const allPlatforms = bridgeVolume.byPlatform.map(platformData => {
                   const displayName = platformData.subPlatform || platformData.platform;
                   const fallback = BRIDGE_PLATFORMS[displayName] || BRIDGE_PLATFORMS[platformData.platform];
-                  
+
                   return {
                     platformName: displayName,
                     logoUrl: platformData.logo || fallback?.logo || `https://ui-avatars.com/api/?name=${displayName.charAt(0)}&background=7c3aed&color=fff&size=24`,
@@ -1820,19 +1820,21 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                                   ${platform.usdValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </span>
                               </div>
-                              {/* Show bridged in/out for Native Bridge (USDT0) */}
-                              {platform.platformName === 'Native Bridge (USDT0)' && (platform.bridgedInUsd !== undefined || platform.bridgedOutUsd !== undefined) && (
-                                <div className="ml-4 flex gap-3 text-[9px] text-slate-500">
-                                  <span className="text-green-400">
-                                    ↓ ${(platform.bridgedInUsd || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                                    <span className="text-slate-600 ml-0.5">({platform.bridgedInCount || 0})</span>
-                                  </span>
-                                  <span className="text-orange-400">
-                                    ↑ ${(platform.bridgedOutUsd || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                                    <span className="text-slate-600 ml-0.5">({platform.bridgedOutCount || 0})</span>
-                                  </span>
-                                </div>
-                              )}
+                              {/* Show bridged in/out for platforms that have both */}
+                              {(platform.platformName === 'Native Bridge (USDT0)' || platform.platformName === 'Relay' || platform.platformName === 'Ink Official' || platform.platformName === 'Bungee') &&
+                                (platform.bridgedInUsd !== undefined || platform.bridgedOutUsd !== undefined) &&
+                                (platform.bridgedInUsd || 0) + (platform.bridgedOutUsd || 0) > 0 && (
+                                  <div className="ml-4 flex gap-3 text-[9px] text-slate-500">
+                                    <span className="text-green-400">
+                                      ↓ ${(platform.bridgedInUsd || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                      <span className="text-slate-600 ml-0.5">({platform.bridgedInCount || 0})</span>
+                                    </span>
+                                    <span className="text-orange-400">
+                                      ↑ ${(platform.bridgedOutUsd || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                      <span className="text-slate-600 ml-0.5">({platform.bridgedOutCount || 0})</span>
+                                    </span>
+                                  </div>
+                                )}
                             </div>
                           ))}
                       </div>
@@ -2098,7 +2100,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                   <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">By Action</span>
                   <div className="space-y-2">
                     <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-slate-400">Deploy</span>
+                      <span className="text-slate-400">Deploy Smart Contract</span>
                       <span className="font-mono text-white">
                         {!isDemo && znsMetrics ? znsMetrics.deploy_count : 0}
                       </span>
@@ -2126,208 +2128,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                 )}
               </>
             )}
-          </div>
-
-          {/* Marvk Card */}
-          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-orange-500/20 bg-orange-500/5 h-[300px] flex flex-col" style={{ animationDelay: '0.85s' }}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                <a
-                  href={PLATFORM_URLS.marvk}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:ring-2 hover:ring-orange-500/50 rounded-full transition-all cursor-pointer"
-                  title="Visit Marvk"
-                >
-                  <img
-                    src="https://pbs.twimg.com/profile_images/1969128458635689984/DRv5vIT2_400x400.jpg"
-                    alt="Marvk"
-                    className="w-6 h-6 rounded-full object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=M&background=f97316&color=fff&size=24';
-                    }}
-                  />
-                </a>
-                Marvk
-              </h3>
-            </div>
-
-            {!isDemo ? (
-              marvkMetrics ? (
-                <>
-                  <div className="mb-3">
-                    <div className="text-2xl font-bold font-display text-violet-400">
-                      {marvkMetrics.totalTransactions.toLocaleString()}
-                    </div>
-                    <div className="text-xs text-slate-500">
-                      {marvkMetrics.totalTransactions} transaction{marvkMetrics.totalTransactions !== 1 ? 's' : ''}
-                    </div>
-                  </div>
-
-                  <div className="flex-1 pt-3 border-t border-slate-700/50">
-                    <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">By Action</span>
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center text-[11px]">
-                        <span className="text-slate-400">Lock Token</span>
-                        <span className="font-mono text-white">{marvkMetrics.lockTokenCount}</span>
-                      </div>
-                      <div className="flex justify-between items-center text-[11px]">
-                        <span className="text-slate-400">Vest Token</span>
-                        <span className="font-mono text-white">{marvkMetrics.vestTokenCount}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {marvkMetrics.totalTransactions > 0 && (
-                    <div className="mt-2 text-xs text-orange-400 opacity-80 flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse"></span>
-                      Active Marvk User
-                    </div>
-                  )}
-                </>
-              ) : (
-                <>
-                  <div className="mb-3">
-                    <div className="text-2xl font-bold font-display text-violet-400">
-                      <div className="animate-pulse bg-slate-700 h-8 w-16 rounded"></div>
-                    </div>
-                    <div className="text-xs text-slate-500">Loading...</div>
-                  </div>
-
-                  <div className="flex-1 pt-3 border-t border-slate-700/50">
-                    <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">By Action</span>
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center text-[11px]">
-                        <span className="text-slate-400">Lock Token</span>
-                        <div className="animate-pulse bg-slate-700 h-3 w-8 rounded"></div>
-                      </div>
-                      <div className="flex justify-between items-center text-[11px]">
-                        <span className="text-slate-400">Vest Token</span>
-                        <div className="animate-pulse bg-slate-700 h-3 w-8 rounded"></div>
-                      </div>
-                    </div>
-                  </div>
-                </>
-              )
-            ) : (
-              <>
-                <div className="mb-3">
-                  <div className="text-2xl font-bold font-display text-violet-400">0</div>
-                  <div className="text-xs text-slate-500">0 transactions</div>
-                </div>
-
-                <div className="flex-1 pt-3 border-t border-slate-700/50">
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">By Action</span>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-slate-400">Lock Token</span>
-                      <span className="font-mono text-white">0</span>
-                    </div>
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-slate-400">Vest Token</span>
-                      <span className="font-mono text-white">0</span>
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* NFT2Me Card */}
-          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-emerald-500/20 bg-emerald-500/5 h-[300px] flex flex-col" style={{ animationDelay: '0.9s' }}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                <a
-                  href={PLATFORM_URLS.nft2me}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:ring-2 hover:ring-emerald-500/50 rounded-full transition-all cursor-pointer"
-                  title="Visit NFT2Me"
-                >
-                  <img
-                    src="https://pbs.twimg.com/profile_images/1626191411384053761/NoRNmw9L_400x400.png"
-                    alt="NFT2Me"
-                    className="w-6 h-6 rounded-full object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=N2M&background=10b981&color=fff&size=24';
-                    }}
-                  />
-                </a>
-                NFT2Me
-              </h3>
-            </div>
-
-            {!isDemo ? (
-              nft2meMetrics ? (
-                <>
-                  <div className="mb-3">
-                    <div className="text-2xl font-bold font-display text-cyan-400">
-                      {nft2meMetrics.totalTransactions.toLocaleString()}
-                    </div>
-                    <div className="text-xs text-slate-500">
-                      {nft2meMetrics.totalTransactions} transaction{nft2meMetrics.totalTransactions !== 1 ? 's' : ''}
-                    </div>
-                  </div>
-
-                  <div className="flex-1 pt-3 border-t border-slate-700/50">
-                    <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">By Action</span>
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center text-[11px]">
-                        <span className="text-slate-400">Collections Created</span>
-                        <span className="font-mono text-white">{nft2meMetrics.collectionsCreated}</span>
-                      </div>
-                      <div className="flex justify-between items-center text-[11px]">
-                        <span className="text-slate-400">NFTs Minted</span>
-                        <span className="font-mono text-white">{nft2meMetrics.nftsMinted}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {nft2meMetrics.totalTransactions > 0 && (
-                    <div className="mt-2 text-xs text-emerald-400 opacity-80 flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                      NFT2Me Creator
-                    </div>
-                  )}
-                </>
-              ) : (
-                <div className="flex-1 flex flex-col justify-center">
-                  <div className="h-8 w-16 bg-slate-700/50 rounded animate-pulse mb-2"></div>
-                  <div className="h-3 w-24 bg-slate-700/30 rounded animate-pulse mb-4"></div>
-                  <div className="space-y-2">
-                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
-                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
-                  </div>
-                </div>
-              )
-            ) : (
-              <>
-                <div className="mb-3">
-                  <div className="text-2xl font-bold font-display text-cyan-400">3</div>
-                  <div className="text-xs text-slate-500">3 transactions</div>
-                </div>
-
-                <div className="flex-1 pt-3 border-t border-slate-700/50">
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">By Action</span>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-slate-400">Collections Created</span>
-                      <span className="font-mono text-white">1</span>
-                    </div>
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-slate-400">NFTs Minted</span>
-                      <span className="font-mono text-white">2</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-2 text-xs text-emerald-400 opacity-80 flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                  NFT2Me Creator
-                </div>
-              </>
-            )}
-
           </div>
 
           {/* NFT Trading Card */}
@@ -2458,6 +2258,208 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
               </>
             )}
           </div>
+
+          {/* NFT2Me Card */}
+          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-emerald-500/20 bg-emerald-500/5 h-[300px] flex flex-col" style={{ animationDelay: '0.9s' }}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                <a
+                  href={PLATFORM_URLS.nft2me}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:ring-2 hover:ring-emerald-500/50 rounded-full transition-all cursor-pointer"
+                  title="Visit NFT2Me"
+                >
+                  <img
+                    src="https://pbs.twimg.com/profile_images/1626191411384053761/NoRNmw9L_400x400.png"
+                    alt="NFT2Me"
+                    className="w-6 h-6 rounded-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=N2M&background=10b981&color=fff&size=24';
+                    }}
+                  />
+                </a>
+                NFT2Me
+              </h3>
+            </div>
+
+            {!isDemo ? (
+              nft2meMetrics ? (
+                <>
+                  <div className="mb-3">
+                    <div className="text-2xl font-bold font-display text-cyan-400">
+                      {nft2meMetrics.totalTransactions.toLocaleString()}
+                    </div>
+                    <div className="text-xs text-slate-500">
+                      {nft2meMetrics.totalTransactions} transaction{nft2meMetrics.totalTransactions !== 1 ? 's' : ''}
+                    </div>
+                  </div>
+
+                  <div className="flex-1 pt-3 border-t border-slate-700/50">
+                    <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">By Action</span>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center text-[11px]">
+                        <span className="text-slate-400">Collections Created</span>
+                        <span className="font-mono text-white">{nft2meMetrics.collectionsCreated}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-[11px]">
+                        <span className="text-slate-400">NFTs Minted</span>
+                        <span className="font-mono text-white">{nft2meMetrics.nftsMinted}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {nft2meMetrics.totalTransactions > 0 && (
+                    <div className="mt-2 text-xs text-emerald-400 opacity-80 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                      NFT2Me Creator
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="flex-1 flex flex-col justify-center">
+                  <div className="h-8 w-16 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+                  <div className="h-3 w-24 bg-slate-700/30 rounded animate-pulse mb-4"></div>
+                  <div className="space-y-2">
+                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
+                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
+                  </div>
+                </div>
+              )
+            ) : (
+              <>
+                <div className="mb-3">
+                  <div className="text-2xl font-bold font-display text-cyan-400">3</div>
+                  <div className="text-xs text-slate-500">3 transactions</div>
+                </div>
+
+                <div className="flex-1 pt-3 border-t border-slate-700/50">
+                  <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">By Action</span>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">Collections Created</span>
+                      <span className="font-mono text-white">1</span>
+                    </div>
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">NFTs Minted</span>
+                      <span className="font-mono text-white">2</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-2 text-xs text-emerald-400 opacity-80 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                  NFT2Me Creator
+                </div>
+              </>
+            )}
+
+          </div>
+          {/* Marvk Card */}
+          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-orange-500/20 bg-orange-500/5 h-[300px] flex flex-col" style={{ animationDelay: '0.85s' }}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                <a
+                  href={PLATFORM_URLS.marvk}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:ring-2 hover:ring-orange-500/50 rounded-full transition-all cursor-pointer"
+                  title="Visit Marvk"
+                >
+                  <img
+                    src="https://pbs.twimg.com/profile_images/1969128458635689984/DRv5vIT2_400x400.jpg"
+                    alt="Marvk"
+                    className="w-6 h-6 rounded-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=M&background=f97316&color=fff&size=24';
+                    }}
+                  />
+                </a>
+                Marvk
+              </h3>
+            </div>
+
+            {!isDemo ? (
+              marvkMetrics ? (
+                <>
+                  <div className="mb-3">
+                    <div className="text-2xl font-bold font-display text-violet-400">
+                      {marvkMetrics.totalTransactions.toLocaleString()}
+                    </div>
+                    <div className="text-xs text-slate-500">
+                      {marvkMetrics.totalTransactions} transaction{marvkMetrics.totalTransactions !== 1 ? 's' : ''}
+                    </div>
+                  </div>
+
+                  <div className="flex-1 pt-3 border-t border-slate-700/50">
+                    <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">By Action</span>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center text-[11px]">
+                        <span className="text-slate-400">Lock Token</span>
+                        <span className="font-mono text-white">{marvkMetrics.lockTokenCount}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-[11px]">
+                        <span className="text-slate-400">Vest Token</span>
+                        <span className="font-mono text-white">{marvkMetrics.vestTokenCount}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {marvkMetrics.totalTransactions > 0 && (
+                    <div className="mt-2 text-xs text-orange-400 opacity-80 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse"></span>
+                      Active Marvk User
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <div className="mb-3">
+                    <div className="text-2xl font-bold font-display text-violet-400">
+                      <div className="animate-pulse bg-slate-700 h-8 w-16 rounded"></div>
+                    </div>
+                    <div className="text-xs text-slate-500">Loading...</div>
+                  </div>
+
+                  <div className="flex-1 pt-3 border-t border-slate-700/50">
+                    <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">By Action</span>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center text-[11px]">
+                        <span className="text-slate-400">Lock Token</span>
+                        <div className="animate-pulse bg-slate-700 h-3 w-8 rounded"></div>
+                      </div>
+                      <div className="flex justify-between items-center text-[11px]">
+                        <span className="text-slate-400">Vest Token</span>
+                        <div className="animate-pulse bg-slate-700 h-3 w-8 rounded"></div>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )
+            ) : (
+              <>
+                <div className="mb-3">
+                  <div className="text-2xl font-bold font-display text-violet-400">0</div>
+                  <div className="text-xs text-slate-500">0 transactions</div>
+                </div>
+
+                <div className="flex-1 pt-3 border-t border-slate-700/50">
+                  <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">By Action</span>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">Lock Token</span>
+                      <span className="font-mono text-white">0</span>
+                    </div>
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">Vest Token</span>
+                      <span className="font-mono text-white">0</span>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
         </div>
 
         {/* Dynamic Cards Row 4 - Admin added single platform cards */}
