@@ -5,25 +5,44 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 });
 
+// Relay wallet handles both "Relay" and "Ink Official" based on method selectors
+const RELAY_WALLET = '0xf70da97812cb96acdf810712aa562db8dfa3dbef';
+
+// Method selector for Ink Official
+const INK_OFFICIAL_METHOD = '0x0c6d9703';
+
 // OFT Adapter contract address for Native Bridge (USDT0)
 const OFT_ADAPTER_ADDRESS = '0x1cb6de532588fca4a21b7209de7c456af8434a65';
-
-// LayerZero Executor contract (receives bridge IN transactions)
-const LZ_EXECUTOR_ADDRESS = '0xfebcf17b11376c724ab5a5229803c6e838b6eae5';
 
 // Bungee Socket Gateway contract address
 const BUNGEE_SOCKET_GATEWAY = '0x3a23f943181408eac424116af7b7790c94cb97a5';
 
-// Event signatures (topic0)
+// Event signatures
 const OFT_SENT_SIGNATURE = '0x85496b760a4b7f8d66384b9df21b381f5d1b1e79f229a47aaf4c232edc2fe59a';
-const OFT_RECEIVED_SIGNATURE = '0xefed6d3500546b29533b128a29e3a94d70788727f0507505ac12eaf2e578fd9c';
-
-// Bungee event signatures
 const SOCKET_BRIDGE_SIGNATURE = '0x74594da9e31ee4068e17809037db37db496702bf7d8d63afe6f97949277d1609';
 const SOCKET_SWAP_TOKENS_SIGNATURE = '0xb346a959ba6c0f1c7ba5426b10fd84fe4064e392a0dfcf6609e9640a0dd260d3';
 
-// USDT0 has 6 decimals
 const USDT0_DECIMALS = 6;
+
+// All bridge platforms configuration
+const ALL_BRIDGE_PLATFORMS = {
+  'Native Bridge (USDT0)': {
+    logo: 'https://pbs.twimg.com/profile_images/1879546764971188224/SQISVYwX_400x400.jpg',
+    url: 'https://usdt0.to',
+  },
+  'Ink Official': {
+    logo: 'https://inkonchain.com/favicon.ico',
+    url: 'https://inkonchain.com/bridge',
+  },
+  'Relay': {
+    logo: 'https://relay.link/favicon.ico',
+    url: 'https://relay.link',
+  },
+  'Bungee': {
+    logo: 'https://www.bungee.exchange/favicon.ico',
+    url: 'https://www.bungee.exchange',
+  },
+};
 
 export interface BridgeVolumeResponse {
   totalEth: number;
@@ -35,12 +54,11 @@ export interface BridgeVolumeResponse {
   bridgedOutCount: number;
   byPlatform: Array<{
     platform: string;
-    subPlatform?: string;
     ethValue: number;
     usdValue: number;
     txCount: number;
-    bridgedInUsd?: number;
-    bridgedInCount?: number;
+    logo: string;
+    url: string;
     bridgedOutUsd?: number;
     bridgedOutCount?: number;
   }>;
@@ -54,142 +72,146 @@ interface OftEventLog {
   event?: string;
 }
 
-/**
- * Parse SocketBridge event data to extract amount and token
- * Event: SocketBridge(uint256 amount, address token, uint256 toChainId, bytes32 bridgeName, address sender, address receiver, bytes32 metadata)
- * Data layout: amount (32 bytes) + token (32 bytes) + toChainId (32 bytes) + bridgeName (32 bytes) + sender (32 bytes) + receiver (32 bytes) + metadata (32 bytes)
- */
-function parseSocketBridgeEvent(data: string): { amount: bigint; token: string; toChainId: bigint } {
-  const cleanData = data.startsWith('0x') ? data.slice(2) : data;
-  
-  // amount is first 32 bytes
-  const amountHex = cleanData.slice(0, 64);
-  const amount = BigInt('0x' + amountHex);
-  
-  // token is second 32 bytes (address padded to 32 bytes)
-  const tokenHex = cleanData.slice(64, 128);
-  const token = '0x' + tokenHex.slice(-40).toLowerCase();
-  
-  // toChainId is third 32 bytes
-  const chainIdHex = cleanData.slice(128, 192);
-  const toChainId = BigInt('0x' + chainIdHex);
-  
-  return { amount, token, toChainId };
+interface Operation {
+  to: { id: string };
+  from: { id: string };
+  value: string;
+  type: string;
 }
 
-/**
- * Parse SocketSwapTokens event data to extract buy/sell amounts
- * Event: SocketSwapTokens(address fromToken, address toToken, uint256 buyAmount, uint256 sellAmount, bytes32 routeName, address receiver, bytes32 metadata)
- * Data layout: fromToken (32 bytes) + toToken (32 bytes) + buyAmount (32 bytes) + sellAmount (32 bytes) + routeName (32 bytes) + receiver (32 bytes) + metadata (32 bytes)
- */
-function parseSocketSwapTokensEvent(data: string): { fromToken: string; toToken: string; buyAmount: bigint; sellAmount: bigint } {
-  const cleanData = data.startsWith('0x') ? data.slice(2) : data;
-  
-  // fromToken is first 32 bytes (address padded)
-  const fromTokenHex = cleanData.slice(0, 64);
-  const fromToken = '0x' + fromTokenHex.slice(-40).toLowerCase();
-  
-  // toToken is second 32 bytes (address padded)
-  const toTokenHex = cleanData.slice(64, 128);
-  const toToken = '0x' + toTokenHex.slice(-40).toLowerCase();
-  
-  // buyAmount is third 32 bytes
-  const buyAmountHex = cleanData.slice(128, 192);
-  const buyAmount = BigInt('0x' + buyAmountHex);
-  
-  // sellAmount is fourth 32 bytes
-  const sellAmountHex = cleanData.slice(192, 256);
-  const sellAmount = BigInt('0x' + sellAmountHex);
-  
-  return { fromToken, toToken, buyAmount, sellAmount };
-}
-
-/**
- * Parse OFTSent event data to extract amountSentLD
- * Event: OFTSent(bytes32 indexed guid, uint32 dstEid, address indexed fromAddress, uint256 amountSentLD, uint256 amountReceivedLD)
- * Data layout: dstEid (32 bytes) + amountSentLD (32 bytes) + amountReceivedLD (32 bytes)
- */
 function parseOftSentAmount(data: string): bigint {
-  // Remove 0x prefix
   const cleanData = data.startsWith('0x') ? data.slice(2) : data;
-  // amountSentLD is at offset 32 bytes (64 hex chars) after dstEid
   const amountHex = cleanData.slice(64, 128);
   return BigInt('0x' + amountHex);
 }
 
-/**
- * Parse OFTReceived event data to extract amountReceivedLD
- * Event: OFTReceived(bytes32 indexed guid, uint32 srcEid, address indexed toAddress, uint256 amountReceivedLD)
- * Data layout: srcEid (32 bytes) + amountReceivedLD (32 bytes)
- */
-function parseOftReceivedAmount(data: string): bigint {
-  // Remove 0x prefix
-  const cleanData = data.startsWith('0x') ? data.slice(2) : data;
-  // amountReceivedLD is at offset 32 bytes (64 hex chars) after srcEid
-  const amountHex = cleanData.slice(64, 128);
-  return BigInt('0x' + amountHex);
-}
-
-/**
- * Extract wallet address from indexed topic (topic2 for both events)
- * The address is padded to 32 bytes, so we take the last 40 chars
- */
 function extractAddressFromTopic(topic: string): string {
   const cleanTopic = topic.startsWith('0x') ? topic.slice(2) : topic;
   return '0x' + cleanTopic.slice(-40).toLowerCase();
 }
 
-// GET /api/wallet/[address]/bridge - Get bridge volume for a wallet
+function parseSocketBridgeEvent(data: string): { amount: bigint; token: string } {
+  const cleanData = data.startsWith('0x') ? data.slice(2) : data;
+  const amountHex = cleanData.slice(0, 64);
+  const amount = BigInt('0x' + amountHex);
+  const tokenHex = cleanData.slice(64, 128);
+  const token = '0x' + tokenHex.slice(-40).toLowerCase();
+  return { amount, token };
+}
+
+// Cache for bridge results per wallet (30 second TTL)
+const bridgeResultsCache = new Map<string, { data: BridgeVolumeResponse; timestamp: number }>();
+const RESULTS_CACHE_TTL = 30 * 1000;
+
+
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ address: string }> }
 ) {
   try {
     const { address } = await params;
 
-    // Validate wallet address format
     if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
-      return NextResponse.json(
-        { error: 'Invalid wallet address format' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid wallet address format' }, { status: 400 });
     }
 
     const walletAddress = address.toLowerCase();
 
-    // Initialize response data
+    // Check cache first
+    const cachedResult = bridgeResultsCache.get(walletAddress);
+    if (cachedResult && Date.now() - cachedResult.timestamp < RESULTS_CACHE_TTL) {
+      return NextResponse.json(cachedResult.data);
+    }
+
+    // Initialize platform data - all platforms start with 0
+    const platformData: Record<string, { ethValue: number; usdValue: number; txCount: number; bridgedOutUsd?: number; bridgedOutCount?: number }> = {
+      'Native Bridge (USDT0)': { ethValue: 0, usdValue: 0, txCount: 0 },
+      'Ink Official': { ethValue: 0, usdValue: 0, txCount: 0 },
+      'Relay': { ethValue: 0, usdValue: 0, txCount: 0 },
+      'Bungee': { ethValue: 0, usdValue: 0, txCount: 0 },
+    };
+
     let totalEth = 0;
     let totalTxCount = 0;
     let bridgedInUsd = 0;
     let bridgedInCount = 0;
     let bridgedOutUsd = 0;
     let bridgedOutCount = 0;
-    let bungeeUsd = 0;
-    let bungeeTxCount = 0;
-    const byPlatform: BridgeVolumeResponse['byPlatform'] = [];
 
-    // Get current ETH price for USD conversion (for other bridges)
-    let ethPrice = 3500; // Fallback price
+    // Get ETH price
+    let ethPrice = 3500;
     try {
       const priceResult = await pool.query(
         `SELECT price_usd FROM eth_prices ORDER BY timestamp DESC LIMIT 1`
       );
       ethPrice = priceResult.rows[0]?.price_usd || 3500;
     } catch {
-      // Use fallback price if eth_prices table doesn't exist
+      // Use fallback price
     }
 
-    // 1. Query Native Bridge (USDT0) from transaction_enrichment using OFT events
-    // Optimized: Query specific contracts instead of scanning all logs
-    // - Bridge OUT: wallet calls OFT Adapter directly (contract_address = OFT Adapter, wallet_address = user)
-    // - Bridge IN: LayerZero Executor calls lzReceive (contract_address = LZ Executor, wallet in logs)
+    // 1. Query Relay/Ink Official bridge IN transactions
     try {
-      // 1a. Bridge OUT - Query transactions where user called OFT Adapter
+      const relayResult = await pool.query(
+        `SELECT 
+           tx_hash, method_id, operations, value,
+           COALESCE(eth_value_decimal, 0) as eth_value_decimal,
+           COALESCE(eth_price_usd, $2) as eth_price_usd
+         FROM transaction_enrichment
+         WHERE LOWER(contract_address) = LOWER($1)
+           AND operations IS NOT NULL
+           AND EXISTS (
+             SELECT 1 FROM jsonb_array_elements(operations) AS op
+             WHERE LOWER(op->'to'->>'id') = $3
+           )`,
+        [RELAY_WALLET, ethPrice, walletAddress]
+      );
+
+      for (const row of relayResult.rows) {
+        let operations: Operation[] = [];
+        try {
+          operations = typeof row.operations === 'string' ? JSON.parse(row.operations) : row.operations || [];
+        } catch {
+          continue;
+        }
+
+        const userTransfer = operations.find(op => op.to?.id?.toLowerCase() === walletAddress);
+        if (!userTransfer) continue;
+
+        let ethValue = 0;
+        if (userTransfer.value) {
+          ethValue = Number(BigInt(userTransfer.value)) / 1e18;
+        }
+        if (ethValue === 0) ethValue = parseFloat(row.eth_value_decimal || '0');
+        if (ethValue === 0 && row.value) ethValue = Number(BigInt(row.value)) / 1e18;
+
+        const txEthPrice = parseFloat(row.eth_price_usd || String(ethPrice));
+        const usdValue = ethValue * txEthPrice;
+
+        // Determine platform based on method_id
+        const methodId = row.method_id?.toLowerCase();
+        const platform = methodId === INK_OFFICIAL_METHOD ? 'Ink Official' : 'Relay';
+
+        platformData[platform].ethValue += ethValue;
+        platformData[platform].usdValue += usdValue;
+        platformData[platform].txCount += 1;
+
+        totalEth += ethValue;
+        totalTxCount += 1;
+        bridgedInUsd += usdValue;
+        bridgedInCount += 1;
+      }
+    } catch (dbError: unknown) {
+      console.error('Error querying Relay/Ink Official:', dbError instanceof Error ? dbError.message : dbError);
+    }
+
+
+    // 2. Query Native Bridge (USDT0) OUT transactions
+    try {
       const bridgeOutResult = await pool.query(
         `SELECT tx_hash, logs
          FROM transaction_enrichment
-         WHERE contract_address = $1
-           AND wallet_address = $2
+         WHERE LOWER(contract_address) = LOWER($1)
+           AND LOWER(wallet_address) = LOWER($2)
            AND logs IS NOT NULL`,
         [OFT_ADAPTER_ADDRESS, walletAddress]
       );
@@ -212,57 +234,28 @@ export async function GET(
 
           const amountRaw = parseOftSentAmount(log.data);
           const amountUsd = Number(amountRaw) / Math.pow(10, USDT0_DECIMALS);
+
+          platformData['Native Bridge (USDT0)'].usdValue += amountUsd;
+          platformData['Native Bridge (USDT0)'].txCount += 1;
+          platformData['Native Bridge (USDT0)'].bridgedOutUsd = (platformData['Native Bridge (USDT0)'].bridgedOutUsd || 0) + amountUsd;
+          platformData['Native Bridge (USDT0)'].bridgedOutCount = (platformData['Native Bridge (USDT0)'].bridgedOutCount || 0) + 1;
+
+          totalTxCount += 1;
           bridgedOutUsd += amountUsd;
-          bridgedOutCount++;
+          bridgedOutCount += 1;
         }
       }
-
-      // 1b. Bridge IN - SKIP EXPENSIVE QUERY FOR NOW
-      // The LayerZero Executor query is extremely slow (45+ seconds) due to ILIKE on 1.2M rows
-      // TODO: Implement proper indexing strategy or alternative approach for bridge IN detection
-      // For now, we'll only track bridge OUT transactions which are much faster
-      
-      // Alternative approach: We could pre-process and store wallet addresses from logs
-      // in a separate indexed column, or use a materialized view for better performance
-      
-      console.log('Skipping LayerZero Executor bridge IN query for performance - only tracking bridge OUT');
-      
-      // If we need bridge IN data, we should either:
-      // 1. Add a separate indexed column with extracted wallet addresses from logs
-      // 2. Use a materialized view that pre-processes the log data
-      // 3. Implement a background job to index relevant log entries
-
-      // Add Native Bridge (USDT0) to byPlatform if there's any activity
-      if (bridgedInCount > 0 || bridgedOutCount > 0) {
-        const nativeBridgeUsd = bridgedInUsd + bridgedOutUsd;
-        const nativeBridgeTxCount = bridgedInCount + bridgedOutCount;
-
-        byPlatform.push({
-          platform: 'Native Bridge (USDT0)',
-          ethValue: 0, // USDT0 is not ETH
-          usdValue: nativeBridgeUsd,
-          txCount: nativeBridgeTxCount,
-          bridgedInUsd,
-          bridgedInCount,
-          bridgedOutUsd,
-          bridgedOutCount,
-        });
-
-        totalTxCount += nativeBridgeTxCount;
-      }
     } catch (dbError: unknown) {
-      const errorMessage = dbError instanceof Error ? dbError.message : String(dbError);
-      console.error('Error querying Native Bridge (USDT0):', errorMessage);
-      // Continue with other bridges even if this fails
+      console.error('Error querying Native Bridge OUT:', dbError instanceof Error ? dbError.message : dbError);
     }
 
-    // 2. Query Bungee Socket Gateway from transaction_enrichment
+    // 3. Query Bungee Socket Gateway transactions
     try {
       const bungeeResult = await pool.query(
         `SELECT tx_hash, logs, eth_value_decimal, total_usd_volume, value
          FROM transaction_enrichment
-         WHERE contract_address = $1
-           AND wallet_address = $2
+         WHERE LOWER(contract_address) = LOWER($1)
+           AND LOWER(wallet_address) = LOWER($2)
            AND logs IS NOT NULL`,
         [BUNGEE_SOCKET_GATEWAY, walletAddress]
       );
@@ -274,74 +267,29 @@ export async function GET(
         let hasBridgeActivity = false;
         let txUsdValue = 0;
 
-        // Check for SocketBridge events (cross-chain bridging)
         for (const log of logs) {
           const logAddress = (log.address?.id || '').toLowerCase();
           const topic0 = log.topics?.[0]?.toLowerCase();
 
           if (logAddress !== BUNGEE_SOCKET_GATEWAY) continue;
 
-          if (topic0 === SOCKET_BRIDGE_SIGNATURE) {
-            // This is a bridge transaction
+          if (topic0 === SOCKET_BRIDGE_SIGNATURE || topic0 === SOCKET_SWAP_TOKENS_SIGNATURE) {
             hasBridgeActivity = true;
-            
-            // Try to get USD value from enrichment data first
+
             if (row.total_usd_volume && parseFloat(row.total_usd_volume) > 0) {
               txUsdValue = parseFloat(row.total_usd_volume);
             } else if (row.eth_value_decimal && parseFloat(row.eth_value_decimal) > 0) {
-              // Fallback to ETH value * price
               txUsdValue = parseFloat(row.eth_value_decimal) * ethPrice;
             } else if (row.value && parseFloat(row.value) > 0) {
-              // Use raw transaction value (in wei) as last resort
-              const ethAmount = parseFloat(row.value) / Math.pow(10, 18);
-              txUsdValue = ethAmount * ethPrice;
+              txUsdValue = (parseFloat(row.value) / 1e18) * ethPrice;
             } else {
-              // Parse the event data to get amount
               try {
                 const { amount, token } = parseSocketBridgeEvent(log.data);
-                
-                // Handle different token types
                 if (token === '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee') {
-                  // Native ETH
-                  const ethAmount = Number(amount) / Math.pow(10, 18);
-                  txUsdValue = ethAmount * ethPrice;
-                } else {
-                  // For other tokens, we'd need token price data
-                  // For now, use a minimal value to count the transaction
-                  txUsdValue = 0.01; // $0.01 placeholder
+                  txUsdValue = (Number(amount) / 1e18) * ethPrice;
                 }
-              } catch (parseError) {
-                console.warn('Failed to parse SocketBridge event:', parseError);
-                // Use minimal value to count the transaction
-                txUsdValue = 0.01;
-              }
-            }
-            break;
-          } else if (topic0 === SOCKET_SWAP_TOKENS_SIGNATURE) {
-            // This is a swap transaction (like the CAT -> ETH example)
-            // We should include swaps that result in bridging
-            hasBridgeActivity = true;
-            
-            if (row.total_usd_volume && parseFloat(row.total_usd_volume) > 0) {
-              txUsdValue = parseFloat(row.total_usd_volume);
-            } else if (row.eth_value_decimal && parseFloat(row.eth_value_decimal) > 0) {
-              txUsdValue = parseFloat(row.eth_value_decimal) * ethPrice;
-            } else {
-              // Parse the swap event to get the output amount (buyAmount)
-              try {
-                const { buyAmount, toToken } = parseSocketSwapTokensEvent(log.data);
-                
-                if (toToken === '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee') {
-                  // Swapped to ETH
-                  const ethAmount = Number(buyAmount) / Math.pow(10, 18);
-                  txUsdValue = ethAmount * ethPrice;
-                } else {
-                  // Swapped to other token, use minimal value
-                  txUsdValue = 0.01;
-                }
-              } catch (parseError) {
-                console.warn('Failed to parse SocketSwapTokens event:', parseError);
-                txUsdValue = 0.01;
+              } catch {
+                // Skip
               }
             }
             break;
@@ -349,70 +297,33 @@ export async function GET(
         }
 
         if (hasBridgeActivity && txUsdValue > 0) {
-          bungeeUsd += txUsdValue;
-          bungeeTxCount++;
+          platformData['Bungee'].usdValue += txUsdValue;
+          platformData['Bungee'].txCount += 1;
+          totalTxCount += 1;
         }
       }
-
-      // Add Bungee to byPlatform if there's any activity
-      if (bungeeTxCount > 0) {
-        byPlatform.push({
-          platform: 'Bungee',
-          subPlatform: 'Socket Gateway',
-          ethValue: 0, // We're tracking USD directly
-          usdValue: bungeeUsd,
-          txCount: bungeeTxCount,
-        });
-
-        totalTxCount += bungeeTxCount;
-      }
     } catch (dbError: unknown) {
-      const errorMessage = dbError instanceof Error ? dbError.message : String(dbError);
-      console.error('Error querying Bungee Socket Gateway:', errorMessage);
-      // Continue with other bridges even if this fails
+      console.error('Error querying Bungee:', dbError instanceof Error ? dbError.message : dbError);
     }
 
-    // 3. Query other bridges from bridge_transfers table
-    try {
-      const result = await pool.query(
-        `SELECT 
-           platform,
-           sub_platform,
-           SUM(eth_value) as total_eth,
-           COUNT(*) as tx_count
-         FROM bridge_transfers
-         WHERE to_address = $1
-         GROUP BY platform, sub_platform
-         ORDER BY total_eth DESC`,
-        [walletAddress]
-      );
+    // Build byPlatform array with all platforms (including those with $0)
+    const byPlatform = Object.entries(ALL_BRIDGE_PLATFORMS).map(([platform, config]) => ({
+      platform,
+      ethValue: platformData[platform].ethValue,
+      usdValue: platformData[platform].usdValue,
+      txCount: platformData[platform].txCount,
+      logo: config.logo,
+      url: config.url,
+      ...(platformData[platform].bridgedOutUsd !== undefined && {
+        bridgedOutUsd: platformData[platform].bridgedOutUsd,
+        bridgedOutCount: platformData[platform].bridgedOutCount,
+      }),
+    }));
 
-      for (const row of result.rows) {
-        const ethValue = parseFloat(row.total_eth || '0');
-        const txCount = parseInt(row.tx_count || '0');
-        const usdValue = ethValue * ethPrice;
+    // Sort by USD value descending
+    byPlatform.sort((a, b) => b.usdValue - a.usdValue);
 
-        totalEth += ethValue;
-        totalTxCount += txCount;
-
-        byPlatform.push({
-          platform: row.platform,
-          subPlatform: row.sub_platform || undefined,
-          ethValue,
-          usdValue,
-          txCount,
-        });
-      }
-    } catch (dbError: unknown) {
-      const errorMessage = dbError instanceof Error ? dbError.message : String(dbError);
-      if (!errorMessage.includes('does not exist')) {
-        console.error('Error querying bridge_transfers:', errorMessage);
-      }
-      // Continue even if bridge_transfers table doesn't exist
-    }
-
-    // Calculate total USD (ETH bridges + USDT0 bridge + Bungee bridge)
-    const totalUsd = (totalEth * ethPrice) + bridgedInUsd + bridgedOutUsd + bungeeUsd;
+    const totalUsd = (totalEth * ethPrice) + bridgedInUsd + bridgedOutUsd;
 
     const response: BridgeVolumeResponse = {
       totalEth,
@@ -425,12 +336,10 @@ export async function GET(
       byPlatform,
     };
 
+    bridgeResultsCache.set(walletAddress, { data: response, timestamp: Date.now() });
     return NextResponse.json(response);
   } catch (error) {
     console.error('Error fetching bridge volume:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch bridge volume' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch bridge volume' }, { status: 500 });
   }
 }

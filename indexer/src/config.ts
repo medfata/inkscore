@@ -7071,6 +7071,7 @@ export const BRIDGE_HOT_WALLETS: BridgeHotWallet[] = [
     methodSelectors: [
       { selector: '0x0c6d9703', subPlatform: 'Ink Official' },
       { selector: '0xce033e52', subPlatform: 'Relay' },
+      { selector: '0xc9b9bfcc', subPlatform: 'Relay' },
     ],
   },
 ];

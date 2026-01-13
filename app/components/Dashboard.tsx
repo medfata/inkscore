@@ -115,6 +115,8 @@ interface BridgeVolumeResponse {
     ethValue: number;
     usdValue: number;
     txCount: number;
+    logo?: string;
+    url?: string;
     bridgedInUsd?: number;
     bridgedInCount?: number;
     bridgedOutUsd?: number;
@@ -1756,41 +1758,41 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
 
             {!isDemo && bridgeVolume ? (
               (() => {
-                // Calculate total from only displayed platforms
-                const displayedPlatforms = Object.entries(BRIDGE_PLATFORMS)
-                  .map(([platformName, platformInfo]) => {
-                    const platformData = bridgeVolume.byPlatform.find(
-                      p => (p.subPlatform || p.platform) === platformName || p.platform === platformName
-                    );
-                    return {
-                      platformName,
-                      logoUrl: platformInfo.logo,
-                      platformUrl: platformInfo.url,
-                      usdValue: platformData?.usdValue || 0,
-                      txCount: platformData?.txCount || 0,
-                      bridgedInUsd: platformData?.bridgedInUsd,
-                      bridgedInCount: platformData?.bridgedInCount,
-                      bridgedOutUsd: platformData?.bridgedOutUsd,
-                      bridgedOutCount: platformData?.bridgedOutCount,
-                    };
-                  });
+                // Show all platforms from the API response
+                // Use logo/url from API if available, fallback to hardcoded BRIDGE_PLATFORMS
+                const allPlatforms = bridgeVolume.byPlatform.map(platformData => {
+                  const displayName = platformData.subPlatform || platformData.platform;
+                  const fallback = BRIDGE_PLATFORMS[displayName] || BRIDGE_PLATFORMS[platformData.platform];
+                  
+                  return {
+                    platformName: displayName,
+                    logoUrl: platformData.logo || fallback?.logo || `https://ui-avatars.com/api/?name=${displayName.charAt(0)}&background=7c3aed&color=fff&size=24`,
+                    platformUrl: platformData.url || fallback?.url || '#',
+                    usdValue: platformData.usdValue || 0,
+                    txCount: platformData.txCount || 0,
+                    bridgedInUsd: platformData.bridgedInUsd,
+                    bridgedInCount: platformData.bridgedInCount,
+                    bridgedOutUsd: platformData.bridgedOutUsd,
+                    bridgedOutCount: platformData.bridgedOutCount,
+                  };
+                });
 
-                const displayedTotalUsd = displayedPlatforms.reduce((sum, platform) => sum + platform.usdValue, 0);
-                const displayedTotalTxCount = displayedPlatforms.reduce((sum, platform) => sum + platform.txCount, 0);
+                const totalUsd = bridgeVolume.totalUsd || 0;
+                const totalTxCount = bridgeVolume.txCount || 0;
 
                 return (
                   <>
                     <div className="mb-3">
                       <div className="text-2xl font-bold font-display text-teal-400">
-                        ${displayedTotalUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        ${totalUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </div>
-                      <div className="text-xs text-slate-500">{displayedTotalTxCount} transactions</div>
+                      <div className="text-xs text-slate-500">{totalTxCount} transactions</div>
                     </div>
 
                     <div className="flex-1 pt-3 border-t border-slate-700/50 flex flex-col min-h-0">
                       <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">By Platform</span>
                       <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar">
-                        {displayedPlatforms
+                        {allPlatforms
                           .sort((a, b) => b.usdValue - a.usdValue)
                           .map((platform, i) => (
                             <div key={i} className="text-[11px]">
@@ -1836,7 +1838,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                       </div>
                     </div>
 
-                    {displayedTotalTxCount > 0 && (
+                    {totalTxCount > 0 && (
                       <div className="mt-2 text-xs text-teal-400 opacity-80 flex items-center gap-1">
                         <span className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse"></span>
                         Active Bridger
