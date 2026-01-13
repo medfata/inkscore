@@ -159,26 +159,17 @@ async function enrichContractContinuously(
             break;
         }
 
-        // Run one enrichment cycle
-        const beforeCount = stats.enriched;
-        await service.enrichVolumeContract(contractId);
-
-        // Check progress
-        const afterStats = await getContractStats(contractAddress);
-        const processed = afterStats.enriched - beforeCount;
-        totalProcessed += processed;
-
-        const cycleTime = (Date.now() - cycleStart) / 1000;
-        const totalTime = (Date.now() - startTime) / 1000;
-        const overallRate = totalProcessed > 0 ? (totalProcessed / totalTime).toFixed(1) : '0';
-
-        console.log(`📈 [WORKER] Cycle ${cycleCount}: +${processed} tx (${cycleTime.toFixed(1)}s) | Total: ${afterStats.enriched}/${afterStats.total} | Rate: ${overallRate} tx/s`);
+        // DEPRECATED: enrichVolumeContract method removed from streamlined service
+        // Use the concurrent gap enrichment script instead
+        console.log(`⚠️  [BACKLOG-WORKER] This worker is deprecated. Use concurrent gap enrichment script instead.`);
+        console.log(`   Run: npm run concurrent-enrich -- --contract=${contractAddress}`);
+        break;
 
         // If no progress was made, wait a bit before retrying
-        if (processed === 0) {
-            console.log('⏳ [WORKER] No progress, waiting 5s before retry...');
-            await new Promise(resolve => setTimeout(resolve, 5000));
-        }
+        // if (processed === 0) {
+        //     console.log('⏳ [WORKER] No progress, waiting 5s before retry...');
+        //     await new Promise(resolve => setTimeout(resolve, 5000));
+        // }
 
         // Small delay between cycles to prevent overwhelming the API
         await new Promise(resolve => setTimeout(resolve, 1000));

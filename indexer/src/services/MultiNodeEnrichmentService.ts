@@ -140,11 +140,16 @@ export class MultiNodeEnrichmentService {
     }
 
     if (quickWins.length > 0) {
-      console.log(`💰 [MULTI-NODE] Processing ${quickWins.length} quick win contract(s)`);
-      for (const contract of quickWins) {
-        if (!this.isRunning) break;
-        await this.baseEnrichmentService.enrichVolumeContract(contract.id);
-      }
+      console.log(`💰 [MULTI-NODE] Found ${quickWins.length} quick win contract(s)`);
+      console.log(`⚠️  [MULTI-NODE] This service is deprecated. Use the new real-time enrichment service + concurrent gap script.`);
+      console.log(`   Real-time: Handled by streamlined VolumeEnrichmentService`);
+      console.log(`   Backlogs: Run 'npm run concurrent-enrich' for much better performance`);
+      
+      // DEPRECATED: enrichVolumeContract method removed from streamlined service
+      // for (const contract of quickWins) {
+      //   if (!this.isRunning) break;
+      //   await this.baseEnrichmentService.enrichVolumeContract(contract.id);
+      // }
     }
   }
 

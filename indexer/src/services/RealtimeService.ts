@@ -42,10 +42,15 @@ interface ApiResponse {
 export class RealtimeService {
   private transactionLimit = 50;
 
-  // Adaptive polling config
-  private readonly BASE_INTERVAL_MS = 15_000;      // 15 seconds
-  private readonly MAX_INTERVAL_MS = 600_000;      // 10 minutes max
+  // Adaptive polling config - optimized based on activity analysis
+  private readonly BASE_INTERVAL_MS = 15_000;      // 15 seconds for active contracts
+  private readonly MAX_INTERVAL_MS = 120_000;      // 2 minutes max (down from 10 min)
   private readonly BACKOFF_MULTIPLIER = 2;
+  
+  // Activity-based thresholds
+  private readonly HIGH_ACTIVITY_THRESHOLD = 5;    // 5+ tx per poll = stay at base interval
+  private readonly MEDIUM_ACTIVITY_INTERVAL = 30_000;  // 30s for moderate activity (1-4 tx)
+  private readonly LOW_ACTIVITY_INTERVAL = 60_000;     // 1 minute for low activity
 
   // In-memory polling state per contract
   private pollingState: Map<number, ContractPollingState> = new Map();
@@ -62,8 +67,10 @@ export class RealtimeService {
 
     this.isRunning = true;
     console.log('🚀 [REALTIME] Starting adaptive polling service...');
-    console.log(`   Base interval: ${this.BASE_INTERVAL_MS / 1000}s`);
-    console.log(`   Max interval: ${this.MAX_INTERVAL_MS / 1000}s`);
+    console.log(`   Base interval: ${this.BASE_INTERVAL_MS / 1000}s (high activity: 5+ tx)`);
+    console.log(`   Medium activity: ${this.MEDIUM_ACTIVITY_INTERVAL / 1000}s (1-4 tx)`);
+    console.log(`   Low activity: ${this.LOW_ACTIVITY_INTERVAL / 1000}s (0 tx)`);
+    console.log(`   Max interval: ${this.MAX_INTERVAL_MS / 1000}s (multiple empty polls)`);
 
     this.pollLoopPromise = this.runPollLoop();
   }
@@ -248,14 +255,28 @@ export class RealtimeService {
     state.lastPollTime = Date.now();
 
     if (hadError) {
+      // On error, increase interval but cap at max
       state.consecutiveEmptyPolls++;
       state.intervalMs = Math.min(state.intervalMs * this.BACKOFF_MULTIPLIER, this.MAX_INTERVAL_MS);
-    } else if (newTxCount > 0) {
+    } else if (newTxCount >= this.HIGH_ACTIVITY_THRESHOLD) {
+      // High activity (5+ tx) - keep at base interval
       state.consecutiveEmptyPolls = 0;
       state.intervalMs = this.BASE_INTERVAL_MS;
+    } else if (newTxCount > 0) {
+      // Medium activity (1-4 tx) - use 30s interval
+      state.consecutiveEmptyPolls = 0;
+      state.intervalMs = this.MEDIUM_ACTIVITY_INTERVAL;
     } else {
+      // No activity - gradually increase interval
       state.consecutiveEmptyPolls++;
-      state.intervalMs = Math.min(state.intervalMs * this.BACKOFF_MULTIPLIER, this.MAX_INTERVAL_MS);
+      
+      if (state.consecutiveEmptyPolls === 1) {
+        // First empty poll - go to 1 minute
+        state.intervalMs = this.LOW_ACTIVITY_INTERVAL;
+      } else {
+        // Multiple empty polls - increase up to max (2 minutes)
+        state.intervalMs = Math.min(state.intervalMs * this.BACKOFF_MULTIPLIER, this.MAX_INTERVAL_MS);
+      }
     }
 
     this.pollingState.set(contractId, state);
@@ -293,7 +314,10 @@ export class RealtimeService {
     return {
       baseIntervalMs: this.BASE_INTERVAL_MS,
       maxIntervalMs: this.MAX_INTERVAL_MS,
-      backoffMultiplier: this.BACKOFF_MULTIPLIER
+      backoffMultiplier: this.BACKOFF_MULTIPLIER,
+      highActivityThreshold: this.HIGH_ACTIVITY_THRESHOLD,
+      mediumActivityIntervalMs: this.MEDIUM_ACTIVITY_INTERVAL,
+      lowActivityIntervalMs: this.LOW_ACTIVITY_INTERVAL
     };
   }
 }

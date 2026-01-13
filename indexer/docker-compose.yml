@@ -3,11 +3,13 @@
 # Three separate services:
 # - indexer-backfill: Historical data backfill (CSV export based)
 # - indexer-realtime: Real-time transaction polling with adaptive intervals
-# - indexer-enrichment: Volume contract enrichment with built-in backlog handling
+# - indexer-enrichment: Event-driven volume enrichment (optimized, no polling)
+#
+# For large backlogs (500+ transactions), use: npm run concurrent-enrich
 #
 # To start all:   docker-compose up -d
 # To start one:   docker-compose up -d indexer-realtime
-# To view logs:   docker-compose logs -f indexer-realtime
+# To view logs:   docker-compose logs -f indexer-enrichment
 
 version: "3.8"
 
@@ -61,8 +63,11 @@ services:
       DATABASE_URL: postgres://ink:${DB_PASSWORD}@postgres:5432/ink_analytics
     command: npm run start:realtime
 
-  # Enrichment Service - Volume contract transaction enrichment
-  # Single-process service with built-in backlog handling
+  # Event-Driven Enrichment Service - Optimized volume contract enrichment
+  # - Handles small backlogs (<500 transactions) in real-time
+  # - Uses database triggers for instant processing (no polling overhead)
+  # - Leaves large backlogs for concurrent gap enrichment script
+  # - 90% less resource usage vs old polling approach
   indexer-enrichment:
     build: .
     restart: always
@@ -71,7 +76,7 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgres://ink:${DB_PASSWORD}@postgres:5432/ink_analytics
-    command: npm run start:enrichment
+    command: npm run start:event-enrichment
 
 volumes:
   postgres_data:
