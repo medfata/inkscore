@@ -128,6 +128,7 @@ export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ address: string }> }
 ) {
+  const requestStart = Date.now();
   try {
     const { address } = await params;
 
@@ -140,8 +141,11 @@ export async function GET(
     // Check cache first
     const cachedResult = bridgeResultsCache.get(walletAddress);
     if (cachedResult && Date.now() - cachedResult.timestamp < RESULTS_CACHE_TTL) {
+      console.log(`[Bridge ${walletAddress}] Cache hit - returning cached result`);
       return NextResponse.json(cachedResult.data);
     }
+
+    console.log(`[Bridge ${walletAddress}] Starting bridge volume calculation...`);
 
     // Initialize platform data - all platforms start with 0
     const platformData: Record<string, {
@@ -169,17 +173,20 @@ export async function GET(
     // Get ETH price
     let ethPrice = 3500;
     try {
+      const priceStart = Date.now();
       const priceResult = await pool.query(
         `SELECT price_usd FROM eth_prices ORDER BY timestamp DESC LIMIT 1`
       );
+      console.log(`[Bridge ${walletAddress}] ETH price query: ${Date.now() - priceStart}ms`);
       ethPrice = priceResult.rows[0]?.price_usd || 3500;
     } catch {
       // Use fallback price
     }
 
     // 1. Query Relay/Ink Official bridge IN transactions
-    // Use ILIKE on operations to filter by wallet in SQL (uses index on contract_address)
+    // Use related_wallets array for fast lookup (requires migration)
     try {
+      const relayInStart = Date.now();
       const relayResult = await pool.query(
         `SELECT 
            tx_hash, method_id, operations, value,
@@ -187,10 +194,16 @@ export async function GET(
            COALESCE(eth_price_usd, $2) as eth_price_usd
          FROM transaction_enrichment
          WHERE LOWER(contract_address) = LOWER($1)
-           AND operations IS NOT NULL
-           AND operations::text ILIKE $3`,
-        [RELAY_WALLET, ethPrice, `%${walletAddress.slice(2)}%`]
+           AND (
+             related_wallets @> ARRAY[$3]::text[]
+             OR (operations IS NOT NULL AND EXISTS (
+               SELECT 1 FROM jsonb_array_elements(operations) AS op
+               WHERE LOWER(op->'to'->>'id') = LOWER($3)
+             ))
+           )`,
+        [RELAY_WALLET, ethPrice, walletAddress]
       );
+      console.log(`[Bridge ${walletAddress}] Relay/Ink IN query: ${Date.now() - relayInStart}ms (${relayResult.rows.length} rows)`);
 
       for (const row of relayResult.rows) {
         let operations: Operation[] = [];
@@ -237,6 +250,7 @@ export async function GET(
     // Both Relay and Ink Official use the same deposit contract - show on BOTH platforms
     // but only count once for totals
     try {
+      const relayOutStart = Date.now();
       const relayOutResult = await pool.query(
         `SELECT tx_hash, value, method_id,
            COALESCE(eth_value_decimal, 0) as eth_value_decimal,
@@ -246,6 +260,7 @@ export async function GET(
            AND LOWER(wallet_address) = LOWER($3)`,
         [RELAY_DEPOSIT_CONTRACT, ethPrice, walletAddress]
       );
+      console.log(`[Bridge ${walletAddress}] Relay/Ink OUT query: ${Date.now() - relayOutStart}ms (${relayOutResult.rows.length} rows)`);
 
       // Track shared bridge OUT totals (shown on both platforms but counted once)
       let sharedBridgeOutEth = 0;
@@ -291,16 +306,20 @@ export async function GET(
     }
 
     // 2a. Query Native Bridge (USDT0) IN transactions (OFTReceived via LayerZero Executor)
-    // Use ILIKE on logs to filter by wallet in SQL
+    // Use related_wallets array for fast lookup (requires migration)
     try {
+      const nativeBridgeInStart = Date.now();
       const nativeBridgeInResult = await pool.query(
         `SELECT tx_hash, logs
          FROM transaction_enrichment
          WHERE LOWER(contract_address) = LOWER($1)
-           AND logs IS NOT NULL
-           AND logs::text ILIKE $2`,
-        [LZ_EXECUTOR_ADDRESS, `%${walletAddress.slice(2)}%`]
+           AND (
+             related_wallets @> ARRAY[$2]::text[]
+             OR (logs IS NOT NULL AND logs::text LIKE $3)
+           )`,
+        [LZ_EXECUTOR_ADDRESS, walletAddress, `%${walletAddress.slice(2)}%`]
       );
+      console.log(`[Bridge ${walletAddress}] Native Bridge IN query: ${Date.now() - nativeBridgeInStart}ms (${nativeBridgeInResult.rows.length} rows)`);
 
       for (const row of nativeBridgeInResult.rows) {
         const logs: OftEventLog[] = typeof row.logs === 'string' ? JSON.parse(row.logs) : row.logs;
@@ -338,6 +357,7 @@ export async function GET(
 
     // 2b. Query Native Bridge (USDT0) OUT transactions
     try {
+      const bridgeOutStart = Date.now();
       const bridgeOutResult = await pool.query(
         `SELECT tx_hash, logs
          FROM transaction_enrichment
@@ -346,6 +366,7 @@ export async function GET(
            AND logs IS NOT NULL`,
         [OFT_ADAPTER_ADDRESS, walletAddress]
       );
+      console.log(`[Bridge ${walletAddress}] Native Bridge OUT query: ${Date.now() - bridgeOutStart}ms (${bridgeOutResult.rows.length} rows)`);
 
       for (const row of bridgeOutResult.rows) {
         const logs: OftEventLog[] = typeof row.logs === 'string' ? JSON.parse(row.logs) : row.logs;
@@ -381,20 +402,27 @@ export async function GET(
     }
 
     // 3. Query Bungee bridge transactions
-    // Bridge IN: PerformFulfilment contract - query by operations containing wallet
+    // Bridge IN: PerformFulfilment contract - use related_wallets array
     // Bridge OUT: CreateRequest contract - query by wallet_address
     try {
       // 3a. Bungee Bridge IN (PerformFulfilment) - funds sent TO user
+      const bungeeInStart = Date.now();
       const bungeeInResult = await pool.query(
         `SELECT tx_hash, operations, value,
            COALESCE(eth_value_decimal, 0) as eth_value_decimal,
            COALESCE(eth_price_usd, $2) as eth_price_usd
          FROM transaction_enrichment
          WHERE LOWER(contract_address) = LOWER($1)
-           AND operations IS NOT NULL
-           AND operations::text ILIKE $3`,
-        [BUNGEE_FULFILLMENT_CONTRACT, ethPrice, `%${walletAddress.slice(2)}%`]
+           AND (
+             related_wallets @> ARRAY[$3]::text[]
+             OR (operations IS NOT NULL AND EXISTS (
+               SELECT 1 FROM jsonb_array_elements(operations) AS op
+               WHERE LOWER(op->'to'->>'id') = LOWER($3)
+             ))
+           )`,
+        [BUNGEE_FULFILLMENT_CONTRACT, ethPrice, walletAddress]
       );
+      console.log(`[Bridge ${walletAddress}] Bungee IN query: ${Date.now() - bungeeInStart}ms (${bungeeInResult.rows.length} rows)`);
 
       for (const row of bungeeInResult.rows) {
         let operations: Operation[] = [];
@@ -430,6 +458,7 @@ export async function GET(
       }
 
       // 3b. Bungee Bridge OUT (CreateRequest) - user sends funds out
+      const bungeeOutStart = Date.now();
       const bungeeOutResult = await pool.query(
         `SELECT tx_hash, value,
            COALESCE(eth_value_decimal, 0) as eth_value_decimal,
@@ -439,6 +468,7 @@ export async function GET(
            AND LOWER(wallet_address) = LOWER($3)`,
         [BUNGEE_REQUEST_CONTRACT, ethPrice, walletAddress]
       );
+      console.log(`[Bridge ${walletAddress}] Bungee OUT query: ${Date.now() - bungeeOutStart}ms (${bungeeOutResult.rows.length} rows)`);
 
       for (const row of bungeeOutResult.rows) {
         let ethValue = parseFloat(row.eth_value_decimal || '0');
@@ -462,6 +492,7 @@ export async function GET(
       }
 
       // 3c. Also check legacy Socket Gateway transactions
+      const bungeeGatewayStart = Date.now();
       const bungeeGatewayResult = await pool.query(
         `SELECT tx_hash, logs, eth_value_decimal, total_usd_volume, value
          FROM transaction_enrichment
@@ -470,6 +501,7 @@ export async function GET(
            AND logs IS NOT NULL`,
         [BUNGEE_SOCKET_GATEWAY, walletAddress]
       );
+      console.log(`[Bridge ${walletAddress}] Bungee Gateway query: ${Date.now() - bungeeGatewayStart}ms (${bungeeGatewayResult.rows.length} rows)`);
 
       for (const row of bungeeGatewayResult.rows) {
         const logs: OftEventLog[] = typeof row.logs === 'string' ? JSON.parse(row.logs) : row.logs;
@@ -554,6 +586,10 @@ export async function GET(
     };
 
     bridgeResultsCache.set(walletAddress, { data: response, timestamp: Date.now() });
+
+    const totalTime = Date.now() - requestStart;
+    console.log(`[Bridge ${walletAddress}] TOTAL REQUEST TIME: ${totalTime}ms`);
+
     return NextResponse.json(response);
   } catch (error) {
     console.error('Error fetching bridge volume:', error);
