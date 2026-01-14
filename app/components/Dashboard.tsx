@@ -2530,7 +2530,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                       </span>
                     </div>
                     <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-slate-400">Staking</span>
+                      <span className="text-slate-400">Staked Nfts</span>
                       <span className="font-mono text-white">
                         {!isDemo && shelliesStaking ? shelliesStaking.total_count : 0}
                       </span>

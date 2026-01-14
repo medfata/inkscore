@@ -88,7 +88,7 @@ export async function GET(
     if (metric === 'inkypump_buy_volume') {
       // Buy method IDs: swapExactETHForTokens, swapETHForExactTokens
       const buyMethodIds = ['0x7ff36ab5', '0xfb3bdb41'];
-      
+
       const rows = await query<{
         tx_hash: string;
         value: string;
@@ -111,7 +111,7 @@ export async function GET(
 
       for (const row of rows) {
         const ethPrice = parseFloat(row.eth_price_usd || '3500');
-        
+
         // For buy transactions, the ETH value is in the transaction value field
         if (row.value && row.value !== '0') {
           const ethValue = Number(BigInt(row.value)) / 1e18;
@@ -136,7 +136,7 @@ export async function GET(
     if (metric === 'inkypump_sell_volume') {
       // Sell method IDs: swapExactTokensForETH, swapTokensForExactETH, swapExactTokensForETHSupportingFeeOnTransferTokens
       const sellMethodIds = ['0x18cbafe5', '0x4a25d94a', '0x791ac947'];
-      
+
       const rows = await query<{
         tx_hash: string;
         eth_price_usd: string;
@@ -159,31 +159,31 @@ export async function GET(
 
       for (const row of rows) {
         const ethPrice = parseFloat(row.eth_price_usd || '3500');
-        
+
         // First try the internal_eth_out column if populated
         if (row.internal_eth_out && parseFloat(row.internal_eth_out) > 0) {
           totalVolume += parseFloat(row.internal_eth_out) * ethPrice;
           continue;
         }
-        
+
         // Otherwise parse operations to find ETH sent to the wallet
         if (row.operations) {
           try {
-            const operations = typeof row.operations === 'string' 
-              ? JSON.parse(row.operations) 
+            const operations = typeof row.operations === 'string'
+              ? JSON.parse(row.operations)
               : row.operations;
-            
+
             if (Array.isArray(operations)) {
               // Find internal transactions where ETH is sent TO the wallet (user receives ETH)
               for (const op of operations) {
                 const toAddress = (op.to?.id || '').toLowerCase();
                 const fromAddress = (op.from?.id || '').toLowerCase();
                 const value = op.value;
-                
+
                 // Look for ETH transfer to the wallet address (not from the wallet)
-                if (toAddress === wallet.toLowerCase() && 
-                    fromAddress !== wallet.toLowerCase() &&
-                    value && value !== '0') {
+                if (toAddress === wallet.toLowerCase() &&
+                  fromAddress !== wallet.toLowerCase() &&
+                  value && value !== '0') {
                   const ethValue = Number(BigInt(value)) / 1e18;
                   totalVolume += ethValue * ethPrice;
                   break; // Take the first ETH transfer to wallet (the swap output)
@@ -312,29 +312,59 @@ export async function GET(
       });
     }
 
-    // Special handling for shellies_staking - count of StakeBatch transactions
+    // Special handling for shellies_staking - get current staked NFTs from contract
     if (metric === 'shellies_staking') {
-      const rows = await query<{ count: string }>(`
-        SELECT COUNT(*) as count 
-        FROM transaction_details 
-        WHERE contract_address = lower($1) 
-          AND wallet_address = lower($2)
-          AND function_name IN ('StakeBatch', 'stakeBatch', '0x1e332260')
-          AND status = 1
-      `, [SHELLIES_STAKING_CONTRACT, wallet]);
+      try {
+        // Read current staked NFTs from contract using getStakedTokens(address)
+        const { getInkPublicClient } = await import('@/lib/viem-client');
+        const { staking_abi } = await import('@/lib/abis/shellies_staking_abi');
 
-      const count = parseInt(rows[0]?.count || '0', 10);
+        const client = getInkPublicClient();
 
-      return NextResponse.json({
-        slug: 'shellies_staking',
-        name: 'Staking',
-        icon: '🔒',
-        currency: 'COUNT',
-        total_count: count,
-        total_value: count.toString(),
-        sub_aggregates: [],
-        last_updated: new Date(),
-      });
+        const stakedTokens = await client.readContract({
+          address: SHELLIES_STAKING_CONTRACT as `0x${string}`,
+          abi: staking_abi,
+          functionName: 'getStakedTokens',
+          args: [wallet as `0x${string}`],
+        }) as bigint[];
+
+        const count = stakedTokens.length;
+
+        return NextResponse.json({
+          slug: 'shellies_staking',
+          name: 'Staking',
+          icon: '🔒',
+          currency: 'COUNT',
+          total_count: count,
+          total_value: count.toString(),
+          sub_aggregates: [],
+          last_updated: new Date(),
+        });
+      } catch (error) {
+        console.error('Failed to read Shellies staking from contract:', error);
+        // Fallback to transaction count if contract read fails
+        const rows = await query<{ count: string }>(`
+          SELECT COUNT(*) as count 
+          FROM transaction_details 
+          WHERE contract_address = lower($1) 
+            AND wallet_address = lower($2)
+            AND function_name IN ('StakeBatch', 'stakeBatch', '0x1e332260')
+            AND status = 1
+        `, [SHELLIES_STAKING_CONTRACT, wallet]);
+
+        const count = parseInt(rows[0]?.count || '0', 10);
+
+        return NextResponse.json({
+          slug: 'shellies_staking',
+          name: 'Staking',
+          icon: '🔒',
+          currency: 'COUNT',
+          total_count: count,
+          total_value: count.toString(),
+          sub_aggregates: [],
+          last_updated: new Date(),
+        });
+      }
     }
 
     // For other metrics, use the existing analytics service
