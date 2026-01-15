@@ -121,7 +121,7 @@ export interface NativeMetric {
   created_at: Date;
 }
 
-export type NativeMetricKey = 'wallet_age' | 'total_tx' | 'nft_collections' | 'erc20_tokens' | 'total_volume';
+export type NativeMetricKey = 'wallet_age' | 'total_tx' | 'nft_collections' | 'erc20_tokens' | 'total_volume' | 'meme_coins';
 
 // ============================================================================
 // Points System Types

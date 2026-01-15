@@ -349,6 +349,43 @@ interface RealWalletStats {
   tokenHoldings: RealTokenHolding[];
 }
 
+// Consolidated dashboard response type from /api/:wallet/dashboard
+interface ConsolidatedDashboardResponse {
+  stats: RealWalletStats | null;
+  bridge: BridgeVolumeResponse | null;
+  swap: SwapVolumeResponse | null;
+  volume: TotalVolumeResponse | null;
+  score: WalletScoreResponse | null;
+  analytics: { metrics?: Array<{ slug: string; total_value?: string; total_count?: number }> } | null;
+  cards: { row3?: DashboardCardData[]; row4?: DashboardCardData[] } | null;
+  marvk: MarvkMetrics | null;
+  nft2me: Nft2MeResponse | null;
+  tydro: {
+    currentSupplyUsd?: number;
+    currentSupplyEth?: number;
+    totalDepositedUsd?: number;
+    totalWithdrawnUsd?: number;
+    depositCount?: number;
+    withdrawCount?: number;
+    currentBorrowUsd?: number;
+    currentBorrowEth?: number;
+    totalBorrowedUsd?: number;
+    totalRepaidUsd?: number;
+    borrowCount?: number;
+    repayCount?: number;
+  } | null;
+  gmCount: { total_count?: number } | null;
+  inkypumpCreatedTokens: { total_count?: number } | null;
+  inkypumpBuyVolume: { total_value?: string; total_count?: number } | null;
+  inkypumpSellVolume: { total_value?: string; total_count?: number } | null;
+  nftTraded: NftTradingResponse | null;
+  zns: ZnsMetricsResponse | null;
+  shelliesJoinedRaffles: { total_count?: number } | null;
+  shelliesPayToPlay: { total_count?: number } | null;
+  shelliesStaking: { total_count?: number } | null;
+  errors?: string[];
+}
+
 const REFRESH_COOLDOWN_MS = 30000; // 30 seconds
 
 export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) => {
@@ -419,7 +456,171 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
     return () => clearInterval(timer);
   }, [cooldownRemaining]);
 
-  // Refresh all data function
+  // Helper function to process consolidated dashboard response and update all state
+  const processConsolidatedResponse = useCallback((response: ConsolidatedDashboardResponse) => {
+    // Process wallet stats
+    if (response.stats) {
+      setRealWalletStats({
+        balanceUsd: Number(response.stats.balanceUsd) || 0,
+        balanceEth: Number(response.stats.balanceEth) || 0,
+        totalTxns: Number(response.stats.totalTxns) || 0,
+        nftCount: Number(response.stats.nftCount) || 0,
+        ageDays: Number(response.stats.ageDays) || 0,
+        nftCollections: response.stats.nftCollections || [],
+        tokenHoldings: (response.stats.tokenHoldings || []).map((t) => ({
+          ...t,
+          balance: Number(t.balance) || 0,
+          usdValue: Number(t.usdValue) || 0,
+        })),
+      });
+    }
+
+    // Process bridge volume
+    if (response.bridge) {
+      setBridgeVolume(response.bridge);
+    }
+
+    // Process swap volume
+    if (response.swap) {
+      setSwapVolume({
+        totalUsd: response.swap.totalUsd || 0,
+        txCount: response.swap.txCount || 0,
+        byPlatform: response.swap.byPlatform?.map((p) => ({
+          platform: p.platform,
+          contractAddress: p.contractAddress,
+          usdValue: p.usdValue,
+          txCount: p.txCount,
+        })) || [],
+      });
+    }
+
+    // Process total volume
+    if (response.volume) {
+      setTotalVolume(response.volume);
+    }
+
+    // Process wallet score
+    if (response.score) {
+      setWalletScore(response.score);
+    }
+
+    // Process analytics (Tydro and InkySwap data)
+    if (response.analytics?.metrics) {
+      const supplyMetric = response.analytics.metrics.find((m) => m.slug === 'tydro_usd_supply');
+      const borrowMetric = response.analytics.metrics.find((m) => m.slug === 'Tydro_usd_borrow');
+      setRealTydroData({
+        supplyVolume: parseFloat(supplyMetric?.total_value || '0'),
+        supplyCount: supplyMetric?.total_count || 0,
+        borrowVolume: parseFloat(borrowMetric?.total_value || '0'),
+        borrowCount: borrowMetric?.total_count || 0,
+      });
+
+      const inkySwapMetric = response.analytics.metrics.find((m) =>
+        m.slug.toLowerCase().includes('inkyswap')
+      );
+      if (inkySwapMetric) {
+        setInkySwapVolume({
+          totalValue: parseFloat(inkySwapMetric.total_value || '0'),
+          totalCount: inkySwapMetric.total_count || 0,
+        });
+      }
+    }
+
+    // Process dashboard cards
+    if (response.cards) {
+      setDynamicCardsRow3(response.cards.row3 || []);
+      setDynamicCardsRow4(response.cards.row4 || []);
+    }
+
+    // Process Marvk metrics
+    if (response.marvk) {
+      setMarvkMetrics({
+        lockTokenCount: response.marvk.lockTokenCount || 0,
+        vestTokenCount: response.marvk.vestTokenCount || 0,
+        totalTransactions: response.marvk.totalTransactions || 0,
+      });
+    }
+
+    // Process NFT2Me metrics
+    if (response.nft2me) {
+      setNft2meMetrics({
+        collectionsCreated: response.nft2me.collectionsCreated || 0,
+        nftsMinted: response.nft2me.nftsMinted || 0,
+        totalTransactions: response.nft2me.totalTransactions || 0,
+      });
+    }
+
+    // Process Tydro current supply
+    if (response.tydro) {
+      setTydroCurrentSupply({
+        currentSupplyUsd: response.tydro.currentSupplyUsd || 0,
+        currentSupplyEth: response.tydro.currentSupplyEth || 0,
+        totalDepositedUsd: response.tydro.totalDepositedUsd || 0,
+        totalWithdrawnUsd: response.tydro.totalWithdrawnUsd || 0,
+        depositCount: response.tydro.depositCount || 0,
+        withdrawCount: response.tydro.withdrawCount || 0,
+        currentBorrowUsd: response.tydro.currentBorrowUsd || 0,
+        currentBorrowEth: response.tydro.currentBorrowEth || 0,
+        totalBorrowedUsd: response.tydro.totalBorrowedUsd || 0,
+        totalRepaidUsd: response.tydro.totalRepaidUsd || 0,
+        borrowCount: response.tydro.borrowCount || 0,
+        repayCount: response.tydro.repayCount || 0,
+      });
+    }
+
+    // Process GM count
+    if (response.gmCount) {
+      setRealGmData({ count: response.gmCount.total_count || 0 });
+    }
+
+    // Process InkyPump metrics
+    if (response.inkypumpCreatedTokens) {
+      setInkyPumpCreatedTokens({ count: response.inkypumpCreatedTokens.total_count || 0 });
+    }
+    if (response.inkypumpBuyVolume) {
+      setInkyPumpBuyVolume({
+        total_value: response.inkypumpBuyVolume.total_value || '0.00',
+        total_count: response.inkypumpBuyVolume.total_count || 0,
+      });
+    }
+    if (response.inkypumpSellVolume) {
+      setInkyPumpSellVolume({
+        total_value: response.inkypumpSellVolume.total_value || '0.00',
+        total_count: response.inkypumpSellVolume.total_count || 0,
+      });
+    }
+
+    // Process NFT trading
+    if (response.nftTraded) {
+      setNftTrading({
+        total_count: response.nftTraded.total_count || 0,
+        by_contract: response.nftTraded.by_contract || [],
+      });
+    }
+
+    // Process ZNS metrics
+    if (response.zns) {
+      setZnsMetrics({
+        total_count: response.zns.total_count || 0,
+        deploy_count: response.zns.deploy_count || 0,
+        say_gm_count: response.zns.say_gm_count || 0,
+        register_domain_count: response.zns.register_domain_count || 0,
+      });
+    }
+
+    // Process Shellies metrics
+    if (response.shelliesJoinedRaffles) {
+      setShelliesJoinedRaffles({ total_count: response.shelliesJoinedRaffles.total_count || 0 });
+    }
+    if (response.shelliesPayToPlay) {
+      setShelliesPayToPlay({ total_count: response.shelliesPayToPlay.total_count || 0 });
+    }
+    if (response.shelliesStaking) {
+      setShelliesStaking({ total_count: response.shelliesStaking.total_count || 0 });
+    }
+  }, []);
+
+  // Refresh all data function - uses consolidated endpoint
   const refreshAllData = useCallback(async () => {
     if (isDemo || isRefreshing || cooldownRemaining > 0) return;
 
@@ -438,287 +639,31 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
     setTotalVolume(null);
     setZnsMetrics(null);
     setNft2meMetrics(null);
+    setMarvkMetrics(null);
     setInkyPumpCreatedTokens(null);
     setInkyPumpBuyVolume(null);
     setInkyPumpSellVolume(null);
-
-    // Clear Shellies data
     setShelliesJoinedRaffles(null);
     setShelliesPayToPlay(null);
     setShelliesStaking(null);
+    setDynamicCardsRow3([]);
+    setDynamicCardsRow4([]);
 
     try {
-      const fetchPromises = [];
-
-      // Wallet stats
-      fetchPromises.push(
-        fetch(`/api/wallet/${walletAddress}/stats`)
-          .then(res => res.ok ? res.json() : null)
-          .then(stats => {
-            if (stats) {
-              setRealWalletStats({
-                balanceUsd: Number(stats.balanceUsd) || 0,
-                balanceEth: Number(stats.balanceEth) || 0,
-                totalTxns: Number(stats.totalTxns) || 0,
-                nftCount: Number(stats.nftCount) || 0,
-                ageDays: Number(stats.ageDays) || 0,
-                nftCollections: stats.nftCollections || [],
-                tokenHoldings: (stats.tokenHoldings || []).map((t: { name: string; symbol: string; address: string; logo: string; balance: number; usdValue: number }) => ({
-                  ...t,
-                  balance: Number(t.balance) || 0,
-                  usdValue: Number(t.usdValue) || 0,
-                })),
-              });
-            }
-          })
-          .catch(err => console.error('Failed to refresh wallet stats:', err))
-      );
-
-      // GM data
-      fetchPromises.push(
-        fetch(`/api/analytics/${walletAddress}/gm_count`)
-          .then(res => res.ok ? res.json() : null)
-          .then(data => {
-            if (data) setRealGmData({ count: data.total_count || 0 });
-          })
-          .catch(err => console.error('Failed to refresh GM data:', err))
-      );
-
-      // InkyPump created tokens data
-      fetchPromises.push(
-        fetch(`/api/analytics/${walletAddress}/inkypump_created_tokens`)
-          .then(res => res.ok ? res.json() : null)
-          .then(data => {
-            if (data) setInkyPumpCreatedTokens({ count: data.total_count || 0 });
-          })
-          .catch(err => console.error('Failed to refresh InkyPump created tokens data:', err))
-      );
-
-      // InkyPump buy volume data
-      fetchPromises.push(
-        fetch(`/api/analytics/${walletAddress}/inkypump_buy_volume`)
-          .then(res => res.ok ? res.json() : null)
-          .then(data => {
-            if (data) setInkyPumpBuyVolume({ total_value: data.total_value || '0.00', total_count: data.total_count || 0 });
-          })
-          .catch(err => console.error('Failed to refresh InkyPump buy volume data:', err))
-      );
-
-      // InkyPump sell volume data
-      fetchPromises.push(
-        fetch(`/api/analytics/${walletAddress}/inkypump_sell_volume`)
-          .then(res => res.ok ? res.json() : null)
-          .then(data => {
-            if (data) setInkyPumpSellVolume({ total_value: data.total_value || '0.00', total_count: data.total_count || 0 });
-          })
-          .catch(err => console.error('Failed to refresh InkyPump sell volume data:', err))
-      );
-
-      // Tydro data
-      fetchPromises.push(
-        fetch(`/api/analytics/${walletAddress}`)
-          .then(res => res.ok ? res.json() : null)
-          .then(data => {
-            if (data) {
-              const supplyMetric = data.metrics?.find((m: { slug: string }) => m.slug === 'tydro_usd_supply');
-              const borrowMetric = data.metrics?.find((m: { slug: string }) => m.slug === 'Tydro_usd_borrow');
-              setRealTydroData({
-                supplyVolume: parseFloat(supplyMetric?.total_value || '0'),
-                supplyCount: supplyMetric?.total_count || 0,
-                borrowVolume: parseFloat(borrowMetric?.total_value || '0'),
-                borrowCount: borrowMetric?.total_count || 0,
-              });
-
-              // InkySwap from same endpoint
-              const inkySwapMetric = data.metrics?.find((m: { slug: string }) =>
-                m.slug.toLowerCase().includes('inkyswap')
-              );
-              if (inkySwapMetric) {
-                setInkySwapVolume({
-                  totalValue: parseFloat(inkySwapMetric.total_value || '0'),
-                  totalCount: inkySwapMetric.total_count || 0,
-                });
-              }
-            }
-          })
-          .catch(err => console.error('Failed to refresh Tydro data:', err))
-      );
-
-      // Tydro current supply (event-sourced: deposits - withdrawals)
-      fetchPromises.push(
-        fetch(`/api/wallet/${walletAddress}/tydro`)
-          .then(res => res.ok ? res.json() : null)
-          .then(data => {
-            if (data) {
-              setTydroCurrentSupply({
-                currentSupplyUsd: data.currentSupplyUsd || 0,
-                currentSupplyEth: data.currentSupplyEth || 0,
-                totalDepositedUsd: data.totalDepositedUsd || 0,
-                totalWithdrawnUsd: data.totalWithdrawnUsd || 0,
-                depositCount: data.depositCount || 0,
-                withdrawCount: data.withdrawCount || 0,
-                currentBorrowUsd: data.currentBorrowUsd || 0,
-                currentBorrowEth: data.currentBorrowEth || 0,
-                totalBorrowedUsd: data.totalBorrowedUsd || 0,
-                totalRepaidUsd: data.totalRepaidUsd || 0,
-                borrowCount: data.borrowCount || 0,
-                repayCount: data.repayCount || 0,
-              });
-            }
-          })
-          .catch(err => console.error('Failed to refresh Tydro current supply:', err))
-      );
-
-      // Bridge volume
-      fetchPromises.push(
-        fetch(`/api/wallet/${walletAddress}/bridge`)
-          .then(res => res.ok ? res.json() : null)
-          .then(data => {
-            if (data) setBridgeVolume(data);
-          })
-          .catch(err => console.error('Failed to refresh bridge volume:', err))
-      );
-
-      // Swap volume
-      fetchPromises.push(
-        fetch(`/api/wallet/${walletAddress}/swap`)
-          .then(res => res.ok ? res.json() : null)
-          .then(data => {
-            if (data) {
-              setSwapVolume({
-                totalUsd: data.totalUsd || 0,
-                txCount: data.txCount || 0,
-                byPlatform: data.byPlatform?.map((p: { platform: string; contractAddress: string; usdValue: number; txCount: number }) => ({
-                  platform: p.platform,
-                  contractAddress: p.contractAddress,
-                  usdValue: p.usdValue,
-                  txCount: p.txCount,
-                })) || [],
-              });
-            }
-          })
-          .catch(err => console.error('Failed to refresh swap volume:', err))
-      );
-
-      // NFT trading
-      fetchPromises.push(
-        fetch(`/api/analytics/${walletAddress}/nft_traded`)
-          .then(res => res.ok ? res.json() : null)
-          .then(data => {
-            if (data) {
-              setNftTrading({
-                total_count: data.total_count || 0,
-                by_contract: data.by_contract || [],
-              });
-            }
-          })
-          .catch(err => console.error('Failed to refresh NFT trading:', err))
-      );
-
-      // Wallet score
-      fetchPromises.push(
-        fetch(`/api/wallet/${walletAddress}/score`)
-          .then(res => res.ok ? res.json() : null)
-          .then(data => {
-            if (data) setWalletScore(data);
-          })
-          .catch(err => console.error('Failed to refresh wallet score:', err))
-      );
-
-      // Total volume
-      fetchPromises.push(
-        fetch(`/api/wallet/${walletAddress}/volume`)
-          .then(res => res.ok ? res.json() : null)
-          .then(data => {
-            if (data) setTotalVolume(data);
-          })
-          .catch(err => console.error('Failed to refresh total volume:', err))
-      );
-
-      // ZNS metrics
-      fetchPromises.push(
-        fetch(`/api/analytics/${walletAddress}/zns`)
-          .then(res => res.ok ? res.json() : null)
-          .then(data => {
-            if (data) {
-              setZnsMetrics({
-                total_count: data.total_count || 0,
-                deploy_count: data.deploy_count || 0,
-                say_gm_count: data.say_gm_count || 0,
-                register_domain_count: data.register_domain_count || 0,
-              });
-            }
-          })
-          .catch(err => console.error('Failed to refresh ZNS metrics:', err))
-      );
-
-      // NFT2Me metrics
-      fetchPromises.push(
-        fetch(`/api/wallet/${walletAddress}/nft2me`)
-          .then(res => res.ok ? res.json() : null)
-          .then(data => {
-            if (data) {
-              setNft2meMetrics({
-                collectionsCreated: data.collectionsCreated || 0,
-                nftsMinted: data.nftsMinted || 0,
-                totalTransactions: data.totalTransactions || 0,
-              });
-            }
-          })
-          .catch(err => console.error('Failed to refresh NFT2Me metrics:', err))
-      );
-
-      // Marvk metrics
-      fetchPromises.push(
-        fetch(`/api/marvk/${walletAddress}`)
-          .then(res => res.ok ? res.json() : null)
-          .then(data => {
-            if (data) {
-              setMarvkMetrics({
-                lockTokenCount: data.lockTokenCount || 0,
-                vestTokenCount: data.vestTokenCount || 0,
-                totalTransactions: data.totalTransactions || 0,
-              });
-            }
-          })
-          .catch(err => console.error('Failed to refresh Marvk metrics:', err))
-      );
-
-      // Shellies metrics
-      fetchPromises.push(
-        fetch(`/api/analytics/${walletAddress}/shellies_joined_raffles`)
-          .then(res => res.ok ? res.json() : null)
-          .then(data => {
-            if (data) setShelliesJoinedRaffles({ total_count: data.total_count || 0 });
-          })
-          .catch(err => console.error('Failed to refresh Shellies joined raffles:', err))
-      );
-
-      fetchPromises.push(
-        fetch(`/api/analytics/${walletAddress}/shellies_pay_to_play`)
-          .then(res => res.ok ? res.json() : null)
-          .then(data => {
-            if (data) setShelliesPayToPlay({ total_count: data.total_count || 0 });
-          })
-          .catch(err => console.error('Failed to refresh Shellies pay to play:', err))
-      );
-
-      fetchPromises.push(
-        fetch(`/api/analytics/${walletAddress}/shellies_staking`)
-          .then(res => res.ok ? res.json() : null)
-          .then(data => {
-            if (data) setShelliesStaking({ total_count: data.total_count || 0 });
-          })
-          .catch(err => console.error('Failed to refresh Shellies staking:', err))
-      );
-
-      await Promise.all(fetchPromises);
+      // Single consolidated API call
+      const res = await fetch(`/api/${walletAddress}/dashboard`);
+      if (res.ok) {
+        const response: ConsolidatedDashboardResponse = await res.json();
+        processConsolidatedResponse(response);
+      }
       setLastUpdated(new Date());
       setCooldownRemaining(REFRESH_COOLDOWN_MS);
+    } catch (err) {
+      console.error('Failed to refresh dashboard data:', err);
     } finally {
       setIsRefreshing(false);
     }
-  }, [walletAddress, isDemo, isRefreshing, cooldownRemaining]);
+  }, [walletAddress, isDemo, isRefreshing, cooldownRemaining, processConsolidatedResponse]);
 
   // Format time ago for last updated
   const formatLastUpdated = (date: Date | null): string => {
@@ -747,407 +692,24 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
     return () => clearTimeout(timer);
   }, [walletAddress, isDemo]);
 
-  // Fetch real wallet stats when not in demo mode
+  // Fetch all dashboard data using consolidated endpoint when not in demo mode
   useEffect(() => {
     if (isDemo || !walletAddress || walletAddress.length < 10) return;
 
-    const fetchWalletStats = async () => {
+    const fetchDashboardData = async () => {
       try {
-        const res = await fetch(`/api/wallet/${walletAddress}/stats`);
+        const res = await fetch(`/api/${walletAddress}/dashboard`);
         if (res.ok) {
-          const stats = await res.json();
-          setRealWalletStats({
-            balanceUsd: Number(stats.balanceUsd) || 0,
-            balanceEth: Number(stats.balanceEth) || 0,
-            totalTxns: Number(stats.totalTxns) || 0,
-            nftCount: Number(stats.nftCount) || 0,
-            ageDays: Number(stats.ageDays) || 0,
-            nftCollections: stats.nftCollections || [],
-            tokenHoldings: (stats.tokenHoldings || []).map((t: { name: string; symbol: string; address: string; logo: string; balance: number; usdValue: number }) => ({
-              ...t,
-              balance: Number(t.balance) || 0,
-              usdValue: Number(t.usdValue) || 0,
-            })),
-          });
+          const response: ConsolidatedDashboardResponse = await res.json();
+          processConsolidatedResponse(response);
         }
       } catch (err) {
-        console.error('Failed to fetch wallet stats:', err);
+        console.error('Failed to fetch dashboard data:', err);
       }
     };
 
-    fetchWalletStats();
-  }, [walletAddress, isDemo]);
-
-  // Fetch real GM data when not in demo mode
-  useEffect(() => {
-    if (isDemo || !walletAddress || walletAddress.length < 10) return;
-
-    const fetchGmData = async () => {
-      try {
-        const res = await fetch(`/api/analytics/${walletAddress}/gm_count`);
-        if (res.ok) {
-          const data = await res.json();
-          setRealGmData({ count: data.total_count || 0 });
-        }
-      } catch (err) {
-        console.error('Failed to fetch GM data:', err);
-      }
-    };
-
-    fetchGmData();
-  }, [walletAddress, isDemo]);
-
-  // Fetch InkyPump data when not in demo mode
-  useEffect(() => {
-    if (isDemo || !walletAddress || walletAddress.length < 10) return;
-
-    const fetchInkyPumpData = async () => {
-      try {
-        // Fetch created tokens
-        const createdTokensRes = await fetch(`/api/analytics/${walletAddress}/inkypump_created_tokens`);
-        if (createdTokensRes.ok) {
-          const data = await createdTokensRes.json();
-          setInkyPumpCreatedTokens({ count: data.total_count || 0 });
-        }
-
-        // Fetch buy volume
-        const buyVolumeRes = await fetch(`/api/analytics/${walletAddress}/inkypump_buy_volume`);
-        if (buyVolumeRes.ok) {
-          const data = await buyVolumeRes.json();
-          setInkyPumpBuyVolume({ total_value: data.total_value || '0.00', total_count: data.total_count || 0 });
-        }
-
-        // Fetch sell volume
-        const sellVolumeRes = await fetch(`/api/analytics/${walletAddress}/inkypump_sell_volume`);
-        if (sellVolumeRes.ok) {
-          const data = await sellVolumeRes.json();
-          setInkyPumpSellVolume({ total_value: data.total_value || '0.00', total_count: data.total_count || 0 });
-        }
-      } catch (err) {
-        console.error('Failed to fetch InkyPump data:', err);
-      }
-    };
-
-    fetchInkyPumpData();
-  }, [walletAddress, isDemo]);
-
-  // Fetch real Tydro data when not in demo mode
-  useEffect(() => {
-    if (isDemo || !walletAddress || walletAddress.length < 10) return;
-
-    const fetchTydroData = async () => {
-      try {
-        const res = await fetch(`/api/analytics/${walletAddress}`);
-        if (res.ok) {
-          const data = await res.json();
-          const supplyMetric = data.metrics?.find((m: { slug: string }) => m.slug === 'tydro_usd_supply');
-          const borrowMetric = data.metrics?.find((m: { slug: string }) => m.slug === 'Tydro_usd_borrow');
-
-          setRealTydroData({
-            supplyVolume: parseFloat(supplyMetric?.total_value || '0'),
-            supplyCount: supplyMetric?.total_count || 0,
-            borrowVolume: parseFloat(borrowMetric?.total_value || '0'),
-            borrowCount: borrowMetric?.total_count || 0,
-          });
-        }
-      } catch (err) {
-        console.error('Failed to fetch Tydro data:', err);
-      }
-    };
-
-    fetchTydroData();
-  }, [walletAddress, isDemo]);
-
-  // Fetch Tydro current supply (event-sourced: deposits - withdrawals)
-  useEffect(() => {
-    if (isDemo || !walletAddress || walletAddress.length < 10) return;
-
-    const fetchTydroCurrentSupply = async () => {
-      try {
-        const res = await fetch(`/api/wallet/${walletAddress}/tydro`);
-        if (res.ok) {
-          const data = await res.json();
-          setTydroCurrentSupply({
-            currentSupplyUsd: data.currentSupplyUsd || 0,
-            currentSupplyEth: data.currentSupplyEth || 0,
-            totalDepositedUsd: data.totalDepositedUsd || 0,
-            totalWithdrawnUsd: data.totalWithdrawnUsd || 0,
-            depositCount: data.depositCount || 0,
-            withdrawCount: data.withdrawCount || 0,
-            currentBorrowUsd: data.currentBorrowUsd || 0,
-            currentBorrowEth: data.currentBorrowEth || 0,
-            totalBorrowedUsd: data.totalBorrowedUsd || 0,
-            totalRepaidUsd: data.totalRepaidUsd || 0,
-            borrowCount: data.borrowCount || 0,
-            repayCount: data.repayCount || 0,
-          });
-        }
-      } catch (err) {
-        console.error('Failed to fetch Tydro current supply:', err);
-      }
-    };
-
-    fetchTydroCurrentSupply();
-  }, [walletAddress, isDemo]);
-
-  // Fetch bridge volume when not in demo mode
-  useEffect(() => {
-    if (isDemo || !walletAddress || walletAddress.length < 10) return;
-
-    const fetchBridgeVolume = async () => {
-      try {
-        const res = await fetch(`/api/wallet/${walletAddress}/bridge`);
-        if (res.ok) {
-          const data = await res.json();
-          setBridgeVolume(data);
-        }
-      } catch (err) {
-        console.error('Failed to fetch bridge volume:', err);
-      }
-    };
-
-    fetchBridgeVolume();
-  }, [walletAddress, isDemo]);
-
-  // Fetch InkySwap volume when not in demo mode
-  useEffect(() => {
-    if (isDemo || !walletAddress || walletAddress.length < 10) return;
-
-    const fetchInkySwapVolume = async () => {
-      try {
-        const res = await fetch(`/api/analytics/${walletAddress}`);
-        if (res.ok) {
-          const data = await res.json();
-          const inkySwapMetric = data.metrics?.find((m: { slug: string }) =>
-            m.slug.toLowerCase().includes('inkyswap')
-          );
-          if (inkySwapMetric) {
-            setInkySwapVolume({
-              totalValue: parseFloat(inkySwapMetric.total_value || '0'),
-              totalCount: inkySwapMetric.total_count || 0,
-            });
-          }
-        }
-      } catch (err) {
-        console.error('Failed to fetch InkySwap volume:', err);
-      }
-    };
-
-    fetchInkySwapVolume();
-  }, [walletAddress, isDemo]);
-
-  // Fetch swap volume (DyorSwap and other DEXes) when not in demo mode
-  useEffect(() => {
-    if (isDemo || !walletAddress || walletAddress.length < 10) return;
-
-    const fetchSwapVolume = async () => {
-      try {
-        // Use the fast dedicated swap endpoint (like bridge endpoint)
-        const res = await fetch(`/api/wallet/${walletAddress}/swap`);
-        if (res.ok) {
-          const data = await res.json();
-          setSwapVolume({
-            totalUsd: data.totalUsd || 0,
-            txCount: data.txCount || 0,
-            byPlatform: data.byPlatform?.map((p: { platform: string; contractAddress: string; usdValue: number; txCount: number }) => ({
-              platform: p.platform,
-              contractAddress: p.contractAddress,
-              usdValue: p.usdValue,
-              txCount: p.txCount,
-            })) || [],
-          });
-        }
-      } catch (err) {
-        console.error('Failed to fetch swap volume:', err);
-      }
-    };
-
-    fetchSwapVolume();
-  }, [walletAddress, isDemo]);
-
-  // Fetch NFT trading data when not in demo mode
-  useEffect(() => {
-    if (isDemo || !walletAddress || walletAddress.length < 10) return;
-
-    const fetchNftTrading = async () => {
-      try {
-        const res = await fetch(`/api/analytics/${walletAddress}/nft_traded`);
-        if (res.ok) {
-          const data = await res.json();
-          setNftTrading({
-            total_count: data.total_count || 0,
-            by_contract: data.by_contract || [],
-          });
-        }
-      } catch (err) {
-        console.error('Failed to fetch NFT trading data:', err);
-      }
-    };
-
-    fetchNftTrading();
-  }, [walletAddress, isDemo]);
-
-  // Fetch wallet score when not in demo mode
-  useEffect(() => {
-    if (isDemo || !walletAddress || walletAddress.length < 10) return;
-
-    const fetchWalletScore = async () => {
-      try {
-        const res = await fetch(`/api/wallet/${walletAddress}/score`);
-        if (res.ok) {
-          const data = await res.json();
-          setWalletScore(data);
-        }
-      } catch (err) {
-        console.error('Failed to fetch wallet score:', err);
-      }
-    };
-
-    fetchWalletScore();
-  }, [walletAddress, isDemo]);
-
-  // Fetch total volume when not in demo mode
-  useEffect(() => {
-    if (isDemo || !walletAddress || walletAddress.length < 10) return;
-
-    const fetchTotalVolume = async () => {
-      try {
-        const res = await fetch(`/api/wallet/${walletAddress}/volume`);
-        if (res.ok) {
-          const data = await res.json();
-          setTotalVolume(data);
-        }
-      } catch (err) {
-        console.error('Failed to fetch total volume:', err);
-      }
-    };
-
-    fetchTotalVolume();
-  }, [walletAddress, isDemo]);
-
-  // Fetch ZNS metrics when not in demo mode
-  useEffect(() => {
-    if (isDemo || !walletAddress || walletAddress.length < 10) return;
-
-    const fetchZnsMetrics = async () => {
-      try {
-        const res = await fetch(`/api/analytics/${walletAddress}/zns`);
-        if (res.ok) {
-          const data = await res.json();
-          setZnsMetrics({
-            total_count: data.total_count || 0,
-            deploy_count: data.deploy_count || 0,
-            say_gm_count: data.say_gm_count || 0,
-            register_domain_count: data.register_domain_count || 0,
-          });
-        }
-      } catch (err) {
-        console.error('Failed to fetch ZNS metrics:', err);
-      }
-    };
-
-    fetchZnsMetrics();
-  }, [walletAddress, isDemo]);
-
-  // Fetch dynamic dashboard cards
-  useEffect(() => {
-    if (isDemo || !walletAddress || walletAddress.length < 10) return;
-
-    const fetchDynamicCards = async () => {
-      try {
-        const res = await fetch(`/api/dashboard/cards/${walletAddress}`);
-        if (res.ok) {
-          const data = await res.json();
-          setDynamicCardsRow3(data.row3 || []);
-          setDynamicCardsRow4(data.row4 || []);
-        }
-      } catch (err) {
-        console.error('Failed to fetch dynamic dashboard cards:', err);
-      }
-    };
-
-    fetchDynamicCards();
-  }, [walletAddress, isDemo]);
-
-  // Fetch Shellies metrics when not in demo mode
-  useEffect(() => {
-    if (isDemo || !walletAddress || walletAddress.length < 10) return;
-
-    const fetchShelliesMetrics = async () => {
-      try {
-        // Fetch joined raffles
-        const joinedRafflesRes = await fetch(`/api/analytics/${walletAddress}/shellies_joined_raffles`);
-        if (joinedRafflesRes.ok) {
-          const data = await joinedRafflesRes.json();
-          setShelliesJoinedRaffles({ total_count: data.total_count || 0 });
-        }
-
-        // Fetch pay to play
-        const payToPlayRes = await fetch(`/api/analytics/${walletAddress}/shellies_pay_to_play`);
-        if (payToPlayRes.ok) {
-          const data = await payToPlayRes.json();
-          setShelliesPayToPlay({ total_count: data.total_count || 0 });
-        }
-
-        // Fetch staking
-        const stakingRes = await fetch(`/api/analytics/${walletAddress}/shellies_staking`);
-        if (stakingRes.ok) {
-          const data = await stakingRes.json();
-          setShelliesStaking({ total_count: data.total_count || 0 });
-        }
-      } catch (err) {
-        console.error('Failed to fetch Shellies metrics:', err);
-      }
-    };
-
-    fetchShelliesMetrics();
-  }, [walletAddress, isDemo]);
-
-  // Fetch NFT2Me metrics when not in demo mode
-  useEffect(() => {
-    if (isDemo || !walletAddress || walletAddress.length < 10) return;
-
-    const fetchNft2meMetrics = async () => {
-      try {
-        const res = await fetch(`/api/wallet/${walletAddress}/nft2me`);
-        if (res.ok) {
-          const data = await res.json();
-          setNft2meMetrics({
-            collectionsCreated: data.collectionsCreated || 0,
-            nftsMinted: data.nftsMinted || 0,
-            totalTransactions: data.totalTransactions || 0,
-          });
-        }
-      } catch (err) {
-        console.error('Failed to fetch NFT2Me metrics:', err);
-      }
-    };
-
-    fetchNft2meMetrics();
-  }, [walletAddress, isDemo]);
-
-  // Fetch Marvk metrics when not in demo mode
-  useEffect(() => {
-    if (isDemo || !walletAddress || walletAddress.length < 10) return;
-
-    const fetchMarvkMetrics = async () => {
-      try {
-        const res = await fetch(`/api/marvk/${walletAddress}`);
-        if (res.ok) {
-          const data = await res.json();
-          setMarvkMetrics({
-            lockTokenCount: data.lockTokenCount || 0,
-            vestTokenCount: data.vestTokenCount || 0,
-            totalTransactions: data.totalTransactions || 0,
-          });
-        }
-      } catch (err) {
-        console.error('Failed to fetch Marvk metrics:', err);
-      }
-    };
-
-    fetchMarvkMetrics();
-  }, [walletAddress, isDemo]);
+    fetchDashboardData();
+  }, [walletAddress, isDemo, processConsolidatedResponse]);
 
   const handleAiAnalysis = async () => {
     if (!data) return;

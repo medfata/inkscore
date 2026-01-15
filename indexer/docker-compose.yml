@@ -78,6 +78,26 @@ services:
       DATABASE_URL: postgres://ink:${DB_PASSWORD}@postgres:5432/ink_analytics
     command: npm run start:event-enrichment
 
+  # Express API Server - Shared connection pool for dashboard endpoints
+  # Solves PostgreSQL connection exhaustion from serverless functions
+  api-server:
+    build: ../api-server
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://ink:${DB_PASSWORD}@postgres:5432/ink_analytics
+      PORT: 4000
+      RPC_URL: ${RPC_URL}
+    ports:
+      - "4000:4000"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:4000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
 volumes:
   postgres_data:
   csv_exports:

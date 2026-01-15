@@ -437,95 +437,435 @@ export class PointsService {
 
 
   // ============================================================================
-  // POINTS CALCULATION
+  // MANUAL POINTS CALCULATION METHODS
   // ============================================================================
 
-  calculatePointsFromRanges(value: number, ranges: PointRange[], mode: string): number {
-    if (mode === 'multiplier') {
-      // For multiplier mode, the "points" field in ranges[0] is the multiplier rate
-      const multiplier = ranges[0]?.points || 1;
-      return Math.floor(value * multiplier);
-    }
-    return this.calculateRangePoints(value, ranges);
+  // Meme token addresses (add more as needed)
+  private readonly MEME_TOKENS = [
+    '0x20c69c12abf2b6f8d8ca33604dd25c700c7e70a5', // CAT
+    '0x0606fc632ee812ba970af72f8489baaa443c4b98', // ANITA
+    '0xd642b49d10cc6e1bc1c6945725667c35e0875f22', // PURPLE
+  ];
+
+  private isMemeToken(address: string): boolean {
+    return this.MEME_TOKENS.includes(address.toLowerCase());
   }
 
-  private calculateRangePoints(value: number, ranges: PointRange[]): number {
-    const sortedRanges = [...ranges].sort((a, b) => a.min - b.min);
-    for (const range of sortedRanges) {
-      const min = range.min;
-      const max = range.max ?? Infinity;
-      if (value >= min && value <= max) {
-        return range.points;
-      }
-    }
+  // 1. NFT Collections Points
+  private calculateNftCollectionsPoints(nftCount: number): number {
+    if (nftCount >= 1 && nftCount <= 3) return 100;
+    if (nftCount >= 4 && nftCount <= 9) return 200;
+    if (nftCount >= 10) return 300;
     return 0;
   }
 
-  async calculateNativeMetricPoints(
-    metricKey: NativeMetricKey,
-    rule: PointsRule,
-    stats: {
-      ageDays: number;
-      totalTxns: number;
-      nftCount: number;
-      tokenHoldings: Array<{ usdValue: number }>;
-      totalVolumeUsd?: number;
-    }
-  ): Promise<{ value: number; points: number }> {
-    let value = 0;
+  // 2. Token Holdings Points (excluding meme coins)
+  private calculateTokenHoldingsPoints(tokenHoldings: Array<{ address: string; usdValue: number }>): number {
+    let points = 0;
+    for (const token of tokenHoldings) {
+      // Skip meme tokens
+      if (this.isMemeToken(token.address)) continue;
 
-    switch (metricKey) {
-      case 'wallet_age':
-        value = stats.ageDays;
-        break;
-      case 'total_tx':
-        value = stats.totalTxns;
-        break;
-      case 'nft_collections':
-        value = stats.nftCount;
-        break;
-      case 'erc20_tokens':
-        value = stats.tokenHoldings.reduce((sum, t) => sum + t.usdValue, 0);
-        break;
-      case 'total_volume':
-        value = stats.totalVolumeUsd || 0;
-        break;
+      const balanceUsd = token.usdValue;
+      if (balanceUsd >= 1 && balanceUsd <= 99) {
+        points += 100;
+      } else if (balanceUsd >= 100 && balanceUsd <= 999) {
+        points += 200;
+      } else if (balanceUsd >= 1000) {
+        points += 300;
+      }
     }
-
-    const points = this.calculatePointsFromRanges(value, rule.ranges, rule.calculation_mode);
-    return { value, points };
+    return points;
   }
 
-  async calculatePlatformPoints(
-    walletAddress: string,
-    platformId: number,
-    rule: PointsRule,
-    platformContracts: Map<number, string[]>
-  ): Promise<{ tx_count: number; usd_volume: number; points: number }> {
-    const wallet = walletAddress.toLowerCase();
-    const addresses = platformContracts.get(platformId) || [];
+  // 3. Meme Coins Points
+  private calculateMemeCoinsPoints(tokenHoldings: Array<{ address: string; usdValue: number }>): number {
+    let points = 0;
+    for (const token of tokenHoldings) {
+      // Only process meme tokens
+      if (!this.isMemeToken(token.address)) continue;
 
-    if (addresses.length === 0) {
-      return { tx_count: 0, usd_volume: 0, points: 0 };
+      const balanceUsd = token.usdValue;
+      if (balanceUsd >= 1 && balanceUsd <= 10) {
+        points += 50;
+      } else if (balanceUsd >= 11 && balanceUsd <= 100) {
+        points += 70;
+      } else if (balanceUsd > 200) {
+        points += 100;
+      }
+    }
+    return points;
+  }
+
+  // 4. Wallet Age Points
+  private calculateWalletAgePoints(ageDays: number): number {
+    if (ageDays <= 30) return 100;
+    if (ageDays <= 90) return 200;
+    if (ageDays <= 180) return 300;
+    if (ageDays <= 365) return 400;
+    if (ageDays <= 730) return 500;
+    return 600;
+  }
+
+  // 5. Total Transactions Points
+  private calculateTotalTxPoints(txCount: number): number {
+    if (txCount >= 1 && txCount <= 100) return 100;
+    if (txCount <= 200) return 200;
+    if (txCount <= 400) return 300;
+    if (txCount <= 700) return 400;
+    if (txCount <= 900) return 500;
+    return 600;
+  }
+
+  // 6. Bridge Volume Points
+  private calculateBridgeVolumePoints(bridgeInVolumeUsd: number): number {
+    if (bridgeInVolumeUsd >= 10 && bridgeInVolumeUsd < 100) return 100;
+    if (bridgeInVolumeUsd < 500) return 200;
+    if (bridgeInVolumeUsd < 2000) return 300;
+    if (bridgeInVolumeUsd < 5000) return 400;
+    if (bridgeInVolumeUsd < 10000) return 500;
+    if (bridgeInVolumeUsd >= 10000) return 600;
+    return 0;
+  }
+
+  // 7. GM Points
+  private calculateGmPoints(gmCount: number): number {
+    if (gmCount >= 1 && gmCount < 10) return 100;
+    if (gmCount >= 10 && gmCount <= 20) return 200;
+    if (gmCount > 30) return 300;
+    return 0;
+  }
+
+  // 8. InkyPump Points
+  private calculateInkyPumpPoints(createdToken: boolean, boughtToken: boolean, soldToken: boolean): number {
+    let points = 0;
+    if (createdToken) points += 100;
+    if (boughtToken) points += 100;
+    if (soldToken) points += 100;
+    return points;
+  }
+
+  // 9. Tydro Points
+  private calculateTydroPoints(supplyUsd: number, borrowUsd: number): number {
+    let points = 0;
+
+    // Supply points
+    if (supplyUsd >= 1 && supplyUsd <= 99) {
+      points += 250;
+    } else if (supplyUsd >= 100 && supplyUsd <= 499) {
+      points += 500;
+    } else if (supplyUsd >= 500 && supplyUsd <= 999) {
+      points += 700;
+    } else if (supplyUsd >= 1000) {
+      points += 1000;
     }
 
-    // Optimized query using the existing index (contract_address, wallet_address)
-    const stats = await queryOne<{ tx_count: string; usd_volume: string }>(`
-      SELECT 
-        COUNT(DISTINCT tx_hash) as tx_count,
-        COALESCE(SUM(total_usd_value), 0) as usd_volume
-      FROM transaction_details
-      WHERE wallet_address = $1
-        AND contract_address = ANY($2)
-        AND status = 1
-    `, [wallet, addresses]);
+    // Borrow points
+    if (borrowUsd >= 1 && borrowUsd <= 99) {
+      points += 250;
+    } else if (borrowUsd >= 100 && borrowUsd <= 499) {
+      points += 500;
+    } else if (borrowUsd >= 500 && borrowUsd <= 999) {
+      points += 700;
+    } else if (borrowUsd >= 1000) {
+      points += 1000;
+    }
 
-    const txCount = parseInt(stats?.tx_count || '0');
-    const usdVolume = parseFloat(stats?.usd_volume || '0');
-    const valueForPoints = rule.calculation_mode === 'multiplier' ? usdVolume : txCount;
-    const points = this.calculatePointsFromRanges(valueForPoints, rule.ranges, rule.calculation_mode);
+    return points;
+  }
 
-    return { tx_count: txCount, usd_volume: usdVolume, points };
+  // 10. Swap Volume Points
+  private calculateSwapVolumePoints(swapAmountUsd: number): number {
+    if (swapAmountUsd >= 5 && swapAmountUsd <= 50) return 100;
+    if (swapAmountUsd >= 100 && swapAmountUsd <= 500) return 250;
+    if (swapAmountUsd > 500 && swapAmountUsd <= 1000) return 500;
+    if (swapAmountUsd > 1000) return 1000;
+    return 0;
+  }
+
+  // 11. Shellies Points
+  private calculateShelliesPoints(playedGame: boolean, stakedNft: boolean, joinedRaffle: boolean): number {
+    let points = 0;
+    if (playedGame) points += 100;
+    if (stakedNft) points += 100;
+    if (joinedRaffle) points += 100;
+    return points;
+  }
+
+  // 12. ZNS Points
+  private calculateZnsPoints(hasZnsDomain: boolean): number {
+    return hasZnsDomain ? 100 : 0;
+  }
+
+  // 13. NFT2Me Points
+  private calculateNft2mePoints(collectionCreated: boolean, nftMinted: boolean): number {
+    let points = 0;
+    if (collectionCreated) points += 100;
+    if (nftMinted) points += 100;
+    return points;
+  }
+
+  // 14. NFT Trading Points
+  private calculateNftTradingPoints(hasTraded: boolean): number {
+    return hasTraded ? 100 : 0;
+  }
+
+  // ============================================================================
+  // DATA FETCHING HELPERS
+  // ============================================================================
+
+  private async fetchBridgeVolume(wallet: string): Promise<{ bridgedInUsd: number; bridgedInCount: number }> {
+    try {
+      const result = await queryOne<{ bridged_in_usd: string; bridged_in_count: string }>(`
+        SELECT 
+          COALESCE(SUM(CASE WHEN to_address = $1 THEN CAST(eth_value AS NUMERIC) / 1e18 * 3500 ELSE 0 END), 0) as bridged_in_usd,
+          COUNT(CASE WHEN to_address = $1 THEN 1 END) as bridged_in_count
+        FROM transaction_details
+        WHERE (wallet_address = $1 OR to_address = $1)
+          AND contract_address IN (
+            '0x1cb6de532588fca4a21b7209de7c456af8434a65',
+            '0xfebcf17b11376c724ab5a5229803c6e838b6eae5',
+            '0x4cd00e387622c35bddb9b4c962c136462338bc31',
+            '0x3a23f943181408eac424116af7b7790c94cb97a5',
+            '0x26d8da52e56de71194950689ccf74cd309761324',
+            '0xe18dfefce7a5d18d39ce6fc925f102286fa96fdc'
+          )
+          AND status = 1
+      `, [wallet]);
+      return {
+        bridgedInUsd: parseFloat(result?.bridged_in_usd || '0'),
+        bridgedInCount: parseInt(result?.bridged_in_count || '0')
+      };
+    } catch (error) {
+      console.error('Error fetching bridge volume:', error);
+      return { bridgedInUsd: 0, bridgedInCount: 0 };
+    }
+  }
+
+  private async fetchGmCount(wallet: string): Promise<{ count: number }> {
+    try {
+      const result = await queryOne<{ count: string }>(`
+        SELECT COUNT(*) as count
+        FROM transaction_details
+        WHERE wallet_address = $1
+          AND contract_address = '0x9f500d075118272b3564ac6ef2c70a9067fd2d3f'
+          AND status = 1
+      `, [wallet]);
+      return { count: parseInt(result?.count || '0') };
+    } catch (error) {
+      console.error('Error fetching GM count:', error);
+      return { count: 0 };
+    }
+  }
+
+  private async fetchInkyPumpCreatedTokens(wallet: string): Promise<{ count: number }> {
+    try {
+      const result = await queryOne<{ count: string }>(`
+        SELECT COUNT(*) as count
+        FROM transaction_details
+        WHERE wallet_address = $1
+          AND contract_address = '0x1d74317d760f2c72a94386f50e8d10f2c902b899'
+          AND function_name = 'mint'
+          AND status = 1
+      `, [wallet]);
+      return { count: parseInt(result?.count || '0') };
+    } catch (error) {
+      console.error('Error fetching InkyPump created tokens:', error);
+      return { count: 0 };
+    }
+  }
+
+  private async fetchInkyPumpBuyVolume(wallet: string): Promise<{ count: number }> {
+    try {
+      const result = await queryOne<{ count: string }>(`
+        SELECT COUNT(*) as count
+        FROM transaction_details
+        WHERE wallet_address = $1
+          AND contract_address = '0x1d74317d760f2c72a94386f50e8d10f2c902b899'
+          AND function_name = 'buy'
+          AND status = 1
+      `, [wallet]);
+      return { count: parseInt(result?.count || '0') };
+    } catch (error) {
+      console.error('Error fetching InkyPump buy volume:', error);
+      return { count: 0 };
+    }
+  }
+
+  private async fetchInkyPumpSellVolume(wallet: string): Promise<{ count: number }> {
+    try {
+      const result = await queryOne<{ count: string }>(`
+        SELECT COUNT(*) as count
+        FROM transaction_details
+        WHERE wallet_address = $1
+          AND contract_address = '0x1d74317d760f2c72a94386f50e8d10f2c902b899'
+          AND function_name = 'sell'
+          AND status = 1
+      `, [wallet]);
+      return { count: parseInt(result?.count || '0') };
+    } catch (error) {
+      console.error('Error fetching InkyPump sell volume:', error);
+      return { count: 0 };
+    }
+  }
+
+  private async fetchTydroData(wallet: string): Promise<{ supplyUsd: number; borrowUsd: number; supplyCount: number; borrowCount: number }> {
+    try {
+      const result = await queryOne<{ supply_usd: string; borrow_usd: string; supply_count: string; borrow_count: string }>(`
+        SELECT 
+          COALESCE(SUM(CASE WHEN function_name IN ('depositETH', 'supply') THEN CAST(eth_value AS NUMERIC) / 1e18 * 3500 ELSE 0 END), 0) as supply_usd,
+          COALESCE(SUM(CASE WHEN function_name IN ('borrowETH', 'borrow') THEN CAST(eth_value AS NUMERIC) / 1e18 * 3500 ELSE 0 END), 0) as borrow_usd,
+          COUNT(CASE WHEN function_name IN ('depositETH', 'supply') THEN 1 END) as supply_count,
+          COUNT(CASE WHEN function_name IN ('borrowETH', 'borrow') THEN 1 END) as borrow_count
+        FROM transaction_details
+        WHERE wallet_address = $1
+          AND contract_address IN ('0xde090efcd6ef4b86792e2d84e55a5fa8d49d25d2', '0x2816cf15f6d2a220e789aa011d5ee4eb6c47feba')
+          AND status = 1
+      `, [wallet]);
+      return {
+        supplyUsd: parseFloat(result?.supply_usd || '0'),
+        borrowUsd: parseFloat(result?.borrow_usd || '0'),
+        supplyCount: parseInt(result?.supply_count || '0'),
+        borrowCount: parseInt(result?.borrow_count || '0')
+      };
+    } catch (error) {
+      console.error('Error fetching Tydro data:', error);
+      return { supplyUsd: 0, borrowUsd: 0, supplyCount: 0, borrowCount: 0 };
+    }
+  }
+
+  private async fetchSwapVolume(wallet: string): Promise<{ totalUsd: number; txCount: number }> {
+    try {
+      const result = await queryOne<{ total_usd: string; tx_count: string }>(`
+        SELECT 
+          COALESCE(SUM(CAST(eth_value AS NUMERIC) / 1e18 * 3500), 0) as total_usd,
+          COUNT(*) as tx_count
+        FROM transaction_details
+        WHERE wallet_address = $1
+          AND contract_address IN (
+            '0x9b17690de96fcfa80a3acaefe11d936629cd7a77',
+            '0x551134e92e537ceaa217c2ef63210af3ce96a065',
+            '0x01d40099fcd87c018969b0e8d4ab1633fb34763c',
+            '0xd7e72f3615aa65b92a4dbdc211e296a35512988b'
+          )
+          AND status = 1
+      `, [wallet]);
+      return {
+        totalUsd: parseFloat(result?.total_usd || '0'),
+        txCount: parseInt(result?.tx_count || '0')
+      };
+    } catch (error) {
+      console.error('Error fetching swap volume:', error);
+      return { totalUsd: 0, txCount: 0 };
+    }
+  }
+
+  private async fetchShelliesRaffles(wallet: string): Promise<{ count: number }> {
+    try {
+      const result = await queryOne<{ count: string }>(`
+        SELECT COUNT(*) as count
+        FROM transaction_details
+        WHERE wallet_address = $1
+          AND contract_address IN ('0x47a27a42525fff2b7264b342f74216e37a831332', '0xe757e8aa82b7ad9f1ef8d4fe657d90341885c0de')
+          AND status = 1
+      `, [wallet]);
+      return { count: parseInt(result?.count || '0') };
+    } catch (error) {
+      console.error('Error fetching Shellies raffles:', error);
+      return { count: 0 };
+    }
+  }
+
+  private async fetchShelliesPayToPlay(wallet: string): Promise<{ count: number }> {
+    try {
+      const result = await queryOne<{ count: string }>(`
+        SELECT COUNT(*) as count
+        FROM transaction_details
+        WHERE wallet_address = $1
+          AND contract_address = '0x57d287dc46cb0782c4bce1e4e964cc52083bb358'
+          AND status = 1
+      `, [wallet]);
+      return { count: parseInt(result?.count || '0') };
+    } catch (error) {
+      console.error('Error fetching Shellies pay to play:', error);
+      return { count: 0 };
+    }
+  }
+
+  private async fetchShelliesStaking(wallet: string): Promise<{ count: number }> {
+    try {
+      const result = await queryOne<{ count: string }>(`
+        SELECT COUNT(*) as count
+        FROM transaction_details
+        WHERE wallet_address = $1
+          AND contract_address = '0xb39a48d294e1530a271e712b7a19243679d320d0'
+          AND status = 1
+      `, [wallet]);
+      return { count: parseInt(result?.count || '0') };
+    } catch (error) {
+      console.error('Error fetching Shellies staking:', error);
+      return { count: 0 };
+    }
+  }
+
+  private async fetchZnsData(wallet: string): Promise<{ hasZnsDomain: boolean; totalCount: number }> {
+    try {
+      const result = await queryOne<{ count: string }>(`
+        SELECT COUNT(*) as count
+        FROM transaction_details
+        WHERE wallet_address = $1
+          AND contract_address IN ('0x63c489d31a2c3de0638360931f47ff066282473f', '0x3033d7ded400547d6442c55159da5c61f2721633')
+          AND status = 1
+      `, [wallet]);
+      const count = parseInt(result?.count || '0');
+      return { hasZnsDomain: count > 0, totalCount: count };
+    } catch (error) {
+      console.error('Error fetching ZNS data:', error);
+      return { hasZnsDomain: false, totalCount: 0 };
+    }
+  }
+
+  private async fetchNft2meData(wallet: string): Promise<{ collectionsCreated: number; nftsMinted: number; totalTransactions: number }> {
+    try {
+      const result = await queryOne<{ collections: string; minted: string; total: string }>(`
+        SELECT 
+          COUNT(CASE WHEN contract_address = '0x00000000001594c61dd8a6804da9ab58ed2483ce' THEN 1 END) as collections,
+          COUNT(CASE WHEN contract_address = '0x00000000009a1e02f00e280dcfa4c81c55724212' THEN 1 END) as minted,
+          COUNT(*) as total
+        FROM transaction_details
+        WHERE wallet_address = $1
+          AND contract_address IN ('0x00000000001594c61dd8a6804da9ab58ed2483ce', '0x00000000009a1e02f00e280dcfa4c81c55724212')
+          AND status = 1
+      `, [wallet]);
+      return {
+        collectionsCreated: parseInt(result?.collections || '0'),
+        nftsMinted: parseInt(result?.minted || '0'),
+        totalTransactions: parseInt(result?.total || '0')
+      };
+    } catch (error) {
+      console.error('Error fetching NFT2Me data:', error);
+      return { collectionsCreated: 0, nftsMinted: 0, totalTransactions: 0 };
+    }
+  }
+
+  private async fetchNftTradingData(wallet: string): Promise<{ totalCount: number }> {
+    try {
+      const result = await queryOne<{ count: string }>(`
+        SELECT COUNT(*) as count
+        FROM transaction_details
+        WHERE wallet_address = $1
+          AND contract_address IN (
+            '0x9ebf93fdba9f32accab3d6716322dccd617a78f3',
+            '0xd00c96804e9ff35f10c7d2a92239c351ff3f94e5',
+            '0xbd6a027b85fd5285b1623563bbef6fadbe396afb'
+          )
+          AND status = 1
+      `, [wallet]);
+      return { totalCount: parseInt(result?.count || '0') };
+    } catch (error) {
+      console.error('Error fetching NFT trading data:', error);
+      return { totalCount: 0 };
+    }
   }
 
   async calculateWalletScore(walletAddress: string): Promise<WalletScoreResponse> {
@@ -536,60 +876,198 @@ export class PointsService {
     };
     let totalPoints = 0;
 
-    // Fetch wallet stats and total volume in parallel
-    const [stats, totalVolumeUsd] = await Promise.all([
-      walletStatsService.getAllStats(wallet),
-      fetchTotalVolumeUsd(wallet),
+    console.log(`\n========== CALCULATING SCORE FOR ${wallet} ==========`);
+
+    // Fetch wallet stats with cache bypass to ensure fresh data
+    const stats = await walletStatsService.getAllStats(wallet);
+
+    console.log(`DEBUG: Wallet Stats - ageDays: ${stats.ageDays}, totalTxns: ${stats.totalTxns}, nftCount: ${stats.nftCount}`);
+    console.log(`DEBUG: Token Holdings Count: ${stats.tokenHoldings.length}`);
+    console.log(`DEBUG: NFT Collections Count: ${stats.nftCollections.length}`);
+
+    // Fetch all required data in parallel
+    const [
+      bridgeData,
+      gmData,
+      inkyPumpCreated,
+      inkyPumpBuy,
+      inkyPumpSell,
+      tydroData,
+      swapData,
+      shelliesRaffles,
+      shelliesPayToPlay,
+      shelliesStaking,
+      znsData,
+      nft2meData,
+      nftTradingData
+    ] = await Promise.all([
+      this.fetchBridgeVolume(wallet),
+      this.fetchGmCount(wallet),
+      this.fetchInkyPumpCreatedTokens(wallet),
+      this.fetchInkyPumpBuyVolume(wallet),
+      this.fetchInkyPumpSellVolume(wallet),
+      this.fetchTydroData(wallet),
+      this.fetchSwapVolume(wallet),
+      this.fetchShelliesRaffles(wallet),
+      this.fetchShelliesPayToPlay(wallet),
+      this.fetchShelliesStaking(wallet),
+      this.fetchZnsData(wallet),
+      this.fetchNft2meData(wallet),
+      this.fetchNftTradingData(wallet)
     ]);
 
+    // 1. NFT Collections Points (only count supported collections)
+    const supportedNftCount = stats.nftCollections.reduce((sum, col) => sum + col.count, 0);
+    const nftPoints = this.calculateNftCollectionsPoints(supportedNftCount);
+    breakdown.native['nft_collections'] = { value: supportedNftCount, points: nftPoints };
+    totalPoints += nftPoints;
+    console.log(`1. NFT Collections (Supported): ${supportedNftCount} NFTs from ${stats.nftCollections.length} collections → ${nftPoints} points`);
+    console.log(`   DEBUG: All NFT Collections:`, JSON.stringify(stats.nftCollections, null, 2));
+    stats.nftCollections.forEach(col => {
+      console.log(`   - ${col.name}: ${col.count} NFTs (address: ${col.address})`);
+    });
+
+    // 2. Token Holdings Points (excluding meme coins)
+    const tokenPoints = this.calculateTokenHoldingsPoints(stats.tokenHoldings);
+    const totalTokenValue = stats.tokenHoldings.reduce((sum, t) => sum + (Number(t.usdValue) || 0), 0);
+    breakdown.native['erc20_tokens'] = {
+      value: totalTokenValue,
+      points: tokenPoints
+    };
+    totalPoints += tokenPoints;
+    console.log(`2. Token Holdings: $${(totalTokenValue || 0).toFixed(2)} (${stats.tokenHoldings.length} tokens) → ${tokenPoints} points`);
+    stats.tokenHoldings.forEach(t => {
+      if (!this.isMemeToken(t.address)) {
+        const usdVal = Number(t.usdValue) || 0;
+        console.log(`   - ${t.symbol || t.address}: $${usdVal.toFixed(2)} (balance: ${t.balance}, raw usdValue: ${t.usdValue})`);
+      }
+    });
+
+    // 3. Meme Coins Points (separate calculation)
+    const memePoints = this.calculateMemeCoinsPoints(stats.tokenHoldings);
+    const memeTokens = stats.tokenHoldings.filter(t => this.isMemeToken(t.address));
+    breakdown.native['meme_coins'] = {
+      value: memeTokens.length,
+      points: memePoints
+    };
+    totalPoints += memePoints;
+    console.log(`3. Meme Coins: ${memeTokens.length} meme tokens → ${memePoints} points`);
+    memeTokens.forEach(t => {
+      console.log(`   - ${t.symbol || t.address}: $${(Number(t.usdValue) || 0).toFixed(2)}`);
+    });
+
+    // 4. Wallet Age Points
+    const agePoints = this.calculateWalletAgePoints(stats.ageDays);
+    breakdown.native['wallet_age'] = { value: stats.ageDays, points: agePoints };
+    totalPoints += agePoints;
+    console.log(`4. Wallet Age: ${stats.ageDays} days → ${agePoints} points`);
+
+    // 5. Total Transactions Points
+    const txPoints = this.calculateTotalTxPoints(stats.totalTxns);
+    breakdown.native['total_tx'] = { value: stats.totalTxns, points: txPoints };
+    totalPoints += txPoints;
+    console.log(`5. Total Transactions: ${stats.totalTxns} txs → ${txPoints} points`);
+
+    // 6. Bridge Volume Points
+    const bridgePoints = this.calculateBridgeVolumePoints(bridgeData.bridgedInUsd);
+    breakdown.platforms['bridge'] = {
+      tx_count: bridgeData.bridgedInCount,
+      usd_volume: bridgeData.bridgedInUsd,
+      points: bridgePoints
+    };
+    totalPoints += bridgePoints;
+    console.log(`6. Bridge Volume: $${(bridgeData.bridgedInUsd || 0).toFixed(2)} (${bridgeData.bridgedInCount} txs) → ${bridgePoints} points`);
+
+    // 7. GM Points
+    const gmPoints = this.calculateGmPoints(gmData.count);
+    breakdown.platforms['gm'] = { tx_count: gmData.count, usd_volume: 0, points: gmPoints };
+    totalPoints += gmPoints;
+    console.log(`7. GM: ${gmData.count} interactions → ${gmPoints} points`);
+
+    // 8. InkyPump Points
+    const inkyPumpPoints = this.calculateInkyPumpPoints(
+      inkyPumpCreated.count > 0,
+      inkyPumpBuy.count > 0,
+      inkyPumpSell.count > 0
+    );
+    breakdown.platforms['inkypump'] = {
+      tx_count: inkyPumpCreated.count + inkyPumpBuy.count + inkyPumpSell.count,
+      usd_volume: 0,
+      points: inkyPumpPoints
+    };
+    totalPoints += inkyPumpPoints;
+    console.log(`8. InkyPump: Created=${inkyPumpCreated.count}, Buy=${inkyPumpBuy.count}, Sell=${inkyPumpSell.count} → ${inkyPumpPoints} points`);
+
+    // 9. Tydro Points
+    const tydroPoints = this.calculateTydroPoints(tydroData.supplyUsd, tydroData.borrowUsd);
+    breakdown.platforms['tydro'] = {
+      tx_count: tydroData.supplyCount + tydroData.borrowCount,
+      usd_volume: tydroData.supplyUsd + tydroData.borrowUsd,
+      points: tydroPoints
+    };
+    totalPoints += tydroPoints;
+    console.log(`9. Tydro: Supply=$${(tydroData.supplyUsd || 0).toFixed(2)} (${tydroData.supplyCount} txs), Borrow=$${(tydroData.borrowUsd || 0).toFixed(2)} (${tydroData.borrowCount} txs) → ${tydroPoints} points`);
+
+    // 10. Swap Volume Points
+    const swapPoints = this.calculateSwapVolumePoints(swapData.totalUsd);
+    breakdown.platforms['swap'] = {
+      tx_count: swapData.txCount,
+      usd_volume: swapData.totalUsd,
+      points: swapPoints
+    };
+    totalPoints += swapPoints;
+    console.log(`10. Swap Volume: $${(swapData.totalUsd || 0).toFixed(2)} (${swapData.txCount} txs) → ${swapPoints} points`);
+
+    // 11. Shellies Points
+    const shelliesPoints = this.calculateShelliesPoints(
+      shelliesPayToPlay.count > 0,
+      shelliesStaking.count > 0,
+      shelliesRaffles.count > 0
+    );
+    breakdown.platforms['shellies'] = {
+      tx_count: shelliesRaffles.count + shelliesPayToPlay.count + shelliesStaking.count,
+      usd_volume: 0,
+      points: shelliesPoints
+    };
+    totalPoints += shelliesPoints;
+    console.log(`11. Shellies: Game=${shelliesPayToPlay.count}, Staking=${shelliesStaking.count}, Raffles=${shelliesRaffles.count} → ${shelliesPoints} points`);
+
+    // 12. ZNS Points
+    const znsPoints = this.calculateZnsPoints(znsData.hasZnsDomain);
+    breakdown.platforms['zns'] = {
+      tx_count: znsData.totalCount,
+      usd_volume: 0,
+      points: znsPoints
+    };
+    totalPoints += znsPoints;
+    console.log(`12. ZNS: Has domain=${znsData.hasZnsDomain} (${znsData.totalCount} txs) → ${znsPoints} points`);
+
+    // 13. NFT2Me Points
+    const nft2mePoints = this.calculateNft2mePoints(
+      nft2meData.collectionsCreated > 0,
+      nft2meData.nftsMinted > 0
+    );
+    breakdown.platforms['nft2me'] = {
+      tx_count: nft2meData.totalTransactions,
+      usd_volume: 0,
+      points: nft2mePoints
+    };
+    totalPoints += nft2mePoints;
+    console.log(`13. NFT2Me: Collections=${nft2meData.collectionsCreated}, Minted=${nft2meData.nftsMinted} → ${nft2mePoints} points`);
+
+    // 14. NFT Trading Points
+    const nftTradingPoints = this.calculateNftTradingPoints(nftTradingData.totalCount > 0);
+    breakdown.platforms['nft_trading'] = {
+      tx_count: nftTradingData.totalCount,
+      usd_volume: 0,
+      points: nftTradingPoints
+    };
+    totalPoints += nftTradingPoints;
+    console.log(`14. NFT Trading: ${nftTradingData.totalCount} trades → ${nftTradingPoints} points`);
+
+    console.log(`\n========== TOTAL SCORE: ${totalPoints} points ==========\n`);
+
     const cachedData = await this.getCachedRulesData();
-    const { rules, nativeMetrics, platformContracts } = cachedData;
-    const nativeMetricMap = new Map(nativeMetrics.map(m => [m.id, m]));
-
-    // Process native metric rules
-    const nativeRules = rules.filter(r => r.metric_type === 'native');
-    for (const rule of nativeRules) {
-      if (!rule.native_metric_id) continue;
-      const metric = nativeMetricMap.get(rule.native_metric_id);
-      if (!metric) continue;
-
-      const result = await this.calculateNativeMetricPoints(
-        metric.key as NativeMetricKey,
-        rule,
-        {
-          ageDays: stats.ageDays,
-          totalTxns: stats.totalTxns,
-          nftCount: stats.nftCount,
-          tokenHoldings: stats.tokenHoldings,
-          totalVolumeUsd,
-        }
-      );
-      breakdown.native[metric.key as NativeMetricKey] = result;
-      totalPoints += result.points;
-    }
-
-    // Process platform rules
-    const platformRules = rules.filter(r => r.metric_type === 'platform');
-    const platformIds = platformRules.map(r => r.platform_id).filter(Boolean) as number[];
-    const platforms = platformIds.length > 0
-      ? await query<{ id: number; slug: string }>(`SELECT id, slug FROM platforms WHERE id = ANY($1)`, [platformIds])
-      : [];
-    const platformMap = new Map(platforms.map(p => [p.id, p.slug]));
-
-    const platformPromises = platformRules
-      .filter(rule => rule.platform_id && platformMap.has(rule.platform_id))
-      .map(async rule => {
-        const slug = platformMap.get(rule.platform_id!)!;
-        const result = await this.calculatePlatformPoints(wallet, rule.platform_id!, rule, platformContracts);
-        return { slug, result };
-      });
-
-    const platformResults = await Promise.all(platformPromises);
-    for (const { slug, result } of platformResults) {
-      breakdown.platforms[slug] = result;
-      totalPoints += result.points;
-    }
-
     const rank = cachedData.ranks.find(r =>
       r.min_points <= totalPoints && (r.max_points === null || r.max_points >= totalPoints)
     ) || null;
