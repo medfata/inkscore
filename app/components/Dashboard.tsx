@@ -1355,7 +1355,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                       <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">By Platform</span>
                       <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar">
                         {allPlatforms
-                          .sort((a, b) => b.usdValue - a.usdValue)
+                          .sort((a, b) => {
+                            // Custom order: Ink Official -> Relay -> Native -> Bungee
+                            const bridgeOrder: Record<string, number> = {
+                              'Ink Official': 0,
+                              'Relay': 1,
+                              'Native Bridge (USDT0)': 2,
+                              'Bungee': 3,
+                            };
+                            const orderA = bridgeOrder[a.platformName] ?? 99;
+                            const orderB = bridgeOrder[b.platformName] ?? 99;
+                            return orderA - orderB;
+                          })
                           .map((platform, i) => (
                             <div key={i} className="text-[11px]">
                               <div className="flex justify-between items-center py-0.5">
