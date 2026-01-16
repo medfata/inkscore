@@ -14,7 +14,7 @@ const inkChain = {
 };
 
 // API server base URL
-const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:4000';
+const API_SERVER_URL = process.env.API_SERVER_URL || 'http://localhost:4000';
 
 const publicClient = createPublicClient({
   chain: inkChain,
@@ -86,7 +86,7 @@ export async function GET(
     }
 
     // Fetch current score and rank from API server (same source as dashboard)
-    const scoreRes = await fetch(`${API_BASE_URL}/api/wallet/${walletAddress.toLowerCase()}/score`);
+    const scoreRes = await fetch(`${API_SERVER_URL}/api/wallet/${walletAddress.toLowerCase()}/score`);
     if (!scoreRes.ok) {
       console.error('Failed to fetch wallet score from API server');
       return NextResponse.json(

@@ -10,7 +10,7 @@ const RATE_LIMIT_MAX = 5; // 5 requests per minute per wallet
 const SIGNATURE_EXPIRY_SECONDS = 5 * 60; // 5 minutes
 
 // API server base URL
-const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:4000';
+const API_SERVER_URL = process.env.API_SERVER_URL || 'http://localhost:4000';
 
 interface AuthorizeRequest {
   walletAddress: string;
@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Fetch current score and rank from API server (same source as dashboard)
-    const scoreRes = await fetch(`${API_BASE_URL}/api/wallet/${walletAddress.toLowerCase()}/score?refresh=true`);
+    const scoreRes = await fetch(`${API_SERVER_URL}/api/wallet/${walletAddress.toLowerCase()}/score?refresh=true`);
     if (!scoreRes.ok) {
       console.error('Failed to fetch wallet score from API server');
       return NextResponse.json(
