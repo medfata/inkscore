@@ -1729,7 +1729,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                     </a>
                   ))}
                 </div>
-                NFT Trading
+                NFT Marketplace
               </h3>
             </div>
 
