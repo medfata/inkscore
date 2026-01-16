@@ -1,7 +1,6 @@
-import { query, queryOne } from '../db';
+import { query } from '../db';
 import {
   Rank,
-  WalletPointsCache,
   WalletPointsBreakdown,
   WalletScoreResponse,
 } from '../types/platforms';
@@ -48,31 +47,24 @@ export class PointsServiceV2 {
   }
 
   private calculateTokenHoldingsPoints(tokenHoldings: Array<{ address: string; usdValue: number }>): number {
-    let points = 0;
-    for (const token of tokenHoldings) {
-      if (this.isMemeToken(token.address)) continue;
-      const balanceUsd = token.usdValue;
-      if (balanceUsd >= 1 && balanceUsd <= 99) points += 100;
-      else if (balanceUsd >= 100 && balanceUsd <= 999) points += 200;
-      else if (balanceUsd >= 1000) points += 300;
-    }
-    return points;
+    const totalUsd = tokenHoldings
+      .filter(token => !this.isMemeToken(token.address))
+      .reduce((sum, token) => sum + (Number(token.usdValue) || 0), 0);
+    if (isNaN(totalUsd)) return 0;
+    return Math.ceil(totalUsd * 1.5);
   }
 
   private calculateMemeCoinsPoints(tokenHoldings: Array<{ address: string; usdValue: number }>): number {
-    let points = 0;
-    for (const token of tokenHoldings) {
-      if (!this.isMemeToken(token.address)) continue;
-      const balanceUsd = token.usdValue;
-      if (balanceUsd >= 1 && balanceUsd <= 10) points += 50;
-      else if (balanceUsd >= 11 && balanceUsd <= 100) points += 70;
-      else if (balanceUsd > 200) points += 100;
-    }
-    return points;
+    const totalUsd = tokenHoldings
+      .filter(token => this.isMemeToken(token.address))
+      .reduce((sum, token) => sum + (Number(token.usdValue) || 0), 0);
+    if (isNaN(totalUsd)) return 0;
+    return Math.ceil(totalUsd * 1.2);
   }
 
 
   private calculateWalletAgePoints(ageDays: number): number {
+    if (ageDays <= 0) return 0;
     if (ageDays <= 30) return 100;
     if (ageDays <= 90) return 200;
     if (ageDays <= 180) return 300;
@@ -82,7 +74,8 @@ export class PointsServiceV2 {
   }
 
   private calculateTotalTxPoints(txCount: number): number {
-    if (txCount >= 1 && txCount <= 100) return 100;
+    if (txCount <= 0) return 0;
+    if (txCount <= 100) return 100;
     if (txCount <= 200) return 200;
     if (txCount <= 400) return 300;
     if (txCount <= 700) return 400;
@@ -90,75 +83,76 @@ export class PointsServiceV2 {
     return 600;
   }
 
-  private calculateBridgeVolumePoints(bridgeInVolumeUsd: number): number {
-    if (bridgeInVolumeUsd >= 10 && bridgeInVolumeUsd < 100) return 100;
-    if (bridgeInVolumeUsd < 500) return 200;
-    if (bridgeInVolumeUsd < 2000) return 300;
-    if (bridgeInVolumeUsd < 5000) return 400;
-    if (bridgeInVolumeUsd < 10000) return 500;
-    if (bridgeInVolumeUsd >= 10000) return 600;
-    return 0;
+  private calculateBridgeInPoints(bridgeInVolumeUsd: number): number {
+    return Math.ceil(bridgeInVolumeUsd * 5);
+  }
+
+  private calculateBridgeOutPoints(bridgeOutVolumeUsd: number): number {
+    return Math.ceil(bridgeOutVolumeUsd * 4);
   }
 
   private calculateGmPoints(gmCount: number): number {
-    if (gmCount >= 1 && gmCount < 10) return 100;
-    if (gmCount >= 10 && gmCount <= 20) return 200;
-    if (gmCount > 30) return 300;
-    return 0;
+    return gmCount * 10;
   }
 
-  private calculateInkyPumpPoints(createdCount: number, boughtCount: number, soldCount: number): number {
+  private calculateInkyPumpPoints(createdCount: number, buyVolumeUsd: number, sellVolumeUsd: number): number {
     let points = 0;
-    points += createdCount * 100;
-    points += boughtCount * 100;
-    points += soldCount * 100;
+    points += createdCount * 50;
+    points += Math.ceil((buyVolumeUsd + sellVolumeUsd) * 2);
     return points;
   }
 
   private calculateTydroPoints(supplyUsd: number, borrowUsd: number): number {
-    let points = 0;
-    if (supplyUsd >= 1 && supplyUsd <= 99) points += 250;
-    else if (supplyUsd >= 100 && supplyUsd <= 499) points += 500;
-    else if (supplyUsd >= 500 && supplyUsd <= 999) points += 700;
-    else if (supplyUsd >= 1000) points += 1000;
-
-    if (borrowUsd >= 1 && borrowUsd <= 99) points += 250;
-    else if (borrowUsd >= 100 && borrowUsd <= 499) points += 500;
-    else if (borrowUsd >= 500 && borrowUsd <= 999) points += 700;
-    else if (borrowUsd >= 1000) points += 1000;
-
-    return points;
+    return Math.ceil((supplyUsd + borrowUsd) * 10);
   }
 
   private calculateSwapVolumePoints(swapAmountUsd: number): number {
-    if (swapAmountUsd >= 5 && swapAmountUsd <= 50) return 100;
-    if (swapAmountUsd >= 100 && swapAmountUsd <= 500) return 250;
-    if (swapAmountUsd > 500 && swapAmountUsd <= 1000) return 500;
-    if (swapAmountUsd > 1000) return 1000;
-    return 0;
+    return Math.ceil(swapAmountUsd * 4);
   }
 
-  private calculateShelliesPoints(playedGame: boolean, stakedNft: boolean, joinedRaffle: boolean): number {
+  private calculateShelliesPoints(playedGameCount: number, stakedNftCount: number, joinedRaffleCount: number): number {
     let points = 0;
-    if (playedGame) points += 100;
-    if (stakedNft) points += 100;
-    if (joinedRaffle) points += 100;
+    points += playedGameCount * 10;
+    points += stakedNftCount * 100;
+    points += joinedRaffleCount * 25;
     return points;
   }
 
-  private calculateZnsPoints(hasZnsDomain: boolean): number {
-    return hasZnsDomain ? 100 : 0;
-  }
-
-  private calculateNft2mePoints(collectionCreated: boolean, nftMinted: boolean): number {
+  private calculateZnsPoints(deployCount: number, saidGmCount: number, registerCount: number): number {
     let points = 0;
-    if (collectionCreated) points += 100;
-    if (nftMinted) points += 100;
+    points += deployCount * 10;
+    points += saidGmCount * 5;
+    points += registerCount * 100;
     return points;
   }
 
-  private calculateNftTradingPoints(hasTraded: boolean): number {
-    return hasTraded ? 100 : 0;
+  private calculateMarvkPoints(cardMintedCount: number, lockTokenCount: number, vestTokenCount: number): number {
+    let points = 0;
+    points += cardMintedCount * 50;
+    points += Math.ceil((lockTokenCount + vestTokenCount) * 1.5);
+    return points;
+  }
+
+  private calculateNft2mePoints(collectionCreatedCount: number, nftMintedCount: number): number {
+    let points = 0;
+    points += collectionCreatedCount * 25;
+    points += nftMintedCount * 10;
+    return points;
+  }
+
+  // NFT marketplace contract addresses
+  private readonly NFT_CONTRACTS = {
+    squid: '0x9ebf93fdba9f32accab3d6716322dccd617a78f3',
+    netProtocol: '0xd00c96804e9ff35f10c7d2a92239c351ff3f94e5',
+    mintique: '0xbd6a027b85fd5285b1623563bbef6fadbe396afb',
+  };
+
+  private calculateNftTradingPoints(squidCount: number, netProtocolCount: number, mintiqueCount: number): number {
+    let points = 0;
+    points += squidCount * 50;
+    points += netProtocolCount * 25;
+    points += mintiqueCount * 10;
+    return points;
   }
 
 
@@ -175,7 +169,7 @@ export class PointsServiceV2 {
     try {
       // Use the same endpoints as the dashboard
       const baseUrl = process.env.API_BASE_URL || 'http://localhost:4000';
-      
+
       const [
         walletStatsRes,
         bridgeRes,
@@ -190,7 +184,8 @@ export class PointsServiceV2 {
         shelliesStakingRes,
         znsRes,
         nft2meRes,
-        nftTradingRes
+        nftTradingRes,
+        marvkRes
       ] = await Promise.all([
         fetch(`${baseUrl}/api/wallet/${wallet}/stats`),
         fetch(`${baseUrl}/api/wallet/${wallet}/bridge`),
@@ -205,7 +200,8 @@ export class PointsServiceV2 {
         fetch(`${baseUrl}/api/analytics/${wallet}/shellies_staking`),
         fetch(`${baseUrl}/api/analytics/${wallet}/zns`),
         fetch(`${baseUrl}/api/wallet/${wallet}/nft2me`),
-        fetch(`${baseUrl}/api/analytics/${wallet}/nft_traded`)
+        fetch(`${baseUrl}/api/analytics/${wallet}/nft_traded`),
+        fetch(`${baseUrl}/api/marvk/${wallet}`)
       ]);
 
       // Type definitions for API responses
@@ -216,11 +212,27 @@ export class PointsServiceV2 {
         ageDays?: number;
         totalTxns?: number;
       }
-      interface BridgeResponse { bridgedInUsd?: number; bridgedInCount?: number; }
+      interface BridgeResponse { bridgedInUsd?: number; bridgedInCount?: number; bridgedOutUsd?: number; bridgedOutCount?: number; }
       interface SwapResponse { totalUsd?: number; txCount?: number; }
       interface TydroResponse { currentSupplyUsd?: number; currentBorrowUsd?: number; depositCount?: number; borrowCount?: number; }
-      interface CountResponse { total_count?: number; }
+      interface CountResponse { total_count?: number; total_value?: string; }
+      interface ZnsResponse {
+        total_count?: number;
+        deploy_count?: number;
+        say_gm_count?: number;
+        register_domain_count?: number;
+      }
       interface Nft2meResponse { collectionsCreated?: number; nftsMinted?: number; totalTransactions?: number; }
+      interface NftTradingResponse {
+        total_count?: number;
+        by_contract?: Array<{ contract_address: string; count: number }>;
+      }
+      interface MarvkResponse {
+        lockTokenCount?: number;
+        vestTokenCount?: number;
+        cardMintedCount?: number;
+        totalTransactions?: number;
+      }
 
       const walletStats = walletStatsRes.ok ? await walletStatsRes.json() as WalletStatsResponse : null;
       const bridgeData = bridgeRes.ok ? await bridgeRes.json() as BridgeResponse : null;
@@ -233,9 +245,10 @@ export class PointsServiceV2 {
       const shelliesRaffles = shelliesRafflesRes.ok ? await shelliesRafflesRes.json() as CountResponse : null;
       const shelliesPayToPlay = shelliesPayToPlayRes.ok ? await shelliesPayToPlayRes.json() as CountResponse : null;
       const shelliesStaking = shelliesStakingRes.ok ? await shelliesStakingRes.json() as CountResponse : null;
-      const znsData = znsRes.ok ? await znsRes.json() as CountResponse : null;
+      const znsData = znsRes.ok ? await znsRes.json() as ZnsResponse : null;
       const nft2meData = nft2meRes.ok ? await nft2meRes.json() as Nft2meResponse : null;
-      const nftTradingData = nftTradingRes.ok ? await nftTradingRes.json() as CountResponse : null;
+      const nftTradingData = nftTradingRes.ok ? await nftTradingRes.json() as NftTradingResponse : null;
+      const marvkData = marvkRes.ok ? await marvkRes.json() as MarvkResponse : null;
 
       if (!walletStats) throw new Error('Failed to fetch wallet stats');
 
@@ -248,12 +261,12 @@ export class PointsServiceV2 {
 
       const tokenHoldings = walletStats.tokenHoldings || [];
       const nativeEthUsd = Number(walletStats.balanceUsd) || 0;
-      
+
       const allHoldings = [
         ...tokenHoldings,
         { address: '0x0000000000000000000000000000000000000000', symbol: 'ETH', usdValue: nativeEthUsd }
       ];
-      
+
       const tokenPoints = this.calculateTokenHoldingsPoints(allHoldings);
       const totalTokenValue = allHoldings.reduce((sum: number, t: { usdValue?: number }) => sum + (Number(t.usdValue) || 0), 0);
       breakdown.native['erc20_tokens'] = { value: totalTokenValue, points: tokenPoints };
@@ -277,10 +290,14 @@ export class PointsServiceV2 {
       console.log(`5. Total Transactions: ${walletStats.totalTxns || 0} txs → ${txPoints} points`);
 
       const bridgeInUsd = bridgeData?.bridgedInUsd || 0;
-      const bridgePoints = this.calculateBridgeVolumePoints(bridgeInUsd);
-      breakdown.platforms['bridge_in'] = { tx_count: bridgeData?.bridgedInCount || 0, usd_volume: bridgeInUsd, points: bridgePoints };
-      totalPoints += bridgePoints;
-      console.log(`6. Bridge IN Volume: ${bridgeInUsd.toFixed(2)} → ${bridgePoints} points`);
+      const bridgeOutUsd = bridgeData?.bridgedOutUsd || 0;
+      const bridgeInPoints = this.calculateBridgeInPoints(bridgeInUsd);
+      const bridgeOutPoints = this.calculateBridgeOutPoints(bridgeOutUsd);
+      breakdown.platforms['bridge_in'] = { tx_count: bridgeData?.bridgedInCount || 0, usd_volume: bridgeInUsd, points: bridgeInPoints };
+      breakdown.platforms['bridge_out'] = { tx_count: bridgeData?.bridgedOutCount || 0, usd_volume: bridgeOutUsd, points: bridgeOutPoints };
+      totalPoints += bridgeInPoints + bridgeOutPoints;
+      console.log(`6. Bridge IN Volume: ${bridgeInUsd.toFixed(2)} → ${bridgeInPoints} points`);
+      console.log(`6b. Bridge OUT Volume: ${bridgeOutUsd.toFixed(2)} → ${bridgeOutPoints} points`);
 
       const gmCount = gmData?.total_count || 0;
       const gmPoints = this.calculateGmPoints(gmCount);
@@ -288,14 +305,14 @@ export class PointsServiceV2 {
       totalPoints += gmPoints;
       console.log(`7. GM: ${gmCount} interactions → ${gmPoints} points`);
 
-      const inkyPumpPoints = this.calculateInkyPumpPoints(
-        inkyPumpCreated?.total_count || 0,
-        inkyPumpBuy?.total_count || 0,
-        inkyPumpSell?.total_count || 0
-      );
-      breakdown.platforms['inkypump'] = { tx_count: (inkyPumpCreated?.total_count || 0) + (inkyPumpBuy?.total_count || 0) + (inkyPumpSell?.total_count || 0), usd_volume: 0, points: inkyPumpPoints };
+      const inkyPumpCreatedCount = inkyPumpCreated?.total_count || 0;
+      const inkyPumpBuyUsd = parseFloat(inkyPumpBuy?.total_value || '0');
+      const inkyPumpSellUsd = parseFloat(inkyPumpSell?.total_value || '0');
+      const inkyPumpPoints = this.calculateInkyPumpPoints(inkyPumpCreatedCount, inkyPumpBuyUsd, inkyPumpSellUsd);
+      const inkyPumpTotalUsd = inkyPumpBuyUsd + inkyPumpSellUsd;
+      breakdown.platforms['inkypump'] = { tx_count: inkyPumpCreatedCount + (inkyPumpBuy?.total_count || 0) + (inkyPumpSell?.total_count || 0), usd_volume: inkyPumpTotalUsd, points: inkyPumpPoints };
       totalPoints += inkyPumpPoints;
-      console.log(`8. InkyPump: → ${inkyPumpPoints} points`);
+      console.log(`8. InkyPump: created=${inkyPumpCreatedCount}, buyUsd=${inkyPumpBuyUsd.toFixed(2)}, sellUsd=${inkyPumpSellUsd.toFixed(2)} → ${inkyPumpPoints} points`);
 
       const tydroSupplyUsd = tydroData?.currentSupplyUsd || 0;
       const tydroBorrowUsd = tydroData?.currentBorrowUsd || 0;
@@ -310,40 +327,67 @@ export class PointsServiceV2 {
       totalPoints += swapPoints;
       console.log(`10. Swap Volume: ${swapUsd.toFixed(2)} → ${swapPoints} points`);
 
-      const shelliesPoints = this.calculateShelliesPoints(
-        (shelliesPayToPlay?.total_count || 0) > 0,
-        (shelliesStaking?.total_count || 0) > 0,
-        (shelliesRaffles?.total_count || 0) > 0
-      );
-      breakdown.platforms['shellies'] = { tx_count: (shelliesRaffles?.total_count || 0) + (shelliesPayToPlay?.total_count || 0) + (shelliesStaking?.total_count || 0), usd_volume: 0, points: shelliesPoints };
+      const shelliesPlayedCount = shelliesPayToPlay?.total_count || 0;
+      const shelliesStakedCount = shelliesStaking?.total_count || 0;
+      const shelliesRafflesCount = shelliesRaffles?.total_count || 0;
+      const shelliesPoints = this.calculateShelliesPoints(shelliesPlayedCount, shelliesStakedCount, shelliesRafflesCount);
+      breakdown.platforms['shellies'] = { tx_count: shelliesPlayedCount + shelliesStakedCount + shelliesRafflesCount, usd_volume: 0, points: shelliesPoints };
       totalPoints += shelliesPoints;
-      console.log(`11. Shellies: → ${shelliesPoints} points`);
+      console.log(`11. Shellies: played=${shelliesPlayedCount}, staked=${shelliesStakedCount}, raffles=${shelliesRafflesCount} → ${shelliesPoints} points`);
 
-      const znsCount = znsData?.total_count || 0;
-      const znsPoints = this.calculateZnsPoints(znsCount > 0);
-      breakdown.platforms['zns'] = { tx_count: znsCount, usd_volume: 0, points: znsPoints };
+      const znsDeployCount = znsData?.deploy_count || 0;
+      const znsSaidGmCount = znsData?.say_gm_count || 0;
+      const znsRegisterCount = znsData?.register_domain_count || 0;
+      const znsPoints = this.calculateZnsPoints(znsDeployCount, znsSaidGmCount, znsRegisterCount);
+      breakdown.platforms['zns'] = { tx_count: znsData?.total_count || 0, usd_volume: 0, points: znsPoints };
       totalPoints += znsPoints;
-      console.log(`12. ZNS: ${znsCount} interactions → ${znsPoints} points`);
+      console.log(`12. ZNS: deploy=${znsDeployCount}, gm=${znsSaidGmCount}, register=${znsRegisterCount} → ${znsPoints} points`);
 
-      const nft2mePoints = this.calculateNft2mePoints(
-        (nft2meData?.collectionsCreated || 0) > 0,
-        (nft2meData?.nftsMinted || 0) > 0
-      );
+      const nft2meCollectionsCount = nft2meData?.collectionsCreated || 0;
+      const nft2meMintedCount = nft2meData?.nftsMinted || 0;
+      const nft2mePoints = this.calculateNft2mePoints(nft2meCollectionsCount, nft2meMintedCount);
       breakdown.platforms['nft2me'] = { tx_count: nft2meData?.totalTransactions || 0, usd_volume: 0, points: nft2mePoints };
       totalPoints += nft2mePoints;
-      console.log(`13. NFT2Me: → ${nft2mePoints} points`);
+      console.log(`13. NFT2Me: collections=${nft2meCollectionsCount}, minted=${nft2meMintedCount} → ${nft2mePoints} points`);
 
-      const nftTradingPoints = this.calculateNftTradingPoints((nftTradingData?.total_count || 0) > 0);
+      // Parse NFT trading by contract
+      const byContract = nftTradingData?.by_contract || [];
+      const squidCount = byContract.find(c => c.contract_address === this.NFT_CONTRACTS.squid)?.count || 0;
+      const netProtocolCount = byContract.find(c => c.contract_address === this.NFT_CONTRACTS.netProtocol)?.count || 0;
+      const mintiqueCount = byContract.find(c => c.contract_address === this.NFT_CONTRACTS.mintique)?.count || 0;
+      const nftTradingPoints = this.calculateNftTradingPoints(squidCount, netProtocolCount, mintiqueCount);
       breakdown.platforms['nft_trading'] = { tx_count: nftTradingData?.total_count || 0, usd_volume: 0, points: nftTradingPoints };
       totalPoints += nftTradingPoints;
-      console.log(`14. NFT Trading: → ${nftTradingPoints} points`);
+      console.log(`14. NFT Trading: squid=${squidCount}, netProtocol=${netProtocolCount}, mintique=${mintiqueCount} → ${nftTradingPoints} points`);
+
+      // Marvk points
+      const marvkCardMinted = marvkData?.cardMintedCount || 0; // Placeholder until API is implemented
+      const marvkLockCount = marvkData?.lockTokenCount || 0;
+      const marvkVestCount = marvkData?.vestTokenCount || 0;
+      const marvkPoints = this.calculateMarvkPoints(marvkCardMinted, marvkLockCount, marvkVestCount);
+      breakdown.platforms['marvk'] = { tx_count: marvkData?.totalTransactions || 0, usd_volume: 0, points: marvkPoints };
+      totalPoints += marvkPoints;
+      console.log(`15. Marvk: cardMinted=${marvkCardMinted}, lock=${marvkLockCount}, vest=${marvkVestCount} → ${marvkPoints} points`);
+
+      // Verification logs - check formula correctness
+      console.log(`\n--- VERIFICATION ---`);
+      console.log(`2. Token Holdings: ${totalTokenValue.toFixed(2)} * 1.5 = ${Math.ceil(totalTokenValue * 1.5)} (got ${tokenPoints}) ${tokenPoints === Math.ceil(totalTokenValue * 1.5) ? '✓' : '✗'}`);
+      console.log(`6. Bridge IN: ${bridgeInUsd.toFixed(2)} * 5 = ${Math.ceil(bridgeInUsd * 5)} (got ${bridgeInPoints}) ${bridgeInPoints === Math.ceil(bridgeInUsd * 5) ? '✓' : '✗'}`);
+      console.log(`6b. Bridge OUT: ${bridgeOutUsd.toFixed(2)} * 4 = ${Math.ceil(bridgeOutUsd * 4)} (got ${bridgeOutPoints}) ${bridgeOutPoints === Math.ceil(bridgeOutUsd * 4) ? '✓' : '✗'}`);
+      console.log(`7. GM: ${gmCount} * 10 = ${gmCount * 10} (got ${gmPoints}) ${gmPoints === gmCount * 10 ? '✓' : '✗'}`);
+      console.log(`8. InkyPump: ${inkyPumpCreatedCount}*50 + ceil((${inkyPumpBuyUsd.toFixed(2)}+${inkyPumpSellUsd.toFixed(2)})*2) = ${inkyPumpCreatedCount * 50 + Math.ceil((inkyPumpBuyUsd + inkyPumpSellUsd) * 2)} (got ${inkyPumpPoints}) ${inkyPumpPoints === inkyPumpCreatedCount * 50 + Math.ceil((inkyPumpBuyUsd + inkyPumpSellUsd) * 2) ? '✓' : '✗'}`);
+      console.log(`9. Tydro: ceil((${tydroSupplyUsd.toFixed(2)}+${tydroBorrowUsd.toFixed(2)})*10) = ${Math.ceil((tydroSupplyUsd + tydroBorrowUsd) * 10)} (got ${tydroPoints}) ${tydroPoints === Math.ceil((tydroSupplyUsd + tydroBorrowUsd) * 10) ? '✓' : '✗'}`);
+      console.log(`10. Swap: ceil(${swapUsd.toFixed(2)}*4) = ${Math.ceil(swapUsd * 4)} (got ${swapPoints}) ${swapPoints === Math.ceil(swapUsd * 4) ? '✓' : '✗'}`);
+      console.log(`11. Shellies: ${shelliesPlayedCount}*10 + ${shelliesStakedCount}*100 + ${shelliesRafflesCount}*25 = ${shelliesPlayedCount * 10 + shelliesStakedCount * 100 + shelliesRafflesCount * 25} (got ${shelliesPoints}) ${shelliesPoints === shelliesPlayedCount * 10 + shelliesStakedCount * 100 + shelliesRafflesCount * 25 ? '✓' : '✗'}`);
+      console.log(`12. ZNS: ${znsDeployCount}*10 + ${znsSaidGmCount}*5 + ${znsRegisterCount}*100 = ${znsDeployCount * 10 + znsSaidGmCount * 5 + znsRegisterCount * 100} (got ${znsPoints}) ${znsPoints === znsDeployCount * 10 + znsSaidGmCount * 5 + znsRegisterCount * 100 ? '✓' : '✗'}`);
+      console.log(`13. NFT2Me: ${nft2meCollectionsCount}*25 + ${nft2meMintedCount}*10 = ${nft2meCollectionsCount * 25 + nft2meMintedCount * 10} (got ${nft2mePoints}) ${nft2mePoints === nft2meCollectionsCount * 25 + nft2meMintedCount * 10 ? '✓' : '✗'}`);
+      console.log(`14. NFT Trading: ${squidCount}*50 + ${netProtocolCount}*25 + ${mintiqueCount}*10 = ${squidCount * 50 + netProtocolCount * 25 + mintiqueCount * 10} (got ${nftTradingPoints}) ${nftTradingPoints === squidCount * 50 + netProtocolCount * 25 + mintiqueCount * 10 ? '✓' : '✗'}`);
+      console.log(`15. Marvk: ${marvkCardMinted}*50 + ceil((${marvkLockCount}+${marvkVestCount})*1.5) = ${marvkCardMinted * 50 + Math.ceil((marvkLockCount + marvkVestCount) * 1.5)} (got ${marvkPoints}) ${marvkPoints === marvkCardMinted * 50 + Math.ceil((marvkLockCount + marvkVestCount) * 1.5) ? '✓' : '✗'}`);
 
       console.log(`\n========== TOTAL SCORE: ${totalPoints} points ==========\n`);
 
       const ranks = await this.getCachedRanks();
       const rank = ranks.find(r => r.min_points <= totalPoints && (r.max_points === null || r.max_points >= totalPoints)) || null;
-
-      await this.cacheWalletPoints(wallet, totalPoints, rank?.id || null, breakdown);
 
       return {
         wallet_address: wallet,
@@ -356,53 +400,6 @@ export class PointsServiceV2 {
       console.error('Error calculating wallet score:', error);
       throw error;
     }
-  }
-
-
-  private async cacheWalletPoints(
-    walletAddress: string,
-    totalPoints: number,
-    rankId: number | null,
-    breakdown: WalletPointsBreakdown
-  ): Promise<void> {
-    await query(`
-      INSERT INTO wallet_points_cache (wallet_address, total_points, rank_id, breakdown, last_calculated_at)
-      VALUES ($1, $2, $3, $4, NOW())
-      ON CONFLICT (wallet_address) DO UPDATE SET
-        total_points = $2,
-        rank_id = $3,
-        breakdown = $4,
-        last_calculated_at = NOW(),
-        updated_at = NOW()
-    `, [walletAddress.toLowerCase(), totalPoints, rankId, JSON.stringify(breakdown)]);
-  }
-
-  async getCachedWalletScore(walletAddress: string): Promise<WalletScoreResponse | null> {
-    const wallet = walletAddress.toLowerCase();
-    const cached = await queryOne<WalletPointsCache & { rank_name?: string; rank_color?: string; rank_logo?: string }>(`
-      SELECT 
-        wpc.*,
-        r.name as rank_name,
-        r.color as rank_color,
-        r.logo_url as rank_logo
-      FROM wallet_points_cache wpc
-      LEFT JOIN ranks r ON wpc.rank_id = r.id
-      WHERE wpc.wallet_address = $1
-    `, [wallet]);
-
-    if (!cached) return null;
-
-    return {
-      wallet_address: wallet,
-      total_points: cached.total_points,
-      rank: cached.rank_name ? {
-        name: cached.rank_name,
-        color: cached.rank_color || null,
-        logo_url: cached.rank_logo || null,
-      } : null,
-      breakdown: typeof cached.breakdown === 'string' ? JSON.parse(cached.breakdown) : cached.breakdown,
-      last_updated: cached.last_calculated_at,
-    };
   }
 }
 

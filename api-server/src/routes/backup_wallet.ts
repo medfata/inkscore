@@ -1073,16 +1073,6 @@ router.get('/:address/score', async (req: Request, res: Response) => {
             if (cached) {
                 return res.json(cached);
             }
-
-            // Try database cache with extended tolerance (30 minutes)
-            const dbCached = await pointsServiceV2.getCachedWalletScore(address);
-            if (dbCached) {
-                const cacheAge = Date.now() - new Date(dbCached.last_updated).getTime();
-                if (cacheAge < 30 * 60 * 1000) {
-                    responseCache.set(cacheKey, dbCached);
-                    return res.json(dbCached);
-                }
-            }
         }
 
         const score = await pointsServiceV2.calculateWalletScore(address);

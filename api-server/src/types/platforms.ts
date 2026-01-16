@@ -26,19 +26,8 @@ export interface Rank {
 }
 
 // ============================================================================
-// Wallet Points Cache Types
+// Wallet Points Breakdown Types
 // ============================================================================
-
-export interface WalletPointsCache {
-  id: number;
-  wallet_address: string;
-  total_points: number;
-  rank_id: number | null;
-  breakdown: WalletPointsBreakdown;
-  last_calculated_at: Date;
-  created_at: Date;
-  updated_at: Date;
-}
 
 export interface WalletPointsBreakdown {
   native: {

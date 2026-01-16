@@ -1,7 +1,6 @@
 import { query, queryOne } from '../db';
 import {
   Rank,
-  WalletPointsCache,
   WalletPointsBreakdown,
   WalletScoreResponse,
 } from '../types/platforms';
@@ -333,8 +332,6 @@ export class PointsServiceV2 {
       const ranks = await this.getCachedRanks();
       const rank = ranks.find(r => r.min_points <= totalPoints && (r.max_points === null || r.max_points >= totalPoints)) || null;
 
-      await this.cacheWalletPoints(wallet, totalPoints, rank?.id || null, breakdown);
-
       return {
         wallet_address: wallet,
         total_points: totalPoints,
@@ -346,52 +343,6 @@ export class PointsServiceV2 {
       console.error('Error calculating wallet score:', error);
       throw error;
     }
-  }
-
-  private async cacheWalletPoints(
-    walletAddress: string,
-    totalPoints: number,
-    rankId: number | null,
-    breakdown: WalletPointsBreakdown
-  ): Promise<void> {
-    await query(`
-      INSERT INTO wallet_points_cache (wallet_address, total_points, rank_id, breakdown, last_calculated_at)
-      VALUES ($1, $2, $3, $4, NOW())
-      ON CONFLICT (wallet_address) DO UPDATE SET
-        total_points = $2,
-        rank_id = $3,
-        breakdown = $4,
-        last_calculated_at = NOW(),
-        updated_at = NOW()
-    `, [walletAddress.toLowerCase(), totalPoints, rankId, JSON.stringify(breakdown)]);
-  }
-
-  async getCachedWalletScore(walletAddress: string): Promise<WalletScoreResponse | null> {
-    const wallet = walletAddress.toLowerCase();
-    const cached = await queryOne<WalletPointsCache & { rank_name?: string; rank_color?: string; rank_logo?: string }>(`
-      SELECT 
-        wpc.*,
-        r.name as rank_name,
-        r.color as rank_color,
-        r.logo_url as rank_logo
-      FROM wallet_points_cache wpc
-      LEFT JOIN ranks r ON wpc.rank_id = r.id
-      WHERE wpc.wallet_address = $1
-    `, [wallet]);
-
-    if (!cached) return null;
-
-    return {
-      wallet_address: wallet,
-      total_points: cached.total_points,
-      rank: cached.rank_name ? {
-        name: cached.rank_name,
-        color: cached.rank_color || null,
-        logo_url: cached.rank_logo || null,
-      } : null,
-      breakdown: typeof cached.breakdown === 'string' ? JSON.parse(cached.breakdown) : cached.breakdown,
-      last_updated: cached.last_calculated_at,
-    };
   }
 }
 
