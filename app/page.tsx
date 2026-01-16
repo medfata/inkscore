@@ -72,7 +72,7 @@ export default function Home() {
 
           {/* Desktop Nav */}
           <div className="hidden md:flex items-center gap-8">
-            <a href="#" className="text-sm font-medium text-slate-400 hover:text-white transition-colors relative group">
+            <a href="/how-it-works" className="text-sm font-medium text-slate-400 hover:text-white transition-colors relative group">
               How it Works
               <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-ink-purple group-hover:w-full transition-all duration-300"></span>
             </a>
@@ -132,7 +132,7 @@ export default function Home() {
         {/* Mobile Menu */}
         {isMobileMenuOpen && (
           <div className="md:hidden bg-ink-900 border-b border-slate-800 p-6 space-y-4 animate-fade-in-up">
-            <a href="#" className="block text-slate-300">How it Works</a>
+            <a href="/how-it-works" className="block text-slate-300">How it Works</a>
             <a href="#" className="block text-slate-300">Leaderboard</a>
             <a href="/admin" className="block text-slate-300">Admin</a>
             <button 
@@ -167,17 +167,13 @@ export default function Home() {
           <div className="flex items-center gap-2 opacity-50 grayscale hover:grayscale-0 transition-all duration-500">
             <Logo size="sm" showText={false} />
             <span className="text-slate-500 text-sm">
-              &copy; 2024 INKSCORE.
+              &copy; 2026 INKSCORE.
             </span>
           </div>
           <div className="flex gap-6">
             <a href="#" className="text-slate-500 hover:text-white transition-colors">Documentation</a>
             <a href="#" className="text-slate-500 hover:text-white transition-colors">Twitter</a>
             <a href="#" className="text-slate-500 hover:text-white transition-colors">Discord</a>
-          </div>
-          <div className="flex items-center gap-2 text-xs text-slate-600 border border-slate-800 px-3 py-1 rounded-full bg-slate-900/50">
-            <span>Powered by InkChain</span>
-            <ExternalLink size={10} />
           </div>
         </div>
       </footer>

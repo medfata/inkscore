@@ -86,17 +86,13 @@ export default function WalletTestPage() {
           <div className="flex items-center gap-2 opacity-50 grayscale hover:grayscale-0 transition-all duration-500">
             <Logo size="sm" showText={false} />
             <span className="text-slate-500 text-sm">
-              &copy; 2024 INKSCORE.
+              &copy; 2026 INKSCORE.
             </span>
           </div>
           <div className="flex gap-6">
             <a href="#" className="text-slate-500 hover:text-white transition-colors">Documentation</a>
             <a href="#" className="text-slate-500 hover:text-white transition-colors">Twitter</a>
             <a href="#" className="text-slate-500 hover:text-white transition-colors">Discord</a>
-          </div>
-          <div className="flex items-center gap-2 text-xs text-slate-600 border border-slate-800 px-3 py-1 rounded-full bg-slate-900/50">
-            <span>Powered by InkChain</span>
-            <ExternalLink size={10} />
           </div>
         </div>
       </footer>
