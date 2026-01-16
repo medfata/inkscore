@@ -30,12 +30,58 @@ export class PointsServiceV2 {
       return ranksCache.ranks;
     }
 
-    const ranks = await query<Rank>(`
-      SELECT * FROM ranks WHERE is_active = true ORDER BY min_points ASC
-    `);
+    try {
+      const rawRanks = await query<{
+        id: number;
+        name: string;
+        min_points: string | number;
+        max_points: string | number | null;
+        logo_url: string | null;
+        color: string | null;
+        description: string | null;
+        display_order: number;
+        is_active: boolean;
+      }>(`
+        SELECT id, name, min_points, max_points, logo_url, color, description, display_order, is_active
+        FROM ranks 
+        WHERE is_active = true 
+        ORDER BY min_points ASC
+      `);
 
-    ranksCache = { ranks, timestamp: Date.now() };
-    return ranks;
+      // Parse numeric values (PostgreSQL may return them as strings)
+      const ranks: Rank[] = rawRanks.map(r => ({
+        ...r,
+        min_points: typeof r.min_points === 'string' ? parseInt(r.min_points, 10) : r.min_points,
+        max_points: r.max_points === null ? null : (typeof r.max_points === 'string' ? parseInt(r.max_points, 10) : r.max_points),
+        created_at: new Date(),
+        updated_at: new Date(),
+      }));
+
+      console.log(`[Ranks] Fetched ${ranks.length} active ranks from database`);
+      if (ranks.length > 0) {
+        ranks.forEach(r => console.log(`  - ${r.name}: ${r.min_points} - ${r.max_points ?? '∞'} (color: ${r.color})`));
+      }
+
+      ranksCache = { ranks, timestamp: Date.now() };
+      return ranks;
+    } catch (error) {
+      console.error('[Ranks] Failed to fetch ranks from database:', error);
+      return [];
+    }
+  }
+
+  private getRankForPoints(ranks: Rank[], totalPoints: number): Rank | null {
+    // Find the rank where totalPoints falls within min_points and max_points range
+    for (const rank of ranks) {
+      const minOk = totalPoints >= rank.min_points;
+      const maxOk = rank.max_points === null || totalPoints <= rank.max_points;
+      if (minOk && maxOk) {
+        console.log(`[Ranks] Points ${totalPoints} matched rank "${rank.name}" (${rank.min_points} - ${rank.max_points ?? '∞'})`);
+        return rank;
+      }
+    }
+    console.log(`[Ranks] No rank found for ${totalPoints} points`);
+    return null;
   }
 
   // Manual points calculation methods
@@ -387,7 +433,7 @@ export class PointsServiceV2 {
       console.log(`\n========== TOTAL SCORE: ${totalPoints} points ==========\n`);
 
       const ranks = await this.getCachedRanks();
-      const rank = ranks.find(r => r.min_points <= totalPoints && (r.max_points === null || r.max_points >= totalPoints)) || null;
+      const rank = this.getRankForPoints(ranks, totalPoints);
 
       return {
         wallet_address: wallet,

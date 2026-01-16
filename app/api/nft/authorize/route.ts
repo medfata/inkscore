@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { pointsService } from '@/lib/services/points-service';
 import { ethers } from 'ethers';
 
 // Rate limiting: track requests per wallet
@@ -9,6 +8,9 @@ const RATE_LIMIT_MAX = 5; // 5 requests per minute per wallet
 
 // Signature expiry time
 const SIGNATURE_EXPIRY_SECONDS = 5 * 60; // 5 minutes
+
+// API server base URL
+const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:4000';
 
 interface AuthorizeRequest {
   walletAddress: string;
@@ -20,6 +22,16 @@ interface AuthorizeResponse {
   rank: string;
   expiry: number;
   walletAddress: string;
+}
+
+interface WalletScoreResponse {
+  wallet_address: string;
+  total_points: number;
+  rank: {
+    name: string;
+    color: string | null;
+    logo_url: string | null;
+  } | null;
 }
 
 function isValidEthereumAddress(address: string): boolean {
@@ -75,10 +87,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Fetch current score and rank
-    const scoreData = await pointsService.calculateWalletScore(walletAddress);
+    // Fetch current score and rank from API server (same source as dashboard)
+    const scoreRes = await fetch(`${API_BASE_URL}/api/wallet/${walletAddress.toLowerCase()}/score?refresh=true`);
+    if (!scoreRes.ok) {
+      console.error('Failed to fetch wallet score from API server');
+      return NextResponse.json(
+        { error: 'Failed to fetch wallet score' },
+        { status: 500 }
+      );
+    }
+
+    const scoreData: WalletScoreResponse = await scoreRes.json();
     const score = scoreData.total_points;
     const rank = scoreData.rank?.name || 'Unranked';
+
+    console.log(`[NFT Authorize] Wallet: ${walletAddress}, Score: ${score}, Rank: ${rank}`);
 
     // Calculate expiry timestamp (5 minutes from now)
     const expiry = Math.floor(Date.now() / 1000) + SIGNATURE_EXPIRY_SECONDS;

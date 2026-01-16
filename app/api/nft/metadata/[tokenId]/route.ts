@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createPublicClient, http } from 'viem';
-import { pointsService } from '@/lib/services/points-service';
 import { NFT_CONTRACT_ADDRESS, NFT_CONTRACT_ABI } from '@/lib/nft-contract';
 import { generateScoreNFTSvg } from '@/lib/services/nft-image-service';
 
@@ -13,6 +12,9 @@ const inkChain = {
     default: { http: ['https://rpc-gel.inkonchain.com'] },
   },
 };
+
+// API server base URL
+const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:4000';
 
 const publicClient = createPublicClient({
   chain: inkChain,
@@ -28,6 +30,16 @@ interface NFTMetadata {
     trait_type: string;
     value: string | number;
   }>;
+}
+
+interface WalletScoreResponse {
+  wallet_address: string;
+  total_points: number;
+  rank: {
+    name: string;
+    color: string | null;
+    logo_url: string | null;
+  } | null;
 }
 
 function abbreviateAddress(address: string): string {
@@ -73,11 +85,22 @@ export async function GET(
       );
     }
 
-    // Fetch current score and rank for the wallet
-    const scoreData = await pointsService.calculateWalletScore(walletAddress);
+    // Fetch current score and rank from API server (same source as dashboard)
+    const scoreRes = await fetch(`${API_BASE_URL}/api/wallet/${walletAddress.toLowerCase()}/score`);
+    if (!scoreRes.ok) {
+      console.error('Failed to fetch wallet score from API server');
+      return NextResponse.json(
+        { error: 'Failed to fetch wallet score' },
+        { status: 500 }
+      );
+    }
+
+    const scoreData: WalletScoreResponse = await scoreRes.json();
     const score = scoreData.total_points;
     const rank = scoreData.rank?.name || 'Unranked';
     const rankColor = scoreData.rank?.color || '#6366f1';
+
+    console.log(`[NFT Metadata] Token ${tokenId}, Wallet: ${walletAddress}, Score: ${score}, Rank: ${rank}`);
     
     // Calculate top percentage (simplified - you can enhance this with actual leaderboard data)
     let topPercentage = 50;
