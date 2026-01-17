@@ -1,4 +1,5 @@
 import { query } from '../db';
+import { assetsService } from './assets-service';
 import {
   Rank,
   WalletPointsBreakdown,
@@ -13,16 +14,44 @@ interface RanksCache {
 let ranksCache: RanksCache | null = null;
 const RANKS_CACHE_TTL = 60 * 1000;
 
-export class PointsServiceV2 {
-  // Meme token addresses
-  private readonly MEME_TOKENS = [
-    '0x20c69c12abf2b6f8d8ca33604dd25c700c7e70a5', // CAT
-    '0x0606fc632ee812ba970af72f8489baaa443c4b98', // ANITA
-    '0xd642b49d10cc6e1bc1c6945725667c35e0875f22', // PURPLE
-  ];
+// Cache for meme token addresses (5 minute TTL)
+interface MemeTokensCache {
+  addresses: Set<string>;
+  timestamp: number;
+}
+let memeTokensCache: MemeTokensCache | null = null;
+const MEME_TOKENS_CACHE_TTL = 5 * 60 * 1000;
 
-  private isMemeToken(address: string): boolean {
-    return this.MEME_TOKENS.includes(address.toLowerCase());
+export class PointsServiceV2 {
+  // Get meme token addresses from database
+  private async getMemeTokenAddresses(): Promise<Set<string>> {
+    if (memeTokensCache && Date.now() - memeTokensCache.timestamp < MEME_TOKENS_CACHE_TTL) {
+      return memeTokensCache.addresses;
+    }
+
+    try {
+      const memeCoins = await assetsService.getMemeCoins();
+      const addresses = new Set(memeCoins.map(coin => coin.address.toLowerCase()));
+
+      memeTokensCache = { addresses, timestamp: Date.now() };
+      return addresses;
+    } catch (error) {
+      console.error('Failed to fetch meme token addresses:', error);
+      // Fallback to hardcoded addresses if database fails
+      return new Set([
+        '0x0606fc632ee812ba970af72f8489baaa443c4b98', // ANITA
+        '0x20c69c12abf2b6f8d8ca33604dd25c700c7e70a5', // CAT
+        '0xd642b49d10cc6e1bc1c6945725667c35e0875f22', // PURPLE
+        '0x2a1bce657f919ac3f9ab50b2584cfc77563a02ec', // ANDRU (AK47)
+        '0x32bcb803f696c99eb263d60a05cafd8689026575', // KRAK (KRAKMASK)
+        '0x62c99fac20b33b5423fdf9226179e973a8353e36', // BERT
+      ]);
+    }
+  }
+
+  private async isMemeToken(address: string): Promise<boolean> {
+    const memeTokens = await this.getMemeTokenAddresses();
+    return memeTokens.has(address.toLowerCase());
   }
 
   private async getCachedRanks(): Promise<Rank[]> {
@@ -92,17 +121,19 @@ export class PointsServiceV2 {
     return 0;
   }
 
-  private calculateTokenHoldingsPoints(tokenHoldings: Array<{ address: string; usdValue: number }>): number {
+  private async calculateTokenHoldingsPoints(tokenHoldings: Array<{ address: string; usdValue: number }>): Promise<number> {
+    const memeTokens = await this.getMemeTokenAddresses();
     const totalUsd = tokenHoldings
-      .filter(token => !this.isMemeToken(token.address))
+      .filter(token => !memeTokens.has(token.address.toLowerCase()))
       .reduce((sum, token) => sum + (Number(token.usdValue) || 0), 0);
     if (isNaN(totalUsd)) return 0;
     return Math.ceil(totalUsd * 1.5);
   }
 
-  private calculateMemeCoinsPoints(tokenHoldings: Array<{ address: string; usdValue: number }>): number {
+  private async calculateMemeCoinsPoints(tokenHoldings: Array<{ address: string; usdValue: number }>): Promise<number> {
+    const memeTokens = await this.getMemeTokenAddresses();
     const totalUsd = tokenHoldings
-      .filter(token => this.isMemeToken(token.address))
+      .filter(token => memeTokens.has(token.address.toLowerCase()))
       .reduce((sum, token) => sum + (Number(token.usdValue) || 0), 0);
     if (isNaN(totalUsd)) return 0;
     return Math.ceil(totalUsd * 1.2);
@@ -313,17 +344,18 @@ export class PointsServiceV2 {
         { address: '0x0000000000000000000000000000000000000000', symbol: 'ETH', usdValue: nativeEthUsd }
       ];
 
-      const tokenPoints = this.calculateTokenHoldingsPoints(allHoldings);
+      const tokenPoints = await this.calculateTokenHoldingsPoints(allHoldings);
       const totalTokenValue = allHoldings.reduce((sum: number, t: { usdValue?: number }) => sum + (Number(t.usdValue) || 0), 0);
       breakdown.native['erc20_tokens'] = { value: totalTokenValue, points: tokenPoints };
       totalPoints += tokenPoints;
       console.log(`2. Token Holdings: ${totalTokenValue.toFixed(2)} → ${tokenPoints} points`);
 
-      const memePoints = this.calculateMemeCoinsPoints(tokenHoldings);
-      const memeTokens = tokenHoldings.filter((t: { address: string }) => this.isMemeToken(t.address));
-      breakdown.native['meme_coins'] = { value: memeTokens.length, points: memePoints };
+      const memePoints = await this.calculateMemeCoinsPoints(tokenHoldings);
+      const memeTokens = await this.getMemeTokenAddresses();
+      const memeTokenCount = tokenHoldings.filter((t: { address: string }) => memeTokens.has(t.address.toLowerCase())).length;
+      breakdown.native['meme_coins'] = { value: memeTokenCount, points: memePoints };
       totalPoints += memePoints;
-      console.log(`3. Meme Coins: ${memeTokens.length} tokens → ${memePoints} points`);
+      console.log(`3. Meme Coins: ${memeTokenCount} tokens → ${memePoints} points`);
 
       const agePoints = this.calculateWalletAgePoints(walletStats.ageDays || 0);
       breakdown.native['wallet_age'] = { value: walletStats.ageDays || 0, points: agePoints };

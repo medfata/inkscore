@@ -63,6 +63,25 @@ export const HoldingsSection: React.FC<HoldingsSectionProps> = ({
   const memeCoins = filteredTokens.filter(token => token.tokenType === 'meme');
   const regularTokens = filteredTokens.filter(token => token.tokenType !== 'meme');
 
+  // Custom sort order for meme coins: ANITA -> CAT -> PURPLE -> AK47 -> KRAKMASK -> BERT
+  const memeCoinsOrder = ['ANITA', 'CAT', 'PURPLE', 'ANDRU', 'KRAK', 'BERT'];
+  const sortedMemeCoins = [...memeCoins].sort((a, b) => {
+    const indexA = memeCoinsOrder.indexOf(a.symbol);
+    const indexB = memeCoinsOrder.indexOf(b.symbol);
+    
+    // If both tokens are in our custom order, sort by that order
+    if (indexA !== -1 && indexB !== -1) {
+      return indexA - indexB;
+    }
+    
+    // If only one is in our custom order, prioritize it
+    if (indexA !== -1) return -1;
+    if (indexB !== -1) return 1;
+    
+    // If neither is in our custom order, sort alphabetically
+    return a.symbol.localeCompare(b.symbol);
+  });
+
   // Sort NFT collections to put Rekt Ink first
   const sortedNftCollections = [...nftCollections].sort((a, b) => {
     if (a.name === 'Rekt Ink') return -1;
@@ -143,7 +162,7 @@ export const HoldingsSection: React.FC<HoldingsSectionProps> = ({
         <div className="flex items-center justify-between mb-5">
           <h3 className="text-lg font-semibold text-white flex items-center gap-2">
             <div className="flex items-center -space-x-3">
-              {memeCoins.slice(0, 3).map((token, i) => (
+              {sortedMemeCoins.slice(0, 3).map((token, i) => (
                 <img
                   key={i}
                   src={token.logo}
@@ -155,7 +174,7 @@ export const HoldingsSection: React.FC<HoldingsSectionProps> = ({
                   }}
                 />
               ))}
-              {memeCoins.length === 0 && (
+              {sortedMemeCoins.length === 0 && (
                 <div className="w-7 h-7 rounded-full border-2 border-yellow-500 bg-slate-800 flex items-center justify-center">
                   <span className="text-yellow-400 text-xs">🚀</span>
                 </div>
@@ -164,12 +183,12 @@ export const HoldingsSection: React.FC<HoldingsSectionProps> = ({
             Meme Coins
           </h3>
           <span className="text-xs text-yellow-400 bg-yellow-900/30 px-2 py-1 rounded border border-yellow-500/30">
-            {memeCoins.length} memes
+            {sortedMemeCoins.length} memes
           </span>
         </div>
         <div className="space-y-3 max-h-[280px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
-          {memeCoins.length > 0 ? (
-            memeCoins.map((token) => (
+          {sortedMemeCoins.length > 0 ? (
+            sortedMemeCoins.map((token) => (
               <div
                 key={token.address}
                 className="flex items-center justify-between p-3 rounded-lg bg-slate-800/30 hover:bg-slate-800/50 transition-colors"

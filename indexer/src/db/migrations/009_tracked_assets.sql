@@ -71,7 +71,10 @@ ON CONFLICT (address) DO NOTHING;
 INSERT INTO tracked_assets (asset_type, token_type, name, symbol, address, logo_url, decimals, display_order) VALUES
   ('meme_coin', 'meme', 'ANITA', 'ANITA', '0x0606fc632ee812ba970af72f8489baaa443c4b98', 'https://pbs.twimg.com/profile_images/1948708709263089665/sCal-1rw_400x400.jpg', 18, 1),
   ('meme_coin', 'meme', 'Cat on Ink', 'CAT', '0x20c69c12abf2b6f8d8ca33604dd25c700c7e70a5', 'https://pbs.twimg.com/profile_images/1880778671398809601/DV_dS5E9_400x400.png', 18, 2),
-  ('meme_coin', 'meme', 'Purple', 'PURPLE', '0xd642b49d10cc6e1bc1c6945725667c35e0875f22', 'https://pbs.twimg.com/profile_images/1887019906102853632/lbS2Mm4V_400x400.jpg', 18, 3)
+  ('meme_coin', 'meme', 'Purple', 'PURPLE', '0xd642b49d10cc6e1bc1c6945725667c35e0875f22', 'https://pbs.twimg.com/profile_images/1887019906102853632/lbS2Mm4V_400x400.jpg', 18, 3),
+  ('meme_coin', 'meme', 'Andru Kollor', 'ANDRU', '0x2a1bce657f919ac3f9ab50b2584cfc77563a02ec', 'https://imgproxy-mainnet.routescan.io/VyKaHtkZE4Qn95WJpAAeTGD9dzwQYfQV3UO5VUK78K8/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvNTcwNzNfMHgyYTFiY2U2NTdmOTE5YWMzZjlhYjUwYjI1ODRjZmM3NzU2M2EwMmVjLjEwNmY1YjI5N2I1NC53ZWJw', 18, 4),
+  ('meme_coin', 'meme', 'Krak Mask', 'KRAK', '0x32bcb803f696c99eb263d60a05cafd8689026575', 'https://imgproxy-mainnet.routescan.io/nqT_RCc56W7qQ-VU88ot02PjqHx3nTNkhTtvDycOa5Y/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIva3Jha21hc2suNTA1YjIwYmEwZDhiLmpwZwso', 18, 5),
+  ('meme_coin', 'meme', 'BERT', 'BERT', '0x62c99fac20b33b5423fdf9226179e973a8353e36', 'https://imgproxy-mainnet.routescan.io/fda7etOaA_l03ksBESskb4juCAYl793B8fRXEM9Cpt8/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvYmVydC42NGM2M2ZiNWZlMmQ', 18, 6)
 ON CONFLICT (address) DO NOTHING;
 
 -- NFT Collections

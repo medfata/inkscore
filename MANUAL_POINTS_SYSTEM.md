@@ -43,9 +43,12 @@ FOR EACH meme_token:
 ```
 
 **Meme Token Addresses:**
-- CAT: `0x20c69c12abf2b6f8d8ca33604dd25c700c7e70a5`
 - ANITA: `0x0606fc632ee812ba970af72f8489baaa443c4b98`
+- CAT: `0x20c69c12abf2b6f8d8ca33604dd25c700c7e70a5`
 - PURPLE: `0xd642b49d10cc6e1bc1c6945725667c35e0875f22`
+- ANDRU: `0x2a1bce657f919ac3f9ab50b2584cfc77563a02ec`
+- KRAK: `0x32bcb803f696c99eb263d60a05cafd8689026575`
+- BERT: `0x62c99fac20b33b5423fdf9226179e973a8353e36`
 
 ### 4. Wallet Age
 ```

@@ -14,6 +14,7 @@ import {
   NativeMetricKey,
 } from '../types/platforms';
 import { walletStatsService } from './wallet-stats-service';
+import { assetsService } from './assets-service';
 
 // Cache for points rules and related data (1 minute TTL - rarely changes)
 interface RulesCache {
@@ -25,6 +26,14 @@ interface RulesCache {
 }
 let rulesCache: RulesCache | null = null;
 const RULES_CACHE_TTL = 60 * 1000; // 1 minute
+
+// Cache for meme token addresses (5 minute TTL)
+interface MemeTokensCache {
+  addresses: Set<string>;
+  timestamp: number;
+}
+let memeTokensCache: MemeTokensCache | null = null;
+const MEME_TOKENS_CACHE_TTL = 5 * 60 * 1000;
 
 // Helper function to fetch total volume from indexed transactions (simplified)
 async function fetchTotalVolumeUsd(walletAddress: string): Promise<number> {
@@ -439,15 +448,35 @@ export class PointsService {
   // MANUAL POINTS CALCULATION METHODS
   // ============================================================================
 
-  // Meme token addresses (add more as needed)
-  private readonly MEME_TOKENS = [
-    '0x20c69c12abf2b6f8d8ca33604dd25c700c7e70a5', // CAT
-    '0x0606fc632ee812ba970af72f8489baaa443c4b98', // ANITA
-    '0xd642b49d10cc6e1bc1c6945725667c35e0875f22', // PURPLE
-  ];
+  // Get meme token addresses from database
+  private async getMemeTokenAddresses(): Promise<Set<string>> {
+    if (memeTokensCache && Date.now() - memeTokensCache.timestamp < MEME_TOKENS_CACHE_TTL) {
+      return memeTokensCache.addresses;
+    }
 
-  private isMemeToken(address: string): boolean {
-    return this.MEME_TOKENS.includes(address.toLowerCase());
+    try {
+      const memeCoins = await assetsService.getMemeCoins();
+      const addresses = new Set(memeCoins.map(coin => coin.address.toLowerCase()));
+      
+      memeTokensCache = { addresses, timestamp: Date.now() };
+      return addresses;
+    } catch (error) {
+      console.error('Failed to fetch meme token addresses:', error);
+      // Fallback to hardcoded addresses if database fails
+      return new Set([
+        '0x0606fc632ee812ba970af72f8489baaa443c4b98', // ANITA
+        '0x20c69c12abf2b6f8d8ca33604dd25c700c7e70a5', // CAT
+        '0xd642b49d10cc6e1bc1c6945725667c35e0875f22', // PURPLE
+        '0x2a1bce657f919ac3f9ab50b2584cfc77563a02ec', // ANDRU (AK47)
+        '0x32bcb803f696c99eb263d60a05cafd8689026575', // KRAK (KRAKMASK)
+        '0x62c99fac20b33b5423fdf9226179e973a8353e36', // BERT
+      ]);
+    }
+  }
+
+  private async isMemeToken(address: string): Promise<boolean> {
+    const memeTokens = await this.getMemeTokenAddresses();
+    return memeTokens.has(address.toLowerCase());
   }
 
   // 1. NFT Collections Points
@@ -459,11 +488,12 @@ export class PointsService {
   }
 
   // 2. Token Holdings Points (excluding meme coins)
-  private calculateTokenHoldingsPoints(tokenHoldings: Array<{ address: string; usdValue: number }>): number {
+  private async calculateTokenHoldingsPoints(tokenHoldings: Array<{ address: string; usdValue: number }>): Promise<number> {
+    const memeTokens = await this.getMemeTokenAddresses();
     let points = 0;
     for (const token of tokenHoldings) {
       // Skip meme tokens
-      if (this.isMemeToken(token.address)) continue;
+      if (memeTokens.has(token.address.toLowerCase())) continue;
 
       const balanceUsd = token.usdValue;
       if (balanceUsd >= 1 && balanceUsd <= 99) {
@@ -478,11 +508,12 @@ export class PointsService {
   }
 
   // 3. Meme Coins Points
-  private calculateMemeCoinsPoints(tokenHoldings: Array<{ address: string; usdValue: number }>): number {
+  private async calculateMemeCoinsPoints(tokenHoldings: Array<{ address: string; usdValue: number }>): Promise<number> {
+    const memeTokens = await this.getMemeTokenAddresses();
     let points = 0;
     for (const token of tokenHoldings) {
       // Only process meme tokens
-      if (!this.isMemeToken(token.address)) continue;
+      if (!memeTokens.has(token.address.toLowerCase())) continue;
 
       const balanceUsd = token.usdValue;
       if (balanceUsd >= 1 && balanceUsd <= 10) {
@@ -927,7 +958,7 @@ export class PointsService {
     });
 
     // 2. Token Holdings Points (excluding meme coins)
-    const tokenPoints = this.calculateTokenHoldingsPoints(stats.tokenHoldings);
+    const tokenPoints = await this.calculateTokenHoldingsPoints(stats.tokenHoldings);
     const totalTokenValue = stats.tokenHoldings.reduce((sum, t) => sum + (Number(t.usdValue) || 0), 0);
     breakdown.native['erc20_tokens'] = {
       value: totalTokenValue,
@@ -935,23 +966,24 @@ export class PointsService {
     };
     totalPoints += tokenPoints;
     console.log(`2. Token Holdings: $${(totalTokenValue || 0).toFixed(2)} (${stats.tokenHoldings.length} tokens) → ${tokenPoints} points`);
+    const memeTokens = await this.getMemeTokenAddresses();
     stats.tokenHoldings.forEach(t => {
-      if (!this.isMemeToken(t.address)) {
+      if (!memeTokens.has(t.address.toLowerCase())) {
         const usdVal = Number(t.usdValue) || 0;
         console.log(`   - ${t.symbol || t.address}: $${usdVal.toFixed(2)} (balance: ${t.balance}, raw usdValue: ${t.usdValue})`);
       }
     });
 
     // 3. Meme Coins Points (separate calculation)
-    const memePoints = this.calculateMemeCoinsPoints(stats.tokenHoldings);
-    const memeTokens = stats.tokenHoldings.filter(t => this.isMemeToken(t.address));
+    const memePoints = await this.calculateMemeCoinsPoints(stats.tokenHoldings);
+    const memeTokensFiltered = stats.tokenHoldings.filter(t => memeTokens.has(t.address.toLowerCase()));
     breakdown.native['meme_coins'] = {
-      value: memeTokens.length,
+      value: memeTokensFiltered.length,
       points: memePoints
     };
     totalPoints += memePoints;
-    console.log(`3. Meme Coins: ${memeTokens.length} meme tokens → ${memePoints} points`);
-    memeTokens.forEach(t => {
+    console.log(`3. Meme Coins: ${memeTokensFiltered.length} meme tokens → ${memePoints} points`);
+    memeTokensFiltered.forEach(t => {
       console.log(`   - ${t.symbol || t.address}: $${(Number(t.usdValue) || 0).toFixed(2)}`);
     });
 

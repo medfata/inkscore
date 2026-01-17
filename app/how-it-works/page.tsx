@@ -60,7 +60,7 @@ const nativeMetrics: PlatformRule[] = [
     formula: 'Total USD Value × 1.5',
     details: [
       'Includes native ETH and all ERC-20 tokens',
-      'Meme tokens (CAT, ANITA, PURPLE) are excluded',
+      'Meme tokens (ANITA, CAT, PURPLE, ANDRU, KRAK, BERT) are excluded',
       'Points are calculated using ceil() rounding',
     ],
     color: 'from-yellow-500 to-orange-500',
@@ -70,7 +70,7 @@ const nativeMetrics: PlatformRule[] = [
     description: 'Points for holding supported meme tokens',
     formula: 'Total USD Value × 1.2',
     details: [
-      'Supported: CAT, ANITA, PURPLE',
+      'Supported: ANITA, CAT, PURPLE, ANDRU, KRAK, BERT',
       'Based on current USD value of holdings',
       'Points are calculated using ceil() rounding',
     ],
