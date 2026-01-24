@@ -1,0 +1,630 @@
+{
+    "chainId": "57073",
+    "ecosystems": [
+        "optimism"
+    ],
+    "blockNumber": 33980582,
+    "txIndex": 5,
+    "timestamp": "2026-01-03T22:23:13.000Z",
+    "from": {
+        "id": "0x748D4af3BBCD2d89097dDfb237F91284608C7F67",
+        "isContract": false
+    },
+    "to": {
+        "id": "0x1cB6De532588fCA4a21B7209DE7C456AF8434A65",
+        "alias": "Usdt0",
+        "tags": [
+            "oft_adapter"
+        ],
+        "isContract": true
+    },
+    "blockHash": "0x98cee2646533f0185d88143594450146f0a252166586226fe0da30ed0fb334b6",
+    "txHash": "0x7a76e4f829c372e54fbfbfecbebef1f48be0e100e4d228bd3e12273cade44dd6",
+    "value": "26461000606300",
+    "gasLimit": "465287",
+    "gasUsed": "300245",
+    "gasPrice": "82926",
+    "burnedFees": "24898116870",
+    "methodId": "0xc7c7f5b3",
+    "method": "send((uint32 dstEid, bytes32 to, uint256 amountLD, uint256 minAmountLD, bytes extraOptions, bytes composeMsg, bytes oftCmd) _sendParam, (uint256 nativeFee, uint256 lzTokenFee) _fee, address _refundAddress) payable returns ((bytes32 guid, uint64 nonce, (uint256 nativeFee, uint256 lzTokenFee) fee) msgReceipt, (uint256 amountSentLD, uint256 amountReceivedLD) oftReceipt)",
+    "contractVerified": false,
+    "type": "evm_tx",
+    "status": true,
+    "nonce": 118,
+    "deployments": [],
+    "input": "0xc7c7f5b3000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000001810ee8aa25c0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000748d4af3bbcd2d89097ddfb237f91284608c7f67000000000000000000000000000000000000000000000000000000000000759e000000000000000000000000748d4af3bbcd2d89097ddfb237f91284608c7f6700000000000000000000000000000000000000000000000000000000000186a000000000000000000000000000000000000000000000000000000000000184ac00000000000000000000000000000000000000000000000000000000000000e00000000000000000000000000000000000000000000000000000000000000140000000000000000000000000000000000000000000000000000000000000016000000000000000000000000000000000000000000000000000000000000000360003010031020000000000000000000002ba7def3000000000000000000000000000748d4af3bbcd2d89097ddfb237f91284608c7f670000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "indexingStatus": "completed",
+    "hasEIP7702Authorizations": false,
+    "logs": [
+        {
+            "index": 1,
+            "address": {
+                "id": "0x0200C29006150606B650577BBE7B6248F58470c1",
+                "alias": "USDT0",
+                "dapp": {
+                    "alias": "USDT0",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": []
+                },
+                "owner": "USDT0",
+                "icon": "https://cms-cdn.avascan.com/cms2/USDT0.a2be8f8b972f.svg",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/_8hp010bP9NFQsifKeCUbLv49hXAGcFj2kARI1CV0jg/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "64": "https://imgproxy-mainnet.routescan.io/Dr7R2CqkGcFp_XST1b8f8vwavBxGp1STy1Ui9AHmg24/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "256": "https://imgproxy-mainnet.routescan.io/FeiBn-bxqNvNosgdLEliorOSm4cg5lr0YDklMlrjep8/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "1024": "https://imgproxy-mainnet.routescan.io/4B0OrxYrfSAgOwHKnLCqbWm6EGA2_YGf64IWDOhmMk8/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw"
+                },
+                "tags": [
+                    "stablecoin",
+                    "payments"
+                ],
+                "isContract": false
+            },
+            "topics": [
+                "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+                "0x000000000000000000000000748d4af3bbcd2d89097ddfb237f91284608c7f67",
+                "0x0000000000000000000000000000000000000000000000000000000000000000"
+            ],
+            "data": "0x00000000000000000000000000000000000000000000000000000000000186a0",
+            "removed": false,
+            "event": "Transfer(address indexed _from, address indexed _to, uint256 _value)",
+            "contractVerified": false
+        },
+        {
+            "index": 2,
+            "address": {
+                "id": "0x0200C29006150606B650577BBE7B6248F58470c1",
+                "alias": "USDT0",
+                "dapp": {
+                    "alias": "USDT0",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": []
+                },
+                "owner": "USDT0",
+                "icon": "https://cms-cdn.avascan.com/cms2/USDT0.a2be8f8b972f.svg",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/_8hp010bP9NFQsifKeCUbLv49hXAGcFj2kARI1CV0jg/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "64": "https://imgproxy-mainnet.routescan.io/Dr7R2CqkGcFp_XST1b8f8vwavBxGp1STy1Ui9AHmg24/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "256": "https://imgproxy-mainnet.routescan.io/FeiBn-bxqNvNosgdLEliorOSm4cg5lr0YDklMlrjep8/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "1024": "https://imgproxy-mainnet.routescan.io/4B0OrxYrfSAgOwHKnLCqbWm6EGA2_YGf64IWDOhmMk8/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw"
+                },
+                "tags": [
+                    "stablecoin",
+                    "payments"
+                ],
+                "isContract": false
+            },
+            "topics": [
+                "0xcc16f5dbb4873280815c1ee09dbd06736cffcc184412cf7a71a0fdb75d397ca5",
+                "0x000000000000000000000000748d4af3bbcd2d89097ddfb237f91284608c7f67"
+            ],
+            "data": "0x00000000000000000000000000000000000000000000000000000000000186a0",
+            "removed": false,
+            "event": "Burn(address indexed burner, uint256 value)",
+            "contractVerified": false
+        },
+        {
+            "index": 3,
+            "address": {
+                "id": "0x0200C29006150606B650577BBE7B6248F58470c1",
+                "alias": "USDT0",
+                "dapp": {
+                    "alias": "USDT0",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": []
+                },
+                "owner": "USDT0",
+                "icon": "https://cms-cdn.avascan.com/cms2/USDT0.a2be8f8b972f.svg",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/_8hp010bP9NFQsifKeCUbLv49hXAGcFj2kARI1CV0jg/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "64": "https://imgproxy-mainnet.routescan.io/Dr7R2CqkGcFp_XST1b8f8vwavBxGp1STy1Ui9AHmg24/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "256": "https://imgproxy-mainnet.routescan.io/FeiBn-bxqNvNosgdLEliorOSm4cg5lr0YDklMlrjep8/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "1024": "https://imgproxy-mainnet.routescan.io/4B0OrxYrfSAgOwHKnLCqbWm6EGA2_YGf64IWDOhmMk8/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw"
+                },
+                "tags": [
+                    "stablecoin",
+                    "payments"
+                ],
+                "isContract": false
+            },
+            "topics": [
+                "0xb90795a66650155983e242cac3e1ac1a4dc26f8ed2987f3ce416a34e00111fd4",
+                "0x000000000000000000000000748d4af3bbcd2d89097ddfb237f91284608c7f67",
+                "0x0000000000000000000000001cb6de532588fca4a21b7209de7c456af8434a65"
+            ],
+            "data": "0x00000000000000000000000000000000000000000000000000000000000186a0",
+            "removed": false,
+            "event": "CrosschainBurn(address indexed from, uint256 amount, address indexed sender)",
+            "contractVerified": false
+        },
+        {
+            "index": 4,
+            "address": {
+                "id": "0x76111DE813F83AAAdBD62773Bf41247634e2319a",
+                "isContract": true
+            },
+            "topics": [
+                "0x61ed099e74a97a1d7f8bb0952a88ca8b7b8ebd00c126ea04671f92a81213318a"
+            ],
+            "data": "0x000000000000000000000000febcf17b11376c724ab5a5229803c6e838b6eae5000000000000000000000000000000000000000000000000000013e3cda4625c",
+            "removed": false,
+            "event": "ExecutorFeePaid(address executor, uint256 fee)",
+            "contractVerified": true
+        },
+        {
+            "index": 5,
+            "address": {
+                "id": "0x76111DE813F83AAAdBD62773Bf41247634e2319a",
+                "isContract": true
+            },
+            "topics": [
+                "0x07ea52d82345d6e838192107d8fd7123d9c2ec8e916cd0aad13fd2b60db24644"
+            ],
+            "data": "0x000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000000e00000000000000000000000000000000000000000000000000000000000000002000000000000000000000000174f2ba26f8adeafa82663bcf908288d5dbca649000000000000000000000000df44a1594d3d516f7cdfb4dc275a79a5f6e3db1d0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000217fea9200000000000000000000000000000000000000000000000000000000215223d2000",
+            "removed": false,
+            "event": "DVNFeePaid(address[] requiredDVNs, address[] optionalDVNs, uint256[] fees)",
+            "contractVerified": true
+        },
+        {
+            "index": 6,
+            "address": {
+                "id": "0xca29f3A6f966Cb2fc0dE625F8f325c0C46dbE958",
+                "isContract": true
+            },
+            "topics": [
+                "0x1ab700d4ced0c005b164c0f789fd09fcbb0156d4c2041b8a3bfbcd961cd1567f"
+            ],
+            "data": "0x0000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000012000000000000000000000000076111de813f83aaadbd62773bf41247634e2319a0000000000000000000000000000000000000000000000000000000000000099010000000000001d67000076830000000000000000000000001cb6de532588fca4a21b7209de7c456af8434a650000759e00000000000000000000000014e4a1b13bf7f943c8ff7c51fb60fa964a298d9248aa151544078790798b918b9f2208ff5bd54b874365673f3a38dc66db8f5509000000000000000000000000748d4af3bbcd2d89097ddfb237f91284608c7f6700000000000186a000000000000000000000000000000000000000000000000000000000000000000000000000004a00030100110100000000000000000000000000013880010031020000000000000000000002ba7def3000000000000000000000000000748d4af3bbcd2d89097ddfb237f91284608c7f6700000000000000000000000000000000000000000000",
+            "removed": false,
+            "event": "PacketSent(bytes encodedPayload, bytes options, address sendLibrary)",
+            "contractVerified": true
+        },
+        {
+            "index": 7,
+            "address": {
+                "id": "0x1cB6De532588fCA4a21B7209DE7C456AF8434A65",
+                "alias": "Usdt0",
+                "tags": [
+                    "oft_adapter"
+                ],
+                "isContract": true
+            },
+            "topics": [
+                "0x85496b760a4b7f8d66384b9df21b381f5d1b1e79f229a47aaf4c232edc2fe59a",
+                "0x48aa151544078790798b918b9f2208ff5bd54b874365673f3a38dc66db8f5509",
+                "0x000000000000000000000000748d4af3bbcd2d89097ddfb237f91284608c7f67"
+            ],
+            "data": "0x000000000000000000000000000000000000000000000000000000000000759e00000000000000000000000000000000000000000000000000000000000186a000000000000000000000000000000000000000000000000000000000000186a0",
+            "removed": false,
+            "event": "OFTSent(bytes32 indexed guid, uint32 dstEid, address indexed fromAddress, uint256 amountSentLD, uint256 amountReceivedLD)",
+            "contractVerified": false
+        }
+    ],
+    "operations": [
+        {
+            "index": 0,
+            "status": true,
+            "type": "CALL",
+            "from": {
+                "id": "0x748D4af3BBCD2d89097dDfb237F91284608C7F67",
+                "isContract": false
+            },
+            "to": {
+                "id": "0x1cB6De532588fCA4a21B7209DE7C456AF8434A65",
+                "alias": "Usdt0",
+                "tags": [
+                    "oft_adapter"
+                ],
+                "isContract": true
+            },
+            "value": "26461000606300",
+            "gas": "465287",
+            "gasUsed": "300245",
+            "methodId": "0xc7c7f5b3"
+        },
+        {
+            "index": 1,
+            "status": true,
+            "type": "DELEGATECALL",
+            "from": {
+                "id": "0x1cB6De532588fCA4a21B7209DE7C456AF8434A65",
+                "alias": "Usdt0",
+                "tags": [
+                    "oft_adapter"
+                ],
+                "isContract": true
+            },
+            "to": {
+                "id": "0x8488485F9DC522215217f57C89Be2141c3DB421b",
+                "isContract": true
+            },
+            "value": "26461000606300",
+            "gas": "427022",
+            "gasUsed": "271502",
+            "methodId": "0xc7c7f5b3"
+        },
+        {
+            "index": 2,
+            "status": true,
+            "type": "CALL",
+            "from": {
+                "id": "0x1cB6De532588fCA4a21B7209DE7C456AF8434A65",
+                "alias": "Usdt0",
+                "tags": [
+                    "oft_adapter"
+                ],
+                "isContract": true
+            },
+            "to": {
+                "id": "0x0200C29006150606B650577BBE7B6248F58470c1",
+                "alias": "USDT0",
+                "dapp": {
+                    "alias": "USDT0",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": []
+                },
+                "owner": "USDT0",
+                "icon": "https://cms-cdn.avascan.com/cms2/USDT0.a2be8f8b972f.svg",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/_8hp010bP9NFQsifKeCUbLv49hXAGcFj2kARI1CV0jg/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "64": "https://imgproxy-mainnet.routescan.io/Dr7R2CqkGcFp_XST1b8f8vwavBxGp1STy1Ui9AHmg24/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "256": "https://imgproxy-mainnet.routescan.io/FeiBn-bxqNvNosgdLEliorOSm4cg5lr0YDklMlrjep8/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "1024": "https://imgproxy-mainnet.routescan.io/4B0OrxYrfSAgOwHKnLCqbWm6EGA2_YGf64IWDOhmMk8/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw"
+                },
+                "tags": [
+                    "stablecoin",
+                    "payments"
+                ],
+                "isContract": false
+            },
+            "value": "0",
+            "gas": "416224",
+            "gasUsed": "27435",
+            "methodId": "0x2b8c49e3"
+        },
+        {
+            "index": 3,
+            "status": true,
+            "type": "DELEGATECALL",
+            "from": {
+                "id": "0x0200C29006150606B650577BBE7B6248F58470c1",
+                "alias": "USDT0",
+                "dapp": {
+                    "alias": "USDT0",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": []
+                },
+                "owner": "USDT0",
+                "icon": "https://cms-cdn.avascan.com/cms2/USDT0.a2be8f8b972f.svg",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/_8hp010bP9NFQsifKeCUbLv49hXAGcFj2kARI1CV0jg/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "64": "https://imgproxy-mainnet.routescan.io/Dr7R2CqkGcFp_XST1b8f8vwavBxGp1STy1Ui9AHmg24/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "256": "https://imgproxy-mainnet.routescan.io/FeiBn-bxqNvNosgdLEliorOSm4cg5lr0YDklMlrjep8/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "1024": "https://imgproxy-mainnet.routescan.io/4B0OrxYrfSAgOwHKnLCqbWm6EGA2_YGf64IWDOhmMk8/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw"
+                },
+                "tags": [
+                    "stablecoin",
+                    "payments"
+                ],
+                "isContract": false
+            },
+            "to": {
+                "id": "0x06d886Ff518b5E642E7E6aaD3cE797B7DABD8e9a",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "402710",
+            "gasUsed": "20275",
+            "methodId": "0x2b8c49e3"
+        },
+        {
+            "index": 4,
+            "status": true,
+            "type": "CALL",
+            "from": {
+                "id": "0x1cB6De532588fCA4a21B7209DE7C456AF8434A65",
+                "alias": "Usdt0",
+                "tags": [
+                    "oft_adapter"
+                ],
+                "isContract": true
+            },
+            "to": {
+                "id": "0xca29f3A6f966Cb2fc0dE625F8f325c0C46dbE958",
+                "isContract": true
+            },
+            "value": "26461000606300",
+            "gas": "368895",
+            "gasUsed": "215683",
+            "methodId": "0x2637a450"
+        },
+        {
+            "index": 5,
+            "status": true,
+            "type": "CALL",
+            "from": {
+                "id": "0xca29f3A6f966Cb2fc0dE625F8f325c0C46dbE958",
+                "isContract": true
+            },
+            "to": {
+                "id": "0x76111DE813F83AAAdBD62773Bf41247634e2319a",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "344116",
+            "gasUsed": "179893",
+            "methodId": "0x4389e58f"
+        },
+        {
+            "index": 6,
+            "status": true,
+            "type": "CALL",
+            "from": {
+                "id": "0x76111DE813F83AAAdBD62773Bf41247634e2319a",
+                "isContract": true
+            },
+            "to": {
+                "id": "0xFEbCF17b11376C724AB5a5229803C6e838b6eAe5",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "328826",
+            "gasUsed": "55790",
+            "methodId": "0x717e8a42"
+        },
+        {
+            "index": 7,
+            "status": true,
+            "type": "DELEGATECALL",
+            "from": {
+                "id": "0xFEbCF17b11376C724AB5a5229803C6e838b6eAe5",
+                "isContract": true
+            },
+            "to": {
+                "id": "0xf90b61aa892ba0433F54D2C1BF594d89d22ed7F6",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "318701",
+            "gasUsed": "50682",
+            "methodId": "0x717e8a42"
+        },
+        {
+            "index": 8,
+            "status": true,
+            "type": "CALL",
+            "from": {
+                "id": "0xFEbCF17b11376C724AB5a5229803C6e838b6eAe5",
+                "isContract": true
+            },
+            "to": {
+                "id": "0xfDfA2330713A8e2EaC6e4f15918F11937fFA4dBE",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "294500",
+            "gasUsed": "30910",
+            "methodId": "0x566ef762"
+        },
+        {
+            "index": 9,
+            "status": true,
+            "type": "STATICCALL",
+            "from": {
+                "id": "0xfDfA2330713A8e2EaC6e4f15918F11937fFA4dBE",
+                "isContract": true
+            },
+            "to": {
+                "id": "0x2BF2f59d2E318Bb03C8956E7BC4c3E6c28Bd0fC2",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "281622",
+            "gasUsed": "20437",
+            "methodId": "0x88a4124c"
+        },
+        {
+            "index": 10,
+            "status": true,
+            "type": "DELEGATECALL",
+            "from": {
+                "id": "0x2BF2f59d2E318Bb03C8956E7BC4c3E6c28Bd0fC2",
+                "isContract": true
+            },
+            "to": {
+                "id": "0x306B9a8953B9462F8b826e6768a93C8EA7454965",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "272264",
+            "gasUsed": "15350",
+            "methodId": "0x88a4124c"
+        },
+        {
+            "index": 11,
+            "status": true,
+            "type": "CALL",
+            "from": {
+                "id": "0x76111DE813F83AAAdBD62773Bf41247634e2319a",
+                "isContract": true
+            },
+            "to": {
+                "id": "0x174F2bA26f8ADeAfA82663bcf908288d5DbCa649",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "249096",
+            "gasUsed": "28148",
+            "methodId": "0x95d376d7"
+        },
+        {
+            "index": 12,
+            "status": true,
+            "type": "CALL",
+            "from": {
+                "id": "0x174F2bA26f8ADeAfA82663bcf908288d5DbCa649",
+                "isContract": true
+            },
+            "to": {
+                "id": "0x32697fF8878de7C075C4c74F4917b274F00aF968",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "227361",
+            "gasUsed": "9780",
+            "methodId": "0xdf2b057e"
+        },
+        {
+            "index": 13,
+            "status": true,
+            "type": "STATICCALL",
+            "from": {
+                "id": "0x32697fF8878de7C075C4c74F4917b274F00aF968",
+                "isContract": true
+            },
+            "to": {
+                "id": "0x2BF2f59d2E318Bb03C8956E7BC4c3E6c28Bd0fC2",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "221366",
+            "gasUsed": "5937",
+            "methodId": "0x88a4124c"
+        },
+        {
+            "index": 14,
+            "status": true,
+            "type": "DELEGATECALL",
+            "from": {
+                "id": "0x2BF2f59d2E318Bb03C8956E7BC4c3E6c28Bd0fC2",
+                "isContract": true
+            },
+            "to": {
+                "id": "0x306B9a8953B9462F8b826e6768a93C8EA7454965",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "217379",
+            "gasUsed": "5350",
+            "methodId": "0x88a4124c"
+        },
+        {
+            "index": 15,
+            "status": true,
+            "type": "CALL",
+            "from": {
+                "id": "0x76111DE813F83AAAdBD62773Bf41247634e2319a",
+                "isContract": true
+            },
+            "to": {
+                "id": "0xDF44a1594d3D516f7CDFb4DC275a79a5F6e3Db1d",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "212110",
+            "gasUsed": "28148",
+            "methodId": "0x95d376d7"
+        },
+        {
+            "index": 16,
+            "status": true,
+            "type": "CALL",
+            "from": {
+                "id": "0xDF44a1594d3D516f7CDFb4DC275a79a5F6e3Db1d",
+                "isContract": true
+            },
+            "to": {
+                "id": "0x49Ec3Bb1784e2Feb56D6203c2403C714D14BC2c3",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "190953",
+            "gasUsed": "9780",
+            "methodId": "0xdf2b057e"
+        },
+        {
+            "index": 17,
+            "status": true,
+            "type": "STATICCALL",
+            "from": {
+                "id": "0x49Ec3Bb1784e2Feb56D6203c2403C714D14BC2c3",
+                "isContract": true
+            },
+            "to": {
+                "id": "0x2BF2f59d2E318Bb03C8956E7BC4c3E6c28Bd0fC2",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "185527",
+            "gasUsed": "5937",
+            "methodId": "0x88a4124c"
+        },
+        {
+            "index": 18,
+            "status": true,
+            "type": "DELEGATECALL",
+            "from": {
+                "id": "0x2BF2f59d2E318Bb03C8956E7BC4c3E6c28Bd0fC2",
+                "isContract": true
+            },
+            "to": {
+                "id": "0x306B9a8953B9462F8b826e6768a93C8EA7454965",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "182100",
+            "gasUsed": "5350",
+            "methodId": "0x88a4124c"
+        },
+        {
+            "index": 19,
+            "status": true,
+            "type": "CALL",
+            "from": {
+                "id": "0x76111DE813F83AAAdBD62773Bf41247634e2319a",
+                "isContract": true
+            },
+            "to": {
+                "id": "0x665bd7A4b5765758ccF1eB5b6dEAf6bb07b6c531",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "168043",
+            "gasUsed": "2894",
+            "methodId": "0xd51c5486"
+        },
+        {
+            "index": 20,
+            "status": true,
+            "type": "CALL",
+            "from": {
+                "id": "0xca29f3A6f966Cb2fc0dE625F8f325c0C46dbE958",
+                "isContract": true
+            },
+            "to": {
+                "id": "0x76111DE813F83AAAdBD62773Bf41247634e2319a",
+                "isContract": true
+            },
+            "value": "26461000606300",
+            "gas": "151365",
+            "gasUsed": "55",
+            "methodId": "0x"
+        }
+    ],
+    "l1GasPrice": "35378542",
+    "l1GasUsed": "2731",
+    "l1Fee": "750707883",
+    "l1BaseFeeScalar": "4424",
+    "l1BlobBaseFee": "2334668",
+    "l1BlobBaseFeeScalar": "810831"
+}

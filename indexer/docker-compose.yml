@@ -1,0 +1,103 @@
+# Ink Chain Indexer Services
+#
+# Three separate services:
+# - indexer-backfill: Historical data backfill (CSV export based)
+# - indexer-realtime: Real-time transaction polling with adaptive intervals
+# - indexer-enrichment: Event-driven volume enrichment (optimized, no polling)
+#
+# For large backlogs (500+ transactions), use: npm run concurrent-enrich
+#
+# To start all:   docker-compose up -d
+# To start one:   docker-compose up -d indexer-realtime
+# To view logs:   docker-compose logs -f indexer-enrichment
+
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: ink
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ink_analytics
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    command: >
+      postgres
+      -c listen_addresses='*'
+      -c password_encryption=scram-sha-256
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ink -d ink_analytics"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Backfill Service - Historical data indexing via CSV exports
+  # Currently indexing DailyGM - DO NOT modify until complete
+  indexer-backfill:
+    build: .
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://ink:${DB_PASSWORD}@postgres:5432/ink_analytics
+      RPC_URL: ${RPC_URL}
+      POLL_INTERVAL_MS: ${POLL_INTERVAL_MS:-15000}
+    volumes:
+      - csv_exports:/app/csv_exports
+    command: npm run start:backfill
+
+  # Realtime Service - Adaptive polling for new transactions
+  # Polls active contracts every 15s, backs off idle ones up to 10min
+  indexer-realtime:
+    build: .
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://ink:${DB_PASSWORD}@postgres:5432/ink_analytics
+    command: npm run start:realtime
+
+  # Event-Driven Enrichment Service - Optimized volume contract enrichment
+  # - Handles small backlogs (<500 transactions) in real-time
+  # - Uses database triggers for instant processing (no polling overhead)
+  # - Leaves large backlogs for concurrent gap enrichment script
+  # - 90% less resource usage vs old polling approach
+  indexer-enrichment:
+    build: .
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://ink:${DB_PASSWORD}@postgres:5432/ink_analytics
+    command: npm run start:event-enrichment
+
+  # Express API Server - Shared connection pool for dashboard endpoints
+  # Solves PostgreSQL connection exhaustion from serverless functions
+  api-server:
+    build: ../api-server
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://ink:${DB_PASSWORD}@postgres:5432/ink_analytics
+      PORT: 4000
+      RPC_URL: ${RPC_URL}
+    ports:
+      - "4000:4000"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:4000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  postgres_data:
+  csv_exports:

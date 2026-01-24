@@ -1,0 +1,356 @@
+{
+    "chainId": "57073",
+    "ecosystems": [
+        "optimism"
+    ],
+    "blockNumber": 33980945,
+    "txIndex": 1,
+    "timestamp": "2026-01-03T22:29:16.000Z",
+    "from": {
+        "id": "0xe93685f3bBA03016F02bD1828BaDD6195988D950",
+        "isContract": false
+    },
+    "to": {
+        "id": "0xFEbCF17b11376C724AB5a5229803C6e838b6eAe5",
+        "isContract": true
+    },
+    "blockHash": "0x9d590afc59a82d0d080f4ef7df1a691960f9b2defa99c208c246741d45909a0f",
+    "txHash": "0xe4015f11ab10c6701c92d4f7f76e57cba2a75abee8a69c74a1a63cc90b0e3a64",
+    "value": "0",
+    "gasLimit": "381289",
+    "gasUsed": "99060",
+    "gasPrice": "1200709",
+    "burnedFees": "118942233540",
+    "methodId": "0xcfc32570",
+    "method": "execute302((address receiver, (uint32 srcEid, bytes32 sender, uint64 nonce) origin, bytes32 guid, bytes message, bytes extraData, uint256 gasLimit) _executionParams) payable",
+    "contractVerified": false,
+    "type": "evm_tx",
+    "status": true,
+    "nonce": 215940,
+    "deployments": [],
+    "input": "0xcfc3257000000000000000000000000000000000000000000000000000000000000000200000000000000000000000001cb6de532588fca4a21b7209de7c456af8434a650000000000000000000000000000000000000000000000000000000000007670000000000000000000000000c07be8994d035631c36fb4a89c918cefb2f03ec30000000000000000000000000000000000000000000000000000000000002e4285cfcf47e6cfe3d8bed807609511f26f8018b2efc298c83f47ce797dd93957b40000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000016000000000000000000000000000000000000000000000000000000000000187ad0000000000000000000000000000000000000000000000000000000000000028000000000000000000000000748d4af3bbcd2d89097ddfb237f91284608c7f6700000000000f42400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "indexingStatus": "completed",
+    "hasEIP7702Authorizations": false,
+    "logs": [
+        {
+            "index": 0,
+            "address": {
+                "id": "0x0200C29006150606B650577BBE7B6248F58470c1",
+                "alias": "USDT0",
+                "dapp": {
+                    "alias": "USDT0",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": []
+                },
+                "owner": "USDT0",
+                "icon": "https://cms-cdn.avascan.com/cms2/USDT0.a2be8f8b972f.svg",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/_8hp010bP9NFQsifKeCUbLv49hXAGcFj2kARI1CV0jg/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "64": "https://imgproxy-mainnet.routescan.io/Dr7R2CqkGcFp_XST1b8f8vwavBxGp1STy1Ui9AHmg24/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "256": "https://imgproxy-mainnet.routescan.io/FeiBn-bxqNvNosgdLEliorOSm4cg5lr0YDklMlrjep8/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "1024": "https://imgproxy-mainnet.routescan.io/4B0OrxYrfSAgOwHKnLCqbWm6EGA2_YGf64IWDOhmMk8/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw"
+                },
+                "tags": [
+                    "stablecoin",
+                    "payments"
+                ],
+                "isContract": false
+            },
+            "topics": [
+                "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+                "0x0000000000000000000000000000000000000000000000000000000000000000",
+                "0x000000000000000000000000748d4af3bbcd2d89097ddfb237f91284608c7f67"
+            ],
+            "data": "0x00000000000000000000000000000000000000000000000000000000000f4240",
+            "removed": false,
+            "event": "Transfer(address indexed _from, address indexed _to, uint256 _value)",
+            "contractVerified": false
+        },
+        {
+            "index": 1,
+            "address": {
+                "id": "0x0200C29006150606B650577BBE7B6248F58470c1",
+                "alias": "USDT0",
+                "dapp": {
+                    "alias": "USDT0",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": []
+                },
+                "owner": "USDT0",
+                "icon": "https://cms-cdn.avascan.com/cms2/USDT0.a2be8f8b972f.svg",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/_8hp010bP9NFQsifKeCUbLv49hXAGcFj2kARI1CV0jg/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "64": "https://imgproxy-mainnet.routescan.io/Dr7R2CqkGcFp_XST1b8f8vwavBxGp1STy1Ui9AHmg24/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "256": "https://imgproxy-mainnet.routescan.io/FeiBn-bxqNvNosgdLEliorOSm4cg5lr0YDklMlrjep8/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "1024": "https://imgproxy-mainnet.routescan.io/4B0OrxYrfSAgOwHKnLCqbWm6EGA2_YGf64IWDOhmMk8/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw"
+                },
+                "tags": [
+                    "stablecoin",
+                    "payments"
+                ],
+                "isContract": false
+            },
+            "topics": [
+                "0x0f6798a560793a54c3bcfe86a93cde1e73087d944c0ea20544137d4121396885",
+                "0x000000000000000000000000748d4af3bbcd2d89097ddfb237f91284608c7f67"
+            ],
+            "data": "0x00000000000000000000000000000000000000000000000000000000000f4240",
+            "removed": false,
+            "event": "Mint(address indexed _address, uint256 _reward)",
+            "contractVerified": false
+        },
+        {
+            "index": 2,
+            "address": {
+                "id": "0x0200C29006150606B650577BBE7B6248F58470c1",
+                "alias": "USDT0",
+                "dapp": {
+                    "alias": "USDT0",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": []
+                },
+                "owner": "USDT0",
+                "icon": "https://cms-cdn.avascan.com/cms2/USDT0.a2be8f8b972f.svg",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/_8hp010bP9NFQsifKeCUbLv49hXAGcFj2kARI1CV0jg/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "64": "https://imgproxy-mainnet.routescan.io/Dr7R2CqkGcFp_XST1b8f8vwavBxGp1STy1Ui9AHmg24/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "256": "https://imgproxy-mainnet.routescan.io/FeiBn-bxqNvNosgdLEliorOSm4cg5lr0YDklMlrjep8/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "1024": "https://imgproxy-mainnet.routescan.io/4B0OrxYrfSAgOwHKnLCqbWm6EGA2_YGf64IWDOhmMk8/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw"
+                },
+                "tags": [
+                    "stablecoin",
+                    "payments"
+                ],
+                "isContract": false
+            },
+            "topics": [
+                "0xde22baff038e3a3e08407cbdf617deed74e869a7ba517df611e33131c6e6ea04",
+                "0x000000000000000000000000748d4af3bbcd2d89097ddfb237f91284608c7f67",
+                "0x0000000000000000000000001cb6de532588fca4a21b7209de7c456af8434a65"
+            ],
+            "data": "0x00000000000000000000000000000000000000000000000000000000000f4240",
+            "removed": false,
+            "event": "CrosschainMint(address indexed to, uint256 amount, address indexed sender)",
+            "contractVerified": false
+        },
+        {
+            "index": 3,
+            "address": {
+                "id": "0x1cB6De532588fCA4a21B7209DE7C456AF8434A65",
+                "alias": "Usdt0",
+                "tags": [
+                    "oft_adapter"
+                ],
+                "isContract": true
+            },
+            "topics": [
+                "0xefed6d3500546b29533b128a29e3a94d70788727f0507505ac12eaf2e578fd9c",
+                "0x85cfcf47e6cfe3d8bed807609511f26f8018b2efc298c83f47ce797dd93957b4",
+                "0x000000000000000000000000748d4af3bbcd2d89097ddfb237f91284608c7f67"
+            ],
+            "data": "0x000000000000000000000000000000000000000000000000000000000000767000000000000000000000000000000000000000000000000000000000000f4240",
+            "removed": false,
+            "event": "OFTReceived(bytes32 indexed guid, uint32 srcEid, address indexed toAddress, uint256 amountReceivedLD)",
+            "contractVerified": false
+        },
+        {
+            "index": 4,
+            "address": {
+                "id": "0xca29f3A6f966Cb2fc0dE625F8f325c0C46dbE958",
+                "isContract": true
+            },
+            "topics": [
+                "0x3cd5e48f9730b129dc7550f0fcea9c767b7be37837cd10e55eb35f734f4bca04"
+            ],
+            "data": "0x0000000000000000000000000000000000000000000000000000000000007670000000000000000000000000c07be8994d035631c36fb4a89c918cefb2f03ec30000000000000000000000000000000000000000000000000000000000002e420000000000000000000000001cb6de532588fca4a21b7209de7c456af8434a65",
+            "removed": false,
+            "event": "PacketDelivered((uint32 srcEid, bytes32 sender, uint64 nonce) origin, address receiver)",
+            "contractVerified": true
+        }
+    ],
+    "operations": [
+        {
+            "index": 0,
+            "status": true,
+            "type": "CALL",
+            "from": {
+                "id": "0xe93685f3bBA03016F02bD1828BaDD6195988D950",
+                "isContract": false
+            },
+            "to": {
+                "id": "0xFEbCF17b11376C724AB5a5229803C6e838b6eAe5",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "381289",
+            "gasUsed": "99060",
+            "methodId": "0xcfc32570"
+        },
+        {
+            "index": 1,
+            "status": true,
+            "type": "DELEGATECALL",
+            "from": {
+                "id": "0xFEbCF17b11376C724AB5a5229803C6e838b6eAe5",
+                "isContract": true
+            },
+            "to": {
+                "id": "0xf90b61aa892ba0433F54D2C1BF594d89d22ed7F6",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "346678",
+            "gasUsed": "77513",
+            "methodId": "0xcfc32570"
+        },
+        {
+            "index": 2,
+            "status": true,
+            "type": "CALL",
+            "from": {
+                "id": "0xFEbCF17b11376C724AB5a5229803C6e838b6eAe5",
+                "isContract": true
+            },
+            "to": {
+                "id": "0xca29f3A6f966Cb2fc0dE625F8f325c0C46dbE958",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "100269",
+            "gasUsed": "63435",
+            "methodId": "0x0c0c389e"
+        },
+        {
+            "index": 3,
+            "status": true,
+            "type": "CALL",
+            "from": {
+                "id": "0xca29f3A6f966Cb2fc0dE625F8f325c0C46dbE958",
+                "isContract": true
+            },
+            "to": {
+                "id": "0x1cB6De532588fCA4a21B7209DE7C456AF8434A65",
+                "alias": "Usdt0",
+                "tags": [
+                    "oft_adapter"
+                ],
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "82081",
+            "gasUsed": "44365",
+            "methodId": "0x13137d65"
+        },
+        {
+            "index": 4,
+            "status": true,
+            "type": "DELEGATECALL",
+            "from": {
+                "id": "0x1cB6De532588fCA4a21B7209DE7C456AF8434A65",
+                "alias": "Usdt0",
+                "tags": [
+                    "oft_adapter"
+                ],
+                "isContract": true
+            },
+            "to": {
+                "id": "0x8488485F9DC522215217f57C89Be2141c3DB421b",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "73668",
+            "gasUsed": "37083",
+            "methodId": "0x13137d65"
+        },
+        {
+            "index": 5,
+            "status": true,
+            "type": "CALL",
+            "from": {
+                "id": "0x1cB6De532588fCA4a21B7209DE7C456AF8434A65",
+                "alias": "Usdt0",
+                "tags": [
+                    "oft_adapter"
+                ],
+                "isContract": true
+            },
+            "to": {
+                "id": "0x0200C29006150606B650577BBE7B6248F58470c1",
+                "alias": "USDT0",
+                "dapp": {
+                    "alias": "USDT0",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": []
+                },
+                "owner": "USDT0",
+                "icon": "https://cms-cdn.avascan.com/cms2/USDT0.a2be8f8b972f.svg",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/_8hp010bP9NFQsifKeCUbLv49hXAGcFj2kARI1CV0jg/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "64": "https://imgproxy-mainnet.routescan.io/Dr7R2CqkGcFp_XST1b8f8vwavBxGp1STy1Ui9AHmg24/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "256": "https://imgproxy-mainnet.routescan.io/FeiBn-bxqNvNosgdLEliorOSm4cg5lr0YDklMlrjep8/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "1024": "https://imgproxy-mainnet.routescan.io/4B0OrxYrfSAgOwHKnLCqbWm6EGA2_YGf64IWDOhmMk8/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw"
+                },
+                "tags": [
+                    "stablecoin",
+                    "payments"
+                ],
+                "isContract": false
+            },
+            "value": "0",
+            "gas": "65343",
+            "gasUsed": "27401",
+            "methodId": "0x18bf5077"
+        },
+        {
+            "index": 6,
+            "status": true,
+            "type": "DELEGATECALL",
+            "from": {
+                "id": "0x0200C29006150606B650577BBE7B6248F58470c1",
+                "alias": "USDT0",
+                "dapp": {
+                    "alias": "USDT0",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": []
+                },
+                "owner": "USDT0",
+                "icon": "https://cms-cdn.avascan.com/cms2/USDT0.a2be8f8b972f.svg",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/_8hp010bP9NFQsifKeCUbLv49hXAGcFj2kARI1CV0jg/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "64": "https://imgproxy-mainnet.routescan.io/Dr7R2CqkGcFp_XST1b8f8vwavBxGp1STy1Ui9AHmg24/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "256": "https://imgproxy-mainnet.routescan.io/FeiBn-bxqNvNosgdLEliorOSm4cg5lr0YDklMlrjep8/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "1024": "https://imgproxy-mainnet.routescan.io/4B0OrxYrfSAgOwHKnLCqbWm6EGA2_YGf64IWDOhmMk8/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw"
+                },
+                "tags": [
+                    "stablecoin",
+                    "payments"
+                ],
+                "isContract": false
+            },
+            "to": {
+                "id": "0x06d886Ff518b5E642E7E6aaD3cE797B7DABD8e9a",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "57312",
+            "gasUsed": "20241",
+            "methodId": "0x18bf5077"
+        }
+    ],
+    "l1GasPrice": "35227611",
+    "l1GasUsed": "3240",
+    "l1Fee": "825816213",
+    "l1BaseFeeScalar": "4424",
+    "l1BlobBaseFee": "1954013",
+    "l1BlobBaseFeeScalar": "810831"
+}

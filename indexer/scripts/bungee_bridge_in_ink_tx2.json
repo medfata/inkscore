@@ -1,0 +1,274 @@
+{
+    "chainId": "57073",
+    "ecosystems": [
+        "optimism"
+    ],
+    "blockNumber": 34026505,
+    "txIndex": 7,
+    "timestamp": "2026-01-04T11:08:36.000Z",
+    "from": {
+        "id": "0xD0C0AdE59C0c277D078216d57860486f5B4402A9",
+        "isContract": false
+    },
+    "to": {
+        "id": "0x3a23F943181408EAC424116Af7b7790c94Cb97a5",
+        "alias": "Socket Gateway",
+        "dapp": {
+            "alias": "Bungee",
+            "description": "Bungee is a metabridge offering seamless bridging across chains. We aggregate all bridges, DEX's and DEX Aggregators to offer the best product!",
+            "socialProfile": {
+                "items": []
+            },
+            "tags": []
+        },
+        "owner": "Bungee",
+        "tags": [],
+        "isContract": true
+    },
+    "blockHash": "0xd02991b7c2bc86361cbbecbbaa74b1afdc67b43d61f0660177d15c098d117d32",
+    "txHash": "0xd14b36a3310fbde27e9613f38e47b33b7b5969cbf89d3385a2c62de603cabfe0",
+    "value": "180000000000000",
+    "gasLimit": "131480",
+    "gasUsed": "83587",
+    "gasPrice": "2663",
+    "burnedFees": "222592181",
+    "methodId": "0x00000185",
+    "type": "evm_tx",
+    "status": true,
+    "nonce": 40,
+    "deployments": [],
+    "input": "0x00000185a3b8bfba0000000000000000000000000000000000000000000000000000a3b5840f400000000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000120000000000000000000000000420000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000021050000000000000000000000000000000000000000000000000000000000000180000000000000000000000000000000000000000000000000000000f2554bead100000000000000000000000000000000000000000000000000000000000000120000000000000000000000000000000000000000000000000000000000000012000000000000000000000000000000000000000000000000000000000000271000000000000000000000000000000000000000000000000000000000000001e00000000000000000000000000000000000000000000000000000000000000002000000000000000000000000d0c0ade59c0c277d078216d57860486f5b4402a9000000000000000000000000d0c0ade59c0c277d078216d57860486f5b4402a9000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000695a493700000000000000000000000000000000000000000000000000000000695a9d3d0000000000000000000000000000000000000000000000000000000000000000d00dfeeddeadbeef765753be7f7a64d5509974b0d678e1e3149b02f4",
+    "indexingStatus": "completed",
+    "hasEIP7702Authorizations": false,
+    "logs": [
+        {
+            "index": 6,
+            "address": {
+                "id": "0x4200000000000000000000000000000000000006",
+                "alias": "Wrapped Ether",
+                "dapp": {
+                    "alias": "Across V3 Bridge",
+                    "description": "Across V3 is a cross-chain optimistic bridge that uses actors called Relayers to fulfill user transfer requests on the destination chain.\n\nRelayers are later reimbursed by providing a proof of their action to an Optimistic Oracle on Ethereum. Relayer reimbursements over a specific block range are bundled and posted onchain as merkle roots which uniquely identify the set of all repayments and rebalance instructions.",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": [
+                        "bridge"
+                    ]
+                },
+                "owner": "Across V3 Bridge",
+                "icon": "https://cms-cdn.avascan.com/cms2/Wrapped Ether.b659cc6de243.png",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/uwgjrDhFV1UvNrZlJ53Rt5CbqKcCfpM8hKKXE2k91-c/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvV3JhcHBlZCBFdGhlci5iNjU5Y2M2ZGUyNDMucG5n",
+                    "64": "https://imgproxy-mainnet.routescan.io/Pq68M7PwsRZf0z1lqPyrADmMp6JKdTq8KSm9isZ7mGY/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvV3JhcHBlZCBFdGhlci5iNjU5Y2M2ZGUyNDMucG5n",
+                    "256": "https://imgproxy-mainnet.routescan.io/LlU5ssfXOpomtqkqagiBoIkYhcNCv8Ynfh_mWMQ_UDg/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvV3JhcHBlZCBFdGhlci5iNjU5Y2M2ZGUyNDMucG5n",
+                    "1024": "https://imgproxy-mainnet.routescan.io/Lmxug5HR3IX9cVhlu-gSptb8rToU2eOnNN54XgQkKT0/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvV3JhcHBlZCBFdGhlci5iNjU5Y2M2ZGUyNDMucG5n"
+                },
+                "tags": [
+                    "wrapped_token",
+                    "bridged_token"
+                ],
+                "isContract": false
+            },
+            "topics": [
+                "0xe1fffcc4923d04b559f4d29a8bfc6cda04eb5b0d3c460751c2402c5c5cc9109c",
+                "0x000000000000000000000000ef684c38f94f48775959ecf2012d7e864ffb9dd4"
+            ],
+            "data": "0x0000000000000000000000000000000000000000000000000000a3b5840f4000",
+            "removed": false,
+            "event": "Deposit(address indexed sender, uint256 value)",
+            "contractVerified": false
+        },
+        {
+            "index": 7,
+            "address": {
+                "id": "0xeF684C38F94F48775959ECf2012D7E864ffb9dd4",
+                "isContract": true
+            },
+            "topics": [
+                "0x32ed1a409ef04c7b0227189c3a103dc5ac10e775a15b785dcc510201f7c25ad3",
+                "0x0000000000000000000000000000000000000000000000000000000000002105",
+                "0x000000000000000000000000000000000000000000000000000000000003fdb0",
+                "0x000000000000000000000000d0c0ade59c0c277d078216d57860486f5b4402a9"
+            ],
+            "data": "0x000000000000000000000000420000000000000000000000000000000000000600000000000000000000000042000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000a3b5840f40000000000000000000000000000000000000000000000000000000a2c32ec3552f00000000000000000000000000000000000000000000000000000000695a493700000000000000000000000000000000000000000000000000000000695a9d3d0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000d0c0ade59c0c277d078216d57860486f5b4402a9000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001400000000000000000000000000000000000000000000000000000000000000000",
+            "removed": false,
+            "event": "FundsDeposited(bytes32 inputToken, bytes32 outputToken, uint256 inputAmount, uint256 outputAmount, uint256 indexed destinationChainId, uint256 indexed depositId, uint32 quoteTimestamp, uint32 fillDeadline, uint32 exclusivityDeadline, bytes32 indexed depositor, bytes32 recipient, bytes32 exclusiveRelayer, bytes message)",
+            "contractVerified": false
+        },
+        {
+            "index": 8,
+            "address": {
+                "id": "0x3a23F943181408EAC424116Af7b7790c94Cb97a5",
+                "alias": "Socket Gateway",
+                "dapp": {
+                    "alias": "Bungee",
+                    "description": "Bungee is a metabridge offering seamless bridging across chains. We aggregate all bridges, DEX's and DEX Aggregators to offer the best product!",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": []
+                },
+                "owner": "Bungee",
+                "tags": [],
+                "isContract": true
+            },
+            "topics": [
+                "0x74594da9e31ee4068e17809037db37db496702bf7d8d63afe6f97949277d1609"
+            ],
+            "data": "0x0000000000000000000000000000000000000000000000000000a3b5840f4000000000000000000000000000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee0000000000000000000000000000000000000000000000000000000000002105709f58818bedd58450336213e1f2f6ff7405a2b1e594f64270a17b7e2249419c000000000000000000000000d0c0ade59c0c277d078216d57860486f5b4402a9000000000000000000000000d0c0ade59c0c277d078216d57860486f5b4402a90000000000000000000000000000000000000000000000000000000000002710",
+            "removed": false,
+            "event": "SocketBridge(uint256 amount, address token, uint256 toChainId, bytes32 bridgeName, address sender, address receiver, bytes32 metadata)",
+            "contractVerified": false
+        }
+    ],
+    "operations": [
+        {
+            "index": 0,
+            "status": true,
+            "type": "CALL",
+            "from": {
+                "id": "0xD0C0AdE59C0c277D078216d57860486f5B4402A9",
+                "isContract": false
+            },
+            "to": {
+                "id": "0x3a23F943181408EAC424116Af7b7790c94Cb97a5",
+                "alias": "Socket Gateway",
+                "dapp": {
+                    "alias": "Bungee",
+                    "description": "Bungee is a metabridge offering seamless bridging across chains. We aggregate all bridges, DEX's and DEX Aggregators to offer the best product!",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": []
+                },
+                "owner": "Bungee",
+                "tags": [],
+                "isContract": true
+            },
+            "value": "180000000000000",
+            "gas": "131480",
+            "gasUsed": "83587",
+            "methodId": "0x00000185"
+        },
+        {
+            "index": 1,
+            "status": true,
+            "type": "DELEGATECALL",
+            "from": {
+                "id": "0x3a23F943181408EAC424116Af7b7790c94Cb97a5",
+                "alias": "Socket Gateway",
+                "dapp": {
+                    "alias": "Bungee",
+                    "description": "Bungee is a metabridge offering seamless bridging across chains. We aggregate all bridges, DEX's and DEX Aggregators to offer the best product!",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": []
+                },
+                "owner": "Bungee",
+                "tags": [],
+                "isContract": true
+            },
+            "to": {
+                "id": "0x740EA79e2FccDDB4eE8bB8Fc8ccAC5eb6dFa0b40",
+                "isContract": true
+            },
+            "value": "180000000000000",
+            "gas": "99733",
+            "gasUsed": "56180",
+            "methodId": "0xa3b8bfba"
+        },
+        {
+            "index": 2,
+            "status": true,
+            "type": "CALL",
+            "from": {
+                "id": "0x3a23F943181408EAC424116Af7b7790c94Cb97a5",
+                "alias": "Socket Gateway",
+                "dapp": {
+                    "alias": "Bungee",
+                    "description": "Bungee is a metabridge offering seamless bridging across chains. We aggregate all bridges, DEX's and DEX Aggregators to offer the best product!",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": []
+                },
+                "owner": "Bungee",
+                "tags": [],
+                "isContract": true
+            },
+            "to": {
+                "id": "0xeF684C38F94F48775959ECf2012D7E864ffb9dd4",
+                "isContract": true
+            },
+            "value": "180000000000000",
+            "gas": "85615",
+            "gasUsed": "40219",
+            "methodId": "0x7b939232"
+        },
+        {
+            "index": 3,
+            "status": true,
+            "type": "DELEGATECALL",
+            "from": {
+                "id": "0xeF684C38F94F48775959ECf2012D7E864ffb9dd4",
+                "isContract": true
+            },
+            "to": {
+                "id": "0x5be04e53b465c6fD89ECfF3d36dDf666D198e31a",
+                "isContract": true
+            },
+            "value": "180000000000000",
+            "gas": "79429",
+            "gasUsed": "35255",
+            "methodId": "0x7b939232"
+        },
+        {
+            "index": 4,
+            "status": true,
+            "type": "CALL",
+            "from": {
+                "id": "0xeF684C38F94F48775959ECf2012D7E864ffb9dd4",
+                "isContract": true
+            },
+            "to": {
+                "id": "0x4200000000000000000000000000000000000006",
+                "alias": "Wrapped Ether",
+                "dapp": {
+                    "alias": "Across V3 Bridge",
+                    "description": "Across V3 is a cross-chain optimistic bridge that uses actors called Relayers to fulfill user transfer requests on the destination chain.\n\nRelayers are later reimbursed by providing a proof of their action to an Optimistic Oracle on Ethereum. Relayer reimbursements over a specific block range are bundled and posted onchain as merkle roots which uniquely identify the set of all repayments and rebalance instructions.",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": [
+                        "bridge"
+                    ]
+                },
+                "owner": "Across V3 Bridge",
+                "icon": "https://cms-cdn.avascan.com/cms2/Wrapped Ether.b659cc6de243.png",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/uwgjrDhFV1UvNrZlJ53Rt5CbqKcCfpM8hKKXE2k91-c/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvV3JhcHBlZCBFdGhlci5iNjU5Y2M2ZGUyNDMucG5n",
+                    "64": "https://imgproxy-mainnet.routescan.io/Pq68M7PwsRZf0z1lqPyrADmMp6JKdTq8KSm9isZ7mGY/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvV3JhcHBlZCBFdGhlci5iNjU5Y2M2ZGUyNDMucG5n",
+                    "256": "https://imgproxy-mainnet.routescan.io/LlU5ssfXOpomtqkqagiBoIkYhcNCv8Ynfh_mWMQ_UDg/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvV3JhcHBlZCBFdGhlci5iNjU5Y2M2ZGUyNDMucG5n",
+                    "1024": "https://imgproxy-mainnet.routescan.io/Lmxug5HR3IX9cVhlu-gSptb8rToU2eOnNN54XgQkKT0/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvV3JhcHBlZCBFdGhlci5iNjU5Y2M2ZGUyNDMucG5n"
+                },
+                "tags": [
+                    "wrapped_token",
+                    "bridged_token"
+                ],
+                "isContract": false
+            },
+            "value": "180000000000000",
+            "gas": "55695",
+            "gasUsed": "6768",
+            "methodId": "0xd0e30db0"
+        }
+    ],
+    "l1GasPrice": "37825792",
+    "l1GasUsed": "3427",
+    "l1Fee": "872863293",
+    "l1BaseFeeScalar": "4424",
+    "l1BlobBaseFee": "1723112",
+    "l1BlobBaseFeeScalar": "810831"
+}
