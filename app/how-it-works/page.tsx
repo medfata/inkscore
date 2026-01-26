@@ -383,18 +383,13 @@ const PlatformCard = ({ platform }: { platform: PlatformRule }) => (
             </a>
           )}
         </div>
-        <p className="text-slate-400 text-xs mt-0.5 line-clamp-2">{platform.description}</p>
+        <p className="text-slate-400 text-xs mt-0.5">{platform.description}</p>
       </div>
     </div>
 
-    <div className="bg-slate-900/50 rounded-lg p-2 mb-3 border border-slate-700/50">
-      <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-0.5">Formula</div>
-      <div className="text-ink-accent font-mono text-xs">{platform.formula}</div>
-    </div>
-
-    <ul className="space-y-1 max-h-[72px] overflow-y-auto custom-scrollbar">
+    <ul className="space-y-1.5">
       {platform.details.map((detail, idx) => (
-        <li key={idx} className="text-slate-400 text-xs flex items-start gap-1.5">
+        <li key={idx} className="text-slate-400 text-xs flex items-start gap-2">
           <span className="text-ink-purple mt-0.5 shrink-0">•</span>
           <span>{detail}</span>
         </li>
@@ -461,7 +456,7 @@ export default function HowItWorksPage() {
   // Track active section on scroll
   useEffect(() => {
     const handleScroll = () => {
-      const sections = ['overview', 'wallet-metrics', 'platform-activities', 'rank-tiers', 'score-nft', 'architecture'];
+      const sections = ['overview', 'points-distribution', 'wallet-metrics', 'platform-activities', 'rank-tiers', 'score-nft', 'architecture'];
       const scrollPosition = window.scrollY + 150;
 
       for (const section of sections) {
@@ -492,6 +487,7 @@ export default function HowItWorksPage() {
 
   const navItems = [
     { id: 'overview', label: 'Overview' },
+    { id: 'points-distribution', label: 'Points Distribution' },
     { id: 'wallet-metrics', label: 'Wallet Metrics', count: nativeMetrics.length },
     { id: 'platform-activities', label: 'Platform Activities', count: platformMetrics.length },
     { id: 'rank-tiers', label: 'Rank Tiers', count: ranks.length },
@@ -583,6 +579,177 @@ export default function HowItWorksPage() {
             </p>
           </section>
 
+          {/* Points Distribution */}
+          <section id="points-distribution" className="mb-16">
+            <h2 className="text-2xl font-display font-bold mb-2">Points Distribution</h2>
+            <p className="text-slate-400 mb-6">Maximum points available per protocol and category</p>
+
+            <div className="space-y-4">
+              {/* THE GIANTS */}
+              <div className="glass-card rounded-xl overflow-hidden border-l-4 border-yellow-500">
+                <div className="bg-gradient-to-r from-yellow-500/10 to-transparent p-4 border-b border-slate-700/50">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">👑</span>
+                      <div>
+                        <h3 className="font-bold text-white text-lg">THE GIANTS</h3>
+                        <p className="text-xs text-slate-400">50% of Total Score</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-2xl font-bold text-yellow-400">5,000</div>
+                      <div className="text-xs text-slate-500">Total Points</div>
+                    </div>
+                  </div>
+                </div>
+                <div className="p-4 space-y-3">
+                  <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
+                    <span className="text-slate-200">Nado Finance</span>
+                    <span className="font-semibold text-yellow-400">2,500 pts</span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
+                    <span className="text-slate-200">Tydro DeFi</span>
+                    <span className="font-semibold text-yellow-400">2,500 pts</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* CORE */}
+              <div className="glass-card rounded-xl overflow-hidden border-l-4 border-blue-500">
+                <div className="bg-gradient-to-r from-blue-500/10 to-transparent p-4 border-b border-slate-700/50">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">⚔️</span>
+                      <div>
+                        <h3 className="font-bold text-white text-lg">CORE</h3>
+                        <p className="text-xs text-slate-400">10% of Total Score</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-2xl font-bold text-blue-400">1,000</div>
+                      <div className="text-xs text-slate-500">Total Points</div>
+                    </div>
+                  </div>
+                </div>
+                <div className="p-4 space-y-3">
+                  <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
+                    <span className="text-slate-200">Bridge Volume</span>
+                    <span className="font-semibold text-blue-400">500 pts</span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
+                    <span className="text-slate-200">Swap Volume</span>
+                    <span className="font-semibold text-blue-400">500 pts</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* GROUP A */}
+              <div className="glass-card rounded-xl overflow-hidden border-l-4 border-orange-500">
+                <div className="bg-gradient-to-r from-orange-500/10 to-transparent p-4 border-b border-slate-700/50">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">🔥</span>
+                      <div>
+                        <h3 className="font-bold text-white text-lg">GROUP A</h3>
+                        <p className="text-xs text-slate-400">28% of Total Score • 7 Items × 400 pts</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-2xl font-bold text-orange-400">2,800</div>
+                      <div className="text-xs text-slate-500">Total Points</div>
+                    </div>
+                  </div>
+                </div>
+                <div className="p-4 grid sm:grid-cols-2 gap-3">
+                  <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
+                    <span className="text-slate-200">Token Holdings</span>
+                    <span className="font-semibold text-orange-400">400</span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
+                    <span className="text-slate-200">Copink</span>
+                    <span className="font-semibold text-orange-400">400</span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
+                    <span className="text-slate-200">NFT Collections</span>
+                    <span className="font-semibold text-orange-400">400</span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
+                    <span className="text-slate-200">InkyPump</span>
+                    <span className="font-semibold text-orange-400">400</span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
+                    <span className="text-slate-200">NFT Marketplace</span>
+                    <span className="font-semibold text-orange-400">400</span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
+                    <span className="text-slate-200">GM Activity</span>
+                    <span className="font-semibold text-orange-400">400</span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
+                    <span className="text-slate-200">Shellies App</span>
+                    <span className="font-semibold text-orange-400">400</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* GROUP B */}
+              <div className="glass-card rounded-xl overflow-hidden border-l-4 border-purple-500">
+                <div className="bg-gradient-to-r from-purple-500/10 to-transparent p-4 border-b border-slate-700/50">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">🛡️</span>
+                      <div>
+                        <h3 className="font-bold text-white text-lg">GROUP B</h3>
+                        <p className="text-xs text-slate-400">12% of Total Score • 4 Items × 300 pts</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-2xl font-bold text-purple-400">1,200</div>
+                      <div className="text-xs text-slate-500">Total Points</div>
+                    </div>
+                  </div>
+                </div>
+                <div className="p-4 grid sm:grid-cols-2 gap-3">
+                  <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
+                    <span className="text-slate-200">ZNS Connect</span>
+                    <span className="font-semibold text-purple-400">300</span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
+                    <span className="text-slate-200">Meme Coins</span>
+                    <span className="font-semibold text-purple-400">300</span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
+                    <span className="text-slate-200">NFT2Me</span>
+                    <span className="font-semibold text-purple-400">300</span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
+                    <span className="text-slate-200">Marvk</span>
+                    <span className="font-semibold text-purple-400">300</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* TOTAL */}
+              <div className="glass-card rounded-xl overflow-hidden border-2 border-ink-purple">
+                <div className="bg-gradient-to-r from-ink-purple/20 to-transparent p-5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className="text-3xl">✅</span>
+                      <div>
+                        <h3 className="font-bold text-white text-xl">TOTAL</h3>
+                        <p className="text-sm text-slate-400">All Protocols Combined</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-4xl font-bold text-gradient">10,000</div>
+                      <div className="text-sm text-slate-400">Maximum Points</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
           {/* Wallet Metrics */}
           <section id="wallet-metrics" className="mb-16">
             <h2 className="text-2xl font-display font-bold mb-2">Wallet Metrics</h2>
@@ -647,7 +814,7 @@ export default function HowItWorksPage() {
               <div className="glass-card p-5 rounded-xl">
                 <h3 className="text-lg font-semibold text-white mb-3">What is Score NFT?</h3>
                 <p className="text-slate-400 text-sm mb-4">
-                  The INKSCORE NFT is a dynamic on-chain representation of your wallet&apos;s reputation score. 
+                  The INKSCORE NFT is a dynamic on-chain representation of your wallet&apos;s reputation score.
                   It displays your current score and rank, and can be updated anytime your score changes.
                 </p>
                 <ul className="space-y-2 text-sm">
@@ -670,7 +837,7 @@ export default function HowItWorksPage() {
               <div className="glass-card p-5 rounded-xl">
                 <h3 className="text-lg font-semibold text-white mb-3">How it&apos;s Secured</h3>
                 <p className="text-slate-400 text-sm mb-4">
-                  To prevent fake scores, minting requires a cryptographic signature from our backend. 
+                  To prevent fake scores, minting requires a cryptographic signature from our backend.
                   This ensures only verified scores can be minted as NFTs.
                 </p>
                 <div className="space-y-3 text-sm">
@@ -750,15 +917,15 @@ export default function HowItWorksPage() {
                 <g transform="translate(20, 40)">
                   <rect x="0" y="0" width="140" height="200" rx="8" fill="#0f172a" stroke="#3b82f6" strokeWidth="1.5" strokeDasharray="4 2" />
                   <text x="70" y="20" textAnchor="middle" fill="#64748b" fontSize="10" fontWeight="500">DATA SOURCES</text>
-                  
+
                   {/* Ink RPC */}
                   <rect x="20" y="35" width="100" height="45" rx="6" fill="#1e3a5f" stroke="#3b82f6" strokeWidth="1" />
                   <text x="70" y="62" textAnchor="middle" fill="#60a5fa" fontSize="11" fontWeight="500">Ink RPCs</text>
-                  
+
                   {/* Third Party */}
                   <rect x="20" y="90" width="100" height="45" rx="6" fill="#3b1f4a" stroke="#a855f7" strokeWidth="1" />
                   <text x="70" y="117" textAnchor="middle" fill="#c084fc" fontSize="11" fontWeight="500">Third-Party</text>
-                  
+
                   {/* Price Feeds */}
                   <rect x="20" y="145" width="100" height="45" rx="6" fill="#14332a" stroke="#10b981" strokeWidth="1" />
                   <text x="70" y="172" textAnchor="middle" fill="#34d399" fontSize="11" fontWeight="500">Price Feeds</text>
@@ -833,7 +1000,7 @@ export default function HowItWorksPage() {
               </svg>
             </div>
 
-          
+
           </section>
 
           {/* CTA */}
