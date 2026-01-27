@@ -1,24 +1,108 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Logo } from '../components/Logo';
 import {
   ArrowLeft,
   Wallet,
-  Award,
   ExternalLink
 } from '../components/Icons';
 
 interface Rank {
   id: number;
   name: string;
+  badge: string;
   min_points: number;
   max_points: number | null;
-  logo_url: string | null;
-  color: string | null;
-  description: string | null;
+  color: string;
+  description: string;
 }
+
+// Static ranks data
+const RANKS: Rank[] = [
+  {
+    id: 1,
+    name: 'Ink Drop',
+    badge: '🧽',
+    min_points: 0,
+    max_points: 499,
+    color: '#6B7280',
+    description: 'Entry Level. You are just a drop in the ocean. Start transacting to grow.'
+  },
+  {
+    id: 2,
+    name: 'Little Squid',
+    badge: '🦑',
+    min_points: 500,
+    max_points: 999,
+    color: '#10B981',
+    description: 'Beginner. You\'ve taken your first swim in the Inkchain waters.'
+  },
+  {
+    id: 3,
+    name: 'Explorer',
+    badge: '🧭',
+    min_points: 1000,
+    max_points: 1999,
+    color: '#3B82F6',
+    description: 'Active. You are discovering new dApps and building your history.'
+  },
+  {
+    id: 4,
+    name: 'Deep Diver',
+    badge: '🤿',
+    min_points: 2000,
+    max_points: 3499,
+    color: '#06B6D4',
+    description: 'Consistent. You\'re not afraid of the deep. Your wallet is becoming recognized.'
+  },
+  {
+    id: 5,
+    name: 'Captain',
+    badge: '⚓',
+    min_points: 3500,
+    max_points: 4999,
+    color: '#8B5CF6',
+    description: 'Pro. Steering the ship. You navigate the ecosystem with confidence.'
+  },
+  {
+    id: 6,
+    name: 'Commander',
+    badge: '🎖️',
+    min_points: 5000,
+    max_points: 6999,
+    color: '#F59E0B',
+    description: 'Power User. Respected authority. You execute complex strategies.'
+  },
+  {
+    id: 7,
+    name: 'Abyss Lord',
+    badge: '🧙‍♂️',
+    min_points: 7000,
+    max_points: 8499,
+    color: '#A855F7',
+    description: 'Elite. Ruler of the dark waters. A mysterious force on-chain.'
+  },
+  {
+    id: 8,
+    name: 'The Kraken',
+    badge: '🐙',
+    min_points: 8500,
+    max_points: 9999,
+    color: '#EF4444',
+    description: 'Legend. A massive whale. Few users ever reach this level of dominance.'
+  },
+  {
+    id: 9,
+    name: 'Ink God',
+    badge: '⚡',
+    min_points: 10000,
+    max_points: null,
+    color: '#FFD700',
+    description: 'The Ultimate. You have mastered the Inkscore. You are 1 of 1.'
+  }
+];
 
 // Platform logos from Dashboard
 const PLATFORM_LOGOS: Record<string, string> = {
@@ -405,25 +489,24 @@ const RankCard = ({ rank, index }: { rank: Rank; index: number }) => (
   >
     <div
       className="w-12 h-12 rounded-full flex items-center justify-center text-2xl shrink-0"
-      style={{ backgroundColor: rank.color ? `${rank.color}20` : '#1e293b' }}
+      style={{ backgroundColor: `${rank.color}20` }}
     >
-      {rank.logo_url ? (
-        <img src={rank.logo_url} alt={rank.name} className="w-8 h-8" />
-      ) : (
-        <Award size={24} style={{ color: rank.color || '#a855f7' }} />
-      )}
+      {rank.badge}
     </div>
     <div className="flex-1">
-      <h4 className="font-semibold text-white">{rank.name}</h4>
+      <h4 className="font-semibold text-white flex items-center gap-2">
+        {rank.badge} {rank.name}
+      </h4>
       <p className="text-sm text-slate-400">
-        {rank.min_points.toLocaleString()} - {rank.max_points ? rank.max_points.toLocaleString() : '∞'} points
+        {rank.min_points.toLocaleString()} - {rank.max_points ? rank.max_points.toLocaleString() : '∞'} PTS
       </p>
+      <p className="text-xs text-slate-500 mt-1">{rank.description}</p>
     </div>
     <div
       className="px-3 py-1 rounded-full text-xs font-medium"
       style={{
-        backgroundColor: rank.color ? `${rank.color}20` : '#1e293b',
-        color: rank.color || '#a855f7'
+        backgroundColor: `${rank.color}20`,
+        color: rank.color
       }}
     >
       Tier {index + 1}
@@ -432,26 +515,7 @@ const RankCard = ({ rank, index }: { rank: Rank; index: number }) => (
 );
 
 export default function HowItWorksPage() {
-  const [ranks, setRanks] = useState<Rank[]>([]);
-  const [loading, setLoading] = useState(true);
   const [activeSection, setActiveSection] = useState('overview');
-
-  useEffect(() => {
-    const fetchRanks = async () => {
-      try {
-        const res = await fetch('/api/ranks');
-        if (res.ok) {
-          const data = await res.json();
-          setRanks(data);
-        }
-      } catch (error) {
-        console.error('Failed to fetch ranks:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchRanks();
-  }, []);
 
   // Track active section on scroll
   useEffect(() => {
@@ -490,7 +554,7 @@ export default function HowItWorksPage() {
     { id: 'points-distribution', label: 'Points Distribution' },
     { id: 'wallet-metrics', label: 'Wallet Metrics', count: nativeMetrics.length },
     { id: 'platform-activities', label: 'Platform Activities', count: platformMetrics.length },
-    { id: 'rank-tiers', label: 'Rank Tiers', count: ranks.length },
+    { id: 'rank-tiers', label: 'Rank Tiers', count: RANKS.length },
     { id: 'score-nft', label: 'Score NFT' },
     { id: 'architecture', label: 'Architecture' },
   ];
@@ -559,7 +623,7 @@ export default function HowItWorksPage() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-400">Rank Tiers</span>
-                  <span className="text-white font-medium">{ranks.length || '—'}</span>
+                  <span className="text-white font-medium">{RANKS.length}</span>
                 </div>
               </div>
             </div>
@@ -777,31 +841,11 @@ export default function HowItWorksPage() {
             <h2 className="text-2xl font-display font-bold mb-2">Rank Tiers</h2>
             <p className="text-slate-400 mb-8">Your total points determine your rank in the INKSCORE system</p>
 
-            {loading ? (
-              <div className="grid md:grid-cols-2 gap-4">
-                {[...Array(6)].map((_, i) => (
-                  <div key={i} className="glass-card p-4 rounded-xl animate-pulse">
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-full bg-slate-700"></div>
-                      <div className="flex-1">
-                        <div className="h-4 bg-slate-700 rounded w-24 mb-2"></div>
-                        <div className="h-3 bg-slate-700 rounded w-32"></div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : ranks.length > 0 ? (
-              <div className="grid md:grid-cols-2 gap-4">
-                {ranks.map((rank, index) => (
-                  <RankCard key={rank.id} rank={rank} index={index} />
-                ))}
-              </div>
-            ) : (
-              <div className="glass-card p-8 rounded-xl text-center">
-                <p className="text-slate-400">Ranks will be displayed here once configured.</p>
-              </div>
-            )}
+            <div className="grid md:grid-cols-2 gap-4">
+              {RANKS.map((rank, index) => (
+                <RankCard key={rank.id} rank={rank} index={index} />
+              ))}
+            </div>
           </section>
 
           {/* Score NFT */}
@@ -864,10 +908,10 @@ export default function HowItWorksPage() {
                     <div className="text-xs text-slate-500 uppercase tracking-wider mb-1">Contract Address</div>
                     <div className="flex items-center gap-2">
                       <code className="text-sm text-ink-accent font-mono bg-slate-900/50 px-2 py-1 rounded">
-                        0x071E4CBEa9820d2De6Ad53BCb8e2d02ab30238A6
+                        {process.env.NEXT_PUBLIC_NFT_CONTRACT_ADDRESS || '0x071E4CBEa9820d2De6Ad53BCb8e2d02ab30238A6'}
                       </code>
                       <a
-                        href="https://explorer.inkonchain.com/address/0x071E4CBEa9820d2De6Ad53BCb8e2d02ab30238A6"
+                        href={`https://explorer.inkonchain.com/address/${process.env.NEXT_PUBLIC_NFT_CONTRACT_ADDRESS || '0x071E4CBEa9820d2De6Ad53BCb8e2d02ab30238A6'}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-slate-500 hover:text-ink-purple transition-colors"

@@ -32,6 +32,16 @@ export default function Home() {
     }
   }, [isConnected, address, isDemo]);
 
+  // Check for platform-request query parameter
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('platform-request') === 'true') {
+      setIsPlatformRequestModalOpen(true);
+      // Clean up the URL without reloading
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
+
   const handleConnect = () => {
     open();
   };
@@ -73,6 +83,10 @@ export default function Home() {
 
           {/* Desktop Nav */}
           <div className="hidden md:flex items-center gap-8">
+            <a href="/about" className="text-sm font-medium text-slate-400 hover:text-white transition-colors relative group">
+              About
+              <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-ink-purple group-hover:w-full transition-all duration-300"></span>
+            </a>
             <a href="/how-it-works" className="text-sm font-medium text-slate-400 hover:text-white transition-colors relative group">
               How it Works
               <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-ink-purple group-hover:w-full transition-all duration-300"></span>
@@ -129,6 +143,7 @@ export default function Home() {
         {/* Mobile Menu */}
         {isMobileMenuOpen && (
           <div className="md:hidden bg-ink-900 border-b border-slate-800 p-6 space-y-4 animate-fade-in-up">
+            <a href="/about" className="block text-slate-300">About</a>
             <a href="/how-it-works" className="block text-slate-300">How it Works</a>
             <a href="/leaderboard" className="block text-slate-300">Leaderboard</a>
             <button 
@@ -172,6 +187,7 @@ export default function Home() {
             </span>
           </div>
           <div className="flex gap-6">
+            <a href="/about" className="text-slate-500 hover:text-white transition-colors">About</a>
             <a href="/how-it-works" className="text-slate-500 hover:text-white transition-colors">Documentation</a>
             <a href="https://x.com/Inkscore" target="_blank" rel="noopener noreferrer" className="text-slate-500 hover:text-white transition-colors">Twitter</a>
           </div>

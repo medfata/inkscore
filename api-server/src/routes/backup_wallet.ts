@@ -186,11 +186,8 @@ router.get('/:address/bridge', async (req: Request, res: Response) => {
         const cacheKey = `wallet:bridge:${walletAddress}`;
         const cached = responseCache.get<BridgeVolumeResponse>(cacheKey);
         if (cached) {
-            console.log(`[Bridge ${walletAddress}] Cache hit - returning cached result`);
             return res.json(cached);
         }
-
-        console.log(`[Bridge ${walletAddress}] Starting bridge volume calculation...`);
 
         const platformData: Record<string, {
             ethValue: number;
@@ -217,11 +214,9 @@ router.get('/:address/bridge', async (req: Request, res: Response) => {
         // Get ETH price
         let ethPrice = 3500;
         try {
-            const priceStart = Date.now();
             const priceResult = await pool.query(
                 `SELECT price_usd FROM eth_prices ORDER BY timestamp DESC LIMIT 1`
             );
-            console.log(`[Bridge ${walletAddress}] ETH price query: ${Date.now() - priceStart}ms`);
             ethPrice = priceResult.rows[0]?.price_usd || 3500;
         } catch {
             // Use fallback price
@@ -229,7 +224,6 @@ router.get('/:address/bridge', async (req: Request, res: Response) => {
 
         // 1. Query Relay/Ink Official bridge IN transactions
         try {
-            const relayInStart = Date.now();
             const relayResult = await pool.query(
                 `SELECT
            tx_hash, method_id, operations, value,
@@ -240,7 +234,6 @@ router.get('/:address/bridge', async (req: Request, res: Response) => {
            AND related_wallets @> ARRAY[$3]::text[]`,
                 [RELAY_WALLET, ethPrice, walletAddress]
             );
-            console.log(`[Bridge ${walletAddress}] Relay/Ink IN query: ${Date.now() - relayInStart}ms (${relayResult.rows.length} rows)`);
 
             for (const row of relayResult.rows) {
                 let operations: Operation[] = [];
@@ -284,7 +277,6 @@ router.get('/:address/bridge', async (req: Request, res: Response) => {
 
         // 1b. Query Relay/Ink Official bridge OUT transactions (depositNative)
         try {
-            const relayOutStart = Date.now();
             const relayOutResult = await pool.query(
                 `SELECT tx_hash, value, method_id,
            COALESCE(eth_value_decimal, 0) as eth_value_decimal,
@@ -294,7 +286,6 @@ router.get('/:address/bridge', async (req: Request, res: Response) => {
            AND LOWER(wallet_address) = LOWER($3)`,
                 [RELAY_DEPOSIT_CONTRACT, ethPrice, walletAddress]
             );
-            console.log(`[Bridge ${walletAddress}] Relay/Ink OUT query: ${Date.now() - relayOutStart}ms (${relayOutResult.rows.length} rows)`);
 
             let sharedBridgeOutEth = 0;
             let sharedBridgeOutUsd = 0;
@@ -335,7 +326,6 @@ router.get('/:address/bridge', async (req: Request, res: Response) => {
 
         // 2a. Query Native Bridge (USDT0) IN transactions
         try {
-            const nativeBridgeInStart = Date.now();
             const nativeBridgeInResult = await pool.query(
                 `SELECT tx_hash, logs
          FROM transaction_enrichment
@@ -343,7 +333,6 @@ router.get('/:address/bridge', async (req: Request, res: Response) => {
            AND related_wallets @> ARRAY[$2]::text[]`,
                 [LZ_EXECUTOR_ADDRESS, walletAddress]
             );
-            console.log(`[Bridge ${walletAddress}] Native Bridge IN query: ${Date.now() - nativeBridgeInStart}ms (${nativeBridgeInResult.rows.length} rows)`);
 
             for (const row of nativeBridgeInResult.rows) {
                 const logs: OftEventLog[] = typeof row.logs === 'string' ? JSON.parse(row.logs) : row.logs;
@@ -380,7 +369,6 @@ router.get('/:address/bridge', async (req: Request, res: Response) => {
 
         // 2b. Query Native Bridge (USDT0) OUT transactions
         try {
-            const bridgeOutStart = Date.now();
             const bridgeOutResult = await pool.query(
                 `SELECT tx_hash, logs
          FROM transaction_enrichment
@@ -389,7 +377,6 @@ router.get('/:address/bridge', async (req: Request, res: Response) => {
            AND logs IS NOT NULL`,
                 [OFT_ADAPTER_ADDRESS, walletAddress]
             );
-            console.log(`[Bridge ${walletAddress}] Native Bridge OUT query: ${Date.now() - bridgeOutStart}ms (${bridgeOutResult.rows.length} rows)`);
 
             for (const row of bridgeOutResult.rows) {
                 const logs: OftEventLog[] = typeof row.logs === 'string' ? JSON.parse(row.logs) : row.logs;
@@ -428,7 +415,6 @@ router.get('/:address/bridge', async (req: Request, res: Response) => {
         // 3. Query Bungee bridge transactions
         try {
             // 3a. Bungee Bridge IN (PerformFulfilment)
-            const bungeeInStart = Date.now();
             const bungeeInResult = await pool.query(
                 `SELECT tx_hash, operations, logs, value,
            COALESCE(eth_value_decimal, 0) as eth_value_decimal,
@@ -438,7 +424,6 @@ router.get('/:address/bridge', async (req: Request, res: Response) => {
            AND related_wallets @> ARRAY[$3]::text[]`,
                 [BUNGEE_FULFILLMENT_CONTRACT, ethPrice, walletAddress]
             );
-            console.log(`[Bridge ${walletAddress}] Bungee IN query: ${Date.now() - bungeeInStart}ms (${bungeeInResult.rows.length} rows)`);
 
             for (const row of bungeeInResult.rows) {
                 let operations: Operation[] = [];
@@ -464,29 +449,8 @@ router.get('/:address/bridge', async (req: Request, res: Response) => {
                 const txEthPrice = parseFloat(row.eth_price_usd || String(ethPrice));
                 const usdValue = ethValue * txEthPrice;
 
-                // LOG FULL DATA FOR HUGE VALUES
+                // Skip huge values
                 if (usdValue > 1_000_000) {
-                    console.log(`\n========== [Bungee IN] HUGE VALUE DETECTED ==========`);
-                    console.log(`tx_hash: ${row.tx_hash}`);
-                    console.log(`Calculated usdValue: ${usdValue}`);
-                    console.log(`ethValue: ${ethValue}`);
-                    console.log(`\n--- FULL ROW DATA ---`);
-                    console.log(JSON.stringify({
-                        tx_hash: row.tx_hash,
-                        value: row.value,
-                        eth_value_decimal: row.eth_value_decimal,
-                        eth_price_usd: row.eth_price_usd
-                    }, null, 2));
-                    console.log(`\n--- FULL OPERATIONS ---`);
-                    console.log(JSON.stringify(operations, null, 2));
-                    console.log(`\n--- FULL LOGS ---`);
-                    const logs = typeof row.logs === 'string' ? JSON.parse(row.logs) : row.logs;
-                    console.log(JSON.stringify(logs, null, 2));
-                    console.log(`\n--- USER TRANSFER ---`);
-                    console.log(JSON.stringify(userTransfer, null, 2));
-                    console.log(`====================================================\n`);
-
-                    // Skip this transaction
                     continue;
                 }
 
@@ -503,7 +467,6 @@ router.get('/:address/bridge', async (req: Request, res: Response) => {
             }
 
             // 3b. Bungee Bridge OUT (CreateRequest)
-            const bungeeOutStart = Date.now();
             const bungeeOutResult = await pool.query(
                 `SELECT tx_hash, value,
            COALESCE(eth_value_decimal, 0) as eth_value_decimal,
@@ -513,7 +476,6 @@ router.get('/:address/bridge', async (req: Request, res: Response) => {
            AND LOWER(wallet_address) = LOWER($3)`,
                 [BUNGEE_REQUEST_CONTRACT, ethPrice, walletAddress]
             );
-            console.log(`[Bridge ${walletAddress}] Bungee OUT query: ${Date.now() - bungeeOutStart}ms (${bungeeOutResult.rows.length} rows)`);
 
             for (const row of bungeeOutResult.rows) {
                 let ethValue = parseFloat(row.eth_value_decimal || '0');
@@ -537,7 +499,6 @@ router.get('/:address/bridge', async (req: Request, res: Response) => {
             }
 
             // 3c. Legacy Socket Gateway transactions - MUST check for SocketBridge event to distinguish from swaps
-            const bungeeGatewayStart = Date.now();
             const bungeeGatewayResult = await pool.query(
                 `SELECT tx_hash, logs, operations, eth_value_decimal, eth_price_usd, total_usd_volume, value
          FROM transaction_enrichment
@@ -545,7 +506,6 @@ router.get('/:address/bridge', async (req: Request, res: Response) => {
            AND LOWER(wallet_address) = LOWER($2)`,
                 [BUNGEE_SOCKET_GATEWAY, walletAddress]
             );
-            console.log(`[Bridge ${walletAddress}] Bungee Gateway query: ${Date.now() - bungeeGatewayStart}ms (${bungeeGatewayResult.rows.length} rows)`);
 
             for (const row of bungeeGatewayResult.rows) {
                 // Parse logs to check for bridge vs swap
@@ -566,7 +526,6 @@ router.get('/:address/bridge', async (req: Request, res: Response) => {
 
                 // Check for failed transactions
                 if (operations.length > 0 && operations[0]?.status === false) {
-                    console.log(`[Bungee Gateway] TX ${row.tx_hash}: Skipped - transaction failed/reverted`);
                     continue;
                 }
 
@@ -592,13 +551,11 @@ router.get('/:address/bridge', async (req: Request, res: Response) => {
 
                 // Skip if this is a swap (SocketSwapTokens without SocketBridge)
                 if (hasSocketSwapTokens && !hasSocketBridge) {
-                    console.log(`[Bungee Gateway] TX ${row.tx_hash}: Skipped - on-chain swap (not a bridge)`);
                     continue;
                 }
 
                 // Skip if no bridge event found
                 if (!hasSocketBridge) {
-                    console.log(`[Bungee Gateway] TX ${row.tx_hash}: Skipped - no SocketBridge event found`);
                     continue;
                 }
 
@@ -616,25 +573,15 @@ router.get('/:address/bridge', async (req: Request, res: Response) => {
                     const NATIVE_ETH = '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee';
                     const WETH = '0x4200000000000000000000000000000000000006';
 
-                    // Determine token decimals and calculate USD value
-                    if (tokenLower === NATIVE_ETH || tokenLower === WETH) {
-                        // ETH/WETH - 18 decimals
-                        txEthValue = Number(amount) / 1e18;
-                        txUsdValue = txEthValue * txEthPrice;
-                    } else if (tokenLower === '0x0200c29006150606b650577bbe7b6248f58470c1' ||
-                        tokenLower === '0x2d270e6886d130d724215a266106e6832161eaed') {
-                        // USDT/USDC - 6 decimals, USD pegged
-                        txUsdValue = Number(amount) / 1e6;
-                    } else if (tokenLower === '0xe343167631d89b6ffc58b88d6b7fb0228795491d') {
-                        // USDG - 18 decimals, USD pegged
-                        txUsdValue = Number(amount) / 1e18;
-                    } else {
-                        // Unknown token - assume 18 decimals and ETH price
-                        txEthValue = Number(amount) / 1e18;
-                        txUsdValue = txEthValue * txEthPrice;
-                    }
+                    // Get token info using DeFi Llama API
+                    const tokenInfo = await getTokenInfo(token);
 
-                    console.log(`[Bungee Gateway] TX ${row.tx_hash}: Bridge detected - token=${token}, amount=${amount}, usdValue=${txUsdValue}`);
+                    const tokenAmount = Number(amount) / Math.pow(10, tokenInfo.decimals);
+                    txUsdValue = tokenAmount * tokenInfo.price;
+
+                    if (tokenLower === NATIVE_ETH || tokenLower === WETH) {
+                        txEthValue = tokenAmount;
+                    }
                 } else {
                     // Fallback: Use pre-calculated values if SocketBridge event couldn't be parsed
                     if (row.total_usd_volume && parseFloat(row.total_usd_volume) > 0 && parseFloat(row.total_usd_volume) < 1_000_000) {
@@ -646,7 +593,6 @@ router.get('/:address/bridge', async (req: Request, res: Response) => {
                         txEthValue = parseFloat(row.value) / 1e18;
                         txUsdValue = txEthValue * txEthPrice;
                     }
-                    console.log(`[Bungee Gateway] TX ${row.tx_hash}: Bridge detected (fallback) - usdValue=${txUsdValue}`);
                 }
 
                 // Sanity check and add to totals
@@ -662,8 +608,6 @@ router.get('/:address/bridge', async (req: Request, res: Response) => {
                     totalTxCount += 1;
                     bridgedOutUsd += txUsdValue;
                     bridgedOutCount += 1;
-                } else if (txUsdValue >= 1_000_000) {
-                    console.log(`[Bungee Gateway] TX ${row.tx_hash}: Skipped - value too large (${txUsdValue})`);
                 }
             }
         } catch (dbError: unknown) {
@@ -705,9 +649,6 @@ router.get('/:address/bridge', async (req: Request, res: Response) => {
 
         responseCache.set(cacheKey, response);
 
-        const totalTime = Date.now() - requestStart;
-        console.log(`[Bridge ${walletAddress}] TOTAL REQUEST TIME: ${totalTime}ms`);
-
         return res.json(response);
     } catch (error) {
         console.error('Error fetching bridge volume:', error);
@@ -748,134 +689,73 @@ const SWAP_METHOD_IDS = [
     '0x5c11d795', '0x3593564c', '0xaad348a2',
 ];
 
-// Known token addresses with their decimals and USD peg status
-const SWAP_TOKEN_INFO: Record<string, { decimals: number; usdPegged?: boolean; symbol?: string; priceInEth?: boolean; fixedUsdPrice?: number }> = {
-    // Stablecoins (USD pegged)
-    '0x0200c29006150606b650577bbe7b6248f58470c1': { decimals: 6, usdPegged: true, symbol: 'USDT0' },
-    '0xe343167631d89b6ffc58b88d6b7fb0228795491d': { decimals: 18, usdPegged: true, symbol: 'USDG' },
-    '0x2d270e6886d130d724215a266106e6832161eaed': { decimals: 6, usdPegged: true, symbol: 'USDC' },
-    '0xfc421ad3c883bf9e7c4f42de845c4e4405799e73': { decimals: 18, usdPegged: true, symbol: 'GHO' },
-    '0xdac17f958d2ee523a2206206994597c13d831ec7': { decimals: 6, usdPegged: true, symbol: 'USDT' },
-    '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48': { decimals: 6, usdPegged: true, symbol: 'USDC' },
-    '0xeb466342c4d449bc9f53a865d5cb90586f405215': { decimals: 6, usdPegged: true, symbol: 'axlUSDC' },
-    // WETH/ETH (18 decimals, priced in ETH)
-    '0x4200000000000000000000000000000000000006': { decimals: 18, symbol: 'WETH', priceInEth: true },
-    '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2': { decimals: 18, symbol: 'WETH', priceInEth: true },
-    // Known problematic tokens (add as discovered)
-    '0x20c69c12abf2b6f8d8ca33604dd25c700c7e70a5': { decimals: 18, symbol: 'UNKNOWN', fixedUsdPrice: 0.0015 }, // Fixed at $0.0015 per unit
-};
-
-// Cache for dynamically fetched token decimals
-const tokenDecimalsCache: Record<string, number> = {};
-
-// Cache for token prices (USD per token)
-const tokenPriceCache: Record<string, { price: number; timestamp: number }> = {};
-const PRICE_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-
-// USDC address on Ink chain (used as quote target)
-const USDC_ADDRESS = '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48';
-const USDC_DECIMALS = 6;
-
-/**
- * Fetch token decimals from RPC
- */
-async function fetchTokenDecimals(tokenAddress: string): Promise<number> {
-    // Check cache first
-    if (tokenDecimalsCache[tokenAddress]) {
-        return tokenDecimalsCache[tokenAddress];
-    }
-
-    try {
-        const response = await fetch('https://rpc-qnd.inkonchain.com', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                jsonrpc: '2.0',
-                method: 'eth_call',
-                params: [
-                    {
-                        to: tokenAddress,
-                        data: '0x313ce567' // decimals() function selector
-                    },
-                    'latest'
-                ],
-                id: 1
-            })
-        });
-
-        const result: any = await response.json();
-        if (result && result.result) {
-            const decimals = parseInt(result.result, 16);
-            tokenDecimalsCache[tokenAddress] = decimals;
-            console.log(`[Token Decimals] Fetched ${tokenAddress}: ${decimals} decimals`);
-            return decimals;
-        }
-    } catch (error) {
-        console.error(`[Token Decimals] Error fetching for ${tokenAddress}:`, error);
-    }
-
-    // Fallback to 18 decimals
-    return 18;
+// Token info interface from DeFi Llama API
+interface TokenInfo {
+    decimals: number;
+    symbol: string;
+    price: number;
+    timestamp: number;
+    confidence: number;
 }
 
+// Cache for token info (price, decimals, symbol, etc.)
+const tokenInfoCache: Record<string, { data: TokenInfo; cachedAt: number }> = {};
+const TOKEN_INFO_CACHE_TTL = 2 * 60 * 60 * 1000; // 2 hours
+
+// Fallback token info when API doesn't have the token
+const FALLBACK_TOKEN_INFO: TokenInfo = {
+    decimals: 18,
+    symbol: 'UNKNOWN',
+    price: 0.00001,
+    timestamp: 0,
+    confidence: 0
+};
+
 /**
- * Fetch token price in USD using InkySwap quote API
- * Returns USD price per 1 token unit (with proper decimals)
+ * Get token info (price, decimals, symbol) from DeFi Llama API
+ * Uses 2-hour cache per token
+ * Fallback: 18 decimals, $0.0015 price
  */
-async function fetchTokenPriceUSD(tokenAddress: string, decimals: number): Promise<number> {
+async function getTokenInfo(tokenAddress: string): Promise<TokenInfo> {
     const cacheKey = tokenAddress.toLowerCase();
 
     // Check cache first
-    const cached = tokenPriceCache[cacheKey];
-    if (cached && Date.now() - cached.timestamp < PRICE_CACHE_TTL) {
-        return cached.price;
+    const cached = tokenInfoCache[cacheKey];
+    if (cached && Date.now() - cached.cachedAt < TOKEN_INFO_CACHE_TTL) {
+        return cached.data;
     }
 
     try {
-        // Quote 1 token (in its smallest unit) to USDC
-        const oneToken = Math.pow(10, decimals).toString();
+        // Use DeFi Llama API for Ink Chain
+        const llamaUrl = `https://coins.llama.fi/prices/current/ink:${tokenAddress}`;
+        const response = await fetch(llamaUrl, { method: 'GET', headers: { 'Accept': 'application/json' } });
 
-        const url = `https://inkyswap.com/api/quote?tokenIn=${tokenAddress}&tokenOut=${USDC_ADDRESS}&amount=${oneToken}`;
-
-        const response = await fetch(url, {
-            method: 'GET',
-            headers: { 'Accept': 'application/json' }
-        });
-
-        if (!response.ok) {
-            // Don't throw on 500 - just log and use fallback (likely no liquidity)
-            console.log(`[Token Price] ${tokenAddress}: InkySwap API returned ${response.status} (likely no liquidity), using $1 fallback`);
-
-            // Cache the fallback to avoid repeated failed API calls
-            tokenPriceCache[cacheKey] = {
-                price: 1.0,
-                timestamp: Date.now()
-            };
-            return 1.0;
+        if (response.ok) {
+            const data: any = await response.json();
+            const coinKey = `ink:${tokenAddress}`;
+            if (data && data.coins && data.coins[coinKey]) {
+                const coin = data.coins[coinKey];
+                const tokenInfo: TokenInfo = {
+                    decimals: coin.decimals ?? 18,
+                    symbol: coin.symbol ?? 'UNKNOWN',
+                    price: coin.price ?? 0.0015,
+                    timestamp: coin.timestamp ?? 0,
+                    confidence: coin.confidence ?? 0
+                };
+                tokenInfoCache[cacheKey] = { data: tokenInfo, cachedAt: Date.now() };
+                return tokenInfo;
+            }
         }
 
-        const data: any = await response.json();
-
-        if (data && data.amountOut) {
-            // amountOut is in USDC (6 decimals)
-            const usdcAmount = Number(data.amountOut) / Math.pow(10, USDC_DECIMALS);
-
-            // Cache the result
-            tokenPriceCache[cacheKey] = {
-                price: usdcAmount,
-                timestamp: Date.now()
-            };
-
-            console.log(`[Token Price] ${tokenAddress}: $${usdcAmount} per token (via InkySwap)`);
-            return usdcAmount;
-        }
+        // Token not found in API - use fallback
+        tokenInfoCache[cacheKey] = { data: FALLBACK_TOKEN_INFO, cachedAt: Date.now() };
+        return FALLBACK_TOKEN_INFO;
     } catch (error) {
-        console.error(`[Token Price] Error fetching price for ${tokenAddress}:`, error);
+        console.error(`[Token Info] Error fetching info for ${tokenAddress}:`, error);
     }
 
-    // Fallback: assume $1 per token
-    console.log(`[Token Price] ${tokenAddress}: Fallback to $1 per token`);
-    return 1.0;
+    // Fallback on error
+    return FALLBACK_TOKEN_INFO;
 }
 
 interface SwapLog {
@@ -887,19 +767,12 @@ interface SwapLog {
 
 /**
  * Parse swap volume from transaction logs
- * Looks for the first Transfer event to get the token amount being swapped
+ * Looks for Transfer events to get the token amount being swapped
  */
 async function parseSwapVolumeFromLogs(logs: SwapLog[], ethPriceUsd: number = 3500, txHash?: string, platform?: string): Promise<number> {
     if (!logs || !Array.isArray(logs)) return 0;
 
     let maxUsdValue = 0;
-    const isInkySwap = platform === 'InkySwap';
-
-    if (isInkySwap) {
-        console.log(`\n========== [InkySwap] TX ${txHash} - DETAILED LOG PARSING ==========`);
-        console.log(`Total logs: ${logs.length}`);
-        console.log(`ETH Price: ${ethPriceUsd}`);
-    }
 
     // Look for Transfer events to get the swap amount
     for (let i = 0; i < logs.length; i++) {
@@ -911,118 +784,25 @@ async function parseSwapVolumeFromLogs(logs: SwapLog[], ethPriceUsd: number = 35
 
             if (!tokenAddress || !data) continue;
 
-            let tokenInfo = SWAP_TOKEN_INFO[tokenAddress];
-
-            // If token not in our list, fetch decimals dynamically
-            if (!tokenInfo) {
-                const decimals = await fetchTokenDecimals(tokenAddress);
-
-                // Fetch real-time price from InkySwap
-                const pricePerToken = await fetchTokenPriceUSD(tokenAddress, decimals);
-
-                tokenInfo = {
-                    decimals,
-                    usdPegged: false,
-                    symbol: 'UNKNOWN'
-                };
-
-                if (isInkySwap) {
-                    console.log(`\n--- Transfer Event #${i} ---`);
-                    console.log(`Token Address: ${tokenAddress}`);
-                    console.log(`⚠️  UNKNOWN TOKEN - Fetched decimals: ${decimals}`);
-                    console.log(`⚠️  Fetched price from InkySwap: $${pricePerToken} per token`);
-                }
-
-                // Store the price for this calculation
-                (tokenInfo as any).fetchedPrice = pricePerToken;
-            }
-
             try {
+                // Get token info from DeFi Llama API (cached)
+                const tokenInfo = await getTokenInfo(tokenAddress);
+
                 // Parse the amount from the data field
                 const amountHex = data.startsWith('0x') ? data.slice(2, 66) : data.slice(0, 64);
                 const amount = BigInt('0x' + amountHex);
 
-                if (isInkySwap && tokenInfo) {
-                    console.log(`\n--- Transfer Event #${i} ---`);
-                    console.log(`Token Address: ${tokenAddress}`);
-                    console.log(`Token Info: ${JSON.stringify(tokenInfo)}`);
-                    console.log(`Raw Amount (hex): ${amountHex}`);
-                    console.log(`Raw Amount (bigint): ${amount.toString()}`);
-                }
+                // Calculate token amount using decimals from API
+                const tokenAmount = Number(amount) / Math.pow(10, tokenInfo.decimals);
 
-                if (tokenInfo) {
-                    // Known token - use its decimals
-                    const tokenAmount = Number(amount) / Math.pow(10, tokenInfo.decimals);
-
-                    if (isInkySwap) {
-                        console.log(`Token Amount (with ${tokenInfo.decimals} decimals): ${tokenAmount}`);
-                    }
-
-                    if (tokenInfo.usdPegged) {
-                        // USD-pegged stablecoin - direct USD value ($1 per unit)
-                        const usdValue = tokenAmount;
-                        maxUsdValue = Math.max(maxUsdValue, usdValue);
-
-                        if (isInkySwap) {
-                            console.log(`USD Value (${tokenAmount} × $1): ${usdValue}`);
-                            console.log(`Max USD Value so far: ${maxUsdValue}`);
-                        } else {
-                            console.log(`[Swap] Found ${tokenInfo.symbol} transfer: ${tokenAmount} USD (${tokenAddress})`);
-                        }
-                    } else if (tokenInfo.fixedUsdPrice !== undefined) {
-                        // Token with fixed USD price
-                        const usdValue = tokenAmount * tokenInfo.fixedUsdPrice;
-                        maxUsdValue = Math.max(maxUsdValue, usdValue);
-
-                        if (isInkySwap) {
-                            console.log(`USD Value (${tokenAmount} × $${tokenInfo.fixedUsdPrice}): ${usdValue}`);
-                            console.log(`Max USD Value so far: ${maxUsdValue}`);
-                        } else {
-                            console.log(`[Swap] Found ${tokenInfo.symbol} transfer: ${tokenAmount} × $${tokenInfo.fixedUsdPrice} = ${usdValue} USD (${tokenAddress})`);
-                        }
-                    } else if (tokenInfo.priceInEth) {
-                        // ETH-based token - convert using ETH price
-                        const usdValue = tokenAmount * ethPriceUsd;
-                        maxUsdValue = Math.max(maxUsdValue, usdValue);
-
-                        if (isInkySwap) {
-                            console.log(`USD Value (${tokenAmount} × ${ethPriceUsd}): ${usdValue}`);
-                            console.log(`Max USD Value so far: ${maxUsdValue}`);
-                        } else {
-                            console.log(`[Swap] Found ${tokenInfo.symbol} transfer: ${tokenAmount} ETH = ${usdValue} USD (${tokenAddress})`);
-                        }
-                    } else if ((tokenInfo as any).fetchedPrice !== undefined) {
-                        // Unknown token with fetched price from InkySwap API
-                        const pricePerToken = (tokenInfo as any).fetchedPrice;
-                        const usdValue = tokenAmount * pricePerToken;
-                        maxUsdValue = Math.max(maxUsdValue, usdValue);
-
-                        if (isInkySwap) {
-                            console.log(`USD Value (${tokenAmount} × $${pricePerToken}): ${usdValue}`);
-                            console.log(`Max USD Value so far: ${maxUsdValue}`);
-                        } else {
-                            console.log(`[Swap] Found ${tokenInfo.symbol} transfer: ${tokenAmount} × $${pricePerToken} = ${usdValue} USD (${tokenAddress})`);
-                        }
-                    } else {
-                        // Unknown pricing - assume $1 per unit (fallback)
-                        const usdValue = tokenAmount;
-                        maxUsdValue = Math.max(maxUsdValue, usdValue);
-
-                        if (isInkySwap) {
-                            console.log(`USD Value (${tokenAmount} × $1 assumed): ${usdValue}`);
-                            console.log(`Max USD Value so far: ${maxUsdValue}`);
-                        }
-                    }
-                }
+                // Calculate USD value using price from API
+                const usdValue = tokenAmount * tokenInfo.price;
+                maxUsdValue = Math.max(maxUsdValue, usdValue);
             } catch (error) {
                 console.error(`[Swap] Error parsing transfer for token ${tokenAddress}:`, error);
                 continue;
             }
         }
-    }
-
-    if (isInkySwap) {
-        console.log(`\n========== [InkySwap] FINAL USD VALUE: ${maxUsdValue} ==========\n`);
     }
 
     return maxUsdValue;
@@ -1071,20 +851,11 @@ router.get('/:address/swap', async (req: Request, res: Response) => {
             const contractAddr = row.contract_address.toLowerCase();
             const txHash = row.tx_hash;
             const platformName = SWAP_CONTRACTS[contractAddr] || 'Unknown DEX';
-            const isInkySwap = platformName === 'InkySwap';
 
             let usdValue = parseFloat(row.total_usd_volume || '0');
 
-            if (isInkySwap && usdValue > 0) {
-                console.log(`\n[InkySwap ${txHash}] Pre-calculated total_usd_volume: ${usdValue}`);
-            }
-
             if (usdValue === 0) {
                 usdValue = parseFloat(row.tokens_in_usd_total || '0') + parseFloat(row.tokens_out_usd_total || '0');
-
-                if (isInkySwap && usdValue > 0) {
-                    console.log(`[InkySwap ${txHash}] tokens_in + tokens_out: ${usdValue}`);
-                }
             }
 
             // Primary method: Parse logs to get the first Transfer event
@@ -1093,14 +864,6 @@ router.get('/:address/swap', async (req: Request, res: Response) => {
                     const logs = typeof row.logs === 'string' ? JSON.parse(row.logs) : row.logs;
                     const ethPrice = parseFloat(row.eth_price_usd || '3500');
                     usdValue = await parseSwapVolumeFromLogs(logs, ethPrice, txHash, platformName);
-
-                    if (usdValue > 0) {
-                        if (isInkySwap) {
-                            console.log(`[InkySwap ${txHash}] ✅ Parsed from logs: ${usdValue} USD`);
-                        } else {
-                            console.log(`[Swap ${txHash}] Parsed from logs: ${usdValue} USD`);
-                        }
-                    }
                 } catch (error) {
                     console.error(`[Swap ${txHash}] Error parsing logs:`, error);
                 }
@@ -1112,22 +875,10 @@ router.get('/:address/swap', async (req: Request, res: Response) => {
                 const ethPrice = parseFloat(row.eth_price_usd || '3500');
                 if (ethValue > 0) {
                     usdValue = ethValue * ethPrice;
-
-                    if (isInkySwap) {
-                        console.log(`[InkySwap ${txHash}] Using eth_value_decimal: ${ethValue} ETH = ${usdValue} USD`);
-                    } else {
-                        console.log(`[Swap ${txHash}] Using eth_value_decimal: ${ethValue} ETH = ${usdValue} USD`);
-                    }
                 } else if (row.value) {
                     const rawValue = BigInt(row.value || '0');
                     const ethFromRaw = Number(rawValue) / 1e18;
                     usdValue = ethFromRaw * ethPrice;
-
-                    if (isInkySwap) {
-                        console.log(`[InkySwap ${txHash}] Using raw value: ${ethFromRaw} ETH = ${usdValue} USD`);
-                    } else {
-                        console.log(`[Swap ${txHash}] Using raw value: ${ethFromRaw} ETH = ${usdValue} USD`);
-                    }
                 }
             }
 
@@ -1171,16 +922,6 @@ router.get('/:address/swap', async (req: Request, res: Response) => {
         }
 
         byPlatform.sort((a, b) => b.usdValue - a.usdValue);
-
-        // Log InkySwap summary
-        const inkySwapPlatform = byPlatform.find(p => p.platform === 'InkySwap');
-        if (inkySwapPlatform) {
-            console.log(`\n========== [InkySwap] FINAL SUMMARY ==========`);
-            console.log(`Total USD Value: $${inkySwapPlatform.usdValue.toLocaleString()}`);
-            console.log(`Total Transactions: ${inkySwapPlatform.txCount}`);
-            console.log(`Average per TX: $${(inkySwapPlatform.usdValue / inkySwapPlatform.txCount).toLocaleString()}`);
-            console.log(`==============================================\n`);
-        }
 
         const response: SwapVolumeResponse = {
             totalEth,
@@ -1684,7 +1425,6 @@ router.get('/:address/tydro', async (req: Request, res: Response) => {
       ORDER BY created_at ASC
     `, [walletAddress, TYDRO_CONTRACTS, allMethods]);
 
-        console.log(`[Tydro] Found ${txs.length} transactions for wallet ${walletAddress}`);
 
         if (txs.length === 0) {
             const emptyResponse: TydroResponse = {

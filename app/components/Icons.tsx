@@ -34,7 +34,10 @@ import {
   Loader2,
   Plus,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  Calculator,
+  Info,
+  Users
 } from 'lucide-react';
 
 export {
@@ -70,5 +73,8 @@ export {
   Loader2,
   Plus,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  Calculator,
+  Info,
+  Users
 };
