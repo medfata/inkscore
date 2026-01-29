@@ -1,27 +1,44 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 const NFT_CONTRACT_ADDRESS = '0xBE1965cE0D06A79A411FFCD9a1C334638dF77649';
-const ROUTESCAN_API = 'https://cdn-canary.routescan.io/api/evm/57073/erc721';
+const EXPLORER_API = 'https://explorer.inkonchain.com/api/v2/tokens';
 const DEAD_WALLET = '0x0000000000000000000000000000000000000000';
+const BROKEN_SCORE_WALLET = '0x4C50254DaFD191bBA2A6e0517C1742Caf1426dF5';
 const API_SERVER_URL = process.env.API_SERVER_URL || 'http://localhost:4000';
 
-interface RoutescanToken {
-  tokenId: string;
-  currentOwner?: {
-    id: string;
-    isContract: boolean;
-  };
-  uri256?: string;
-  uri1024?: string;
+// Cache configuration - revalidate every 10 minutes (600 seconds)
+export const revalidate = 600;
+
+// In-memory cache (works on Vercel within each serverless instance)
+let cachedLeaderboard: any[] | null = null;
+let cacheTimestamp: number = 0;
+const CACHE_DURATION = 10 * 60 * 1000; // 10 minutes in milliseconds
+
+interface ExplorerNFTAttribute {
+  trait_type: string;
+  value: string | number;
 }
 
-interface RoutescanResponse {
-  items: RoutescanToken[];
-  count?: number;
-  link?: {
-    next?: string;
-    nextToken?: string;
-  };
+interface ExplorerNFTMetadata {
+  attributes: ExplorerNFTAttribute[];
+}
+
+interface ExplorerNFTOwner {
+  hash: string;
+}
+
+interface ExplorerNFT {
+  id: string;
+  image_url: string;
+  metadata: ExplorerNFTMetadata;
+  owner: ExplorerNFTOwner;
+}
+
+interface ExplorerResponse {
+  items: ExplorerNFT[];
+  next_page_params: {
+    unique_token: number;
+  } | null;
 }
 
 interface WalletScoreResponse {
@@ -40,86 +57,117 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1', 10);
     const limit = 50;
 
-    // Fetch ALL NFTs from Routescan (no pagination on Routescan side)
-    let allTokens: RoutescanToken[] = [];
-    let nextToken: string | null = null;
-    let routescanUrl = `${ROUTESCAN_API}/${NFT_CONTRACT_ADDRESS}/tokens?ecosystem=57073&limit=50&count=true`;
+    let leaderboard: any[];
 
-    console.log(`[Leaderboard] Fetching all NFTs from Routescan...`);
+    // Check if cache is valid
+    const now = Date.now();
+    const isCacheValid = cachedLeaderboard && (now - cacheTimestamp) < CACHE_DURATION;
 
-    // Fetch all pages from Routescan
-    do {
-      const url = nextToken 
-        ? `${routescanUrl}&next=${encodeURIComponent(nextToken)}`
-        : routescanUrl;
-      
-      const routescanResponse = await fetch(url);
-      if (!routescanResponse.ok) {
-        throw new Error(`Routescan API error: ${routescanResponse.status}`);
-      }
+    if (isCacheValid) {
+      console.log(`[Leaderboard] Using cached data (age: ${Math.round((now - cacheTimestamp) / 1000)}s)`);
+      leaderboard = cachedLeaderboard!;
+    } else {
+      console.log(`[Leaderboard] Cache miss or expired, fetching fresh data...`);
 
-      const data: RoutescanResponse = await routescanResponse.json();
-      allTokens = [...allTokens, ...data.items];
-      nextToken = data.link?.nextToken || null;
-    } while (nextToken);
+      // Fetch ALL NFTs from Explorer API
+      let allNFTs: ExplorerNFT[] = [];
+      let nextPageParams: { unique_token: number } | null = null;
+      let baseUrl = `${EXPLORER_API}/${NFT_CONTRACT_ADDRESS}/instances`;
 
-    console.log(`[Leaderboard] Fetched ${allTokens.length} total NFTs`);
+      // Fetch all pages from Explorer
+      do {
+        const url = nextPageParams
+          ? `${baseUrl}?unique_token=${nextPageParams.unique_token}`
+          : baseUrl;
 
-    // Filter out burned NFTs (owned by dead wallet) and tokens without owner
-    const validTokens = allTokens.filter(
-      token => token.currentOwner?.id &&
-        token.currentOwner.id.toLowerCase() !== DEAD_WALLET.toLowerCase()
-    );
-
-    console.log(`[Leaderboard] ${validTokens.length} valid NFTs after filtering`);
-
-    // Fetch scores for all valid tokens
-    const leaderboardWithScores = await Promise.all(
-      validTokens.map(async (token) => {
-        let score = 0;
-        let rank = 'Unranked';
-
-        try {
-          // Fetch score from API server
-          const scoreRes = await fetch(`${API_SERVER_URL}/api/wallet/${token.currentOwner!.id.toLowerCase()}/score`);
-          if (scoreRes.ok) {
-            const scoreData: WalletScoreResponse = await scoreRes.json();
-            score = scoreData.total_points;
-            rank = scoreData.rank?.name || 'Unranked';
-          }
-        } catch (error) {
-          console.error(`Failed to fetch score for wallet ${token.currentOwner!.id}:`, error);
+        const explorerResponse = await fetch(url);
+        if (!explorerResponse.ok) {
+          throw new Error(`Explorer API error: ${explorerResponse.status}`);
         }
 
-        return {
-          wallet_address: token.currentOwner!.id,
-          token_id: token.tokenId,
-          nft_image_url: token.uri256 || token.uri1024 || '', // Use Routescan's cached image
-          score,
-          rank,
-        };
-      })
-    );
+        const data: ExplorerResponse = await explorerResponse.json();
+        allNFTs = [...allNFTs, ...data.items];
+        nextPageParams = data.next_page_params;
+      } while (nextPageParams !== null);
 
-    // Sort ALL entries by score descending (global sort)
-    leaderboardWithScores.sort((a, b) => b.score - a.score);
+      console.log(`[Leaderboard] Fetched ${allNFTs.length} total NFTs`);
+
+      // Filter out burned NFTs (owned by dead wallet)
+      const validNFTs = allNFTs.filter(
+        nft => nft.owner?.hash &&
+          nft.owner.hash.toLowerCase() !== DEAD_WALLET.toLowerCase()
+      );
+
+      console.log(`[Leaderboard] ${validNFTs.length} valid NFTs after filtering`);
+
+      // Extract score from metadata and build leaderboard
+      leaderboard = validNFTs.map((nft) => {
+        const scoreAttr = nft.metadata?.attributes?.find(
+          attr => attr.trait_type === 'Score'
+        );
+        const rankAttr = nft.metadata?.attributes?.find(
+          attr => attr.trait_type === 'Rank'
+        );
+
+        return {
+          wallet_address: nft.owner.hash,
+          token_id: nft.id,
+          nft_image_url: nft.image_url,
+          score: typeof scoreAttr?.value === 'number' ? scoreAttr.value : 0,
+          rank: typeof rankAttr?.value === 'string' ? rankAttr.value : 'Unranked',
+        };
+      });
+
+      // Fix score for the broken wallet by fetching from API server
+      const brokenWalletEntry = leaderboard.find(
+        entry => entry.wallet_address.toLowerCase() === BROKEN_SCORE_WALLET.toLowerCase()
+      );
+
+      if (brokenWalletEntry) {
+        console.log(`[Leaderboard] Found broken wallet ${BROKEN_SCORE_WALLET}, fetching correct score...`);
+        try {
+          const scoreRes = await fetch(`${API_SERVER_URL}/api/wallet/${BROKEN_SCORE_WALLET.toLowerCase()}/score`);
+          if (scoreRes.ok) {
+            const scoreData: WalletScoreResponse = await scoreRes.json();
+            brokenWalletEntry.score = scoreData.total_points;
+            brokenWalletEntry.rank = scoreData.rank?.name || 'Unranked';
+            console.log(`[Leaderboard] Updated broken wallet score to ${scoreData.total_points}`);
+          }
+        } catch (error) {
+          console.error(`[Leaderboard] Failed to fetch correct score for broken wallet:`, error);
+        }
+      }
+
+      // Sort by score descending
+      leaderboard.sort((a, b) => b.score - a.score);
+
+      // Update cache
+      cachedLeaderboard = leaderboard;
+      cacheTimestamp = now;
+      console.log(`[Leaderboard] Cache updated with ${leaderboard.length} entries`);
+    }
 
     // Paginate the sorted results
     const startIndex = (page - 1) * limit;
     const endIndex = startIndex + limit;
-    const paginatedLeaderboard = leaderboardWithScores.slice(startIndex, endIndex);
-    const totalPages = Math.ceil(leaderboardWithScores.length / limit);
+    const paginatedLeaderboard = leaderboard.slice(startIndex, endIndex);
+    const totalPages = Math.ceil(leaderboard.length / limit);
 
     console.log(`[Leaderboard] Returning page ${page}/${totalPages}`);
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       leaderboard: paginatedLeaderboard,
-      total: leaderboardWithScores.length,
+      total: leaderboard.length,
       limit,
       currentPage: page,
       totalPages,
       hasMore: page < totalPages,
     });
+
+    // Add cache headers for CDN and browser caching
+    response.headers.set('Cache-Control', 's-maxage=600, stale-while-revalidate=300');
+
+    return response;
   } catch (error) {
     console.error('[NFT Leaderboard] Error:', error);
     return NextResponse.json(

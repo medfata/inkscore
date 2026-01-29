@@ -196,7 +196,7 @@ export default function LeaderboardPage() {
                         <th className="text-left px-4 md:px-6 py-4 text-xs md:text-sm font-semibold text-slate-400 uppercase tracking-wider">#</th>
                         <th className="text-center px-4 md:px-6 py-4 text-xs md:text-sm font-semibold text-slate-400 uppercase tracking-wider">NFT</th>
                         <th className="text-left px-4 md:px-6 py-4 text-xs md:text-sm font-semibold text-slate-400 uppercase tracking-wider">Wallet</th>
-                        <th className="text-left px-4 md:px-6 py-4 text-xs md:text-sm font-semibold text-slate-400 uppercase tracking-wider">Current Score</th>
+                        <th className="text-left px-4 md:px-6 py-4 text-xs md:text-sm font-semibold text-slate-400 uppercase tracking-wider">Score</th>
                         <th className="text-left px-4 md:px-6 py-4 text-xs md:text-sm font-semibold text-slate-400 uppercase tracking-wider">Rank</th>
                       </tr>
                     </thead>
