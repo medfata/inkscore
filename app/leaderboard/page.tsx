@@ -41,7 +41,9 @@ export default function LeaderboardPage() {
   const fetchLeaderboard = async (page: number) => {
     try {
       setIsLoading(true);
-      const response = await fetch(`/api/nft/leaderboard?page=${page}`);
+      const response = await fetch(`/api/nft/leaderboard?page=${page}`, {
+        cache: 'no-store' // Prevent browser caching
+      });
 
       if (!response.ok) {
         throw new Error('Failed to fetch leaderboard');
@@ -202,7 +204,7 @@ export default function LeaderboardPage() {
                     </thead>
                     <tbody>
                       {leaderboard.map((entry, index) => {
-                        const globalIndex = (currentPage - 1) * 10 + index;
+                        const globalIndex = (currentPage - 1) * 50 + index;
                         return (
                           <tr
                             key={entry.token_id}
