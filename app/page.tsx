@@ -95,6 +95,10 @@ export default function Home() {
               Leaderboard
               <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-ink-purple group-hover:w-full transition-all duration-300"></span>
             </a>
+            <a href="/incoming" className="text-sm font-medium text-slate-400 hover:text-white transition-colors relative group">
+              Incoming
+              <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-ink-purple group-hover:w-full transition-all duration-300"></span>
+            </a>
             <button
               onClick={() => setIsPlatformRequestModalOpen(true)}
               className="text-sm font-medium text-ink-accent hover:text-white transition-colors relative group flex items-center gap-1"
@@ -146,7 +150,8 @@ export default function Home() {
             <a href="/about" className="block text-slate-300">About</a>
             <a href="/how-it-works" className="block text-slate-300">How it Works</a>
             <a href="/leaderboard" className="block text-slate-300">Leaderboard</a>
-            <button 
+            <a href="/incoming" className="block text-slate-300">Incoming</a>
+            <button
               onClick={() => {
                 setIsPlatformRequestModalOpen(true);
                 setIsMobileMenuOpen(false);
