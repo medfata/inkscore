@@ -200,7 +200,7 @@ export const AnalyticsCards: React.FC<AnalyticsCardsProps> = ({ walletAddress })
   }
 
   // Exclude metrics that have dedicated cards in the Dashboard
-  const excludedSlugs = ['gm_count', 'tydro_defi', 'bridge_volume', 'bridge', 'tydro_usd_supply', 'Tydro_usd_borrow'];
+  const excludedSlugs = ['gm_count', 'tydro_defi', 'bridge_volume', 'bridge', 'tydro_usd_supply', 'Tydro_usd_borrow', 'opensea_buy_count', 'mint_count'];
   const filteredMetrics = analytics?.metrics.filter(m => !excludedSlugs.includes(m.slug)) || [];
 
   // Check if we have anything to show

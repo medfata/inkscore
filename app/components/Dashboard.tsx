@@ -82,6 +82,7 @@ const PLATFORM_URLS: Record<string, string> = {
   'copink': 'https://www.copink.xyz',
   'nft2me': 'https://nft2me.com',
   'shellies': 'https://shellies.xyz',
+  'opensea': 'https://opensea.io',
 };
 
 // NFT Marketplace platform logos and info (keyed by lowercase contract address)
@@ -409,6 +410,8 @@ interface ConsolidatedDashboardResponse {
   shelliesJoinedRaffles: { total_count?: number } | null;
   shelliesPayToPlay: { total_count?: number } | null;
   shelliesStaking: { total_count?: number } | null;
+  openseaBuyCount: { total_count?: number } | null;
+  mintCount: { total_count?: number } | null;
   errors?: string[];
 }
 
@@ -420,6 +423,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
   const [aiAnalysis, setAiAnalysis] = useState<AiAnalysisResult | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [realGmData, setRealGmData] = useState<{ count: number; } | null>(null);
+  const [realOpenSeaBuys, setRealOpenSeaBuys] = useState<{ count: number; } | null>(null);
+  const [realMintCount, setRealMintCount] = useState<{ count: number; } | null>(null);
   const [realWalletStats, setRealWalletStats] = useState<RealWalletStats | null>(null);
   const [realTydroData, setRealTydroData] = useState<{
     supplyVolume: number;
@@ -617,6 +622,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
     // Process GM count
     if (response.gmCount) {
       setRealGmData({ count: response.gmCount.total_count || 0 });
+    }
+
+    // Process OpenSea buy count
+    if (response.openseaBuyCount) {
+      setRealOpenSeaBuys({ count: response.openseaBuyCount.total_count || 0 });
+    }
+
+    // Process Mint count
+    if (response.mintCount) {
+      setRealMintCount({ count: response.mintCount.total_count || 0 });
     }
 
     // Process InkyPump metrics
@@ -1961,6 +1976,74 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                       </div>
                     ))}
                   </div>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* OpenSea Card */}
+          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-sky-500/20 bg-sky-500/5 h-[300px] flex flex-col" style={{ animationDelay: '0.75s' }}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                <a
+                  href={PLATFORM_URLS.opensea}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:ring-2 hover:ring-sky-500/50 rounded-full transition-all cursor-pointer"
+                  title="Visit OpenSea"
+                >
+                  <img
+                    src="https://opensea.io/favicon.ico"
+                    alt="OpenSea"
+                    className="w-6 h-6 rounded-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=OS&background=2081e2&color=fff&size=24';
+                    }}
+                  />
+                </a>
+                OpenSea
+              </h3>
+            </div>
+
+            {!isDemo ? (
+              realOpenSeaBuys ? (
+                <>
+                  <div className="mb-3">
+                    <div className="text-2xl font-bold font-display text-sky-400">
+                      {realOpenSeaBuys.count.toLocaleString()}
+                    </div>
+                    <div className="text-xs text-slate-500">{realOpenSeaBuys.count} buy{realOpenSeaBuys.count !== 1 ? 's' : ''}</div>
+                  </div>
+                  {realMintCount && (
+                    <div className="mb-3">
+                      <div className="text-xl font-bold font-display text-sky-300">
+                        {realMintCount.count.toLocaleString()}
+                      </div>
+                      <div className="text-xs text-slate-500">{realMintCount.count} mint{realMintCount.count !== 1 ? 's' : ''}</div>
+                    </div>
+                  )}
+                  {realOpenSeaBuys.count > 0 && (
+                    <div className="mt-2 text-xs text-sky-400 opacity-80 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse"></span>
+                      Active OpenSea Buyer
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="flex-1 flex flex-col justify-center">
+                  <div className="h-8 w-16 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+                  <div className="h-3 w-24 bg-slate-700/30 rounded animate-pulse"></div>
+                </div>
+              )
+            ) : (
+              <>
+                <div className="mb-3">
+                  <div className="text-2xl font-bold font-display text-sky-400">5</div>
+                  <div className="text-xs text-slate-500">Demo OpenSea Buys</div>
+                </div>
+                <div className="mb-3">
+                  <div className="text-xl font-bold font-display text-sky-300">3</div>
+                  <div className="text-xs text-slate-500">Demo Mints</div>
                 </div>
               </>
             )}

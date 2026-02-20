@@ -17,6 +17,14 @@ function isValidAddress(address: string): boolean {
 // GM contract address
 const GM_CONTRACT_ADDRESS = '0x9f500d075118272b3564ac6ef2c70a9067fd2d3f';
 
+// OpenSea contract address (Seaport on Ink)
+const OPENSEA_CONTRACT_ADDRESS = '0x0000000000000068F116a894984e2DB1123eB395';
+const OPENSEA_BUY_FUNCTION = 'fulfillBasicOrder_efficient_6GL6yc';
+
+// Mint contract address and methods
+const MINT_CONTRACT_ADDRESS = '0x00005ea00ac477b1030ce78506496e8c2de24bf5';
+const MINT_FUNCTIONS = ['mintPublic', '0x161ac21f'];
+
 // InkyPump contract address and methods
 const INKYPUMP_CONTRACT_ADDRESS = '0x1d74317d760f2c72a94386f50e8d10f2c902b899';
 const INKYPUMP_CREATE_TOKEN_FUNCTION = '0xa07849e6';
@@ -249,6 +257,110 @@ router.get('/:wallet/:metric', async (req: Request, res: Response) => {
         currency: 'COUNT',
         total_count: count,
         total_value: count.toString(),
+        sub_aggregates: [],
+        last_updated: new Date(),
+      };
+
+      responseCache.set(cacheKey, result);
+      return res.json(result);
+    }
+
+    // Special handling for opensea_buy_count
+    if (metric === 'opensea_buy_count') {
+      const rows = await query<{ count: string }>(`
+        SELECT count(tx_hash) as count 
+        FROM transaction_details 
+        WHERE contract_address = lower($1)
+          AND wallet_address = lower($2)
+          AND lower(function_name) = lower($3)
+          AND status = 1
+      `, [OPENSEA_CONTRACT_ADDRESS, wallet, OPENSEA_BUY_FUNCTION]);
+
+      const count = parseInt(rows[0]?.count || '0', 10);
+
+      const result = {
+        slug: 'opensea_buy_count',
+        name: 'OpenSea Buys',
+        icon: 'https://opensea.io/favicon.ico',
+        currency: 'COUNT',
+        total_count: count,
+        total_value: count.toString(),
+        sub_aggregates: [],
+        last_updated: new Date(),
+      };
+
+      responseCache.set(cacheKey, result);
+      return res.json(result);
+    }
+
+    // Special handling for mint_count
+    if (metric === 'mint_count') {
+      // First, get all mint transaction hashes
+      const txRows = await query<{ tx_hash: string }>(`
+        SELECT tx_hash
+        FROM transaction_details 
+        WHERE contract_address = lower($1)
+          AND wallet_address = lower($2)
+          AND lower(function_name) = ANY($3::text[])
+          AND status = 1
+      `, [MINT_CONTRACT_ADDRESS, wallet, MINT_FUNCTIONS.map(f => f.toLowerCase())]);
+
+      let totalMinted = 0;
+
+      // For each transaction, fetch details from Routescan and extract quantity
+      for (const row of txRows) {
+        try {
+          const response = await fetch(`https://cdn.routescan.io/api/evm/57073/transactions/${row.tx_hash}`);
+          if (response.ok) {
+            const txData = await response.json() as { input?: string };
+            
+            // Extract quantity from input data
+            // Input format: 0x + 8 chars (function selector) + 4 parameters (64 chars each)
+            // mintPublic(address nftContract, address feeRecipient, address minterIfNotPayer, uint256 quantity)
+            if (txData.input && txData.input.startsWith('0x') && txData.input.length >= 266) {
+              // Remove 0x prefix
+              const inputData = txData.input.slice(2);
+              
+              // Remove function selector (first 8 hex chars = 4 bytes)
+              const paramsData = inputData.slice(8);
+              
+              // Split into 64-char chunks (32 bytes each)
+              const chunk0 = paramsData.slice(0, 64);   // nftContract address
+              const chunk1 = paramsData.slice(64, 128); // feeRecipient address
+              const chunk2 = paramsData.slice(128, 192); // minterIfNotPayer address
+              const chunk3 = paramsData.slice(192, 256); // quantity (uint256)
+              
+              // Convert quantity from hex to decimal
+              const quantity = parseInt(chunk3, 16);
+              
+              if (!isNaN(quantity) && quantity > 0) {
+                totalMinted += quantity;
+              } else {
+                // Fallback: count as 1 mint if quantity is invalid
+                totalMinted += 1;
+              }
+            } else {
+              // Fallback: count as 1 mint if we can't parse
+              totalMinted += 1;
+            }
+          } else {
+            // Fallback: count as 1 mint if API fails
+            totalMinted += 1;
+          }
+        } catch (error) {
+          console.error(`Error fetching tx details for ${row.tx_hash}:`, error);
+          // Fallback: count as 1 mint if error occurs
+          totalMinted += 1;
+        }
+      }
+
+      const result = {
+        slug: 'mint_count',
+        name: 'Mints',
+        icon: '🎨',
+        currency: 'COUNT',
+        total_count: totalMinted,
+        total_value: totalMinted.toString(),
         sub_aggregates: [],
         last_updated: new Date(),
       };

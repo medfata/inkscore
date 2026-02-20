@@ -67,6 +67,7 @@ export class BackfillService {
       let batchNumber = 1;
       let totalProcessed = 0;
       let hasMore = true;
+      let previousLastTransactionDate: string | null = null;
 
       while (hasMore) {
         console.log(`\n🔄 [BACKFILL] Batch ${batchNumber}`);
@@ -90,10 +91,16 @@ export class BackfillService {
         if (!batch.hasMore || batch.transactionCount === 0) {
           hasMore = false;
           console.log(`   🏁 No more data in range`);
+        } else if (previousLastTransactionDate === batch.lastTransactionDate) {
+          // API is returning same data (likely cached export) - prevent infinite loop
+          hasMore = false;
+          console.log(`   🏁 Stopping - no progress being made (same lastTransactionDate)`);
         } else {
           // Move toDate backward to continue from where we left off
-          // lastTransactionDate is the oldest in batch, so next batch ends just before it
-          currentToDate = this.subtractOneSecond(batch.lastTransactionDate);
+          // Subtract 2 seconds from lastTransactionDate to avoid getting stuck
+          // at the same timestamp due to second-level precision
+          previousLastTransactionDate = batch.lastTransactionDate;
+          currentToDate = this.subtractSeconds(batch.lastTransactionDate, 2);
           console.log(`   ⬅️  Next batch to: ${currentToDate}`);
 
           // Safety check: if new toDate is before fromDate, stop
@@ -572,6 +579,12 @@ export class BackfillService {
   private subtractOneSecond(isoDate: string): string {
     const date = new Date(isoDate);
     date.setTime(date.getTime() - 1000);
+    return date.toISOString();
+  }
+
+  private subtractSeconds(isoDate: string, seconds: number): string {
+    const date = new Date(isoDate);
+    date.setTime(date.getTime() - (seconds * 1000));
     return date.toISOString();
   }
 
