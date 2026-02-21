@@ -369,6 +369,54 @@ router.get('/:wallet/:metric', async (req: Request, res: Response) => {
       return res.json(result);
     }
 
+    // Special handling for opensea_sale_count
+    if (metric === 'opensea_sale_count') {
+      const queryStartTime = Date.now();
+      console.log(`[OPENSEA_SALE] Starting query for wallet: ${wallet}`);
+      
+      // Query transaction_enrichment for sales where wallet is the seller (from address in Transfer event)
+      // The wallet address in topics[1] is padded to 64 hex chars (32 bytes)
+      const paddedWallet = '0x' + wallet.slice(2).toLowerCase().padStart(64, '0');
+      console.log(`[OPENSEA_SALE] Padded wallet: ${paddedWallet}`);
+      
+      const dbQueryStart = Date.now();
+      const rows = await query<{ count: string }>(`
+        SELECT COUNT(DISTINCT te.tx_hash) as count
+        FROM transaction_enrichment te
+        WHERE te.contract_address = lower($1)
+          AND te.logs IS NOT NULL
+          AND EXISTS (
+            SELECT 1
+            FROM jsonb_array_elements(te.logs) AS log
+            WHERE log->>'event' = 'Transfer(address indexed from, address indexed to, uint256 value)'
+              AND jsonb_array_length(log->'topics') >= 2
+              AND lower(log->'topics'->>1) = lower($2)
+          )
+      `, [OPENSEA_CONTRACT_ADDRESS, paddedWallet]);
+      const dbQueryTime = Date.now() - dbQueryStart;
+      console.log(`[OPENSEA_SALE] DB query completed in ${dbQueryTime}ms`);
+
+      const count = parseInt(rows[0]?.count || '0', 10);
+      console.log(`[OPENSEA_SALE] Found ${count} sales`);
+
+      const result = {
+        slug: 'opensea_sale_count',
+        name: 'OpenSea Sales',
+        icon: 'https://opensea.io/favicon.ico',
+        currency: 'COUNT',
+        total_count: count,
+        total_value: count.toString(),
+        sub_aggregates: [],
+        last_updated: new Date(),
+      };
+
+      const totalTime = Date.now() - queryStartTime;
+      console.log(`[OPENSEA_SALE] Total processing time: ${totalTime}ms`);
+
+      responseCache.set(cacheKey, result);
+      return res.json(result);
+    }
+
     // Special handling for inkypump_created_tokens
     if (metric === 'inkypump_created_tokens') {
       const rows = await query<{ count: string }>(`

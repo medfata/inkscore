@@ -412,6 +412,7 @@ interface ConsolidatedDashboardResponse {
   shelliesStaking: { total_count?: number } | null;
   openseaBuyCount: { total_count?: number } | null;
   mintCount: { total_count?: number } | null;
+  openseaSaleCount: { total_count?: number } | null;
   errors?: string[];
 }
 
@@ -425,6 +426,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
   const [realGmData, setRealGmData] = useState<{ count: number; } | null>(null);
   const [realOpenSeaBuys, setRealOpenSeaBuys] = useState<{ count: number; } | null>(null);
   const [realMintCount, setRealMintCount] = useState<{ count: number; } | null>(null);
+  const [realOpenSeaSales, setRealOpenSeaSales] = useState<{ count: number; } | null>(null);
   const [realWalletStats, setRealWalletStats] = useState<RealWalletStats | null>(null);
   const [realTydroData, setRealTydroData] = useState<{
     supplyVolume: number;
@@ -632,6 +634,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
     // Process Mint count
     if (response.mintCount) {
       setRealMintCount({ count: response.mintCount.total_count || 0 });
+    }
+
+    // Process OpenSea sale count
+    if (response.openseaSaleCount) {
+      setRealOpenSeaSales({ count: response.openseaSaleCount.total_count || 0 });
     }
 
     // Process InkyPump metrics
@@ -2022,6 +2029,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                       <div className="text-xs text-slate-500">{realMintCount.count} mint{realMintCount.count !== 1 ? 's' : ''}</div>
                     </div>
                   )}
+                  {realOpenSeaSales && (
+                    <div className="mb-3">
+                      <div className="text-xl font-bold font-display text-emerald-400">
+                        {realOpenSeaSales.count.toLocaleString()}
+                      </div>
+                      <div className="text-xs text-slate-500">{realOpenSeaSales.count} sale{realOpenSeaSales.count !== 1 ? 's' : ''}</div>
+                    </div>
+                  )}
                   {realOpenSeaBuys.count > 0 && (
                     <div className="mt-2 text-xs text-sky-400 opacity-80 flex items-center gap-1">
                       <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse"></span>
@@ -2044,6 +2059,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                 <div className="mb-3">
                   <div className="text-xl font-bold font-display text-sky-300">3</div>
                   <div className="text-xs text-slate-500">Demo Mints</div>
+                </div>
+                <div className="mb-3">
+                  <div className="text-xl font-bold font-display text-emerald-400">2</div>
+                  <div className="text-xs text-slate-500">Demo Sales</div>
                 </div>
               </>
             )}

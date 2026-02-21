@@ -64,6 +64,7 @@ export async function GET(
       shelliesStakingResult,
       openseaBuyCountResult,
       mintCountResult,
+      openseaSaleCountResult,
     ] = await Promise.all([
       fetchFromExpress(`/api/wallet/${walletAddress}/stats`),
       fetchFromExpress(`/api/wallet/${walletAddress}/bridge`),
@@ -89,6 +90,7 @@ export async function GET(
       fetchFromExpress(`/api/analytics/${walletAddress}/shellies_staking`),
       fetchFromExpress(`/api/analytics/${walletAddress}/opensea_buy_count`),
       fetchFromExpress(`/api/analytics/${walletAddress}/mint_count`),
+      fetchFromExpress(`/api/analytics/${walletAddress}/opensea_sale_count`),
     ]);
 
     // Collect any errors (only log critical ones)
@@ -107,6 +109,7 @@ export async function GET(
     if (tydroResult.error) errors.push(`tydro: ${tydroResult.error}`);
     if (openseaBuyCountResult.error) errors.push(`openseaBuyCount: ${openseaBuyCountResult.error}`);
     if (mintCountResult.error) errors.push(`mintCount: ${mintCountResult.error}`);
+    if (openseaSaleCountResult.error) errors.push(`openseaSaleCount: ${openseaSaleCountResult.error}`);
 
     const response = {
       stats: statsResult.data,
@@ -133,6 +136,7 @@ export async function GET(
       shelliesStaking: shelliesStakingResult.data,
       openseaBuyCount: openseaBuyCountResult.data,
       mintCount: mintCountResult.data,
+      openseaSaleCount: openseaSaleCountResult.data,
       ...(errors.length > 0 && { errors }),
     };
 
