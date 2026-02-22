@@ -47,6 +47,10 @@ const NFT_CONTRACTS = [
   '0x9ebf93fdba9f32accab3d6716322dccd617a78f3', // Squid Market
 ];
 
+// InkDCA contract address and method
+const INKDCA_CONTRACT_ADDRESS = '0x4286643d9612515F487c2F3272845bc53Ca80705';
+const INKDCA_RUN_FUNCTION = 'runDCA';
+
 // ZNS tracking config
 const ZNS_CONFIG = {
   deploy: { contract: '0x63c489d31a2c3de0638360931f47ff066282473f', functions: ['Deploy', 'deploy'] },
@@ -793,6 +797,34 @@ router.get('/:wallet/:metric', async (req: Request, res: Response) => {
         slug: 'shellies_staking',
         name: 'Staking',
         icon: '🔒',
+        currency: 'COUNT',
+        total_count: count,
+        total_value: count.toString(),
+        sub_aggregates: [],
+        last_updated: new Date(),
+      };
+
+      responseCache.set(cacheKey, result);
+      return res.json(result);
+    }
+
+    // Special handling for inkdca_run_dca
+    if (metric === 'inkdca_run_dca') {
+      const rows = await query<{ count: string }>(`
+        SELECT COUNT(*) as count 
+        FROM transaction_details 
+        WHERE contract_address = lower($1) 
+          AND wallet_address = lower($2)
+          AND function_name = $3
+          AND status = 1
+      `, [INKDCA_CONTRACT_ADDRESS, wallet, INKDCA_RUN_FUNCTION]);
+
+      const count = parseInt(rows[0]?.count || '0', 10);
+
+      const result = {
+        slug: 'inkdca_run_dca',
+        name: 'DCA Runs',
+        icon: 'https://inkdca.com/ink_dca_logo.png',
         currency: 'COUNT',
         total_count: count,
         total_value: count.toString(),

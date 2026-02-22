@@ -65,6 +65,7 @@ export async function GET(
       openseaBuyCountResult,
       mintCountResult,
       openseaSaleCountResult,
+      inkdcaRunDcaResult,
     ] = await Promise.all([
       fetchFromExpress(`/api/wallet/${walletAddress}/stats`),
       fetchFromExpress(`/api/wallet/${walletAddress}/bridge`),
@@ -91,6 +92,7 @@ export async function GET(
       fetchFromExpress(`/api/analytics/${walletAddress}/opensea_buy_count`),
       fetchFromExpress(`/api/analytics/${walletAddress}/mint_count`),
       fetchFromExpress(`/api/analytics/${walletAddress}/opensea_sale_count`),
+      fetchFromExpress(`/api/analytics/${walletAddress}/inkdca_run_dca`),
     ]);
 
     // Collect any errors (only log critical ones)
@@ -137,6 +139,7 @@ export async function GET(
       openseaBuyCount: openseaBuyCountResult.data,
       mintCount: mintCountResult.data,
       openseaSaleCount: openseaSaleCountResult.data,
+      inkdcaRunDca: inkdcaRunDcaResult.data,
       ...(errors.length > 0 && { errors }),
     };
 

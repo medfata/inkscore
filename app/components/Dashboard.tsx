@@ -83,6 +83,7 @@ const PLATFORM_URLS: Record<string, string> = {
   'nft2me': 'https://nft2me.com',
   'shellies': 'https://shellies.xyz',
   'opensea': 'https://opensea.io',
+  'inkdca': 'https://inkdca.com',
 };
 
 // NFT Marketplace platform logos and info (keyed by lowercase contract address)
@@ -413,6 +414,7 @@ interface ConsolidatedDashboardResponse {
   openseaBuyCount: { total_count?: number } | null;
   mintCount: { total_count?: number } | null;
   openseaSaleCount: { total_count?: number } | null;
+  inkdcaRunDca: { total_count?: number } | null;
   errors?: string[];
 }
 
@@ -467,6 +469,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
   const [shelliesJoinedRaffles, setShelliesJoinedRaffles] = useState<{ total_count: number } | null>(null);
   const [shelliesPayToPlay, setShelliesPayToPlay] = useState<{ total_count: number } | null>(null);
   const [shelliesStaking, setShelliesStaking] = useState<{ total_count: number } | null>(null);
+
+  // InkDCA metrics state
+  const [inkdcaRunDca, setInkdcaRunDca] = useState<{ total_count: number } | null>(null);
 
   // Dynamic dashboard cards state
   const [dynamicCardsRow3, setDynamicCardsRow3] = useState<DashboardCardData[]>([]);
@@ -686,6 +691,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
     if (response.shelliesStaking) {
       setShelliesStaking({ total_count: response.shelliesStaking.total_count || 0 });
     }
+
+    // Process InkDCA metrics
+    if (response.inkdcaRunDca) {
+      setInkdcaRunDca({ total_count: response.inkdcaRunDca.total_count || 0 });
+    }
   }, []);
 
   // Refresh all data function - uses consolidated endpoint
@@ -716,6 +726,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
     setShelliesJoinedRaffles(null);
     setShelliesPayToPlay(null);
     setShelliesStaking(null);
+    setInkdcaRunDca(null);
     setDynamicCardsRow3([]);
     setDynamicCardsRow4([]);
 
@@ -2442,6 +2453,97 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                     </div>
                     <div className="flex justify-between items-center text-[11px]">
                       <span className="text-slate-400">Vest Token</span>
+                      <span className="font-mono text-white">0</span>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* InkDCA Card */}
+          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-emerald-500/20 bg-emerald-500/5 h-[300px] flex flex-col" style={{ animationDelay: '1.05s' }}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                <a
+                  href="https://inkdca.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:ring-2 hover:ring-emerald-500/50 rounded-full transition-all cursor-pointer"
+                  title="Visit InkDCA"
+                >
+                  <img
+                    src={getProxiedImageUrl('https://inkdca.com/ink_dca_logo.png')}
+                    alt="InkDCA"
+                    className="w-6 h-6 rounded-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=DCA&background=10b981&color=fff&size=24';
+                    }}
+                  />
+                </a>
+                InkDCA
+              </h3>
+            </div>
+
+            {!isDemo ? (
+              inkdcaRunDca ? (
+                <>
+                  <div className="mb-3">
+                    <div className="text-2xl font-bold font-display text-emerald-400">
+                      {inkdcaRunDca.total_count.toLocaleString()}
+                    </div>
+                    <div className="text-xs text-slate-500">
+                      {inkdcaRunDca.total_count} DCA run{inkdcaRunDca.total_count !== 1 ? 's' : ''}
+                    </div>
+                  </div>
+
+                  <div className="flex-1 pt-3 border-t border-slate-700/50">
+                    <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">Strategy</span>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center text-[11px]">
+                        <span className="text-slate-400">Dollar Cost Averaging</span>
+                        <span className="font-mono text-emerald-400">Active</span>
+                      </div>
+                      <div className="flex justify-between items-center text-[11px]">
+                        <span className="text-slate-400">Automated Buys</span>
+                        <span className="font-mono text-white">{inkdcaRunDca.total_count}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {inkdcaRunDca.total_count > 0 && (
+                    <div className="mt-2 text-xs text-emerald-400 opacity-80 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                      Smart DCA Investor
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="flex-1 flex flex-col justify-center">
+                  <div className="h-8 w-16 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+                  <div className="h-3 w-24 bg-slate-700/30 rounded animate-pulse mb-4"></div>
+                  <div className="space-y-2">
+                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
+                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
+                  </div>
+                </div>
+              )
+            ) : (
+              <>
+                <div className="mb-3">
+                  <div className="text-2xl font-bold font-display text-emerald-400">0</div>
+                  <div className="text-xs text-slate-500">0 DCA runs</div>
+                </div>
+
+                <div className="flex-1 pt-3 border-t border-slate-700/50">
+                  <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">Strategy</span>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">Dollar Cost Averaging</span>
+                      <span className="font-mono text-slate-500">Inactive</span>
+                    </div>
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">Automated Buys</span>
                       <span className="font-mono text-white">0</span>
                     </div>
                   </div>
