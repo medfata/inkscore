@@ -2068,103 +2068,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
             )}
           </div>
 
-          {/* NFT2Me Card */}
-          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-emerald-500/20 bg-emerald-500/5 h-[300px] flex flex-col" style={{ animationDelay: '0.9s' }}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                <a
-                  href={PLATFORM_URLS.nft2me}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:ring-2 hover:ring-emerald-500/50 rounded-full transition-all cursor-pointer"
-                  title="Visit NFT2Me"
-                >
-                  <img
-                    src="https://pbs.twimg.com/profile_images/1626191411384053761/NoRNmw9L_400x400.png"
-                    alt="NFT2Me"
-                    className="w-6 h-6 rounded-full object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=N2M&background=10b981&color=fff&size=24';
-                    }}
-                  />
-                </a>
-                NFT2Me
-              </h3>
-            </div>
-
-            {!isDemo ? (
-              nft2meMetrics ? (
-                <>
-                  <div className="mb-3">
-                    <div className="text-2xl font-bold font-display text-cyan-400">
-                      {nft2meMetrics.totalTransactions.toLocaleString()}
-                    </div>
-                    <div className="text-xs text-slate-500">
-                      {nft2meMetrics.totalTransactions} transaction{nft2meMetrics.totalTransactions !== 1 ? 's' : ''}
-                    </div>
-                  </div>
-
-                  <div className="flex-1 pt-3 border-t border-slate-700/50">
-                    <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">By Action</span>
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center text-[11px]">
-                        <span className="text-slate-400">Collections Created</span>
-                        <span className="font-mono text-white">{nft2meMetrics.collectionsCreated}</span>
-                      </div>
-                      <div className="flex justify-between items-center text-[11px]">
-                        <span className="text-slate-400">NFTs Minted</span>
-                        <span className="font-mono text-white">{nft2meMetrics.nftsMinted}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {nft2meMetrics.totalTransactions > 0 && (
-                    <div className="mt-2 text-xs text-emerald-400 opacity-80 flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                      NFT2Me Creator
-                    </div>
-                  )}
-                </>
-              ) : (
-                <div className="flex-1 flex flex-col justify-center">
-                  <div className="h-8 w-16 bg-slate-700/50 rounded animate-pulse mb-2"></div>
-                  <div className="h-3 w-24 bg-slate-700/30 rounded animate-pulse mb-4"></div>
-                  <div className="space-y-2">
-                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
-                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
-                  </div>
-                </div>
-              )
-            ) : (
-              <>
-                <div className="mb-3">
-                  <div className="text-2xl font-bold font-display text-cyan-400">3</div>
-                  <div className="text-xs text-slate-500">3 transactions</div>
-                </div>
-
-                <div className="flex-1 pt-3 border-t border-slate-700/50">
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">By Action</span>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-slate-400">Collections Created</span>
-                      <span className="font-mono text-white">1</span>
-                    </div>
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-slate-400">NFTs Minted</span>
-                      <span className="font-mono text-white">2</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-2 text-xs text-emerald-400 opacity-80 flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                  NFT2Me Creator
-                </div>
-              </>
-            )}
-
-          </div>
-
         </div>
 
         {/* Dynamic Cards Row 4 - Admin added single platform cards */}
@@ -2266,6 +2169,103 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
               </>
             )}
           </div>
+
+          {/* NFT2Me Card */}
+          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-emerald-500/20 bg-emerald-500/5 h-[300px] flex flex-col" style={{ animationDelay: '0.95s' }}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                <a
+                  href={PLATFORM_URLS.nft2me}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:ring-2 hover:ring-emerald-500/50 rounded-full transition-all cursor-pointer"
+                  title="Visit NFT2Me"
+                >
+                  <img
+                    src="https://pbs.twimg.com/profile_images/1626191411384053761/NoRNmw9L_400x400.png"
+                    alt="NFT2Me"
+                    className="w-6 h-6 rounded-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=N2M&background=10b981&color=fff&size=24';
+                    }}
+                  />
+                </a>
+                NFT2Me
+              </h3>
+            </div>
+
+            {!isDemo ? (
+              nft2meMetrics ? (
+                <>
+                  <div className="mb-3">
+                    <div className="text-2xl font-bold font-display text-cyan-400">
+                      {nft2meMetrics.totalTransactions.toLocaleString()}
+                    </div>
+                    <div className="text-xs text-slate-500">
+                      {nft2meMetrics.totalTransactions} transaction{nft2meMetrics.totalTransactions !== 1 ? 's' : ''}
+                    </div>
+                  </div>
+
+                  <div className="flex-1 pt-3 border-t border-slate-700/50">
+                    <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">By Action</span>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center text-[11px]">
+                        <span className="text-slate-400">Collections Created</span>
+                        <span className="font-mono text-white">{nft2meMetrics.collectionsCreated}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-[11px]">
+                        <span className="text-slate-400">NFTs Minted</span>
+                        <span className="font-mono text-white">{nft2meMetrics.nftsMinted}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {nft2meMetrics.totalTransactions > 0 && (
+                    <div className="mt-2 text-xs text-emerald-400 opacity-80 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                      NFT2Me Creator
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="flex-1 flex flex-col justify-center">
+                  <div className="h-8 w-16 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+                  <div className="h-3 w-24 bg-slate-700/30 rounded animate-pulse mb-4"></div>
+                  <div className="space-y-2">
+                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
+                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
+                  </div>
+                </div>
+              )
+            ) : (
+              <>
+                <div className="mb-3">
+                  <div className="text-2xl font-bold font-display text-cyan-400">3</div>
+                  <div className="text-xs text-slate-500">3 transactions</div>
+                </div>
+
+                <div className="flex-1 pt-3 border-t border-slate-700/50">
+                  <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">By Action</span>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">Collections Created</span>
+                      <span className="font-mono text-white">1</span>
+                    </div>
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">NFTs Minted</span>
+                      <span className="font-mono text-white">2</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-2 text-xs text-emerald-400 opacity-80 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                  NFT2Me Creator
+                </div>
+              </>
+            )}
+          </div>
+
           {/* Shellies Unified Card */}
           <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-violet-500/20 bg-violet-500/5 h-[300px] flex flex-col" style={{ animationDelay: '1.0s' }}>
             <div className="flex items-center justify-between mb-4">
