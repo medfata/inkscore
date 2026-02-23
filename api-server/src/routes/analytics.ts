@@ -89,7 +89,7 @@ const TEMPLARS_NFT_CONTRACT_ADDRESS = '0x46625E7de9894D83fca49E79cB53B5C25550cE9
 // Cow Swap configuration
 const COW_SWAP_CONFIG = {
   apiBaseUrl: 'https://api.cow.fi/ink/api/v1',
-  pageSize: 1, // Temporarily set to 1 for testing pagination
+  pageSize: 100,
   // Token metadata from CoinGecko (hardcoded for performance)
   tokens: {
     '0x4200000000000000000000000000000000000006': { symbol: 'WETH', decimals: 18, name: 'Ink Bridged WETH (Ink)' },
@@ -924,8 +924,6 @@ router.get('/:wallet/:metric', async (req: Request, res: Response) => {
         while (hasMorePages) {
           const ordersUrl = `${COW_SWAP_CONFIG.apiBaseUrl}/account/${walletLower}/orders?offset=${offset}&limit=${COW_SWAP_CONFIG.pageSize}`;
           
-          console.log(`[COW_SWAP] Fetching page: offset=${offset}, limit=${COW_SWAP_CONFIG.pageSize}`);
-          
           try {
             const response = await fetch(ordersUrl);
             if (!response.ok) {
@@ -935,32 +933,24 @@ router.get('/:wallet/:metric', async (req: Request, res: Response) => {
 
             const orders = await response.json();
             
-            console.log(`[COW_SWAP] Received ${Array.isArray(orders) ? orders.length : 0} orders on this page`);
-            
             if (!Array.isArray(orders) || orders.length === 0) {
-              console.log(`[COW_SWAP] No more orders, stopping pagination`);
               hasMorePages = false;
               break;
             }
 
             allOrders = allOrders.concat(orders);
-            console.log(`[COW_SWAP] Total orders accumulated: ${allOrders.length}`);
 
             // Check if we got a full page (indicating there might be more)
             if (orders.length < COW_SWAP_CONFIG.pageSize) {
-              console.log(`[COW_SWAP] Partial page received (${orders.length} < ${COW_SWAP_CONFIG.pageSize}), this is the last page`);
               hasMorePages = false;
             } else {
               offset += COW_SWAP_CONFIG.pageSize;
-              console.log(`[COW_SWAP] Full page received, fetching next page with offset=${offset}`);
             }
           } catch (fetchError) {
             console.error('Error fetching Cow Swap orders:', fetchError);
             hasMorePages = false;
           }
         }
-
-        console.log(`[COW_SWAP] Pagination complete. Total orders fetched: ${allOrders.length}`);
 
         // Filter for valid swaps: status === "fulfilled" AND invalidated === false
         const validSwaps = allOrders.filter(order => 
