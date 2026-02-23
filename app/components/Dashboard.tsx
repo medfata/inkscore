@@ -85,6 +85,7 @@ const PLATFORM_URLS: Record<string, string> = {
   'opensea': 'https://opensea.io',
   'inkdca': 'https://inkdca.com',
   'templars': 'https://opensea.io/collection/templars-of-the-storm',
+  'cowswap': 'https://swap.cow.fi',
 };
 
 // NFT Marketplace platform logos and info (keyed by lowercase contract address)
@@ -417,6 +418,15 @@ interface ConsolidatedDashboardResponse {
   openseaSaleCount: { total_count?: number } | null;
   inkdcaRunDca: { total_count?: number } | null;
   templarsNftBalance: { total_count?: number } | null;
+  cowswapSwaps: { 
+    total_count?: number; 
+    total_value?: string;
+    sub_aggregates?: Array<{
+      token: string;
+      usd_value: string;
+      count: number;
+    }>;
+  } | null;
   errors?: string[];
 }
 
@@ -477,6 +487,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
 
   // Templars NFT metrics state
   const [templarsNftBalance, setTemplarsNftBalance] = useState<{ total_count: number } | null>(null);
+
+  // Cow Swap metrics state
+  const [cowswapSwaps, setCowswapSwaps] = useState<{
+    total_count: number;
+    total_value: string;
+    sub_aggregates: Array<{
+      token: string;
+      usd_value: string;
+      count: number;
+    }>;
+  } | null>(null);
 
   // Dynamic dashboard cards state
   const [dynamicCardsRow3, setDynamicCardsRow3] = useState<DashboardCardData[]>([]);
@@ -706,6 +727,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
     if (response.templarsNftBalance) {
       setTemplarsNftBalance({ total_count: response.templarsNftBalance.total_count || 0 });
     }
+
+    // Process Cow Swap metrics
+    if (response.cowswapSwaps) {
+      setCowswapSwaps({
+        total_count: response.cowswapSwaps.total_count || 0,
+        total_value: response.cowswapSwaps.total_value || '0',
+        sub_aggregates: response.cowswapSwaps.sub_aggregates || [],
+      });
+    }
   }, []);
 
   // Refresh all data function - uses consolidated endpoint
@@ -738,6 +768,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
     setShelliesStaking(null);
     setInkdcaRunDca(null);
     setTemplarsNftBalance(null);
+    setCowswapSwaps(null);
     setDynamicCardsRow3([]);
     setDynamicCardsRow4([]);
 
@@ -2647,6 +2678,104 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                     <div className="flex justify-between items-center text-[11px]">
                       <span className="text-slate-400">Balance</span>
                       <span className="font-mono text-white">0</span>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Cow Swap Card */}
+          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-blue-500/20 bg-blue-500/5 h-[300px] flex flex-col" style={{ animationDelay: '1.15s' }}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                <a
+                  href={PLATFORM_URLS['cowswap']}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:ring-2 hover:ring-blue-500/50 rounded-full transition-all cursor-pointer"
+                  title="Visit Cow Swap"
+                >
+                  <img
+                    src={getProxiedImageUrl('https://swap.cow.fi/favicon-dark-mode.png')}
+                    alt="Cow Swap"
+                    className="w-6 h-6 rounded-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=COW&background=3b82f6&color=fff&size=24';
+                    }}
+                  />
+                </a>
+                Cow Swap
+              </h3>
+            </div>
+
+            {!isDemo ? (
+              cowswapSwaps ? (
+                <>
+                  <div className="mb-3">
+                    <div className="text-2xl font-bold font-display text-blue-400">
+                      ${parseFloat(cowswapSwaps.total_value).toLocaleString(undefined, { 
+                        minimumFractionDigits: 2, 
+                        maximumFractionDigits: 2 
+                      })}
+                    </div>
+                    <div className="text-xs text-slate-500">
+                      {cowswapSwaps.total_count} swap{cowswapSwaps.total_count !== 1 ? 's' : ''}
+                    </div>
+                  </div>
+
+                  <div className="flex-1 pt-3 border-t border-slate-700/50 flex flex-col min-h-0">
+                    <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">By Token</span>
+                    <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar">
+                      {cowswapSwaps.sub_aggregates.slice(0, 5).map((item, i) => (
+                        <div key={i} className="text-[11px]">
+                          <div className="flex justify-between items-center py-0.5">
+                            <span className="text-slate-400">{item.token}</span>
+                            <span className="font-mono text-white text-[10px]">
+                              ${parseFloat(item.usd_value).toLocaleString(undefined, { 
+                                minimumFractionDigits: 2, 
+                                maximumFractionDigits: 2 
+                              })}
+                            </span>
+                          </div>
+                          <div className="text-[9px] text-slate-500">
+                            {item.count} swap{item.count !== 1 ? 's' : ''}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {cowswapSwaps.total_count > 0 && (
+                    <div className="mt-2 text-xs text-blue-400 opacity-80 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse"></span>
+                      Active Swapper
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="flex-1 flex flex-col justify-center">
+                  <div className="h-8 w-16 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+                  <div className="h-3 w-24 bg-slate-700/30 rounded animate-pulse mb-4"></div>
+                  <div className="space-y-2">
+                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
+                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
+                  </div>
+                </div>
+              )
+            ) : (
+              <>
+                <div className="mb-3">
+                  <div className="text-2xl font-bold font-display text-blue-400">$0.00</div>
+                  <div className="text-xs text-slate-500">0 swaps</div>
+                </div>
+
+                <div className="flex-1 pt-3 border-t border-slate-700/50">
+                  <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">By Token</span>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">No swaps yet</span>
+                      <span className="font-mono text-slate-500">-</span>
                     </div>
                   </div>
                 </div>

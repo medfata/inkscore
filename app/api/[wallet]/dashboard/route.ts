@@ -67,6 +67,7 @@ export async function GET(
       openseaSaleCountResult,
       inkdcaRunDcaResult,
       templarsNftBalanceResult,
+      cowswapSwapsResult,
     ] = await Promise.all([
       fetchFromExpress(`/api/wallet/${walletAddress}/stats`),
       fetchFromExpress(`/api/wallet/${walletAddress}/bridge`),
@@ -95,6 +96,7 @@ export async function GET(
       fetchFromExpress(`/api/analytics/${walletAddress}/opensea_sale_count`),
       fetchFromExpress(`/api/analytics/${walletAddress}/inkdca_run_dca`),
       fetchFromExpress(`/api/analytics/${walletAddress}/templars_nft_balance`),
+      fetchFromExpress(`/api/analytics/${walletAddress}/cowswap_swaps`),
     ]);
 
     // Collect any errors (only log critical ones)
@@ -143,6 +145,7 @@ export async function GET(
       openseaSaleCount: openseaSaleCountResult.data,
       inkdcaRunDca: inkdcaRunDcaResult.data,
       templarsNftBalance: templarsNftBalanceResult.data,
+      cowswapSwaps: cowswapSwapsResult.data,
       ...(errors.length > 0 && { errors }),
     };
 
