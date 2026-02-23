@@ -84,6 +84,7 @@ const PLATFORM_URLS: Record<string, string> = {
   'shellies': 'https://shellies.xyz',
   'opensea': 'https://opensea.io',
   'inkdca': 'https://inkdca.com',
+  'templars': 'https://opensea.io/collection/templars-of-the-storm',
 };
 
 // NFT Marketplace platform logos and info (keyed by lowercase contract address)
@@ -415,6 +416,7 @@ interface ConsolidatedDashboardResponse {
   mintCount: { total_count?: number } | null;
   openseaSaleCount: { total_count?: number } | null;
   inkdcaRunDca: { total_count?: number } | null;
+  templarsNftBalance: { total_count?: number } | null;
   errors?: string[];
 }
 
@@ -472,6 +474,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
 
   // InkDCA metrics state
   const [inkdcaRunDca, setInkdcaRunDca] = useState<{ total_count: number } | null>(null);
+
+  // Templars NFT metrics state
+  const [templarsNftBalance, setTemplarsNftBalance] = useState<{ total_count: number } | null>(null);
 
   // Dynamic dashboard cards state
   const [dynamicCardsRow3, setDynamicCardsRow3] = useState<DashboardCardData[]>([]);
@@ -696,6 +701,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
     if (response.inkdcaRunDca) {
       setInkdcaRunDca({ total_count: response.inkdcaRunDca.total_count || 0 });
     }
+
+    // Process Templars NFT balance
+    if (response.templarsNftBalance) {
+      setTemplarsNftBalance({ total_count: response.templarsNftBalance.total_count || 0 });
+    }
   }, []);
 
   // Refresh all data function - uses consolidated endpoint
@@ -727,6 +737,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
     setShelliesPayToPlay(null);
     setShelliesStaking(null);
     setInkdcaRunDca(null);
+    setTemplarsNftBalance(null);
     setDynamicCardsRow3([]);
     setDynamicCardsRow4([]);
 
@@ -2544,6 +2555,97 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                     </div>
                     <div className="flex justify-between items-center text-[11px]">
                       <span className="text-slate-400">Automated Buys</span>
+                      <span className="font-mono text-white">0</span>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Templars of the Storm NFT Card */}
+          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-purple-500/20 bg-purple-500/5 h-[300px] flex flex-col" style={{ animationDelay: '1.1s' }}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                <a
+                  href={PLATFORM_URLS['templars']}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:ring-2 hover:ring-purple-500/50 rounded-full transition-all cursor-pointer"
+                  title="View Collection"
+                >
+                  <img
+                    src={getProxiedImageUrl('https://i2c.seadn.io/admin-uploads/f189f573f43d0fa8eab11049be7133/aaf189f573f43d0fa8eab11049be7133.png?h=250&w=250')}
+                    alt="Templars of the Storm"
+                    className="w-6 h-6 rounded-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=Templars&background=a855f7&color=fff&size=24';
+                    }}
+                  />
+                </a>
+                Templars of the Storm
+              </h3>
+            </div>
+
+            {!isDemo ? (
+              templarsNftBalance ? (
+                <>
+                  <div className="mb-3">
+                    <div className="text-2xl font-bold font-display text-purple-400">
+                      {templarsNftBalance.total_count.toLocaleString()}
+                    </div>
+                    <div className="text-xs text-slate-500">
+                      {templarsNftBalance.total_count} NFT{templarsNftBalance.total_count !== 1 ? 's' : ''} held
+                    </div>
+                  </div>
+
+                  <div className="flex-1 pt-3 border-t border-slate-700/50">
+                    <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">Collection</span>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center text-[11px]">
+                        <span className="text-slate-400">Templars of the Storm</span>
+                        <span className="font-mono text-purple-400">NFT</span>
+                      </div>
+                      <div className="flex justify-between items-center text-[11px]">
+                        <span className="text-slate-400">Balance</span>
+                        <span className="font-mono text-white">{templarsNftBalance.total_count}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {templarsNftBalance.total_count > 0 && (
+                    <div className="mt-2 text-xs text-purple-400 opacity-80 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse"></span>
+                      Templar Holder
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="flex-1 flex flex-col justify-center">
+                  <div className="h-8 w-16 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+                  <div className="h-3 w-24 bg-slate-700/30 rounded animate-pulse mb-4"></div>
+                  <div className="space-y-2">
+                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
+                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
+                  </div>
+                </div>
+              )
+            ) : (
+              <>
+                <div className="mb-3">
+                  <div className="text-2xl font-bold font-display text-purple-400">0</div>
+                  <div className="text-xs text-slate-500">0 NFTs held</div>
+                </div>
+
+                <div className="flex-1 pt-3 border-t border-slate-700/50">
+                  <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">Collection</span>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">Templars of the Storm</span>
+                      <span className="font-mono text-slate-500">NFT</span>
+                    </div>
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">Balance</span>
                       <span className="font-mono text-white">0</span>
                     </div>
                   </div>

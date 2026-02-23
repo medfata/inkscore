@@ -2,6 +2,8 @@ import { Router, Request, Response } from 'express';
 import { responseCache } from '../cache';
 import { analyticsService } from '../services/analytics-service';
 import { query } from '../db';
+import { createPublicClient, http } from 'viem';
+import { defineChain } from 'viem';
 
 const router = Router();
 
@@ -9,6 +11,36 @@ const router = Router();
 function isValidAddress(address: string): boolean {
   return /^0x[a-fA-F0-9]{40}$/.test(address);
 }
+
+// Define Ink Chain for viem (Mainnet)
+const inkChain = defineChain({
+  id: 57073,
+  name: 'Ink',
+  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  rpcUrls: {
+    default: { http: ['https://rpc-gel.inkonchain.com'] },
+  },
+  blockExplorers: {
+    default: { name: 'Routescan', url: 'https://explorer.inkonchain.com' },
+  },
+});
+
+// Create viem public client for Ink Chain
+const publicClient = createPublicClient({
+  chain: inkChain,
+  transport: http(),
+});
+
+// ERC721 balanceOf ABI
+const ERC721_BALANCE_OF_ABI = [
+  {
+    inputs: [{ name: 'owner', type: 'address' }],
+    name: 'balanceOf',
+    outputs: [{ name: 'balance', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+] as const;
 
 // ============================================
 // Contract addresses and constants
@@ -50,6 +82,9 @@ const NFT_CONTRACTS = [
 // InkDCA contract address and method
 const INKDCA_CONTRACT_ADDRESS = '0x4286643d9612515F487c2F3272845bc53Ca80705';
 const INKDCA_RUN_FUNCTION = 'runDCA';
+
+// Templars of the Storm NFT contract address
+const TEMPLARS_NFT_CONTRACT_ADDRESS = '0x46625E7de9894D83fca49E79cB53B5C25550cE99';
 
 // ZNS tracking config
 const ZNS_CONFIG = {
@@ -834,6 +869,69 @@ router.get('/:wallet/:metric', async (req: Request, res: Response) => {
 
       responseCache.set(cacheKey, result);
       return res.json(result);
+    }
+
+    // Special handling for templars_nft_balance - blockchain read operation
+    if (metric === 'templars_nft_balance') {
+      try {
+        // First, try ERC721 balanceOf
+        let balance: bigint;
+        try {
+          balance = await publicClient.readContract({
+            address: TEMPLARS_NFT_CONTRACT_ADDRESS as `0x${string}`,
+            abi: ERC721_BALANCE_OF_ABI,
+            functionName: 'balanceOf',
+            args: [walletLower as `0x${string}`],
+          });
+        } catch (erc721Error) {
+          // If ERC721 fails, try ERC1155 balanceOf (requires token ID)
+          // For now, we'll just return 0 and log the error
+          console.error('Error reading ERC721 balanceOf for Templars NFT:', erc721Error);
+          
+          // Check if contract exists by trying to get code
+          const code = await publicClient.getBytecode({
+            address: TEMPLARS_NFT_CONTRACT_ADDRESS as `0x${string}`,
+          });
+          
+          if (!code || code === '0x') {
+            console.error(`Contract does not exist at ${TEMPLARS_NFT_CONTRACT_ADDRESS} on Ink mainnet`);
+          }
+          
+          // Return 0 balance
+          balance = BigInt(0);
+        }
+
+        const count = Number(balance);
+
+        const result = {
+          slug: 'templars_nft_balance',
+          name: 'Templars of the Storm',
+          icon: '⚔️',
+          currency: 'COUNT',
+          total_count: count,
+          total_value: count.toString(),
+          sub_aggregates: [],
+          last_updated: new Date(),
+        };
+
+        responseCache.set(cacheKey, result);
+        return res.json(result);
+      } catch (error) {
+        console.error('Error fetching Templars NFT balance:', error);
+        // Return 0 balance on error instead of failing
+        const result = {
+          slug: 'templars_nft_balance',
+          name: 'Templars of the Storm',
+          icon: '⚔️',
+          currency: 'COUNT',
+          total_count: 0,
+          total_value: '0',
+          sub_aggregates: [],
+          last_updated: new Date(),
+        };
+        responseCache.set(cacheKey, result);
+        return res.json(result);
+      }
     }
 
     // For other metrics, use the existing analytics service
