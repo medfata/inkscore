@@ -19,6 +19,8 @@ import { DashboardCardData } from '../../lib/types/dashboard';
 import { DynamicCardsCarouselRow3, DynamicCardsCarouselRow4 } from './DynamicDashboardCards';
 import { MintScoreNFT } from './MintScoreNFT';
 import { getProxiedImageUrl } from '@/lib/utils/imageProxy';
+import { useStreamingDashboard } from '../hooks/useStreamingDashboard';
+import { StreamingDebugPanel } from './StreamingDebugPanel';
 
 // Bridge platform logos and URLs
 const BRIDGE_PLATFORMS: Record<string, { logo: string; url: string }> = {
@@ -433,6 +435,30 @@ interface ConsolidatedDashboardResponse {
 const REFRESH_COOLDOWN_MS = 30000; // 30 seconds
 
 export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) => {
+  // Feature flag for streaming
+  const enableStreaming = process.env.NEXT_PUBLIC_ENABLE_STREAMING === 'true';
+
+  // Streaming hook - only enabled if feature flag is on and not in demo mode
+  const streamingState = useStreamingDashboard(walletAddress, enableStreaming && !isDemo);
+
+  // Helper function to check if a metric is loading
+  const isMetricLoading = (metricId: string): boolean => {
+    if (!enableStreaming || isDemo) {
+      // Fallback to individual state checks when streaming is disabled
+      return false; // Will be handled by existing loading logic
+    }
+    return streamingState.loadingMetrics.has(metricId);
+  };
+
+  // Helper function to get metric data
+  const getMetricData = (metricId: string): any => {
+    if (!enableStreaming || isDemo) {
+      // Fallback to individual state variables when streaming is disabled
+      return null; // Will be handled by existing state logic
+    }
+    return streamingState.metrics[metricId] || null;
+  };
+
   const [data, setData] = useState<{ stats: WalletStats, score: ScoreData } | null>(null);
   const [loading, setLoading] = useState(true);
   const [aiAnalysis, setAiAnalysis] = useState<AiAnalysisResult | null>(null);
@@ -738,6 +764,133 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
     }
   }, []);
 
+  // Process streaming metrics when they arrive
+  useEffect(() => {
+    if (!enableStreaming || isDemo || !streamingState.metrics) return;
+
+    // Process each metric as it arrives from the stream
+    Object.entries(streamingState.metrics).forEach(([metricId, data]) => {
+      if (!data) return;
+
+      switch (metricId) {
+        case 'stats':
+          setRealWalletStats({
+            balanceUsd: Number(data.balanceUsd) || 0,
+            balanceEth: Number(data.balanceEth) || 0,
+            totalTxns: Number(data.totalTxns) || 0,
+            nftCount: Number(data.nftCount) || 0,
+            ageDays: Number(data.ageDays) || 0,
+            nftCollections: data.nftCollections || [],
+            tokenHoldings: (data.tokenHoldings || []).map((t: any) => ({
+              ...t,
+              balance: Number(t.balance) || 0,
+              usdValue: Number(t.usdValue) || 0,
+            })),
+          });
+          break;
+        case 'bridge':
+          setBridgeVolume(data);
+          break;
+        case 'swap':
+          setSwapVolume(data);
+          break;
+        case 'volume':
+          setTotalVolume(data);
+          break;
+        case 'score':
+          setWalletScore(data);
+          break;
+        case 'tydro':
+          setTydroCurrentSupply(data);
+          break;
+        case 'gmCount':
+          setRealGmData({ count: data.total_count || 0 });
+          break;
+        case 'openseaBuyCount':
+          setRealOpenSeaBuys({ count: data.total_count || 0 });
+          break;
+        case 'mintCount':
+          setRealMintCount({ count: data.total_count || 0 });
+          break;
+        case 'openseaSaleCount':
+          setRealOpenSeaSales({ count: data.total_count || 0 });
+          break;
+        case 'marvk':
+          setMarvkMetrics(data);
+          break;
+        case 'copink':
+          setCopinkMetrics(data);
+          break;
+        case 'nado':
+          setNadoMetrics(data);
+          break;
+        case 'nft2me':
+          setNft2meMetrics(data);
+          break;
+        case 'inkypumpCreatedTokens':
+          setInkyPumpCreatedTokens({ count: data.total_count || 0 });
+          break;
+        case 'inkypumpBuyVolume':
+          setInkyPumpBuyVolume(data);
+          break;
+        case 'inkypumpSellVolume':
+          setInkyPumpSellVolume(data);
+          break;
+        case 'nftTraded':
+          setNftTrading(data);
+          break;
+        case 'zns':
+          setZnsMetrics(data);
+          break;
+        case 'shelliesJoinedRaffles':
+          setShelliesJoinedRaffles({ total_count: data.total_count || 0 });
+          break;
+        case 'shelliesPayToPlay':
+          setShelliesPayToPlay({ total_count: data.total_count || 0 });
+          break;
+        case 'shelliesStaking':
+          setShelliesStaking({ total_count: data.total_count || 0 });
+          break;
+        case 'inkdcaRunDca':
+          setInkdcaRunDca({ total_count: data.total_count || 0 });
+          break;
+        case 'templarsNftBalance':
+          setTemplarsNftBalance({ total_count: data.total_count || 0 });
+          break;
+        case 'cowswapSwaps':
+          setCowswapSwaps(data);
+          break;
+        case 'cards':
+          if (data.row3) setDynamicCardsRow3(data.row3);
+          if (data.row4) setDynamicCardsRow4(data.row4);
+          break;
+        case 'analytics':
+          // Process analytics (Tydro and InkySwap data)
+          if (data.metrics) {
+            const supplyMetric = data.metrics.find((m: any) => m.slug === 'tydro_usd_supply');
+            const borrowMetric = data.metrics.find((m: any) => m.slug === 'Tydro_usd_borrow');
+            setRealTydroData({
+              supplyVolume: parseFloat(supplyMetric?.total_value || '0'),
+              supplyCount: supplyMetric?.total_count || 0,
+              borrowVolume: parseFloat(borrowMetric?.total_value || '0'),
+              borrowCount: borrowMetric?.total_count || 0,
+            });
+
+            const inkySwapMetric = data.metrics.find((m: any) =>
+              m.slug.toLowerCase().includes('inkyswap')
+            );
+            if (inkySwapMetric) {
+              setInkySwapVolume({
+                totalValue: parseFloat(inkySwapMetric.total_value || '0'),
+                totalCount: inkySwapMetric.total_count || 0,
+              });
+            }
+          }
+          break;
+      }
+    });
+  }, [streamingState.metrics, enableStreaming, isDemo]);
+
   // Refresh all data function - uses consolidated endpoint
   const refreshAllData = useCallback(async () => {
     if (isDemo || isRefreshing || cooldownRemaining > 0) return;
@@ -817,8 +970,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
   }, [walletAddress, isDemo]);
 
   // Fetch all dashboard data using consolidated endpoint when not in demo mode
+  // Skip if streaming is enabled (streaming hook handles data fetching)
   useEffect(() => {
-    if (isDemo || !walletAddress || walletAddress.length < 10) return;
+    if (isDemo || !walletAddress || walletAddress.length < 10 || enableStreaming) return;
 
     const fetchDashboardData = async () => {
       try {
@@ -833,7 +987,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
     };
 
     fetchDashboardData();
-  }, [walletAddress, isDemo, processConsolidatedResponse]);
+  }, [walletAddress, isDemo, enableStreaming, processConsolidatedResponse]);
 
   const handleAiAnalysis = async () => {
     if (!data) return;
@@ -1214,7 +1368,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
 
             </div>
 
-            {!isDemo && !realTydroData && !tydroCurrentSupply ? (
+            {!isDemo && (isMetricLoading('tydro') || (!realTydroData && !tydroCurrentSupply)) ? (
               <div className="flex-1 flex flex-col gap-3 relative z-10">
                 {/* Current Positions Skeleton */}
                 <div className="grid grid-cols-2 gap-3">
@@ -1394,7 +1548,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
               </h3>
             </div>
 
-            {!isDemo && !nadoMetrics ? (
+            {!isDemo && (isMetricLoading('nado') || !nadoMetrics) ? (
               <div className="flex-1 flex flex-col justify-center">
                 <div className="h-8 w-20 bg-slate-700/50 rounded animate-pulse mb-2"></div>
                 <div className="h-3 w-32 bg-slate-700/30 rounded animate-pulse mb-4"></div>
@@ -1474,7 +1628,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
               </h3>
             </div>
 
-            {!isDemo && !realGmData ? (
+            {!isDemo && (isMetricLoading('gmCount') || !realGmData) ? (
               <div className="flex-1 flex flex-col items-center justify-center">
                 <div className="h-16 w-24 bg-slate-700/50 rounded animate-pulse mb-2"></div>
                 <div className="h-4 w-32 bg-slate-700/30 rounded animate-pulse"></div>
@@ -1527,7 +1681,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
               </h3>
             </div>
 
-            {!isDemo && bridgeVolume ? (
+            {!isDemo && (isMetricLoading('bridge') || !bridgeVolume) ? (
+              <div className="flex-1 flex flex-col justify-center">
+                <div className="h-8 w-28 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+                <div className="h-3 w-20 bg-slate-700/30 rounded animate-pulse"></div>
+              </div>
+            ) : !isDemo && bridgeVolume ? (
               (() => {
                 // Show all platforms from the API response
                 // Use logo/url from API if available, fallback to hardcoded BRIDGE_PLATFORMS
@@ -1674,7 +1833,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
               </h3>
             </div>
 
-            {!isDemo && (!inkyPumpCreatedTokens || !inkyPumpBuyVolume || !inkyPumpSellVolume) ? (
+            {!isDemo && (isMetricLoading('inkypumpCreatedTokens') || isMetricLoading('inkypumpBuyVolume') || isMetricLoading('inkypumpSellVolume') || !inkyPumpCreatedTokens || !inkyPumpBuyVolume || !inkyPumpSellVolume) ? (
               <div className="flex-1 flex flex-col justify-center">
                 <div className="h-8 w-20 bg-slate-700/50 rounded animate-pulse mb-2"></div>
                 <div className="h-3 w-24 bg-slate-700/30 rounded animate-pulse mb-4"></div>
@@ -1759,7 +1918,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
               </h3>
             </div>
 
-            {!isDemo && swapVolume ? (
+            {!isDemo && (isMetricLoading('swap') || !swapVolume) ? (
+              <div className="flex-1 flex flex-col justify-center">
+                <div className="h-8 w-28 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+                <div className="h-3 w-20 bg-slate-700/30 rounded animate-pulse mb-4"></div>
+                <div className="space-y-2">
+                  <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
+                  <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
+                  <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
+                </div>
+              </div>
+            ) : !isDemo && swapVolume ? (
               <>
                 <div className="mb-3">
                   <div className="text-2xl font-bold font-display text-cyan-400">
@@ -1862,10 +2031,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
               </h3>
             </div>
 
-            {!isDemo && !znsMetrics ? (
+            {!isDemo && (isMetricLoading('zns') || !znsMetrics) ? (
               <div className="flex-1 flex flex-col justify-center">
                 <div className="h-8 w-16 bg-slate-700/50 rounded animate-pulse mb-2"></div>
-                <div className="h-3 w-24 bg-slate-700/30 rounded animate-pulse"></div>
+                <div className="h-3 w-24 bg-slate-700/30 rounded animate-pulse mb-4"></div>
+                <div className="space-y-2">
+                  <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
+                  <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
+                  <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
+                </div>
               </div>
             ) : (
               <>
@@ -1943,7 +2117,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
             </div>
 
             {!isDemo ? (
-              nftTrading ? (
+              (isMetricLoading('nftTraded') || !nftTrading) ? (
+                <div className="flex-1 flex flex-col justify-center">
+                  <div className="h-8 w-16 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+                  <div className="h-3 w-24 bg-slate-700/30 rounded animate-pulse mb-4"></div>
+                  <div className="space-y-2">
+                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
+                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
+                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
+                  </div>
+                </div>
+              ) : (
                 <>
                   <div className="mb-3">
                     <div className="text-2xl font-bold font-display text-green-400">
@@ -1996,11 +2180,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                     </div>
                   )}
                 </>
-              ) : (
-                <div className="flex-1 flex flex-col justify-center">
-                  <div className="h-8 w-16 bg-slate-700/50 rounded animate-pulse mb-2"></div>
-                  <div className="h-3 w-24 bg-slate-700/30 rounded animate-pulse"></div>
-                </div>
               )
             ) : (
               <>
@@ -2066,7 +2245,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
             </div>
 
             {!isDemo ? (
-              realOpenSeaBuys ? (
+              (isMetricLoading('openseaBuyCount') || isMetricLoading('mintCount') || isMetricLoading('openseaSaleCount') || !realOpenSeaBuys) ? (
+                <div className="flex-1 flex flex-col justify-center">
+                  <div className="h-8 w-16 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+                  <div className="h-3 w-24 bg-slate-700/30 rounded animate-pulse mb-3"></div>
+                  <div className="h-6 w-16 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+                  <div className="h-3 w-20 bg-slate-700/30 rounded animate-pulse mb-3"></div>
+                  <div className="h-6 w-16 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+                  <div className="h-3 w-20 bg-slate-700/30 rounded animate-pulse"></div>
+                </div>
+              ) : (
                 <>
                   <div className="mb-3">
                     <div className="text-2xl font-bold font-display text-sky-400">
@@ -2097,11 +2285,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                     </div>
                   )}
                 </>
-              ) : (
-                <div className="flex-1 flex flex-col justify-center">
-                  <div className="h-8 w-16 bg-slate-700/50 rounded animate-pulse mb-2"></div>
-                  <div className="h-3 w-24 bg-slate-700/30 rounded animate-pulse"></div>
-                </div>
               )
             ) : (
               <>
@@ -2155,7 +2338,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
             </div>
 
             {!isDemo ? (
-              copinkMetrics ? (
+              (isMetricLoading('copink') || !copinkMetrics) ? (
+                <div className="flex-1 flex flex-col justify-center">
+                  <div className="h-8 w-20 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+                  <div className="h-3 w-32 bg-slate-700/30 rounded animate-pulse mb-4"></div>
+                  <div className="space-y-2">
+                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
+                  </div>
+                </div>
+              ) : (
                 <>
                   <div className="mb-3">
                     <div className="text-2xl font-bold font-display text-green-400">
@@ -2182,25 +2373,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                       Active Copink Trader
                     </div>
                   )}
-                </>
-              ) : (
-                <>
-                  <div className="mb-3">
-                    <div className="text-2xl font-bold font-display text-violet-400">
-                      <div className="animate-pulse bg-slate-700 h-8 w-20 rounded"></div>
-                    </div>
-                    <div className="text-xs text-slate-500">Loading...</div>
-                  </div>
-
-                  <div className="flex-1 pt-3 border-t border-slate-700/50">
-                    <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">Account Details</span>
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center text-[11px]">
-                        <span className="text-slate-400">Subaccounts Found</span>
-                        <div className="animate-pulse bg-slate-700 h-3 w-8 rounded"></div>
-                      </div>
-                    </div>
-                  </div>
                 </>
               )
             ) : (
@@ -2248,7 +2420,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
             </div>
 
             {!isDemo ? (
-              nft2meMetrics ? (
+              (isMetricLoading('nft2me') || !nft2meMetrics) ? (
+                <div className="flex-1 flex flex-col justify-center">
+                  <div className="h-8 w-16 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+                  <div className="h-3 w-24 bg-slate-700/30 rounded animate-pulse mb-4"></div>
+                  <div className="space-y-2">
+                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
+                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
+                  </div>
+                </div>
+              ) : (
                 <>
                   <div className="mb-3">
                     <div className="text-2xl font-bold font-display text-cyan-400">
@@ -2280,15 +2461,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                     </div>
                   )}
                 </>
-              ) : (
-                <div className="flex-1 flex flex-col justify-center">
-                  <div className="h-8 w-16 bg-slate-700/50 rounded animate-pulse mb-2"></div>
-                  <div className="h-3 w-24 bg-slate-700/30 rounded animate-pulse mb-4"></div>
-                  <div className="space-y-2">
-                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
-                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
-                  </div>
-                </div>
               )
             ) : (
               <>
@@ -2343,7 +2515,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
               </h3>
             </div>
 
-            {!isDemo && (!shelliesJoinedRaffles || !shelliesPayToPlay || !shelliesStaking) ? (
+            {!isDemo && (isMetricLoading('shelliesJoinedRaffles') || isMetricLoading('shelliesPayToPlay') || isMetricLoading('shelliesStaking') || !shelliesJoinedRaffles || !shelliesPayToPlay || !shelliesStaking) ? (
               <div className="flex-1 flex flex-col justify-center">
                 <div className="h-8 w-20 bg-slate-700/50 rounded animate-pulse mb-2"></div>
                 <div className="h-3 w-32 bg-slate-700/30 rounded animate-pulse mb-4"></div>
@@ -2423,7 +2595,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
             </div>
 
             {!isDemo ? (
-              marvkMetrics ? (
+              (isMetricLoading('marvk') || !marvkMetrics) ? (
+                <div className="flex-1 flex flex-col justify-center">
+                  <div className="h-8 w-16 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+                  <div className="h-3 w-24 bg-slate-700/30 rounded animate-pulse mb-4"></div>
+                  <div className="space-y-2">
+                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
+                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
+                  </div>
+                </div>
+              ) : (
                 <>
                   <div className="mb-3">
                     <div className="text-2xl font-bold font-display text-violet-400">
@@ -2454,29 +2635,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                       Active Marvk User
                     </div>
                   )}
-                </>
-              ) : (
-                <>
-                  <div className="mb-3">
-                    <div className="text-2xl font-bold font-display text-violet-400">
-                      <div className="animate-pulse bg-slate-700 h-8 w-16 rounded"></div>
-                    </div>
-                    <div className="text-xs text-slate-500">Loading...</div>
-                  </div>
-
-                  <div className="flex-1 pt-3 border-t border-slate-700/50">
-                    <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">By Action</span>
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center text-[11px]">
-                        <span className="text-slate-400">Lock Token</span>
-                        <div className="animate-pulse bg-slate-700 h-3 w-8 rounded"></div>
-                      </div>
-                      <div className="flex justify-between items-center text-[11px]">
-                        <span className="text-slate-400">Vest Token</span>
-                        <div className="animate-pulse bg-slate-700 h-3 w-8 rounded"></div>
-                      </div>
-                    </div>
-                  </div>
                 </>
               )
             ) : (
@@ -2528,7 +2686,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
             </div>
 
             {!isDemo ? (
-              inkdcaRunDca ? (
+              (isMetricLoading('inkdcaRunDca') || !inkdcaRunDca) ? (
+                <div className="flex-1 flex flex-col justify-center">
+                  <div className="h-8 w-16 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+                  <div className="h-3 w-24 bg-slate-700/30 rounded animate-pulse mb-4"></div>
+                  <div className="space-y-2">
+                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
+                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
+                  </div>
+                </div>
+              ) : (
                 <>
                   <div className="mb-3">
                     <div className="text-2xl font-bold font-display text-emerald-400">
@@ -2560,15 +2727,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                     </div>
                   )}
                 </>
-              ) : (
-                <div className="flex-1 flex flex-col justify-center">
-                  <div className="h-8 w-16 bg-slate-700/50 rounded animate-pulse mb-2"></div>
-                  <div className="h-3 w-24 bg-slate-700/30 rounded animate-pulse mb-4"></div>
-                  <div className="space-y-2">
-                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
-                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
-                  </div>
-                </div>
               )
             ) : (
               <>
@@ -2619,7 +2777,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
             </div>
 
             {!isDemo ? (
-              templarsNftBalance ? (
+              (isMetricLoading('templarsNftBalance') || !templarsNftBalance) ? (
+                <div className="flex-1 flex flex-col justify-center">
+                  <div className="h-8 w-16 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+                  <div className="h-3 w-24 bg-slate-700/30 rounded animate-pulse mb-4"></div>
+                  <div className="space-y-2">
+                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
+                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
+                  </div>
+                </div>
+              ) : (
                 <>
                   <div className="mb-3">
                     <div className="text-2xl font-bold font-display text-purple-400">
@@ -2651,15 +2818,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                     </div>
                   )}
                 </>
-              ) : (
-                <div className="flex-1 flex flex-col justify-center">
-                  <div className="h-8 w-16 bg-slate-700/50 rounded animate-pulse mb-2"></div>
-                  <div className="h-3 w-24 bg-slate-700/30 rounded animate-pulse mb-4"></div>
-                  <div className="space-y-2">
-                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
-                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
-                  </div>
-                </div>
               )
             ) : (
               <>
@@ -2710,7 +2868,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
             </div>
 
             {!isDemo ? (
-              cowswapSwaps ? (
+              (isMetricLoading('cowswapSwaps') || !cowswapSwaps) ? (
+                <div className="flex-1 flex flex-col justify-center">
+                  <div className="h-8 w-16 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+                  <div className="h-3 w-24 bg-slate-700/30 rounded animate-pulse mb-4"></div>
+                  <div className="space-y-2">
+                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
+                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
+                  </div>
+                </div>
+              ) : (
                 <>
                   <div className="mb-3">
                     <div className="text-2xl font-bold font-display text-blue-400">
@@ -2753,15 +2920,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                     </div>
                   )}
                 </>
-              ) : (
-                <div className="flex-1 flex flex-col justify-center">
-                  <div className="h-8 w-16 bg-slate-700/50 rounded animate-pulse mb-2"></div>
-                  <div className="h-3 w-24 bg-slate-700/30 rounded animate-pulse mb-4"></div>
-                  <div className="space-y-2">
-                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
-                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
-                  </div>
-                </div>
               )
             ) : (
               <>
@@ -2796,6 +2954,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
           />
         )}
       </div>
+
+      {/* Streaming Debug Panel - Only show when streaming is enabled and not in demo mode */}
+      {enableStreaming && !isDemo && (
+        <StreamingDebugPanel
+          isConnected={streamingState.isConnected}
+          isComplete={streamingState.isComplete}
+          loadingMetrics={streamingState.loadingMetrics}
+          errors={streamingState.errors}
+          totalDuration={streamingState.totalDuration}
+          timedOut={streamingState.timedOut}
+          totalMetrics={27}
+        />
+      )}
     </div>
   );
 };

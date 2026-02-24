@@ -6,7 +6,14 @@
     "dev": "next dev",
     "build": "next build --webpack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest --coverage",
+    "test:performance": "vitest run app/api/[wallet]/dashboard/__tests__/streaming.performance.test.ts",
+    "benchmark:streaming": "tsx scripts/benchmark-streaming.ts",
+    "test:memory-leaks": "node --expose-gc --loader tsx scripts/test-memory-leaks.ts",
+    "test:slow-network": "tsx scripts/test-slow-network.ts"
   },
   "dependencies": {
     "@reown/appkit": "^1.8.15",
@@ -34,12 +41,19 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@testing-library/jest-dom": "^6.1.5",
+    "@testing-library/react": "^14.1.2",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^4.2.1",
+    "@vitest/ui": "^1.0.4",
     "eslint": "^9",
     "eslint-config-next": "16.0.10",
+    "jsdom": "^23.0.1",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "tsx": "^4.7.0",
+    "typescript": "^5",
+    "vitest": "^1.0.4"
   }
 }
