@@ -13,13 +13,23 @@ interface FetchResult<T> {
 
 async function fetchFromExpress<T>(endpoint: string): Promise<FetchResult<T>> {
   try {
-    const response = await fetch(`${API_SERVER_URL}${endpoint}`);
+    console.log(`[FETCH] Requesting: ${API_SERVER_URL}${endpoint}`);
+    const response = await fetch(`${API_SERVER_URL}${endpoint}`, {
+      headers: {
+        'User-Agent': 'Vercel-Next.js',
+        'Accept': 'application/json',
+      }
+    });
+    console.log(`[FETCH] Response status: ${response.status} for ${endpoint}`);
     if (!response.ok) {
+      const errorText = await response.text().catch(() => 'Unable to read error');
+      console.error(`[FETCH] Error response: ${errorText}`);
       return { data: null, error: `HTTP ${response.status}` };
     }
     const data = await response.json();
     return { data, error: null };
   } catch (error) {
+    console.error(`[FETCH] Exception for ${endpoint}:`, error);
     return { data: null, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 }
