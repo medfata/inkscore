@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-// Use Edge Runtime for better SSE support on Vercel
-export const runtime = 'edge';
+// Use Node.js runtime for external API calls
+export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const API_SERVER_URL = process.env.API_SERVER_URL || 'http://localhost:4000';
