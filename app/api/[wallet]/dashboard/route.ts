@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-// Use Node.js runtime for external API calls
+// Use Node.js runtime - Edge Runtime blocks requests to IP addresses
+// Node.js runtime still supports SSE streaming via ReadableStream
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
