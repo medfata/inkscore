@@ -461,18 +461,17 @@ router.get('/:wallet/:metric', async (req: Request, res: Response) => {
       console.log(`[OPENSEA_SALE] Padded wallet: ${paddedWallet}`);
       
       const dbQueryStart = Date.now();
+      // OPTIMIZED: Use JSONB containment operator with LATERAL join
+      // Leverages GIN index: idx_tx_enrichment_opensea_logs_gin
       const rows = await query<{ count: string }>(`
         SELECT COUNT(DISTINCT te.tx_hash) as count
-        FROM transaction_enrichment te
-        WHERE te.contract_address = lower($1)
+        FROM transaction_enrichment te,
+             LATERAL jsonb_array_elements(te.logs) AS log
+        WHERE lower(te.contract_address::text) = lower($1)
           AND te.logs IS NOT NULL
-          AND EXISTS (
-            SELECT 1
-            FROM jsonb_array_elements(te.logs) AS log
-            WHERE log->>'event' = 'Transfer(address indexed from, address indexed to, uint256 value)'
-              AND jsonb_array_length(log->'topics') >= 2
-              AND lower(log->'topics'->>1) = lower($2)
-          )
+          AND log @> '{"event": "Transfer(address indexed from, address indexed to, uint256 value)"}'::jsonb
+          AND jsonb_array_length(log->'topics') >= 2
+          AND lower(log->'topics'->>1) = lower($2)
       `, [OPENSEA_CONTRACT_ADDRESS, paddedWallet]);
       const dbQueryTime = Date.now() - dbQueryStart;
       console.log(`[OPENSEA_SALE] DB query completed in ${dbQueryTime}ms`);
