@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+// Use Edge Runtime for better SSE support on Vercel
+export const runtime = 'edge';
+export const dynamic = 'force-dynamic';
+
 const API_SERVER_URL = process.env.API_SERVER_URL || 'http://localhost:4000';
 
 interface FetchResult<T> {
@@ -30,6 +34,9 @@ async function getStreamingDashboard(walletAddress: string) {
       const TIMEOUT_MS = 30000; // 30 seconds
       let timeoutId: NodeJS.Timeout | null = null;
       let isTimedOut = false;
+
+      // Send immediate heartbeat to bypass Vercel proxy buffering
+      controller.enqueue(encoder.encode(': ok\n\n'));
 
       // Define all metrics with IDs and endpoints
       const metrics = [
