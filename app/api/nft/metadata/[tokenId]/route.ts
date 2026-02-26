@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createPublicClient, http } from 'viem';
 import { NFT_CONTRACT_ADDRESS, NFT_CONTRACT_ABI } from '@/lib/nft-contract';
-import { generateScoreNFTSvg } from '@/lib/services/nft-image-service';
 
 // Ink Chain configuration
 const inkChain = {
@@ -102,32 +101,16 @@ export async function GET(
 
     console.log(`[NFT Metadata] Token ${tokenId}, Wallet: ${walletAddress}, Score: ${score}, Rank: ${rank}`);
     
-    // Calculate top percentage (simplified - you can enhance this with actual leaderboard data)
-    let topPercentage = 50;
-    if (score >= 5000) topPercentage = 1;
-    else if (score >= 2000) topPercentage = 5;
-    else if (score >= 1000) topPercentage = 10;
-    else if (score >= 500) topPercentage = 20;
-    else if (score >= 100) topPercentage = 30;
+    // Get the host and protocol to build the image URL
+    const host = request.headers.get('host') || 'inkscore.xyz';
+    const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
+    const imageUrl = `${protocol}://${host}/api/nft/image/${tokenId}`;
 
-    // Generate SVG image
-    const svgImage = generateScoreNFTSvg({
-      score,
-      rank,
-      rankColor,
-      walletAddress,
-      topPercentage,
-    });
-
-    // Convert SVG to base64 data URI
-    const svgBase64 = Buffer.from(svgImage).toString('base64');
-    const imageDataUri = `data:image/svg+xml;base64,${svgBase64}`;
-
-    // Build metadata response
+    // Build metadata response with image URL instead of base64
     const metadata: NFTMetadata = {
       name: `InkScore #${tokenId}`,
       description: `Dynamic achievement NFT representing wallet score on InkScore. This NFT displays the current score and rank for wallet ${abbreviateAddress(walletAddress)}.`,
-      image: imageDataUri,
+      image: imageUrl,
       external_url: `https://inkscore.xyz/wallet/${walletAddress}`,
       attributes: [
         { trait_type: 'Score', value: score },
@@ -136,10 +119,12 @@ export async function GET(
       ],
     };
 
-    // Set cache headers for dynamic content (short cache)
+    // Set cache headers for dynamic content
     return NextResponse.json(metadata, {
       headers: {
-        'Cache-Control': 'public, max-age=60, s-maxage=60',
+        'Cache-Control': 'public, max-age=3600, s-maxage=3600',
+        'Content-Type': 'application/json',
+        'X-Content-Type-Options': 'nosniff',
       },
     });
   } catch (error) {
