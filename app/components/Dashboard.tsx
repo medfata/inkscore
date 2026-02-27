@@ -217,6 +217,7 @@ interface NadoMetrics {
 interface DashboardProps {
   walletAddress: string;
   isDemo?: boolean;
+  isAdmin?: boolean;
 }
 
 const SUPPORTED_COLLECTIONS = [
@@ -371,6 +372,10 @@ interface RealWalletStats {
   ageDays: number;
   nftCollections: NftCollectionHolding[];
   tokenHoldings: RealTokenHolding[];
+  phase1Status?: {
+    isPhase1: boolean;
+    score: number | null;
+  };
 }
 
 // Consolidated dashboard response type from /api/:wallet/dashboard
@@ -414,7 +419,7 @@ interface ConsolidatedDashboardResponse {
 
 const REFRESH_COOLDOWN_MS = 30000; // 30 seconds
 
-export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isAdmin }) => {
   const [data, setData] = useState<{ stats: WalletStats, score: ScoreData } | null>(null);
   const [loading, setLoading] = useState(true);
   const [aiAnalysis, setAiAnalysis] = useState<AiAnalysisResult | null>(null);
@@ -500,6 +505,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
           balance: Number(t.balance) || 0,
           usdValue: Number(t.usdValue) || 0,
         })),
+        phase1Status: response.stats.phase1Status,
       });
     }
 
@@ -2347,6 +2353,113 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
               </>
             )}
           </div>
+
+          {/* InkScore Phase 1 Card - Only visible in admin mode */}
+          {isAdmin && (
+            <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-purple-500/20 bg-purple-500/5 h-[300px] flex flex-col" style={{ animationDelay: '1.1s' }}>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                  <img
+                    src="/favicon.ico"
+                    alt="InkScore"
+                    className="w-6 h-6 rounded-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=IS&background=a855f7&color=fff&size=24';
+                    }}
+                  />
+                  InkScore Phase 1
+                </h3>
+              </div>
+
+              {!isDemo ? (
+                realWalletStats?.phase1Status ? (
+                  <>
+                    <div className="mb-3">
+                      <div className={`text-2xl font-bold font-display ${realWalletStats.phase1Status.isPhase1 ? 'text-emerald-400' : 'text-slate-400'}`}>
+                        {realWalletStats.phase1Status.isPhase1 ? 'Eligible' : 'Not Eligible'}
+                      </div>
+                      <div className="text-xs text-slate-500">
+                        {realWalletStats.phase1Status.isPhase1 && realWalletStats.phase1Status.score 
+                          ? `Score: ${realWalletStats.phase1Status.score.toLocaleString()}`
+                          : 'Phase 1 Eligibility Status'
+                        }
+                      </div>
+                    </div>
+
+                    <div className="flex-1 pt-3 border-t border-slate-700/50">
+                      <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">Details</span>
+                      <div className="space-y-2">
+                        {realWalletStats.phase1Status.isPhase1 && realWalletStats.phase1Status.score ? (
+                          <>
+                            <div className="flex justify-between items-center text-[11px]">
+                              <span className="text-slate-400">Your Score</span>
+                              <span className="font-mono text-white">{realWalletStats.phase1Status.score.toLocaleString()}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-[11px]">
+                              <span className="text-slate-400">Status</span>
+                              <span className="font-mono text-emerald-400">✓ Qualified</span>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="flex justify-between items-center text-[11px]">
+                            <span className="text-slate-400">Status</span>
+                            <span className="font-mono text-slate-400">Not in Phase 1</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {realWalletStats.phase1Status.isPhase1 && (
+                      <div className="mt-2 text-xs text-emerald-400 opacity-80 flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                        Phase 1 Participant
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <div className="mb-3">
+                      <div className="text-2xl font-bold font-display text-slate-400">
+                        <div className="animate-pulse bg-slate-700 h-8 w-24 rounded"></div>
+                      </div>
+                      <div className="text-xs text-slate-500">Loading...</div>
+                    </div>
+
+                    <div className="flex-1 pt-3 border-t border-slate-700/50">
+                      <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">Details</span>
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center text-[11px]">
+                          <span className="text-slate-400">Your Score</span>
+                          <div className="animate-pulse bg-slate-700 h-3 w-12 rounded"></div>
+                        </div>
+                        <div className="flex justify-between items-center text-[11px]">
+                          <span className="text-slate-400">Status</span>
+                          <div className="animate-pulse bg-slate-700 h-3 w-16 rounded"></div>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )
+              ) : (
+                <>
+                  <div className="mb-3">
+                    <div className="text-2xl font-bold font-display text-slate-400">Not Eligible</div>
+                    <div className="text-xs text-slate-500">Phase 1 Eligibility Status</div>
+                  </div>
+
+                  <div className="flex-1 pt-3 border-t border-slate-700/50">
+                    <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">Details</span>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center text-[11px]">
+                        <span className="text-slate-400">Status</span>
+                        <span className="font-mono text-slate-400">Not in Phase 1</span>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
 
          
         </div>

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useAccount, useDisconnect } from 'wagmi';
 import { useAppKit } from '@reown/appkit/react';
+import { useSearchParams } from 'next/navigation';
 import { useIsAdmin } from '@/lib/hooks/useIsAdmin';
 import { Landing } from './components/Landing';
 import { Dashboard } from './components/Dashboard';
@@ -15,7 +16,7 @@ enum View {
   DASHBOARD
 }
 
-export default function Home() {
+function HomeContent() {
   const [currentView, setCurrentView] = useState<View>(View.LANDING);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isDemo, setIsDemo] = useState(false);
@@ -24,6 +25,10 @@ export default function Home() {
   const { address, isConnected, isConnecting } = useAccount();
   const { disconnect } = useDisconnect();
   const { open } = useAppKit();
+  const searchParams = useSearchParams();
+  
+  // Check if admin mode is enabled via query parameter
+  const isAdmin = searchParams.get('admin') === 'true';
 
   // Auto-switch to dashboard when connected
   useEffect(() => {
@@ -173,7 +178,7 @@ export default function Home() {
         {currentView === View.LANDING ? (
           <Landing onConnect={handleConnect} onDemo={startDemo} />
         ) : (
-          <Dashboard walletAddress={fullAddress} isDemo={isDemo} />
+          <Dashboard walletAddress={fullAddress} isDemo={isDemo} isAdmin={isAdmin} />
         )}
       </main>
 
@@ -204,5 +209,17 @@ export default function Home() {
         onClose={() => setIsPlatformRequestModalOpen(false)} 
       />
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={
+      <div className="bg-ink-950 min-h-screen text-slate-200 font-sans flex items-center justify-center">
+        <div className="animate-pulse text-slate-400">Loading...</div>
+      </div>
+    }>
+      <HomeContent />
+    </Suspense>
   );
 }

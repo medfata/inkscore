@@ -1,14 +1,18 @@
 "use client";
 
-import React from 'react';
-import { useParams } from 'next/navigation';
+import React, { Suspense } from 'react';
+import { useParams, useSearchParams } from 'next/navigation';
 import { Dashboard } from '../../components/Dashboard';
 import { Logo } from '../../components/Logo';
 import { ExternalLink } from '../../components/Icons';
 
-export default function WalletTestPage() {
+function WalletTestPageContent() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const address = params.address as string;
+  
+  // Check if admin mode is enabled via query parameter
+  const isAdmin = searchParams.get('admin') === 'true';
 
   // Validate address format (basic check)
   const isValidAddress = address && /^0x[a-fA-F0-9]{40}$/.test(address);
@@ -59,6 +63,7 @@ export default function WalletTestPage() {
           <div className="flex items-center gap-4">
             <div className="hidden md:flex items-center gap-2 text-xs text-yellow-500 bg-yellow-500/10 border border-yellow-500/20 px-3 py-1.5 rounded-lg">
               <span>🧪 Test Mode</span>
+              {isAdmin && <span className="ml-2 border-l border-yellow-500/30 pl-2">Admin Mode Active</span>}
             </div>
             <div className="text-sm font-mono bg-slate-900/80 border border-slate-700 px-3 py-1.5 rounded-lg text-slate-400 flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div>
@@ -77,7 +82,7 @@ export default function WalletTestPage() {
       </nav>
 
       <main>
-        <Dashboard walletAddress={address} isDemo={false} />
+        <Dashboard walletAddress={address} isDemo={false} isAdmin={isAdmin} />
       </main>
 
       {/* Footer */}
@@ -96,5 +101,17 @@ export default function WalletTestPage() {
         </div>
       </footer>
     </div>
+  );
+}
+
+export default function WalletTestPage() {
+  return (
+    <Suspense fallback={
+      <div className="bg-ink-950 min-h-screen text-slate-200 font-sans flex items-center justify-center">
+        <div className="animate-pulse text-slate-400">Loading...</div>
+      </div>
+    }>
+      <WalletTestPageContent />
+    </Suspense>
   );
 }
