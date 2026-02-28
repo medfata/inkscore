@@ -331,13 +331,13 @@ function IncomingPageContent() {
                           ? 'text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-400' 
                           : 'text-slate-400'
                         }`}>
-                          {phase1Status.isPhase1 ? "You're In!" : 'Not This Time'}
+                          {phase1Status.isPhase1 ? "You Are Eligible" : 'Not Eligible'}
                         </h2>
                         
                         <p className={`text-lg ${phase1Status.isPhase1 ? 'text-emerald-300/80' : 'text-slate-400'}`}>
                           {phase1Status.isPhase1 
-                            ? 'Welcome to Phase 1 of InkScore' 
-                            : "Your wallet isn't eligible for Phase 1"}
+                            ? 'Your wallet has been successfully recorded in the Phase 1 snapshot. Your participation and on-chain activity qualified you for this phase.' 
+                            : "This wallet was not eligible for Phase 1. Phase 2 opens soon — new activity will count toward the next snapshot."}
                         </p>
                       </div>
 
