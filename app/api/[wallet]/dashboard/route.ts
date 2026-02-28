@@ -79,6 +79,7 @@ async function getStreamingDashboard(walletAddress: string) {
         { id: 'inkdcaRunDca', fetch: () => fetchFromExpress(`/api/analytics/${walletAddress}/inkdca_run_dca`) },
         { id: 'templarsNftBalance', fetch: () => fetchFromExpress(`/api/analytics/${walletAddress}/templars_nft_balance`) },
         { id: 'cowswapSwaps', fetch: () => fetchFromExpress(`/api/analytics/${walletAddress}/cowswap_swaps`) },
+        { id: 'sweep', fetch: () => fetchFromExpress(`/api/sweep/${walletAddress}`) },
       ];
 
       console.log(`[STREAM] Started for wallet: ${walletAddress}`);
@@ -223,6 +224,7 @@ export async function GET(
       copinkResult,
       nft2meResult,
       tydroResult,
+      sweepResult,
       // Specific analytics metrics
       gmCountResult,
       inkypumpCreatedTokensResult,
@@ -252,6 +254,7 @@ export async function GET(
       fetchFromExpress(`/api/copink/${walletAddress}`),
       fetchFromExpress(`/api/wallet/${walletAddress}/nft2me`),
       fetchFromExpress(`/api/wallet/${walletAddress}/tydro`),
+      fetchFromExpress(`/api/sweep/${walletAddress}`),
       // Specific analytics metrics
       fetchFromExpress(`/api/analytics/${walletAddress}/gm_count`),
       fetchFromExpress(`/api/analytics/${walletAddress}/inkypump_created_tokens`),
@@ -284,6 +287,7 @@ export async function GET(
     if (copinkResult.error) errors.push(`copink: ${copinkResult.error}`);
     if (nft2meResult.error) errors.push(`nft2me: ${nft2meResult.error}`);
     if (tydroResult.error) errors.push(`tydro: ${tydroResult.error}`);
+    if (sweepResult.error) errors.push(`sweep: ${sweepResult.error}`);
     if (openseaBuyCountResult.error) errors.push(`openseaBuyCount: ${openseaBuyCountResult.error}`);
     if (mintCountResult.error) errors.push(`mintCount: ${mintCountResult.error}`);
     if (openseaSaleCountResult.error) errors.push(`openseaSaleCount: ${openseaSaleCountResult.error}`);
@@ -301,6 +305,7 @@ export async function GET(
       copink: copinkResult.data,
       nft2me: nft2meResult.data,
       tydro: tydroResult.data,
+      sweep: sweepResult.data,
       // Specific analytics metrics
       gmCount: gmCountResult.data,
       inkypumpCreatedTokens: inkypumpCreatedTokensResult.data,

@@ -90,6 +90,7 @@ const PLATFORM_URLS: Record<string, string> = {
   'inkdca': 'https://inkdca.com',
   'templars': 'https://opensea.io/collection/templars-of-the-storm',
   'cowswap': 'https://swap.cow.fi',
+  'sweep': 'https://sweep.haus',
 };
 
 // NFT Marketplace platform logos and info (keyed by lowercase contract address)
@@ -229,6 +230,11 @@ interface NadoMetrics {
     depositAmount: number;
     rawAmount: number;
   }>;
+}
+
+// Sweep metrics response type
+interface SweepMetrics {
+  totalCollections: number;
 }
 
 interface DashboardProps {
@@ -404,6 +410,7 @@ interface ConsolidatedDashboardResponse {
   copink: CopinkMetrics | null;
   cryptoclash: CryptoClashMetrics | null;
   nft2me: Nft2MeResponse | null;
+  sweep: SweepMetrics | null;
   tydro: {
     currentSupplyUsd?: number;
     currentSupplyEth?: number;
@@ -531,6 +538,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
   const [marvkMetrics, setMarvkMetrics] = useState<MarvkMetrics | null>(null);
   const [copinkMetrics, setCopinkMetrics] = useState<CopinkMetrics | null>(null);
   const [nadoMetrics, setNadoMetrics] = useState<NadoMetrics | null>(null);
+  const [sweepMetrics, setSweepMetrics] = useState<SweepMetrics | null>(null);
   const [cryptoclashMetrics, setCryptoclashMetrics] = useState<CryptoClashMetrics | null>(null);
   const [inkyPumpCreatedTokens, setInkyPumpCreatedTokens] = useState<{ count: number } | null>(null);
   const [inkyPumpBuyVolume, setInkyPumpBuyVolume] = useState<{ total_value: string; total_count: number } | null>(null);
@@ -681,6 +689,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
         totalTransactions: response.nado.totalTransactions || 0,
         nadoVolumeUSD: response.nado.nadoVolumeUSD || 0, // Main volume from Nado API
         dbTotalVolume: response.nado.dbTotalVolume || 0, // Database volume (fallback)
+      });
+    }
+
+    // Process Sweep metrics
+    if (response.sweep) {
+      setSweepMetrics({
+        totalCollections: response.sweep.totalCollections || 0,
       });
     }
 
@@ -1923,6 +1938,54 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                     </div>
                   </div>
                 </div>
+              </>
+            )}
+          </div>
+
+          {/* Sweep Card */}
+          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-yellow-500/20 bg-yellow-500/5 h-[300px] flex flex-col" style={{ animationDelay: '0.72s' }}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                <a
+                  href={PLATFORM_URLS.sweep}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:ring-2 hover:ring-yellow-500/50 rounded-full transition-all cursor-pointer"
+                  title="Visit Sweep"
+                >
+                  <img
+                    src="https://sweep.haus/sweep.png"
+                    alt="Sweep"
+                    className="w-6 h-6 rounded-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=S&background=eab308&color=fff&size=24';
+                    }}
+                  />
+                </a>
+                Sweep
+              </h3>
+            </div>
+
+            {!isDemo && !sweepMetrics ? (
+              <div className="flex-1 flex flex-col justify-center items-center">
+                <div className="h-16 w-24 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+                <div className="h-4 w-32 bg-slate-700/30 rounded animate-pulse"></div>
+              </div>
+            ) : (
+              <>
+                <div className="flex-1 flex flex-col items-center justify-center">
+                  <div className="text-5xl font-bold font-display text-yellow-400 mb-2">
+                    {!isDemo && sweepMetrics ? (sweepMetrics.totalCollections || 0) : 0}
+                  </div>
+                  <div className="text-sm text-slate-400">NFT Collections</div>
+                  <div className="text-xs text-slate-500 mt-1">Deployed</div>
+                </div>
+                {((!isDemo && sweepMetrics ? (sweepMetrics.totalCollections || 0) : 0) > 0) && (
+                  <div className="mt-3 text-xs text-yellow-400 opacity-80 flex items-center justify-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-yellow-400 animate-pulse"></span>
+                    NFT Creator
+                  </div>
+                )}
               </>
             )}
           </div>
