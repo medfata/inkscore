@@ -304,66 +304,79 @@ function IncomingPageContent() {
 
                 {/* Results */}
                 {hasChecked && phase1Status && (
-                  <div className="glass-card p-8 rounded-2xl animate-fade-in-up border-2" 
-                    style={{ 
-                      borderColor: phase1Status.isPhase1 ? 'rgba(52, 211, 153, 0.3)' : 'rgba(148, 163, 184, 0.3)',
-                      animationDelay: '0.4s' 
-                    }}
+                  <div className="relative overflow-hidden rounded-3xl animate-fade-in-up" 
+                    style={{ animationDelay: '0.4s' }}
                   >
-                    <div className="text-center mb-6">
-                      {phase1Status.isPhase1 ? (
-                        <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-emerald-500/10 border-2 border-emerald-500/30 mb-4">
-                          <CheckCircle size={40} className="text-emerald-400" />
-                        </div>
-                      ) : (
-                        <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-slate-500/10 border-2 border-slate-500/30 mb-4">
-                          <AlertCircle size={40} className="text-slate-400" />
-                        </div>
-                      )}
-                      
-                      <h2 className={`text-3xl font-display font-bold mb-2 ${phase1Status.isPhase1 ? 'text-emerald-400' : 'text-slate-400'}`}>
-                        {phase1Status.isPhase1 ? 'Congratulations!' : 'Not Eligible'}
-                      </h2>
-                      
-                      <p className="text-slate-400">
-                        {phase1Status.isPhase1 
-                          ? 'Your wallet is eligible for Phase 1' 
-                          : 'Your wallet is not in Phase 1'}
-                      </p>
+                    {/* Animated background gradient */}
+                    <div className={`absolute inset-0 ${phase1Status.isPhase1 
+                      ? 'bg-gradient-to-br from-emerald-500/20 via-teal-500/10 to-cyan-500/20' 
+                      : 'bg-gradient-to-br from-slate-700/20 via-slate-600/10 to-slate-500/20'
+                    }`}>
+                      <div className="absolute inset-0 backdrop-blur-3xl"></div>
                     </div>
 
-                    {phase1Status.isPhase1 && phase1Status.score && (
-                      <div className="bg-slate-900/50 rounded-xl p-6 border border-slate-700/50">
-                        <div className="flex justify-between items-center mb-4">
-                          <span className="text-slate-400 text-sm">Your Score</span>
-                          <span className="text-2xl font-display font-bold text-white">
-                            {phase1Status.score.toLocaleString()}
+                    <div className={`relative glass-card p-10 border-2 ${phase1Status.isPhase1 
+                      ? 'border-emerald-400/30' 
+                      : 'border-slate-500/30'
+                    }`}>
+                      <div className="text-center mb-8">
+                        {/* Emoji Face */}
+                        <div className="mb-6 animate-bounce-slow">
+                          <span className="text-8xl" role="img" aria-label={phase1Status.isPhase1 ? "happy face" : "sad face"}>
+                            {phase1Status.isPhase1 ? '😊' : '😢'}
                           </span>
                         </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-slate-400 text-sm">Total Phase 1 Wallets</span>
-                          <span className="text-lg font-mono text-slate-300">
-                            {phase1Status.totalPhase1Wallets.toLocaleString()}
-                          </span>
-                        </div>
-                      </div>
-                    )}
-
-                    {!phase1Status.isPhase1 && (
-                      <div className="bg-slate-900/50 rounded-xl p-6 border border-slate-700/50">
-                        <p className="text-slate-400 text-sm text-center">
-                          Don't worry! Keep building your InkScore for future opportunities.
+                        
+                        <h2 className={`text-4xl font-display font-bold mb-3 ${phase1Status.isPhase1 
+                          ? 'text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-400' 
+                          : 'text-slate-400'
+                        }`}>
+                          {phase1Status.isPhase1 ? "You're In!" : 'Not This Time'}
+                        </h2>
+                        
+                        <p className={`text-lg ${phase1Status.isPhase1 ? 'text-emerald-300/80' : 'text-slate-400'}`}>
+                          {phase1Status.isPhase1 
+                            ? 'Welcome to Phase 1 of InkScore' 
+                            : "Your wallet isn't eligible for Phase 1"}
                         </p>
                       </div>
-                    )}
 
-                    <div className="mt-6 text-center">
-                      <Link 
-                        href="/"
-                        className="inline-flex items-center gap-2 text-ink-purple hover:text-purple-400 transition-colors text-sm font-medium"
-                      >
-                        View Your Dashboard →
-                      </Link>
+                      {!phase1Status.isPhase1 && (
+                        <div className="bg-slate-900/60 backdrop-blur-sm rounded-2xl p-6 border border-slate-700/50 mb-6">
+                          <p className="text-slate-300 text-center leading-relaxed">
+                            Keep engaging with Ink ecosystem! <br/>
+                            <span className="text-slate-400 text-sm">Future phases are coming soon.</span>
+                          </p>
+                        </div>
+                      )}
+
+                      <div className="flex gap-4 justify-center">
+                        <Link 
+                          href="/"
+                          className={`group relative px-6 py-3 rounded-xl font-medium transition-all overflow-hidden ${
+                            phase1Status.isPhase1 
+                              ? 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white' 
+                              : 'bg-slate-700/50 hover:bg-slate-700 text-slate-300'
+                          }`}
+                        >
+                          <span className="relative z-10 flex items-center gap-2">
+                            View Dashboard
+                            <span className="group-hover:translate-x-1 transition-transform">→</span>
+                          </span>
+                        </Link>
+                        
+                        {!phase1Status.isPhase1 && (
+                          <button
+                            onClick={() => {
+                              setHasChecked(false);
+                              setPhase1Status(null);
+                            }}
+                            className="px-6 py-3 rounded-xl font-medium bg-slate-800/50 hover:bg-slate-800 text-slate-300 transition-all border border-slate-700/50"
+                          >
+                            Check Another Wallet
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )}
