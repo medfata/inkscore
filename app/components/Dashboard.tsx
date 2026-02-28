@@ -1670,8 +1670,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
             )}
           </div>
 
-          {/* GM Activity Card */}
-          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-yellow-500/20 bg-yellow-500/5 h-[300px] flex flex-col" style={{ animationDelay: '0.6s' }}>
+{/* GM Activity Card */}
+          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-purple-500/20 bg-gradient-to-br from-purple-500/12 to-purple-900/5 h-[300px] flex flex-col" style={{ animationDelay: '0.6s' }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                 <a
@@ -1717,8 +1717,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
             )}
           </div>
 
-          {/* Bridge Volume Card */}
-          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-purple-500/20 bg-purple-500/5 h-[300px] flex flex-col" style={{ animationDelay: '0.65s' }}>
+{/* Bridge Volume Card */}
+          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-teal-500/20 bg-gradient-to-br from-teal-500/12 to-teal-900/5 h-[300px] flex flex-col" style={{ animationDelay: '0.65s' }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                 <div className="flex items-center -space-x-3">
@@ -1876,7 +1876,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
           </div>
 
           {/* InkyPump Card */}
-          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-pink-500/20 bg-pink-500/5 h-[300px] flex flex-col" style={{ animationDelay: '0.7s' }}>
+          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-pink-500/20 bg-gradient-to-br from-pink-500/12 to-pink-900/5 h-[300px] flex flex-col" style={{ animationDelay: '0.7s' }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                 <a
@@ -1945,53 +1945,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
             )}
           </div>
 
-          {/* Sweep Card */}
-          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-yellow-500/20 bg-yellow-500/5 h-[300px] flex flex-col" style={{ animationDelay: '0.72s' }}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                <a
-                  href={PLATFORM_URLS.sweep}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:ring-2 hover:ring-yellow-500/50 rounded-full transition-all cursor-pointer"
-                  title="Visit Sweep"
-                >
-                  <img
-                    src="https://sweep.haus/sweep.png"
-                    alt="Sweep"
-                    className="w-6 h-6 rounded-full object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=S&background=eab308&color=fff&size=24';
-                    }}
-                  />
-                </a>
-                Sweep
-              </h3>
-            </div>
 
-            {!isDemo && (isMetricLoading('sweep') || !sweepMetrics) ? (
-              <div className="flex-1 flex flex-col justify-center items-center">
-                <div className="h-16 w-24 bg-slate-700/50 rounded animate-pulse mb-2"></div>
-                <div className="h-4 w-32 bg-slate-700/30 rounded animate-pulse"></div>
-              </div>
-            ) : (
-              <>
-                <div className="flex-1 flex flex-col items-center justify-center">
-                  <div className="text-5xl font-bold font-display text-yellow-400 mb-2">
-                    {!isDemo && sweepMetrics ? (sweepMetrics.totalCollections || 0) : 0}
-                  </div>
-                  <div className="text-sm text-slate-400">NFT Collections</div>
-                  <div className="text-xs text-slate-500 mt-1">Deployed</div>
-                </div>
-                {((!isDemo && sweepMetrics ? (sweepMetrics.totalCollections || 0) : 0) > 0) && (
-                  <div className="mt-3 text-xs text-yellow-400 opacity-80 flex items-center justify-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-yellow-400 animate-pulse"></span>
-                    NFT Creator
-                  </div>
-                )}
-              </>
-            )}
-          </div>
 
         </div>
 
@@ -2003,7 +1957,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
         {/* Row 4: ZNS Domain + NFT2Mint + NFT Trading (5 columns) */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {/* Swap Volume Card */}
-          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-cyan-500/20 bg-cyan-500/5 h-[300px] flex flex-col" style={{ animationDelay: '0.75s' }}>
+          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-cyan-500/20 bg-gradient-to-br from-cyan-500/12 to-cyan-900/5 h-[300px] flex flex-col" style={{ animationDelay: '0.75s' }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                 <div className="flex items-center -space-x-3">
@@ -2121,8 +2075,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
               </div>
             )}
           </div>
-          {/* ZNS Domain Card */}
-          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-blue-500/20 bg-blue-500/5 h-[300px] flex flex-col" style={{ animationDelay: '0.8s' }}>
+{/* ZNS Domain Card */}
+          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-lime-500/20 bg-gradient-to-br from-lime-500/12 to-lime-900/5 h-[300px] flex flex-col" style={{ animationDelay: '0.8s' }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                 <a
@@ -2200,8 +2154,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
             )}
           </div>
 
-          {/* NFT Trading Card */}
-          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-pink-500/20 bg-pink-500/5 h-[300px] flex flex-col" style={{ animationDelay: '0.95s' }}>
+{/* NFT Trading Card */}
+          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-green-500/20 bg-gradient-to-br from-green-500/12 to-green-900/5 h-[300px] flex flex-col" style={{ animationDelay: '0.95s' }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                 <div className="flex items-center -space-x-3">
@@ -2335,7 +2289,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
           </div>
 
           {/* OpenSea Card */}
-          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-sky-500/20 bg-sky-500/5 h-[300px] flex flex-col" style={{ animationDelay: '0.75s' }}>
+          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-sky-500/20 bg-gradient-to-br from-sky-500/12 to-sky-900/5 h-[300px] flex flex-col" style={{ animationDelay: '0.75s' }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                 <a
@@ -2427,8 +2381,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
 
         {/* Row 5: Shellies and Future Cards (4 columns) */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-           {/* Copink Card */}
-          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-pink-500/20 bg-pink-500/5 h-[300px] flex flex-col" style={{ animationDelay: '0.9s' }}>
+{/* Copink Card */}
+          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-green-500/20 bg-gradient-to-br from-green-500/12 to-green-900/5 h-[300px] flex flex-col" style={{ animationDelay: '0.9s' }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                 <a
@@ -2509,141 +2463,56 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
             )}
           </div>
 
-          {/* CryptoClash Card */}
-          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-cyan-500/20 bg-cyan-500/5 h-[300px] flex flex-col" style={{ animationDelay: '0.93s' }}>
+          {/* Sweep Card */}
+          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-yellow-500/20 bg-gradient-to-br from-yellow-500/12 to-yellow-900/5 h-[300px] flex flex-col" style={{ animationDelay: '0.93s' }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                 <a
-                  href={PLATFORM_URLS.cryptoclash}
+                  href={PLATFORM_URLS.sweep}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="hover:ring-2 hover:ring-cyan-500/50 rounded-full transition-all cursor-pointer"
-                  title="Visit CryptoClash"
+                  className="hover:ring-2 hover:ring-yellow-500/50 rounded-full transition-all cursor-pointer"
+                  title="Visit Sweep"
                 >
                   <img
-                    src={getProxiedImageUrl("https://www.cryptoclash.ink/branding/cclogonoback.webp?dpl=dpl_3CWrKLAoAmeyrAJGL7dc53QKk8GL")}
-                    alt="CryptoClash"
+                    src="https://sweep.haus/sweep.png"
+                    alt="Sweep"
                     className="w-6 h-6 rounded-full object-cover"
                     onError={(e) => {
-                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=CC&background=06b6d4&color=fff&size=24';
+                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=S&background=eab308&color=fff&size=24';
                     }}
                   />
                 </a>
-                CryptoClash
+                Sweep
               </h3>
             </div>
 
-            {!isDemo ? (
-              (isMetricLoading('cryptoclash') || !cryptoclashMetrics) ? (
-                <div className="flex-1 flex flex-col justify-center">
-                  <div className="h-8 w-20 bg-slate-700/50 rounded animate-pulse mb-2"></div>
-                  <div className="h-3 w-32 bg-slate-700/30 rounded animate-pulse mb-4"></div>
-                  <div className="space-y-2">
-                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
-                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
-                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
-                  </div>
-                </div>
-              ) : (cryptoclashMetrics.requiresAuth || !cryptoClashAuth.isAuthenticated) ? (
-                <div className="flex-1 flex flex-col items-center justify-center gap-4">
-                  <div className="text-center">
-                    <div className="text-sm text-slate-400 mb-2">
-                      Sign in to view your CryptoClash stats
-                    </div>
-                    <div className="text-xs text-slate-500">
-                      You'll need to sign a message with your wallet
-                    </div>
-                  </div>
-                  <button
-                    onClick={cryptoClashAuth.authenticate}
-                    disabled={cryptoClashAuth.isAuthenticating}
-                    className="px-6 py-2.5 bg-cyan-500 hover:bg-cyan-600 disabled:bg-cyan-500/50 text-white rounded-lg font-medium transition-colors disabled:cursor-not-allowed flex items-center gap-2"
-                  >
-                    {cryptoClashAuth.isAuthenticating ? (
-                      <>
-                        <RefreshCw className="animate-spin" size={16} />
-                        Signing...
-                      </>
-                    ) : (
-                      <>
-                        <ShieldCheck size={16} />
-                        Sign In
-                      </>
-                    )}
-                  </button>
-                  {cryptoClashAuth.error && (
-                    <div className="text-xs text-red-400">
-                      {cryptoClashAuth.error}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <>
-                  <div className="mb-3">
-                    <div className="text-2xl font-bold font-display text-cyan-400">
-                      {cryptoclashMetrics.points.toLocaleString()}
-                    </div>
-                    <div className="text-xs text-slate-500">
-                      Total Points
-                    </div>
-                  </div>
-
-                  <div className="flex-1 pt-3 border-t border-slate-700/50">
-                    <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">Game Stats</span>
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center text-[11px]">
-                        <span className="text-slate-400">Clash Tickets</span>
-                        <span className="font-mono text-white">{cryptoclashMetrics.clashTickets}</span>
-                      </div>
-                      <div className="flex justify-between items-center text-[11px]">
-                        <span className="text-slate-400">LP Tickets</span>
-                        <span className="font-mono text-white">{cryptoclashMetrics.lpTickets}</span>
-                      </div>
-                      <div className="flex justify-between items-center text-[11px]">
-                        <span className="text-slate-400">Total Battles</span>
-                        <span className="font-mono text-white">{cryptoclashMetrics.totalBattles}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {(cryptoclashMetrics.points > 0 || cryptoclashMetrics.totalBattles > 0) && (
-                    <div className="mt-2 text-xs text-cyan-400 opacity-80 flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
-                      {cryptoclashMetrics.isPatron ? 'Patron Player' : 'Active Player'}
-                    </div>
-                  )}
-                </>
-              )
+            {!isDemo && (isMetricLoading('sweep') || !sweepMetrics) ? (
+              <div className="flex-1 flex flex-col justify-center items-center">
+                <div className="h-16 w-24 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+                <div className="h-4 w-32 bg-slate-700/30 rounded animate-pulse"></div>
+              </div>
             ) : (
               <>
-                <div className="mb-3">
-                  <div className="text-2xl font-bold font-display text-cyan-400">0</div>
-                  <div className="text-xs text-slate-500">Total Points</div>
-                </div>
-
-                <div className="flex-1 pt-3 border-t border-slate-700/50">
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">Game Stats</span>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-slate-400">Clash Tickets</span>
-                      <span className="font-mono text-white">0</span>
-                    </div>
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-slate-400">LP Tickets</span>
-                      <span className="font-mono text-white">0</span>
-                    </div>
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-slate-400">Total Battles</span>
-                      <span className="font-mono text-white">0</span>
-                    </div>
+                <div className="flex-1 flex flex-col items-center justify-center">
+                  <div className="text-5xl font-bold font-display text-yellow-400 mb-2">
+                    {!isDemo && sweepMetrics ? (sweepMetrics.totalCollections || 0) : 0}
                   </div>
+                  <div className="text-sm text-slate-400">NFT Collections</div>
+                  <div className="text-xs text-slate-500 mt-1">Deployed</div>
                 </div>
+                {((!isDemo && sweepMetrics ? (sweepMetrics.totalCollections || 0) : 0) > 0) && (
+                  <div className="mt-3 text-xs text-yellow-400 opacity-80 flex items-center justify-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-yellow-400 animate-pulse"></span>
+                    NFT Creator
+                  </div>
+                )}
               </>
             )}
           </div>
 
-          {/* NFT2Me Card */}
-          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-emerald-500/20 bg-emerald-500/5 h-[300px] flex flex-col" style={{ animationDelay: '0.95s' }}>
+{/* NFT2Me Card */}
+          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-cyan-500/20 bg-gradient-to-br from-cyan-500/12 to-cyan-900/5 h-[300px] flex flex-col" style={{ animationDelay: '0.95s' }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                 <a
@@ -2739,7 +2608,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
           </div>
 
           {/* Shellies Unified Card */}
-          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-violet-500/20 bg-violet-500/5 h-[300px] flex flex-col" style={{ animationDelay: '1.0s' }}>
+          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-violet-500/20 bg-gradient-to-br from-violet-500/12 to-violet-900/5 h-[300px] flex flex-col" style={{ animationDelay: '1.0s' }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                 <a
@@ -2817,8 +2686,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
               </>
             )}
           </div>
-          {/* Marvk Card */}
-          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-orange-500/20 bg-orange-500/5 h-[300px] flex flex-col" style={{ animationDelay: '0.85s' }}>
+{/* Marvk Card */}
+          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-violet-500/20 bg-gradient-to-br from-violet-500/12 to-violet-900/5 h-[300px] flex flex-col" style={{ animationDelay: '0.85s' }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                 <a
@@ -2909,7 +2778,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
           </div>
 
           {/* InkDCA Card */}
-          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-emerald-500/20 bg-emerald-500/5 h-[300px] flex flex-col" style={{ animationDelay: '1.05s' }}>
+          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-emerald-500/20 bg-gradient-to-br from-emerald-500/12 to-emerald-900/5 h-[300px] flex flex-col" style={{ animationDelay: '1.05s' }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                 <a
@@ -3000,7 +2869,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
           </div>
 
           {/* Templars of the Storm NFT Card */}
-          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-purple-500/20 bg-purple-500/5 h-[300px] flex flex-col" style={{ animationDelay: '1.1s' }}>
+          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-purple-500/20 bg-gradient-to-br from-purple-500/12 to-purple-900/5 h-[300px] flex flex-col" style={{ animationDelay: '1.1s' }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                 <a
@@ -3091,7 +2960,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
           </div>
 
           {/* Cow Swap Card */}
-          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-blue-500/20 bg-blue-500/5 h-[300px] flex flex-col" style={{ animationDelay: '1.15s' }}>
+          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-blue-500/20 bg-gradient-to-br from-blue-500/12 to-blue-900/5 h-[300px] flex flex-col" style={{ animationDelay: '1.15s' }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                 <a
@@ -3188,8 +3057,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
             )}
           </div>
 
-         
-        </div>
+          </div>
 
         {/* Holdings Section - Tokens & NFTs */}
         {!isDemo && realWalletStats && (
