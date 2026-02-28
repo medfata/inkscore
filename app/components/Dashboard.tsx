@@ -883,6 +883,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
         case 'nado':
           setNadoMetrics(data);
           break;
+        case 'sweep':
+          setSweepMetrics(data);
+          break;
         case 'cryptoclash':
           setCryptoclashMetrics(data);
           break;
@@ -1966,7 +1969,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
               </h3>
             </div>
 
-            {!isDemo && !sweepMetrics ? (
+            {!isDemo && (isMetricLoading('sweep') || !sweepMetrics) ? (
               <div className="flex-1 flex flex-col justify-center items-center">
                 <div className="h-16 w-24 bg-slate-700/50 rounded animate-pulse mb-2"></div>
                 <div className="h-4 w-32 bg-slate-700/30 rounded animate-pulse"></div>
