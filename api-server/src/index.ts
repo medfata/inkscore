@@ -8,6 +8,7 @@ import marvkRoutes from './routes/marvk';
 import nadoRoutes from './routes/nado';
 import copinkRoutes from './routes/copink';
 import ranksRoutes from './routes/ranks';
+import cryptoclashRoutes from './routes/cryptoclash';
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -35,6 +36,7 @@ app.use('/api/marvk', marvkRoutes);
 app.use('/api/nado', nadoRoutes);
 app.use('/api/copink', copinkRoutes);
 app.use('/api/ranks', ranksRoutes);
+app.use('/api/cryptoclash', cryptoclashRoutes);
 
 // Start server with database connection test
 async function startServer() {

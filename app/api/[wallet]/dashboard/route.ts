@@ -61,6 +61,7 @@ async function getStreamingDashboard(walletAddress: string) {
         { id: 'marvk', fetch: () => fetchFromExpress(`/api/marvk/${walletAddress}`) },
         { id: 'nado', fetch: () => fetchFromExpress(`/api/nado/${walletAddress}`) },
         { id: 'copink', fetch: () => fetchFromExpress(`/api/copink/${walletAddress}`) },
+        { id: 'cryptoclash', fetch: () => fetchFromExpress(`/api/cryptoclash/${walletAddress}`) },
         { id: 'nft2me', fetch: () => fetchFromExpress(`/api/wallet/${walletAddress}/nft2me`) },
         { id: 'tydro', fetch: () => fetchFromExpress(`/api/wallet/${walletAddress}/tydro`) },
         { id: 'gmCount', fetch: () => fetchFromExpress(`/api/analytics/${walletAddress}/gm_count`) },

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { useAccount, useDisconnect } from 'wagmi';
+import { useAccount, useDisconnect, useSignMessage } from 'wagmi';
 import { useAppKit } from '@reown/appkit/react';
 import { useIsAdmin } from '@/lib/hooks/useIsAdmin';
 import { Landing } from './components/Landing';
@@ -24,6 +24,7 @@ export default function Home() {
   const { address, isConnected, isConnecting } = useAccount();
   const { disconnect } = useDisconnect();
   const { open } = useAppKit();
+  const { signMessageAsync } = useSignMessage();
 
   // Auto-switch to dashboard when connected
   useEffect(() => {
@@ -31,6 +32,9 @@ export default function Home() {
       setCurrentView(View.DASHBOARD);
     }
   }, [isConnected, address, isDemo]);
+
+  // Note: CryptoClash authentication is now handled by the Dashboard component
+  // with a manual "Sign In" button for better UX
 
   // Check for platform-request query parameter
   useEffect(() => {

@@ -20,6 +20,7 @@ import { DynamicCardsCarouselRow3, DynamicCardsCarouselRow4 } from './DynamicDas
 import { MintScoreNFT } from './MintScoreNFT';
 import { getProxiedImageUrl } from '@/lib/utils/imageProxy';
 import { useStreamingDashboard } from '../hooks/useStreamingDashboard';
+import { useCryptoClashAuth } from '../hooks/useCryptoClashAuth';
 import { StreamingDebugPanel } from './StreamingDebugPanel';
 
 // Bridge platform logos and URLs
@@ -82,6 +83,7 @@ const PLATFORM_URLS: Record<string, string> = {
   'zns': 'https://zns.bio',
   'marvk': 'https://marvk.io',
   'copink': 'https://www.copink.xyz',
+  'cryptoclash': 'https://www.cryptoclash.ink/',
   'nft2me': 'https://nft2me.com',
   'shellies': 'https://shellies.xyz',
   'opensea': 'https://opensea.io',
@@ -196,6 +198,15 @@ interface Nft2MeResponse {
 interface CopinkMetrics {
   totalVolume: number;
   subaccountsFound: number;
+}
+
+interface CryptoClashMetrics {
+  clashTickets: number;
+  lpTickets: number;
+  points: number;
+  totalBattles: number;
+  isPatron: boolean;
+  requiresAuth?: boolean;
 }
 
 // Marvk metrics response type
@@ -391,6 +402,7 @@ interface ConsolidatedDashboardResponse {
   marvk: MarvkMetrics | null;
   nado: NadoMetrics | null;
   copink: CopinkMetrics | null;
+  cryptoclash: CryptoClashMetrics | null;
   nft2me: Nft2MeResponse | null;
   tydro: {
     currentSupplyUsd?: number;
@@ -440,6 +452,26 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
 
   // Streaming hook - only enabled if feature flag is on and not in demo mode
   const streamingState = useStreamingDashboard(walletAddress, enableStreaming && !isDemo);
+
+  // CryptoClash authentication hook with callback to refetch data
+  const handleCryptoClashAuthSuccess = useCallback(async () => {
+    if (!walletAddress || isDemo) return;
+    
+    try {
+      const response = await fetch(`/api/cryptoclash/${walletAddress}`);
+      if (response.ok) {
+        const data = await response.json();
+        setCryptoclashMetrics(data);
+      }
+    } catch (error) {
+      // Silently fail - metrics will be fetched on next dashboard refresh
+    }
+  }, [walletAddress, isDemo]);
+
+  const cryptoClashAuth = useCryptoClashAuth(
+    isDemo ? undefined : walletAddress,
+    handleCryptoClashAuthSuccess
+  );
 
   // Helper function to check if a metric is loading
   const isMetricLoading = (metricId: string): boolean => {
@@ -499,6 +531,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
   const [marvkMetrics, setMarvkMetrics] = useState<MarvkMetrics | null>(null);
   const [copinkMetrics, setCopinkMetrics] = useState<CopinkMetrics | null>(null);
   const [nadoMetrics, setNadoMetrics] = useState<NadoMetrics | null>(null);
+  const [cryptoclashMetrics, setCryptoclashMetrics] = useState<CryptoClashMetrics | null>(null);
   const [inkyPumpCreatedTokens, setInkyPumpCreatedTokens] = useState<{ count: number } | null>(null);
   const [inkyPumpBuyVolume, setInkyPumpBuyVolume] = useState<{ total_value: string; total_count: number } | null>(null);
   const [inkyPumpSellVolume, setInkyPumpSellVolume] = useState<{ total_value: string; total_count: number } | null>(null);
@@ -648,6 +681,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
         totalTransactions: response.nado.totalTransactions || 0,
         nadoVolumeUSD: response.nado.nadoVolumeUSD || 0, // Main volume from Nado API
         dbTotalVolume: response.nado.dbTotalVolume || 0, // Database volume (fallback)
+      });
+    }
+
+    // Process CryptoClash metrics
+    if (response.cryptoclash) {
+      setCryptoclashMetrics({
+        clashTickets: response.cryptoclash.clashTickets || 0,
+        lpTickets: response.cryptoclash.lpTickets || 0,
+        points: response.cryptoclash.points || 0,
+        totalBattles: response.cryptoclash.totalBattles || 0,
+        isPatron: response.cryptoclash.isPatron || false,
       });
     }
 
@@ -824,6 +868,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
         case 'nado':
           setNadoMetrics(data);
           break;
+        case 'cryptoclash':
+          setCryptoclashMetrics(data);
+          break;
         case 'nft2me':
           setNft2meMetrics(data);
           break;
@@ -913,6 +960,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
     setMarvkMetrics(null);
     setCopinkMetrics(null);
     setNadoMetrics(null);
+    setCryptoclashMetrics(null);
     setInkyPumpCreatedTokens(null);
     setInkyPumpBuyVolume(null);
     setInkyPumpSellVolume(null);
@@ -2387,6 +2435,139 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo }) =
                   <div className="space-y-2">
                     <div className="flex justify-between items-center text-[11px]">
                       <span className="text-slate-400">Subaccounts Found</span>
+                      <span className="font-mono text-white">0</span>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* CryptoClash Card */}
+          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-cyan-500/20 bg-cyan-500/5 h-[300px] flex flex-col" style={{ animationDelay: '0.93s' }}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                <a
+                  href={PLATFORM_URLS.cryptoclash}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:ring-2 hover:ring-cyan-500/50 rounded-full transition-all cursor-pointer"
+                  title="Visit CryptoClash"
+                >
+                  <img
+                    src={getProxiedImageUrl("https://www.cryptoclash.ink/branding/cclogonoback.webp?dpl=dpl_3CWrKLAoAmeyrAJGL7dc53QKk8GL")}
+                    alt="CryptoClash"
+                    className="w-6 h-6 rounded-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=CC&background=06b6d4&color=fff&size=24';
+                    }}
+                  />
+                </a>
+                CryptoClash
+              </h3>
+            </div>
+
+            {!isDemo ? (
+              (isMetricLoading('cryptoclash') || !cryptoclashMetrics) ? (
+                <div className="flex-1 flex flex-col justify-center">
+                  <div className="h-8 w-20 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+                  <div className="h-3 w-32 bg-slate-700/30 rounded animate-pulse mb-4"></div>
+                  <div className="space-y-2">
+                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
+                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
+                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
+                  </div>
+                </div>
+              ) : (cryptoclashMetrics.requiresAuth || !cryptoClashAuth.isAuthenticated) ? (
+                <div className="flex-1 flex flex-col items-center justify-center gap-4">
+                  <div className="text-center">
+                    <div className="text-sm text-slate-400 mb-2">
+                      Sign in to view your CryptoClash stats
+                    </div>
+                    <div className="text-xs text-slate-500">
+                      You'll need to sign a message with your wallet
+                    </div>
+                  </div>
+                  <button
+                    onClick={cryptoClashAuth.authenticate}
+                    disabled={cryptoClashAuth.isAuthenticating}
+                    className="px-6 py-2.5 bg-cyan-500 hover:bg-cyan-600 disabled:bg-cyan-500/50 text-white rounded-lg font-medium transition-colors disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    {cryptoClashAuth.isAuthenticating ? (
+                      <>
+                        <RefreshCw className="animate-spin" size={16} />
+                        Signing...
+                      </>
+                    ) : (
+                      <>
+                        <ShieldCheck size={16} />
+                        Sign In
+                      </>
+                    )}
+                  </button>
+                  {cryptoClashAuth.error && (
+                    <div className="text-xs text-red-400">
+                      {cryptoClashAuth.error}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <>
+                  <div className="mb-3">
+                    <div className="text-2xl font-bold font-display text-cyan-400">
+                      {cryptoclashMetrics.points.toLocaleString()}
+                    </div>
+                    <div className="text-xs text-slate-500">
+                      Total Points
+                    </div>
+                  </div>
+
+                  <div className="flex-1 pt-3 border-t border-slate-700/50">
+                    <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">Game Stats</span>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center text-[11px]">
+                        <span className="text-slate-400">Clash Tickets</span>
+                        <span className="font-mono text-white">{cryptoclashMetrics.clashTickets}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-[11px]">
+                        <span className="text-slate-400">LP Tickets</span>
+                        <span className="font-mono text-white">{cryptoclashMetrics.lpTickets}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-[11px]">
+                        <span className="text-slate-400">Total Battles</span>
+                        <span className="font-mono text-white">{cryptoclashMetrics.totalBattles}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {(cryptoclashMetrics.points > 0 || cryptoclashMetrics.totalBattles > 0) && (
+                    <div className="mt-2 text-xs text-cyan-400 opacity-80 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
+                      {cryptoclashMetrics.isPatron ? 'Patron Player' : 'Active Player'}
+                    </div>
+                  )}
+                </>
+              )
+            ) : (
+              <>
+                <div className="mb-3">
+                  <div className="text-2xl font-bold font-display text-cyan-400">0</div>
+                  <div className="text-xs text-slate-500">Total Points</div>
+                </div>
+
+                <div className="flex-1 pt-3 border-t border-slate-700/50">
+                  <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">Game Stats</span>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">Clash Tickets</span>
+                      <span className="font-mono text-white">0</span>
+                    </div>
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">LP Tickets</span>
+                      <span className="font-mono text-white">0</span>
+                    </div>
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">Total Battles</span>
                       <span className="font-mono text-white">0</span>
                     </div>
                   </div>

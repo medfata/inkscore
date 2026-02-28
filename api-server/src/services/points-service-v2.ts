@@ -414,7 +414,8 @@ export class PointsServiceV2 {
         nftTradingRes,
         marvkRes,
         nadoRes,
-        copinkRes
+        copinkRes,
+        cryptoclashRes
       ] = await Promise.all([
         fetch(`${baseUrl}/api/wallet/${wallet}/stats`),
         fetch(`${baseUrl}/api/wallet/${wallet}/bridge`),
@@ -432,7 +433,8 @@ export class PointsServiceV2 {
         fetch(`${baseUrl}/api/analytics/${wallet}/nft_traded`),
         fetch(`${baseUrl}/api/marvk/${wallet}`),
         fetch(`${baseUrl}/api/nado/${wallet}`),
-        fetch(`${baseUrl}/api/copink/${wallet}`)
+        fetch(`${baseUrl}/api/copink/${wallet}`),
+        fetch(`${baseUrl}/api/cryptoclash/${wallet}`)
       ]);
 
       // Type definitions for API responses
@@ -473,6 +475,13 @@ export class PointsServiceV2 {
         totalVolume?: number;
         subaccountsFound?: number;
       }
+      interface CryptoClashResponse {
+        clashTickets?: number;
+        lpTickets?: number;
+        points?: number;
+        totalBattles?: number;
+        isPatron?: boolean;
+      }
 
       const walletStats = walletStatsRes.ok ? await walletStatsRes.json() as WalletStatsResponse : null;
       const bridgeData = bridgeRes.ok ? await bridgeRes.json() as BridgeResponse : null;
@@ -491,6 +500,7 @@ export class PointsServiceV2 {
       const marvkData = marvkRes.ok ? await marvkRes.json() as MarvkResponse : null;
       const nadoData = nadoRes.ok ? await nadoRes.json() as NadoResponse : null;
       const copinkData = copinkRes.ok ? await copinkRes.json() as CopinkResponse : null;
+      const cryptoclashData = cryptoclashRes.ok ? await cryptoclashRes.json() as CryptoClashResponse : null;
 
       if (!walletStats) throw new Error('Failed to fetch wallet stats');
 
