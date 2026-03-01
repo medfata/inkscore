@@ -27,7 +27,7 @@ function IncomingPageContent() {
     seconds: 0
   });
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isTimerEnded, setIsTimerEnded] = useState(isAdminMode); // Start as ended if admin mode
+  const [isTimerEnded, setIsTimerEnded] = useState(true); // Start as ended if admin mode
   const [phase1Status, setPhase1Status] = useState<Phase1Status | null>(null);
   const [isChecking, setIsChecking] = useState(false);
   const [hasChecked, setHasChecked] = useState(false);
