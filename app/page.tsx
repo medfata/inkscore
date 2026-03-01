@@ -100,7 +100,7 @@ function HomeContent() {
               Leaderboard
               <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-ink-purple group-hover:w-full transition-all duration-300"></span>
             </a>
-            <a href="/incoming" className="text-sm font-medium text-white transition-colors relative group">
+            <a href="/checker" className="text-sm font-medium text-white transition-colors relative group">
               Checker
               <span className="absolute -bottom-1 left-0 w-full h-0.5 bg-ink-purple"></span>
             </a>
@@ -155,7 +155,7 @@ function HomeContent() {
             <a href="/about" className="block text-slate-300">About</a>
             <a href="/how-it-works" className="block text-slate-300">How it Works</a>
             <a href="/leaderboard" className="block text-slate-300">Leaderboard</a>
-            <a href="/incoming" className="block text-white font-semibold">Checker</a>
+            <a href="/checker" className="block text-white font-semibold">Checker</a>
             <button
               onClick={() => {
                 setIsPlatformRequestModalOpen(true);

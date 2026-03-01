@@ -16,7 +16,7 @@ interface Phase1Status {
   totalPhase1Wallets: number;
 }
 
-function IncomingPageContent() {
+function CheckerPageContent() {
   const searchParams = useSearchParams();
   const isAdminMode = searchParams.get('admin') === 'true';
   
@@ -125,7 +125,7 @@ function IncomingPageContent() {
               Leaderboard
               <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-ink-purple group-hover:w-full transition-all duration-300"></span>
             </a>
-            <a href="/incoming" className="text-sm font-medium text-white transition-colors relative group">
+            <a href="/checker" className="text-sm font-medium text-white transition-colors relative group">
               {pageTitle}
               <span className="absolute -bottom-1 left-0 w-full h-0.5 bg-ink-purple"></span>
             </a>
@@ -172,7 +172,7 @@ function IncomingPageContent() {
             <a href="/about" className="block text-slate-300">About</a>
             <a href="/how-it-works" className="block text-slate-300">How it Works</a>
             <a href="/leaderboard" className="block text-slate-300">Leaderboard</a>
-            <a href="/incoming" className="block text-white font-semibold">{pageTitle}</a>
+            <a href="/checker" className="block text-white font-semibold">{pageTitle}</a>
             {isConnected ? (
               <button onClick={handleDisconnect} className="block w-full text-left text-red-400">Disconnect</button>
             ) : (
@@ -406,14 +406,14 @@ function IncomingPageContent() {
   );
 }
 
-export default function IncomingPage() {
+export default function CheckerPage() {
   return (
     <Suspense fallback={
       <div className="bg-ink-950 min-h-screen text-slate-200 font-sans flex items-center justify-center">
         <div className="animate-pulse text-slate-400">Loading...</div>
       </div>
     }>
-      <IncomingPageContent />
+      <CheckerPageContent />
     </Suspense>
   );
 }
