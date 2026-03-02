@@ -383,17 +383,20 @@ router.get('/:wallet/:metric', async (req: Request, res: Response) => {
 
     // Special handling for sweep
     if (metric === 'sweep') {
-      const sweepMetrics = await sweepService.getDeployedCollections(walletLower) as { totalCollections: number; sweepBadgeBalance: number };
+      const sweepMetrics = await sweepService.getDeployedCollections(walletLower) as { totalCollections?: number; sweepBadgeBalance?: number };
+      
+      const totalCollections = sweepMetrics.totalCollections ?? 0;
+      const sweepBadgeBalance = sweepMetrics.sweepBadgeBalance ?? 0;
       
       const result = {
         slug: 'sweep',
         name: 'Sweep',
         icon: 'https://sweep.haus/sweep.png',
         currency: 'COUNT',
-        total_count: sweepMetrics.totalCollections,
-        total_value: sweepMetrics.totalCollections.toString(),
+        total_count: totalCollections,
+        total_value: totalCollections.toString(),
         sub_aggregates: [
-          { label: 'Sweep Badges', value: sweepMetrics.sweepBadgeBalance.toString() }
+          { label: 'Sweep Badges', value: sweepBadgeBalance.toString() }
         ],
         last_updated: new Date(),
       };
