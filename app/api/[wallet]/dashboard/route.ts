@@ -28,6 +28,7 @@ async function fetchFromExpress<T>(endpoint: string): Promise<FetchResult<T>> {
       return { data: null, error: `HTTP ${response.status}` };
     }
     const data = await response.json();
+    console.log(`[FETCH] Response data for ${endpoint}:`, JSON.stringify(data));
     return { data, error: null };
   } catch (error) {
     console.error(`[FETCH] Exception for ${endpoint}:`, error);
@@ -79,7 +80,7 @@ async function getStreamingDashboard(walletAddress: string) {
         { id: 'inkdcaRunDca', fetch: () => fetchFromExpress(`/api/analytics/${walletAddress}/inkdca_run_dca`) },
         { id: 'templarsNftBalance', fetch: () => fetchFromExpress(`/api/analytics/${walletAddress}/templars_nft_balance`) },
         { id: 'cowswapSwaps', fetch: () => fetchFromExpress(`/api/analytics/${walletAddress}/cowswap_swaps`) },
-        { id: 'sweep', fetch: () => fetchFromExpress(`/api/sweep/${walletAddress}`) },
+        { id: 'sweep', fetch: () => fetchFromExpress(`/api/analytics/${walletAddress}/sweep`) },
       ];
 
       console.log(`[STREAM] Started for wallet: ${walletAddress}`);

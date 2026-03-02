@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { responseCache } from '../cache';
-import { analyticsService } from '../services/analytics-service';
+import { analyticsService, sweepService } from '../services';
 import { query } from '../db';
 import { createPublicClient, http } from 'viem';
 import { defineChain } from 'viem';
@@ -45,9 +45,6 @@ const ERC721_BALANCE_OF_ABI = [
 // ============================================
 // Contract addresses and constants
 // ============================================
-
-// GM contract address
-const GM_CONTRACT_ADDRESS = '0x9f500d075118272b3564ac6ef2c70a9067fd2d3f';
 
 // OpenSea contract address (Seaport on Ink)
 const OPENSEA_CONTRACT_ADDRESS = '0x0000000000000068F116a894984e2DB1123eB395';
@@ -320,16 +317,23 @@ router.get('/:wallet/:metric', async (req: Request, res: Response) => {
       return res.json(cached);
     }
 
-    // Special handling for gm_count - direct native query
+    // Special handling for gm_count - external API
     if (metric === 'gm_count') {
-      const rows = await query<{ count: string }>(`
-        SELECT count(tx_hash) as count 
-        FROM transaction_details 
-        WHERE contract_address = $1 
-          AND wallet_address = lower($2)
-      `, [GM_CONTRACT_ADDRESS, wallet]);
-
-      const count = parseInt(rows[0]?.count || '0', 10);
+      const walletLower = wallet.toLowerCase();
+      const externalApiUrl = `https://gm.inkonchain.com/api/gm-data?address=${walletLower}`;
+      
+      const response = await fetch(externalApiUrl);
+      if (!response.ok) {
+        return res.status(502).json({ error: 'Failed to fetch GM data from external API' });
+      }
+      
+      const data = await response.json() as {
+        totalGms: number;
+        userGms: Record<string, number>;
+        receivedGms: Record<string, number>;
+      };
+      
+      const count = data.userGms[walletLower] || 0;
 
       const result = {
         slug: 'gm_count',
@@ -339,6 +343,27 @@ router.get('/:wallet/:metric', async (req: Request, res: Response) => {
         total_count: count,
         total_value: count.toString(),
         sub_aggregates: [],
+        last_updated: new Date(),
+      };
+
+      responseCache.set(cacheKey, result);
+      return res.json(result);
+    }
+
+    // Special handling for sweep
+    if (metric === 'sweep') {
+      const sweepMetrics = await sweepService.getDeployedCollections(walletLower);
+      
+      const result = {
+        slug: 'sweep',
+        name: 'Sweep',
+        icon: 'https://sweep.haus/sweep.png',
+        currency: 'COUNT',
+        total_count: sweepMetrics.totalCollections,
+        total_value: sweepMetrics.totalCollections.toString(),
+        sub_aggregates: [
+          { label: 'Sweep Badges', value: sweepMetrics.sweepBadgeBalance.toString() }
+        ],
         last_updated: new Date(),
       };
 
