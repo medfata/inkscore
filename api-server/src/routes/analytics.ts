@@ -383,7 +383,7 @@ router.get('/:wallet/:metric', async (req: Request, res: Response) => {
 
     // Special handling for sweep
     if (metric === 'sweep') {
-      const sweepMetrics = await sweepService.getDeployedCollections(walletLower);
+      const sweepMetrics = await sweepService.getDeployedCollections(walletLower) as { totalCollections: number; sweepBadgeBalance: number };
       
       const result = {
         slug: 'sweep',
