@@ -383,10 +383,13 @@ router.get('/:wallet/:metric', async (req: Request, res: Response) => {
 
     // Special handling for sweep
     if (metric === 'sweep') {
+      console.log(`[SWEEP] Fetching metrics for wallet: ${walletLower}`);
       const sweepMetrics = await sweepService.getDeployedCollections(walletLower) as { totalCollections?: number; sweepBadgeBalance?: number };
+      console.log(`[SWEEP] Raw metrics:`, JSON.stringify(sweepMetrics));
       
       const totalCollections = sweepMetrics.totalCollections ?? 0;
       const sweepBadgeBalance = sweepMetrics.sweepBadgeBalance ?? 0;
+      console.log(`[SWEEP] totalCollections: ${totalCollections}, sweepBadgeBalance: ${sweepBadgeBalance}`);
       
       const result = {
         slug: 'sweep',
