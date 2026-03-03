@@ -236,6 +236,7 @@ interface NadoMetrics {
 interface SweepMetrics {
   totalCollections?: number;
   sweepBadgeBalance?: number;
+  totalStreak?: number;
   total_count?: number;
   sub_aggregates?: Array<{ label: string; value: string }>;
 }
@@ -445,7 +446,10 @@ interface ConsolidatedDashboardResponse {
   openseaBuyCount: { total_count?: number } | null;
   mintCount: { total_count?: number } | null;
   openseaSaleCount: { total_count?: number } | null;
-  inkdcaRunDca: { total_count?: number } | null;
+  inkdcaRunDca: { 
+    total_count?: number;
+    sub_aggregates?: Array<{ label: string; value: string }>;
+  } | null;
   templarsNftBalance: { total_count?: number } | null;
   cowswapSwaps: { 
     total_count?: number; 
@@ -558,7 +562,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
   const [shelliesStaking, setShelliesStaking] = useState<{ total_count: number } | null>(null);
 
   // InkDCA metrics state
-  const [inkdcaRunDca, setInkdcaRunDca] = useState<{ total_count: number } | null>(null);
+  const [inkdcaRunDca, setInkdcaRunDca] = useState<{ 
+    total_count: number;
+    sub_aggregates?: Array<{ label: string; value: string }>;
+  } | null>(null);
 
   // Templars NFT metrics state
   const [templarsNftBalance, setTemplarsNftBalance] = useState<{ total_count: number } | null>(null);
@@ -706,9 +713,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
       const sweepData = response.sweep as any;
       const subAggregates = sweepData.sub_aggregates as Array<{ label: string; value: string }> | undefined;
       const badgeAggregate = subAggregates?.find((s) => s.label === 'Sweep Badges');
+      const streakAggregate = subAggregates?.find((s) => s.label === 'Total Streak');
       setSweepMetrics({
         totalCollections: sweepData.totalCollections ?? sweepData.total_count ?? 0,
         sweepBadgeBalance: sweepData.sweepBadgeBalance ?? (badgeAggregate ? parseInt(badgeAggregate.value, 10) : 0),
+        totalStreak: sweepData.totalStreak ?? (streakAggregate ? parseInt(streakAggregate.value, 10) : 0),
       });
     }
 
@@ -818,7 +827,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
 
     // Process InkDCA metrics
     if (response.inkdcaRunDca) {
-      setInkdcaRunDca({ total_count: response.inkdcaRunDca.total_count || 0 });
+      const inkdcaData = response.inkdcaRunDca as any;
+      setInkdcaRunDca({ 
+        total_count: inkdcaData.total_count || 0,
+        sub_aggregates: inkdcaData.sub_aggregates || []
+      });
     }
 
     // Process Templars NFT balance
@@ -902,9 +915,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
             const sweepData = data as any;
             const subAggregates = sweepData.sub_aggregates as Array<{ label: string; value: string }> | undefined;
             const badgeAggregate = subAggregates?.find((s) => s.label === 'Sweep Badges');
+            const streakAggregate = subAggregates?.find((s) => s.label === 'Total Streak');
             setSweepMetrics({
               totalCollections: sweepData.totalCollections ?? sweepData.total_count ?? 0,
               sweepBadgeBalance: sweepData.sweepBadgeBalance ?? (badgeAggregate ? parseInt(badgeAggregate.value, 10) : 0),
+              totalStreak: sweepData.totalStreak ?? (streakAggregate ? parseInt(streakAggregate.value, 10) : 0),
             });
           }
           break;
@@ -939,7 +954,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
           setShelliesStaking({ total_count: data.total_count || 0 });
           break;
         case 'inkdcaRunDca':
-          setInkdcaRunDca({ total_count: data.total_count || 0 });
+          setInkdcaRunDca({ 
+            total_count: data.total_count || 0,
+            sub_aggregates: data.sub_aggregates || []
+          });
           break;
         case 'templarsNftBalance':
           setTemplarsNftBalance({ total_count: data.total_count || 0 });
@@ -2637,6 +2655,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
                       <span className="text-slate-400">Sweep Badges</span>
                       <span className="font-mono text-white">{(sweepMetrics?.sweepBadgeBalance || 0).toLocaleString()}</span>
                     </div>
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">Total Streak</span>
+                      <span className="font-mono text-white">{(sweepMetrics?.totalStreak || 0).toLocaleString()}</span>
+                    </div>
                   </div>
                 </div>
 
@@ -2957,20 +2979,21 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
                       {inkdcaRunDca.total_count.toLocaleString()}
                     </div>
                     <div className="text-xs text-slate-500">
-                      {inkdcaRunDca.total_count} DCA run{inkdcaRunDca.total_count !== 1 ? 's' : ''}
+                      Total Registered DCA{inkdcaRunDca.total_count !== 1 ? 's' : ''}
                     </div>
                   </div>
 
                   <div className="flex-1 pt-3 border-t border-slate-700/50">
-                    <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">Strategy</span>
+                    <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">Activity</span>
                     <div className="space-y-2">
                       <div className="flex justify-between items-center text-[11px]">
-                        <span className="text-slate-400">Dollar Cost Averaging</span>
-                        <span className="font-mono text-emerald-400">Active</span>
-                      </div>
-                      <div className="flex justify-between items-center text-[11px]">
-                        <span className="text-slate-400">Automated Buys</span>
-                        <span className="font-mono text-white">{inkdcaRunDca.total_count}</span>
+                        <span className="text-slate-400">DCA Executions</span>
+                        <span className="font-mono text-white">
+                          {(() => {
+                            const executionsAggregate = inkdcaRunDca.sub_aggregates?.find((s) => s.label === 'DCA Executions');
+                            return executionsAggregate ? parseInt(executionsAggregate.value, 10).toLocaleString() : '0';
+                          })()}
+                        </span>
                       </div>
                     </div>
                   </div>

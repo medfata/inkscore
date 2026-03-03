@@ -384,12 +384,13 @@ router.get('/:wallet/:metric', async (req: Request, res: Response) => {
     // Special handling for sweep
     if (metric === 'sweep') {
       console.log(`[SWEEP] Fetching metrics for wallet: ${walletLower}`);
-      const sweepMetrics = await sweepService.getDeployedCollections(walletLower) as { totalCollections?: number; sweepBadgeBalance?: number };
+      const sweepMetrics = await sweepService.getDeployedCollections(walletLower) as { totalCollections?: number; sweepBadgeBalance?: number; totalStreak?: number };
       console.log(`[SWEEP] Raw metrics:`, JSON.stringify(sweepMetrics));
       
       const totalCollections = sweepMetrics.totalCollections ?? 0;
       const sweepBadgeBalance = sweepMetrics.sweepBadgeBalance ?? 0;
-      console.log(`[SWEEP] totalCollections: ${totalCollections}, sweepBadgeBalance: ${sweepBadgeBalance}`);
+      const totalStreak = sweepMetrics.totalStreak ?? 0;
+      console.log(`[SWEEP] totalCollections: ${totalCollections}, sweepBadgeBalance: ${sweepBadgeBalance}, totalStreak: ${totalStreak}`);
       
       const result = {
         slug: 'sweep',
@@ -399,7 +400,8 @@ router.get('/:wallet/:metric', async (req: Request, res: Response) => {
         total_count: totalCollections,
         total_value: totalCollections.toString(),
         sub_aggregates: [
-          { label: 'Sweep Badges', value: sweepBadgeBalance.toString() }
+          { label: 'Sweep Badges', value: sweepBadgeBalance.toString() },
+          { label: 'Total Streak', value: totalStreak.toString() }
         ],
         last_updated: new Date(),
       };
@@ -948,7 +950,8 @@ router.get('/:wallet/:metric', async (req: Request, res: Response) => {
 
     // Special handling for inkdca_run_dca
     if (metric === 'inkdca_run_dca') {
-      const rows = await query<{ count: string }>(`
+      // Count runDCA executions
+      const runDcaRows = await query<{ count: string }>(`
         SELECT COUNT(*) as count 
         FROM transaction_details 
         WHERE contract_address = lower($1) 
@@ -957,16 +960,30 @@ router.get('/:wallet/:metric', async (req: Request, res: Response) => {
           AND status = 1
       `, [INKDCA_CONTRACT_ADDRESS, wallet, INKDCA_RUN_FUNCTION]);
 
-      const count = parseInt(rows[0]?.count || '0', 10);
+      const runDcaCount = parseInt(runDcaRows[0]?.count || '0', 10);
+
+      // Count registered DCAs (registerForDCAWithETH + registerForDCAWithToken)
+      const registeredDcaRows = await query<{ count: string }>(`
+        SELECT COUNT(*) as count 
+        FROM transaction_details 
+        WHERE contract_address = lower($1) 
+          AND wallet_address = lower($2)
+          AND function_name IN ('registerForDCAWithETH', 'registerForDCAWithToken')
+          AND status = 1
+      `, [INKDCA_CONTRACT_ADDRESS, wallet]);
+
+      const registeredDcaCount = parseInt(registeredDcaRows[0]?.count || '0', 10);
 
       const result = {
         slug: 'inkdca_run_dca',
-        name: 'DCA Runs',
+        name: 'Registered DCAs',
         icon: 'https://inkdca.com/ink_dca_logo.png',
         currency: 'COUNT',
-        total_count: count,
-        total_value: count.toString(),
-        sub_aggregates: [],
+        total_count: registeredDcaCount,
+        total_value: registeredDcaCount.toString(),
+        sub_aggregates: [
+          { label: 'DCA Executions', value: runDcaCount.toString() }
+        ],
         last_updated: new Date(),
       };
 

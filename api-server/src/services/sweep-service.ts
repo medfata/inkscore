@@ -69,9 +69,31 @@ interface SweepApiResponse {
   };
 }
 
+interface SweepStreakResponse {
+  id: number;
+  documentId: string;
+  walletAddress: string;
+  currentStreak: number;
+  longestStreak: number;
+  lastMintDate: string;
+  lastChainId: number;
+  lastTxHash: string;
+  totalMints: number;
+  mintHistory: Array<{
+    date: string;
+    txHash: string;
+    chainId: number;
+  }>;
+  createdAt: string;
+  updatedAt: string;
+  publishedAt: string;
+  locale: string | null;
+}
+
 export interface SweepMetrics {
   totalCollections: number;
   sweepBadgeBalance: number;
+  totalStreak: number;
 }
 
 // Simple in-memory cache (5 minute TTL)
@@ -220,16 +242,18 @@ export class SweepService {
 
       if (!response.ok) {
         console.error(`Sweep API error: ${response.status} ${response.statusText}`);
-        return { totalCollections: 0, sweepBadgeBalance: 0 };
+        return { totalCollections: 0, sweepBadgeBalance: 0, totalStreak: 0 };
       }
 
       const data = await response.json() as SweepApiResponse;
 
       const sweepBadgeBalance = await this.getSweepBadgeBalance(wallet);
+      const totalStreak = await this.getTotalStreak(walletAddress);
 
       const metrics: SweepMetrics = {
         totalCollections: data.meta.pagination.total,
         sweepBadgeBalance,
+        totalStreak,
       };
 
       // Cache the result
@@ -238,7 +262,7 @@ export class SweepService {
       return metrics;
     } catch (error) {
       console.error('Failed to fetch Sweep collections:', error);
-      return { totalCollections: 0, sweepBadgeBalance: 0 };
+      return { totalCollections: 0, sweepBadgeBalance: 0, totalStreak: 0 };
     }
   }
 
@@ -253,6 +277,24 @@ export class SweepService {
       return Number(balance);
     } catch (error) {
       console.error('Failed to fetch Sweep badge balance:', error);
+      return 0;
+    }
+  }
+
+  private async getTotalStreak(walletAddress: string): Promise<number> {
+    try {
+      const url = `${SWEEP_BASE_URL}/api/streak?address=${walletAddress}`;
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        console.error(`Sweep streak API error: ${response.status} ${response.statusText}`);
+        return 0;
+      }
+
+      const data = await response.json() as SweepStreakResponse;
+      return data.totalMints ?? 0;
+    } catch (error) {
+      console.error('Failed to fetch Sweep total streak:', error);
       return 0;
     }
   }
