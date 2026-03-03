@@ -10,6 +10,7 @@ import copinkRoutes from './routes/copink';
 import ranksRoutes from './routes/ranks';
 import cryptoclashRoutes from './routes/cryptoclash';
 import sweepRoutes from './routes/sweep';
+import phase1Routes from './routes/phase1';
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -39,6 +40,7 @@ app.use('/api/copink', copinkRoutes);
 app.use('/api/ranks', ranksRoutes);
 app.use('/api/cryptoclash', cryptoclashRoutes);
 app.use('/api/sweep', sweepRoutes);
+app.use('/api/phase1', phase1Routes);
 
 // Start server with database connection test
 async function startServer() {

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useAccount, useDisconnect, useSignMessage } from 'wagmi';
 import { useAppKit } from '@reown/appkit/react';
+import { useSearchParams } from 'next/navigation';
 import { useIsAdmin } from '@/lib/hooks/useIsAdmin';
 import { Landing } from './components/Landing';
 import { Dashboard } from './components/Dashboard';
@@ -15,7 +16,7 @@ enum View {
   DASHBOARD
 }
 
-export default function Home() {
+function HomeContent() {
   const [currentView, setCurrentView] = useState<View>(View.LANDING);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isDemo, setIsDemo] = useState(false);
@@ -25,6 +26,10 @@ export default function Home() {
   const { disconnect } = useDisconnect();
   const { open } = useAppKit();
   const { signMessageAsync } = useSignMessage();
+  const searchParams = useSearchParams();
+  
+  // Check if admin mode is enabled via query parameter
+  const isAdmin = searchParams.get('admin') === 'true';
 
   // Auto-switch to dashboard when connected
   useEffect(() => {
@@ -99,9 +104,9 @@ export default function Home() {
               Leaderboard
               <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-ink-purple group-hover:w-full transition-all duration-300"></span>
             </a>
-            <a href="/incoming" className="text-sm font-medium text-slate-400 hover:text-white transition-colors relative group">
-              Incoming
-              <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-ink-purple group-hover:w-full transition-all duration-300"></span>
+            <a href="/checker" className="text-sm font-medium text-white transition-colors relative group">
+              Checker
+              <span className="absolute -bottom-1 left-0 w-full h-0.5 bg-ink-purple"></span>
             </a>
             <button
               onClick={() => setIsPlatformRequestModalOpen(true)}
@@ -154,7 +159,7 @@ export default function Home() {
             <a href="/about" className="block text-slate-300">About</a>
             <a href="/how-it-works" className="block text-slate-300">How it Works</a>
             <a href="/leaderboard" className="block text-slate-300">Leaderboard</a>
-            <a href="/incoming" className="block text-slate-300">Incoming</a>
+            <a href="/checker" className="block text-white font-semibold">Checker</a>
             <button
               onClick={() => {
                 setIsPlatformRequestModalOpen(true);
@@ -177,7 +182,7 @@ export default function Home() {
         {currentView === View.LANDING ? (
           <Landing onConnect={handleConnect} onDemo={startDemo} />
         ) : (
-          <Dashboard walletAddress={fullAddress} isDemo={isDemo} />
+          <Dashboard walletAddress={fullAddress} isDemo={isDemo} isAdmin={isAdmin} />
         )}
       </main>
 
@@ -208,5 +213,17 @@ export default function Home() {
         onClose={() => setIsPlatformRequestModalOpen(false)} 
       />
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={
+      <div className="bg-ink-950 min-h-screen text-slate-200 font-sans flex items-center justify-center">
+        <div className="animate-pulse text-slate-400">Loading...</div>
+      </div>
+    }>
+      <HomeContent />
+    </Suspense>
   );
 }

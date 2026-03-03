@@ -1,5 +1,6 @@
 import { assetsService, setWalletStatsCacheClearer } from './assets-service';
 import { TrackedAsset } from '../types/assets';
+import { phase1Service } from './phase1-service';
 
 const INK_CHAIN_ID = '57073';
 const ROUTESCAN_BASE_URL = 'https://cdn-canary.routescan.io/api';
@@ -74,6 +75,10 @@ export interface WalletStatsData {
   firstTxDate: string | null;
   nftCollections: NftCollectionHolding[];
   tokenHoldings: TokenHolding[];
+  phase1Status?: {
+    isPhase1: boolean;
+    score: number | null;
+  };
 }
 
 // Cache for wallet stats (30 second TTL)
@@ -507,6 +512,9 @@ export class WalletStatsService {
       const ageDays = this.calculateAgeDays(txStats.firstTxDate);
       const nftCollections = await this.countSpecialCollections(nftData.holdings);
 
+      // Check Phase 1 status
+      const phase1Status = phase1Service.getPhase1Status(walletAddress);
+
       const result: WalletStatsData = {
         balanceUsd: overview.balanceUsd,
         balanceEth: overview.balanceEth,
@@ -516,6 +524,10 @@ export class WalletStatsService {
         firstTxDate: txStats.firstTxDate,
         nftCollections,
         tokenHoldings,
+        phase1Status: {
+          isPhase1: phase1Status.isPhase1,
+          score: phase1Status.score,
+        },
       };
 
       walletStatsCache.set(wallet, { data: result, timestamp: Date.now() });
