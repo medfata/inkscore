@@ -2995,6 +2995,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
                           })()}
                         </span>
                       </div>
+                      <div className="flex justify-between items-center text-[11px]">
+                        <span className="text-slate-400">Total Spent</span>
+                        <span className="font-mono text-emerald-400">
+                          {(() => {
+                            const spentAggregate = inkdcaRunDca.sub_aggregates?.find((s) => s.label === 'Total Spent');
+                            return spentAggregate ? spentAggregate.value : '$0.00';
+                          })()}
+                        </span>
+                      </div>
                     </div>
                   </div>
 

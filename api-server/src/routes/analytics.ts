@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { responseCache } from '../cache';
-import { analyticsService, sweepService } from '../services';
+import { analyticsService, sweepService, inkDcaService } from '../services';
 import { query } from '../db';
 import { createPublicClient, http } from 'viem';
 import { defineChain } from 'viem';
@@ -950,7 +950,7 @@ router.get('/:wallet/:metric', async (req: Request, res: Response) => {
 
     // Special handling for inkdca_run_dca
     if (metric === 'inkdca_run_dca') {
-      // Count runDCA executions
+      // Count runDCA executions from database
       const runDcaRows = await query<{ count: string }>(`
         SELECT COUNT(*) as count 
         FROM transaction_details 
@@ -962,27 +962,19 @@ router.get('/:wallet/:metric', async (req: Request, res: Response) => {
 
       const runDcaCount = parseInt(runDcaRows[0]?.count || '0', 10);
 
-      // Count registered DCAs (registerForDCAWithETH + registerForDCAWithToken)
-      const registeredDcaRows = await query<{ count: string }>(`
-        SELECT COUNT(*) as count 
-        FROM transaction_details 
-        WHERE contract_address = lower($1) 
-          AND wallet_address = lower($2)
-          AND function_name IN ('registerForDCAWithETH', 'registerForDCAWithToken')
-          AND status = 1
-      `, [INKDCA_CONTRACT_ADDRESS, wallet]);
-
-      const registeredDcaCount = parseInt(registeredDcaRows[0]?.count || '0', 10);
+      // Get metrics from InkDCA API (registered DCAs and total spent)
+      const inkDcaMetrics = await inkDcaService.getMetrics(wallet, runDcaCount);
 
       const result = {
         slug: 'inkdca_run_dca',
         name: 'Registered DCAs',
         icon: 'https://inkdca.com/ink_dca_logo.png',
         currency: 'COUNT',
-        total_count: registeredDcaCount,
-        total_value: registeredDcaCount.toString(),
+        total_count: inkDcaMetrics.totalRegisteredDCAs,
+        total_value: inkDcaMetrics.totalRegisteredDCAs.toString(),
         sub_aggregates: [
-          { label: 'DCA Executions', value: runDcaCount.toString() }
+          { label: 'DCA Executions', value: inkDcaMetrics.dcaExecutions.toString() },
+          { label: 'Total Spent', value: `$${inkDcaMetrics.totalSpentUSD.toFixed(2)}` }
         ],
         last_updated: new Date(),
       };
