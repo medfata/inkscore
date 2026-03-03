@@ -2987,15 +2987,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
                     <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">Activity</span>
                     <div className="space-y-2">
                       <div className="flex justify-between items-center text-[11px]">
-                        <span className="text-slate-400">DCA Executions</span>
-                        <span className="font-mono text-white">
-                          {(() => {
-                            const executionsAggregate = inkdcaRunDca.sub_aggregates?.find((s) => s.label === 'DCA Executions');
-                            return executionsAggregate ? parseInt(executionsAggregate.value, 10).toLocaleString() : '0';
-                          })()}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center text-[11px]">
                         <span className="text-slate-400">Total Spent</span>
                         <span className="font-mono text-emerald-400">
                           {(() => {

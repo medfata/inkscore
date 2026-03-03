@@ -973,7 +973,6 @@ router.get('/:wallet/:metric', async (req: Request, res: Response) => {
         total_count: inkDcaMetrics.totalRegisteredDCAs,
         total_value: inkDcaMetrics.totalRegisteredDCAs.toString(),
         sub_aggregates: [
-          { label: 'DCA Executions', value: inkDcaMetrics.dcaExecutions.toString() },
           { label: 'Total Spent', value: `$${inkDcaMetrics.totalSpentUSD.toFixed(2)}` }
         ],
         last_updated: new Date(),
