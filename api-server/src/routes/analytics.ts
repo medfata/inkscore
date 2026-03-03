@@ -71,6 +71,10 @@ const SHELLIES_RAFFLE_CONTRACTS = [
 ];
 const SHELLIES_PAY_TO_PLAY_CONTRACT = '0x57d287dc46cb0782c4bce1e4e964cc52083bb358';
 const SHELLIES_STAKING_CONTRACT = '0xb39a48d294e1530a271e712b7a19243679d320d0';
+const INK_BUNNIES_STAKING_CONTRACT = '0x058413de8D9c4B76df94CCefC6617ACc5BFE7C57';
+const INK_BUNNIES_STAKING_METHOD = '0x6f8d80f5';
+const BOINK_STAKING_CONTRACT = '0x95a4c625e970D4BC07703F056e0599F45b50b8c9';
+const BOINK_STAKING_METHOD = '0x90be1863'; // getStakedCounts
 
 // NFT marketplace contract addresses
 const NFT_CONTRACTS = [
@@ -919,7 +923,72 @@ router.get('/:wallet/:metric', async (req: Request, res: Response) => {
       return res.json(result);
     }
 
-    // Special handling for shellies_staking
+    // Special handling for nft_staking (Shellies + INK Bunnies + Boink)
+    if (metric === 'nft_staking') {
+      // Get Shellies staked count from transactions
+      const shelliesRows = await query<{ count: string }>(`
+        SELECT COUNT(*) as count 
+        FROM transaction_details 
+        WHERE contract_address = lower($1) 
+          AND wallet_address = lower($2)
+          AND function_name IN ('StakeBatch', 'stakeBatch', '0x1e332260')
+          AND status = 1
+      `, [SHELLIES_STAKING_CONTRACT, wallet]);
+
+      const shelliesCount = parseInt(shelliesRows[0]?.count || '0', 10);
+
+      // Get INK Bunnies staked count via contract call
+      let inkBunniesCount = 0;
+      try {
+        const data = await publicClient.call({
+          to: INK_BUNNIES_STAKING_CONTRACT as `0x${string}`,
+          data: `${INK_BUNNIES_STAKING_METHOD}${wallet.slice(2).padStart(64, '0')}` as `0x${string}`,
+        });
+        
+        if (data && data.data) {
+          inkBunniesCount = parseInt(data.data, 16);
+        }
+      } catch (error) {
+        console.error('Error fetching INK Bunnies staking:', error);
+      }
+
+      // Get Boink staked count via contract call
+      let boinkCount = 0;
+      try {
+        const data = await publicClient.call({
+          to: BOINK_STAKING_CONTRACT as `0x${string}`,
+          data: `${BOINK_STAKING_METHOD}${wallet.slice(2).padStart(64, '0')}` as `0x${string}`,
+        });
+        
+        if (data && data.data) {
+          boinkCount = parseInt(data.data, 16);
+        }
+      } catch (error) {
+        console.error('Error fetching Boink staking:', error);
+      }
+
+      const totalCount = shelliesCount + inkBunniesCount + boinkCount;
+
+      const result = {
+        slug: 'nft_staking',
+        name: 'NFT Staking',
+        icon: '🔒',
+        currency: 'COUNT',
+        total_count: totalCount,
+        total_value: totalCount.toString(),
+        sub_aggregates: [
+          { label: 'Shellies Staked', value: shelliesCount.toString() },
+          { label: 'INK Bunnies Staked', value: inkBunniesCount.toString() },
+          { label: 'Boink Staked', value: boinkCount.toString() }
+        ],
+        last_updated: new Date(),
+      };
+
+      responseCache.set(cacheKey, result);
+      return res.json(result);
+    }
+
+    // Special handling for shellies_staking (kept for backward compatibility)
     if (metric === 'shellies_staking') {
       // Fallback to transaction count (contract read not available in Express server)
       const rows = await query<{ count: string }>(`

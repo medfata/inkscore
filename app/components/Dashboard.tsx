@@ -112,6 +112,25 @@ const NFT_PLATFORMS: Record<string, { name: string; logo: string; url: string }>
   }
 };
 
+// NFT Staking collections info (keyed by label from API)
+const NFT_STAKING_COLLECTIONS: Record<string, { name: string; logo: string; url: string }> = {
+  'Shellies Staked': {
+    name: 'Shellies',
+    logo: 'https://pbs.twimg.com/profile_images/1948768160733175808/aNFNH1IH_400x400.jpg',
+    url: 'https://twitter.com/ShelliesNFT',
+  },
+  'INK Bunnies Staked': {
+    name: 'INK Bunnies',
+    logo: 'https://pbs.twimg.com/profile_images/2017562853859815425/OmYpLZrN_400x400.jpg',
+    url: 'https://twitter.com/InkBunnies',
+  },
+  'Boink Staked': {
+    name: 'Boink',
+    logo: 'https://pbs.twimg.com/profile_images/1972236253119623168/DqTXu2J5_400x400.png',
+    url: 'https://twitter.com/Boi_Ink',
+  }
+};
+
 // Bridge volume response type
 interface BridgeVolumeResponse {
   totalEth: number;
@@ -442,17 +461,20 @@ interface ConsolidatedDashboardResponse {
   zns: ZnsMetricsResponse | null;
   shelliesJoinedRaffles: { total_count?: number } | null;
   shelliesPayToPlay: { total_count?: number } | null;
-  shelliesStaking: { total_count?: number } | null;
+  nftStaking: {
+    total_count?: number;
+    sub_aggregates?: Array<{ label: string; value: string }>;
+  } | null;
   openseaBuyCount: { total_count?: number } | null;
   mintCount: { total_count?: number } | null;
   openseaSaleCount: { total_count?: number } | null;
-  inkdcaRunDca: { 
+  inkdcaRunDca: {
     total_count?: number;
     sub_aggregates?: Array<{ label: string; value: string }>;
   } | null;
   templarsNftBalance: { total_count?: number } | null;
-  cowswapSwaps: { 
-    total_count?: number; 
+  cowswapSwaps: {
+    total_count?: number;
     total_value?: string;
     sub_aggregates?: Array<{
       token: string;
@@ -475,7 +497,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
   // CryptoClash authentication hook with callback to refetch data
   const handleCryptoClashAuthSuccess = useCallback(async () => {
     if (!walletAddress || isDemo) return;
-    
+
     try {
       const response = await fetch(`/api/cryptoclash/${walletAddress}`);
       if (response.ok) {
@@ -559,10 +581,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
   // Shellies metrics state
   const [shelliesJoinedRaffles, setShelliesJoinedRaffles] = useState<{ total_count: number } | null>(null);
   const [shelliesPayToPlay, setShelliesPayToPlay] = useState<{ total_count: number } | null>(null);
-  const [shelliesStaking, setShelliesStaking] = useState<{ total_count: number } | null>(null);
+
+  // NFT Staking metrics state
+  const [nftStaking, setNftStaking] = useState<{
+    total_count: number;
+    sub_aggregates?: Array<{ label: string; value: string }>;
+  } | null>(null);
 
   // InkDCA metrics state
-  const [inkdcaRunDca, setInkdcaRunDca] = useState<{ 
+  const [inkdcaRunDca, setInkdcaRunDca] = useState<{
     total_count: number;
     sub_aggregates?: Array<{ label: string; value: string }>;
   } | null>(null);
@@ -821,14 +848,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
     if (response.shelliesPayToPlay) {
       setShelliesPayToPlay({ total_count: response.shelliesPayToPlay.total_count || 0 });
     }
-    if (response.shelliesStaking) {
-      setShelliesStaking({ total_count: response.shelliesStaking.total_count || 0 });
+
+    // Process NFT Staking metrics
+    if (response.nftStaking) {
+      setNftStaking({
+        total_count: response.nftStaking.total_count || 0,
+        sub_aggregates: response.nftStaking.sub_aggregates || []
+      });
     }
 
     // Process InkDCA metrics
     if (response.inkdcaRunDca) {
       const inkdcaData = response.inkdcaRunDca as any;
-      setInkdcaRunDca({ 
+      setInkdcaRunDca({
         total_count: inkdcaData.total_count || 0,
         sub_aggregates: inkdcaData.sub_aggregates || []
       });
@@ -950,11 +982,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
         case 'shelliesPayToPlay':
           setShelliesPayToPlay({ total_count: data.total_count || 0 });
           break;
-        case 'shelliesStaking':
-          setShelliesStaking({ total_count: data.total_count || 0 });
+        case 'nftStaking':
+          setNftStaking({
+            total_count: data.total_count || 0,
+            sub_aggregates: data.sub_aggregates || []
+          });
           break;
         case 'inkdcaRunDca':
-          setInkdcaRunDca({ 
+          setInkdcaRunDca({
             total_count: data.total_count || 0,
             sub_aggregates: data.sub_aggregates || []
           });
@@ -1024,7 +1059,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
     setInkyPumpSellVolume(null);
     setShelliesJoinedRaffles(null);
     setShelliesPayToPlay(null);
-    setShelliesStaking(null);
+    setNftStaking(null);
     setInkdcaRunDca(null);
     setTemplarsNftBalance(null);
     setCowswapSwaps(null);
@@ -1038,7 +1073,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
         const response: ConsolidatedDashboardResponse = await res.json();
         processConsolidatedResponse(response);
       }
-      
+
       setLastUpdated(new Date());
       setCooldownRemaining(REFRESH_COOLDOWN_MS);
     } catch (err) {
@@ -1710,7 +1745,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
             )}
           </div>
 
-{/* GM Activity Card */}
+          {/* GM Activity Card */}
           <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-purple-500/20 bg-gradient-to-br from-purple-500/12 to-purple-900/5 h-[300px] flex flex-col" style={{ animationDelay: '0.6s' }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
@@ -1757,7 +1792,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
             )}
           </div>
 
-{/* Bridge Volume Card */}
+          {/* Bridge Volume Card */}
           <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-teal-500/20 bg-gradient-to-br from-teal-500/12 to-teal-900/5 h-[300px] flex flex-col" style={{ animationDelay: '0.65s' }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
@@ -1915,87 +1950,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
             )}
           </div>
 
-          {/* InkyPump Card */}
-          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-pink-500/20 bg-gradient-to-br from-pink-500/12 to-pink-900/5 h-[300px] flex flex-col" style={{ animationDelay: '0.7s' }}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                <a
-                  href={PLATFORM_URLS.inkypump}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:ring-2 hover:ring-pink-500/50 rounded-full transition-all cursor-pointer"
-                  title="Visit InkyPump"
-                >
-                  <img
-                    src="https://www.inkypump.com/favicon.ico"
-                    alt="InkyPump"
-                    className="w-6 h-6 rounded-full object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=IP&background=ec4899&color=fff&size=24';
-                    }}
-                  />
-                </a>
-                InkyPump
-              </h3>
-            </div>
-
-            {!isDemo && (isMetricLoading('inkypumpCreatedTokens') || isMetricLoading('inkypumpBuyVolume') || isMetricLoading('inkypumpSellVolume') || !inkyPumpCreatedTokens || !inkyPumpBuyVolume || !inkyPumpSellVolume) ? (
-              <div className="flex-1 flex flex-col justify-center">
-                <div className="h-8 w-20 bg-slate-700/50 rounded animate-pulse mb-2"></div>
-                <div className="h-3 w-24 bg-slate-700/30 rounded animate-pulse mb-4"></div>
-                <div className="h-20 w-full bg-slate-700/30 rounded animate-pulse"></div>
-              </div>
-            ) : (
-              <>
-                <div className="mb-3">
-                  <div className="text-2xl font-bold font-display text-pink-400">
-                    {!isDemo && inkyPumpCreatedTokens ? inkyPumpCreatedTokens.count : 0}
-                  </div>
-                  <div className="text-xs text-slate-500">Created Tokens</div>
-                </div>
-
-                <div className="flex-1 pt-3 border-t border-slate-700/50">
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">By Action</span>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-slate-400">Created Tokens</span>
-                      <span className="font-mono text-white">{!isDemo && inkyPumpCreatedTokens ? inkyPumpCreatedTokens.count : 0}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-slate-400">Buy Token volume</span>
-                      <span className="font-mono text-white">
-                        ${!isDemo && inkyPumpBuyVolume ? parseFloat(inkyPumpBuyVolume.total_value).toFixed(2) : '0.00'}
-                        <span className="pl-[2px] text-[10px] text-slate-500"> /
-                          {!isDemo && inkyPumpBuyVolume ? inkyPumpBuyVolume.total_count || 0 : 0} tx
-                        </span>
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-slate-400">Sell Token volume</span>
-                      <span className="font-mono text-white">
-                        ${!isDemo && inkyPumpSellVolume ? parseFloat(inkyPumpSellVolume.total_value).toFixed(2) : '0.00'}
-                        <span className="pl-[2px] text-[10px] text-slate-500"> /
-                          {!isDemo && inkyPumpSellVolume ? inkyPumpSellVolume.total_count || 0 : 0} tx
-                        </span>
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-
-
-
-        </div>
-
-        {/* Dynamic Cards Row 3 - Admin added aggregate cards */}
-        {!isDemo && dynamicCardsRow3.length > 0 && (
-          <DynamicCardsCarouselRow3 cards={dynamicCardsRow3} />
-        )}
-
-        {/* Row 4: ZNS Domain + NFT2Mint + NFT Trading (5 columns) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {/* Swap Volume Card */}
           <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-cyan-500/20 bg-gradient-to-br from-cyan-500/12 to-cyan-900/5 h-[300px] flex flex-col" style={{ animationDelay: '0.75s' }}>
             <div className="flex items-center justify-between mb-4">
@@ -2115,7 +2069,659 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
               </div>
             )}
           </div>
-{/* ZNS Domain Card */}
+
+
+        </div>
+
+        {/* Dynamic Cards Row 3 - Admin added aggregate cards */}
+        {!isDemo && dynamicCardsRow3.length > 0 && (
+          <DynamicCardsCarouselRow3 cards={dynamicCardsRow3} />
+        )}
+
+        {/* Row 4: ZNS Domain + NFT2Mint + NFT Trading (5 columns) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {/* Cow Swap Card */}
+          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-blue-500/20 bg-gradient-to-br from-blue-500/12 to-blue-900/5 h-[300px] flex flex-col" style={{ animationDelay: '1.15s' }}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                <a
+                  href={PLATFORM_URLS['cowswap']}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:ring-2 hover:ring-blue-500/50 rounded-full transition-all cursor-pointer"
+                  title="Visit Cow Swap"
+                >
+                  <img
+                    src={getProxiedImageUrl('https://swap.cow.fi/favicon-dark-mode.png')}
+                    alt="Cow Swap"
+                    className="w-6 h-6 rounded-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=COW&background=3b82f6&color=fff&size=24';
+                    }}
+                  />
+                </a>
+                Cow Swap
+              </h3>
+            </div>
+
+            {!isDemo ? (
+              (isMetricLoading('cowswapSwaps') || !cowswapSwaps) ? (
+                <div className="flex-1 flex flex-col justify-center">
+                  <div className="h-8 w-16 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+                  <div className="h-3 w-24 bg-slate-700/30 rounded animate-pulse mb-4"></div>
+                  <div className="space-y-2">
+                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
+                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="mb-3">
+                    <div className="text-2xl font-bold font-display text-blue-400">
+                      ${parseFloat(cowswapSwaps.total_value).toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                      })}
+                    </div>
+                    <div className="text-xs text-slate-500">
+                      {cowswapSwaps.total_count} swap{cowswapSwaps.total_count !== 1 ? 's' : ''}
+                    </div>
+                  </div>
+
+                  <div className="flex-1 pt-3 border-t border-slate-700/50 flex flex-col min-h-0">
+                    <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">By Token</span>
+                    <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar">
+                      {cowswapSwaps.sub_aggregates.slice(0, 5).map((item, i) => (
+                        <div key={i} className="text-[11px]">
+                          <div className="flex justify-between items-center py-0.5">
+                            <span className="text-slate-400">{item.token}</span>
+                            <span className="font-mono text-white text-[10px]">
+                              ${parseFloat(item.usd_value).toLocaleString(undefined, {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2
+                              })}
+                            </span>
+                          </div>
+                          <div className="text-[9px] text-slate-500">
+                            {item.count} swap{item.count !== 1 ? 's' : ''}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {cowswapSwaps.total_count > 0 && (
+                    <div className="mt-2 text-xs text-blue-400 opacity-80 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse"></span>
+                      Active Swapper
+                    </div>
+                  )}
+                </>
+              )
+            ) : (
+              <>
+                <div className="mb-3">
+                  <div className="text-2xl font-bold font-display text-blue-400">$0.00</div>
+                  <div className="text-xs text-slate-500">0 swaps</div>
+                </div>
+
+                <div className="flex-1 pt-3 border-t border-slate-700/50">
+                  <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">By Token</span>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">No swaps yet</span>
+                      <span className="font-mono text-slate-500">-</span>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* OpenSea Card */}
+          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-sky-500/20 bg-gradient-to-br from-sky-500/12 to-sky-900/5 h-[300px] flex flex-col" style={{ animationDelay: '0.75s' }}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                <a
+                  href={PLATFORM_URLS.opensea}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:ring-2 hover:ring-sky-500/50 rounded-full transition-all cursor-pointer"
+                  title="Visit OpenSea"
+                >
+                  <img
+                    src="https://opensea.io/favicon.ico"
+                    alt="OpenSea"
+                    className="w-6 h-6 rounded-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=OS&background=2081e2&color=fff&size=24';
+                    }}
+                  />
+                </a>
+                OpenSea
+              </h3>
+            </div>
+
+            {!isDemo ? (
+              (isMetricLoading('openseaBuyCount') || isMetricLoading('mintCount') || isMetricLoading('openseaSaleCount') || !realOpenSeaBuys) ? (
+                <div className="flex-1 flex flex-col justify-center">
+                  <div className="h-8 w-20 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+                  <div className="h-3 w-32 bg-slate-700/30 rounded animate-pulse mb-4"></div>
+                  <div className="space-y-2">
+                    <div className="h-4 w-full bg-slate-700/30 rounded animate-pulse"></div>
+                    <div className="h-4 w-full bg-slate-700/30 rounded animate-pulse"></div>
+                    <div className="h-4 w-full bg-slate-700/30 rounded animate-pulse"></div>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="mb-3">
+                    <div className="text-2xl font-bold font-display text-sky-400">
+                      {((realOpenSeaBuys?.count || 0) + (realMintCount?.count || 0) + (realOpenSeaSales?.count || 0)).toLocaleString()}
+                    </div>
+                    <div className="text-xs text-slate-500">Total Activity</div>
+                  </div>
+
+                  <div className="flex-1 pt-3 border-t border-slate-700/50">
+                    <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">By Type</span>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center text-[11px]">
+                        <span className="text-slate-400">Buys</span>
+                        <span className="font-mono text-white">{(realOpenSeaBuys?.count || 0).toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-[11px]">
+                        <span className="text-slate-400">Sales</span>
+                        <span className="font-mono text-white">{(realOpenSeaSales?.count || 0).toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-[11px]">
+                        <span className="text-slate-400">Mints</span>
+                        <span className="font-mono text-white">{(realMintCount?.count || 0).toLocaleString()}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {((realOpenSeaBuys?.count || 0) + (realMintCount?.count || 0) + (realOpenSeaSales?.count || 0)) > 0 && (
+                    <div className="mt-2 text-xs text-sky-400 opacity-80 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse"></span>
+                      Active NFT Trader
+                    </div>
+                  )}
+                </>
+              )
+            ) : (
+              <>
+                <div className="mb-3">
+                  <div className="text-2xl font-bold font-display text-sky-400">10</div>
+                  <div className="text-xs text-slate-500">Total Activity</div>
+                </div>
+
+                <div className="flex-1 pt-3 border-t border-slate-700/50">
+                  <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">By Type</span>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">Buys</span>
+                      <span className="font-mono text-white">5</span>
+                    </div>
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">Sales</span>
+                      <span className="font-mono text-white">2</span>
+                    </div>
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">Mints</span>
+                      <span className="font-mono text-white">3</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-2 text-xs text-sky-400 opacity-80 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse"></span>
+                  Active NFT Trader
+                </div>
+              </>
+            )}
+          </div>
+          {/* InkScore Phase 1 Card */}
+          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-purple-500/20 bg-purple-500/5 h-[300px] flex flex-col" style={{ animationDelay: '1.0s' }}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                <img
+                  src="/favicon.ico"
+                  alt="InkScore"
+                  className="w-6 h-6 rounded-full object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=IS&background=a855f7&color=fff&size=24';
+                  }}
+                />
+                InkScore Phase 1
+              </h3>
+            </div>
+
+            {!isDemo ? (
+              realWalletStats?.phase1Status ? (
+                <>
+                  <div className="mb-3">
+                    <div className={`text-2xl font-bold font-display ${realWalletStats.phase1Status.isPhase1 ? 'text-emerald-400' : 'text-slate-400'}`}>
+                      {realWalletStats.phase1Status.isPhase1 ? 'Eligible' : 'Not Eligible'}
+                    </div>
+                    <div className="text-xs text-slate-500">
+                      {realWalletStats.phase1Status.isPhase1 && realWalletStats.phase1Status.score
+                        ? `Score: ${realWalletStats.phase1Status.score.toLocaleString()}`
+                        : 'Phase 1 Eligibility Status'
+                      }
+                    </div>
+                  </div>
+
+                  <div className="flex-1 pt-3 border-t border-slate-700/50">
+                    <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">Details</span>
+                    <div className="space-y-2">
+                      {realWalletStats.phase1Status.isPhase1 && realWalletStats.phase1Status.score ? (
+                        <>
+                          <div className="flex justify-between items-center text-[11px]">
+                            <span className="text-slate-400">Your Score</span>
+                            <span className="font-mono text-white">{realWalletStats.phase1Status.score.toLocaleString()}</span>
+                          </div>
+                          <div className="flex justify-between items-center text-[11px]">
+                            <span className="text-slate-400">Status</span>
+                            <span className="font-mono text-emerald-400">✓ Qualified</span>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="flex justify-between items-center text-[11px]">
+                          <span className="text-slate-400">Status</span>
+                          <span className="font-mono text-slate-400">Not in Phase 1</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {realWalletStats.phase1Status.isPhase1 && (
+                    <div className="mt-2 text-xs text-emerald-400 opacity-80 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                      Phase 1 Participant
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <div className="mb-3">
+                    <div className="text-2xl font-bold font-display text-slate-400">
+                      <div className="animate-pulse bg-slate-700 h-8 w-24 rounded"></div>
+                    </div>
+                    <div className="text-xs text-slate-500">Loading...</div>
+                  </div>
+
+                  <div className="flex-1 pt-3 border-t border-slate-700/50">
+                    <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">Details</span>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center text-[11px]">
+                        <span className="text-slate-400">Your Score</span>
+                        <div className="animate-pulse bg-slate-700 h-3 w-12 rounded"></div>
+                      </div>
+                      <div className="flex justify-between items-center text-[11px]">
+                        <span className="text-slate-400">Status</span>
+                        <div className="animate-pulse bg-slate-700 h-3 w-16 rounded"></div>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )
+            ) : (
+              <>
+                <div className="mb-3">
+                  <div className="text-2xl font-bold font-display text-slate-400">Not Eligible</div>
+                  <div className="text-xs text-slate-500">Phase 1 Eligibility Status</div>
+                </div>
+
+                <div className="flex-1 pt-3 border-t border-slate-700/50">
+                  <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">Details</span>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">Status</span>
+                      <span className="font-mono text-slate-400">Not in Phase 1</span>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Templars of the Storm NFT Card */}
+          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-purple-500/20 bg-gradient-to-br from-purple-500/12 to-purple-900/5 h-[300px] flex flex-col" style={{ animationDelay: '1.1s' }}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                <a
+                  href={PLATFORM_URLS['templars']}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:ring-2 hover:ring-purple-500/50 rounded-full transition-all cursor-pointer"
+                  title="View Collection"
+                >
+                  <img
+                    src={getProxiedImageUrl('https://i2c.seadn.io/admin-uploads/f189f573f43d0fa8eab11049be7133/aaf189f573f43d0fa8eab11049be7133.png?h=250&w=250')}
+                    alt="Templars of the Storm"
+                    className="w-6 h-6 rounded-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=Templars&background=a855f7&color=fff&size=24';
+                    }}
+                  />
+                </a>
+                Templars of the Storm
+              </h3>
+            </div>
+
+            {!isDemo ? (
+              (isMetricLoading('templarsNftBalance') || !templarsNftBalance) ? (
+                <div className="flex-1 flex flex-col justify-center">
+                  <div className="h-8 w-16 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+                  <div className="h-3 w-24 bg-slate-700/30 rounded animate-pulse mb-4"></div>
+                  <div className="space-y-2">
+                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
+                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="mb-3">
+                    <div className="text-2xl font-bold font-display text-purple-400">
+                      {templarsNftBalance.total_count.toLocaleString()}
+                    </div>
+                    <div className="text-xs text-slate-500">
+                      {templarsNftBalance.total_count} NFT{templarsNftBalance.total_count !== 1 ? 's' : ''} held
+                    </div>
+                  </div>
+
+                  <div className="flex-1 pt-3 border-t border-slate-700/50">
+                    <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">Collection</span>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center text-[11px]">
+                        <span className="text-slate-400">Templars of the Storm</span>
+                        <span className="font-mono text-purple-400">NFT</span>
+                      </div>
+                      <div className="flex justify-between items-center text-[11px]">
+                        <span className="text-slate-400">Balance</span>
+                        <span className="font-mono text-white">{templarsNftBalance.total_count}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {templarsNftBalance.total_count > 0 && (
+                    <div className="mt-2 text-xs text-purple-400 opacity-80 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse"></span>
+                      Templar Holder
+                    </div>
+                  )}
+                </>
+              )
+            ) : (
+              <>
+                <div className="mb-3">
+                  <div className="text-2xl font-bold font-display text-purple-400">0</div>
+                  <div className="text-xs text-slate-500">0 NFTs held</div>
+                </div>
+
+                <div className="flex-1 pt-3 border-t border-slate-700/50">
+                  <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">Collection</span>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">Templars of the Storm</span>
+                      <span className="font-mono text-slate-500">NFT</span>
+                    </div>
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">Balance</span>
+                      <span className="font-mono text-white">0</span>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Dynamic Cards Row 4 - Admin added single platform cards */}
+        {!isDemo && dynamicCardsRow4.length > 0 && (
+          <DynamicCardsCarouselRow4 cards={dynamicCardsRow4} />
+        )}
+
+        {/* Row 5: Shellies and Future Cards (4 columns) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {/* Otomate Card */}
+          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-green-500/20 bg-gradient-to-br from-green-500/12 to-green-900/5 h-[300px] flex flex-col" style={{ animationDelay: '0.9s' }}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                <a
+                  href={PLATFORM_URLS.otomate}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:ring-2 hover:ring-pink-500/50 rounded-full transition-all cursor-pointer"
+                  title="Visit Otomate"
+                >
+                  <img
+                    src="https://www.otomate.trade/favicon.ico"
+                    alt="Otomate"
+                    className="w-6 h-6 rounded-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=C&background=ec4899&color=fff&size=24';
+                    }}
+                  />
+                </a>
+                Otomate
+              </h3>
+            </div>
+
+            {!isDemo ? (
+              (isMetricLoading('copink') || !copinkMetrics) ? (
+                <div className="flex-1 flex flex-col justify-center">
+                  <div className="h-8 w-20 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+                  <div className="h-3 w-32 bg-slate-700/30 rounded animate-pulse mb-4"></div>
+                  <div className="space-y-2">
+                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="mb-3">
+                    <div className="text-2xl font-bold font-display text-green-400">
+                      ${copinkMetrics.totalVolume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                    <div className="text-xs text-slate-500">
+                      Total Trading Volume
+                    </div>
+                  </div>
+
+                  <div className="flex-1 pt-3 border-t border-slate-700/50">
+                    <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">Account Details</span>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center text-[11px]">
+                        <span className="text-slate-400">Subaccounts Found</span>
+                        <span className="font-mono text-white">{copinkMetrics.subaccountsFound}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {copinkMetrics.totalVolume > 0 && (
+                    <div className="mt-2 text-xs text-green-400 opacity-80 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></span>
+                      Active Otomate Trader
+                    </div>
+                  )}
+                </>
+              )
+            ) : (
+              <>
+                <div className="mb-3">
+                  <div className="text-2xl font-bold font-display text-violet-400">$0.00</div>
+                  <div className="text-xs text-slate-500">Total Trading Volume</div>
+                </div>
+
+                <div className="flex-1 pt-3 border-t border-slate-700/50">
+                  <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">Account Details</span>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">Subaccounts Found</span>
+                      <span className="font-mono text-white">0</span>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
+
+          {/* Sweep Card */}
+          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-yellow-500/20 bg-gradient-to-br from-yellow-500/12 to-yellow-900/5 h-[300px] flex flex-col" style={{ animationDelay: '0.93s' }}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                <a
+                  href={PLATFORM_URLS.sweep}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:ring-2 hover:ring-yellow-500/50 rounded-full transition-all cursor-pointer"
+                  title="Visit Sweep"
+                >
+                  <img
+                    src="https://sweep.haus/sweep.png"
+                    alt="Sweep"
+                    className="w-6 h-6 rounded-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=S&background=eab308&color=fff&size=24';
+                    }}
+                  />
+                </a>
+                Sweep
+              </h3>
+            </div>
+
+            {!isDemo && (isMetricLoading('sweep') || !sweepMetrics) ? (
+              <div className="flex-1 flex flex-col justify-center items-center">
+                <div className="h-16 w-24 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+                <div className="h-4 w-32 bg-slate-700/30 rounded animate-pulse"></div>
+              </div>
+            ) : (
+              <>
+                <div className="mb-3">
+                  <div className="text-2xl font-bold font-display text-yellow-400">
+                    {(!isDemo && sweepMetrics ? (sweepMetrics.totalCollections || 0) : 0).toLocaleString()}
+                  </div>
+                  <div className="text-xs text-slate-500">
+                    NFT Collections Deployed
+                  </div>
+                </div>
+
+                <div className="flex-1 pt-3 border-t border-slate-700/50">
+                  <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">Account Details</span>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">Sweep Badges</span>
+                      <span className="font-mono text-white">{(sweepMetrics?.sweepBadgeBalance || 0).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">Total Streak</span>
+                      <span className="font-mono text-white">{(sweepMetrics?.totalStreak || 0).toLocaleString()}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {((!isDemo && sweepMetrics ? (sweepMetrics.totalCollections || 0) : 0) > 0 || (!isDemo && sweepMetrics ? (sweepMetrics.sweepBadgeBalance || 0) : 0) > 0) && (
+                  <div className="mt-2 text-xs text-yellow-400 opacity-80 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-yellow-400 animate-pulse"></span>
+                    NFT Creator
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+          {/* InkDCA Card */}
+          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-emerald-500/20 bg-gradient-to-br from-emerald-500/12 to-emerald-900/5 h-[300px] flex flex-col" style={{ animationDelay: '1.05s' }}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                <a
+                  href="https://inkdca.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:ring-2 hover:ring-emerald-500/50 rounded-full transition-all cursor-pointer"
+                  title="Visit InkDCA"
+                >
+                  <img
+                    src={getProxiedImageUrl('https://inkdca.com/ink_dca_logo.png')}
+                    alt="InkDCA"
+                    className="w-6 h-6 rounded-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=DCA&background=10b981&color=fff&size=24';
+                    }}
+                  />
+                </a>
+                InkDCA
+              </h3>
+            </div>
+
+            {!isDemo ? (
+              (isMetricLoading('inkdcaRunDca') || !inkdcaRunDca) ? (
+                <div className="flex-1 flex flex-col justify-center">
+                  <div className="h-8 w-16 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+                  <div className="h-3 w-24 bg-slate-700/30 rounded animate-pulse mb-4"></div>
+                  <div className="space-y-2">
+                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
+                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="mb-3">
+                    <div className="text-2xl font-bold font-display text-emerald-400">
+                      {inkdcaRunDca.total_count.toLocaleString()}
+                    </div>
+                    <div className="text-xs text-slate-500">
+                      Total Registered DCA{inkdcaRunDca.total_count !== 1 ? 's' : ''}
+                    </div>
+                  </div>
+
+                  <div className="flex-1 pt-3 border-t border-slate-700/50">
+                    <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">Activity</span>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center text-[11px]">
+                        <span className="text-slate-400">Total Spent</span>
+                        <span className="font-mono text-emerald-400">
+                          {(() => {
+                            const spentAggregate = inkdcaRunDca.sub_aggregates?.find((s) => s.label === 'Total Spent');
+                            return spentAggregate ? spentAggregate.value : '$0.00';
+                          })()}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {inkdcaRunDca.total_count > 0 && (
+                    <div className="mt-2 text-xs text-emerald-400 opacity-80 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                      Smart DCA Investor
+                    </div>
+                  )}
+                </>
+              )
+            ) : (
+              <>
+                <div className="mb-3">
+                  <div className="text-2xl font-bold font-display text-emerald-400">0</div>
+                  <div className="text-xs text-slate-500">0 DCA runs</div>
+                </div>
+
+                <div className="flex-1 pt-3 border-t border-slate-700/50">
+                  <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">Strategy</span>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">Dollar Cost Averaging</span>
+                      <span className="font-mono text-slate-500">Inactive</span>
+                    </div>
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">Automated Buys</span>
+                      <span className="font-mono text-white">0</span>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+          {/* ZNS Domain Card */}
           <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-lime-500/20 bg-gradient-to-br from-lime-500/12 to-lime-900/5 h-[300px] flex flex-col" style={{ animationDelay: '0.8s' }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
@@ -2193,8 +2799,176 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
               </>
             )}
           </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {/* Shellies Unified Card */}
+          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-violet-500/20 bg-gradient-to-br from-violet-500/12 to-violet-900/5 h-[300px] flex flex-col" style={{ animationDelay: '1.0s' }}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                <a
+                  href={PLATFORM_URLS.shellies}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:ring-2 hover:ring-violet-500/50 rounded-full transition-all cursor-pointer"
+                  title="Visit Shellies"
+                >
+                  <img
+                    src="https://pbs.twimg.com/profile_images/1948768160733175808/aNFNH1IH_400x400.jpg"
+                    alt="Shellies"
+                    className="w-6 h-6 rounded-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=S&background=8b5cf6&color=fff&size=24';
+                    }}
+                  />
+                </a>
+                Shellies
+              </h3>
+            </div>
 
-{/* NFT Trading Card */}
+            {!isDemo && (isMetricLoading('shelliesJoinedRaffles') || isMetricLoading('shelliesPayToPlay') || !shelliesJoinedRaffles || !shelliesPayToPlay) ? (
+              <div className="flex-1 flex flex-col justify-center">
+                <div className="h-8 w-20 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+                <div className="h-3 w-32 bg-slate-700/30 rounded animate-pulse mb-4"></div>
+                <div className="space-y-2">
+                  <div className="h-4 w-full bg-slate-700/30 rounded animate-pulse"></div>
+                  <div className="h-4 w-full bg-slate-700/30 rounded animate-pulse"></div>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="mb-3">
+                  <div className="text-2xl font-bold font-display text-violet-400">
+                    {!isDemo && shelliesJoinedRaffles && shelliesPayToPlay
+                      ? (shelliesJoinedRaffles.total_count + shelliesPayToPlay.total_count)
+                      : 0}
+                  </div>
+                  <div className="text-xs text-slate-500">Total Transactions</div>
+                </div>
+
+                <div className="flex-1 pt-3 border-t border-slate-700/50">
+                  <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">By Activity</span>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">Joined Raffles</span>
+                      <span className="font-mono text-white">
+                        {!isDemo && shelliesJoinedRaffles ? shelliesJoinedRaffles.total_count : 0}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">Pay to Play</span>
+                      <span className="font-mono text-white">
+                        {!isDemo && shelliesPayToPlay ? shelliesPayToPlay.total_count : 0}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {!isDemo && shelliesJoinedRaffles && shelliesPayToPlay &&
+                  (shelliesJoinedRaffles.total_count + shelliesPayToPlay.total_count) > 0 && (
+                    <div className="mt-2 text-xs text-violet-400 opacity-80 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse"></span>
+                      Active Shellies User
+                    </div>
+                  )}
+              </>
+            )}
+          </div>
+          {/* NFT2Me Card */}
+          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-cyan-500/20 bg-gradient-to-br from-cyan-500/12 to-cyan-900/5 h-[300px] flex flex-col" style={{ animationDelay: '0.95s' }}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                <a
+                  href={PLATFORM_URLS.nft2me}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:ring-2 hover:ring-emerald-500/50 rounded-full transition-all cursor-pointer"
+                  title="Visit NFT2Me"
+                >
+                  <img
+                    src="https://pbs.twimg.com/profile_images/1626191411384053761/NoRNmw9L_400x400.png"
+                    alt="NFT2Me"
+                    className="w-6 h-6 rounded-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=N2M&background=10b981&color=fff&size=24';
+                    }}
+                  />
+                </a>
+                NFT2Me
+              </h3>
+            </div>
+
+            {!isDemo ? (
+              (isMetricLoading('nft2me') || !nft2meMetrics) ? (
+                <div className="flex-1 flex flex-col justify-center">
+                  <div className="h-8 w-16 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+                  <div className="h-3 w-24 bg-slate-700/30 rounded animate-pulse mb-4"></div>
+                  <div className="space-y-2">
+                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
+                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="mb-3">
+                    <div className="text-2xl font-bold font-display text-cyan-400">
+                      {nft2meMetrics.totalTransactions.toLocaleString()}
+                    </div>
+                    <div className="text-xs text-slate-500">
+                      {nft2meMetrics.totalTransactions} transaction{nft2meMetrics.totalTransactions !== 1 ? 's' : ''}
+                    </div>
+                  </div>
+
+                  <div className="flex-1 pt-3 border-t border-slate-700/50">
+                    <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">By Action</span>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center text-[11px]">
+                        <span className="text-slate-400">Collections Created</span>
+                        <span className="font-mono text-white">{nft2meMetrics.collectionsCreated}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-[11px]">
+                        <span className="text-slate-400">NFTs Minted</span>
+                        <span className="font-mono text-white">{nft2meMetrics.nftsMinted}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {nft2meMetrics.totalTransactions > 0 && (
+                    <div className="mt-2 text-xs text-emerald-400 opacity-80 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                      NFT2Me Creator
+                    </div>
+                  )}
+                </>
+              )
+            ) : (
+              <>
+                <div className="mb-3">
+                  <div className="text-2xl font-bold font-display text-cyan-400">3</div>
+                  <div className="text-xs text-slate-500">3 transactions</div>
+                </div>
+
+                <div className="flex-1 pt-3 border-t border-slate-700/50">
+                  <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">By Action</span>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">Collections Created</span>
+                      <span className="font-mono text-white">1</span>
+                    </div>
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">NFTs Minted</span>
+                      <span className="font-mono text-white">2</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-2 text-xs text-emerald-400 opacity-80 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                  NFT2Me Creator
+                </div>
+              </>
+            )}
+          </div>
+          {/* NFT Trading Card */}
           <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-green-500/20 bg-gradient-to-br from-green-500/12 to-green-900/5 h-[300px] flex flex-col" style={{ animationDelay: '0.95s' }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
@@ -2327,477 +3101,143 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
               </>
             )}
           </div>
-
-          {/* OpenSea Card */}
-          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-sky-500/20 bg-gradient-to-br from-sky-500/12 to-sky-900/5 h-[300px] flex flex-col" style={{ animationDelay: '0.75s' }}>
+          {/* InkyPump Card */}
+          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-pink-500/20 bg-gradient-to-br from-pink-500/12 to-pink-900/5 h-[300px] flex flex-col" style={{ animationDelay: '0.7s' }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                 <a
-                  href={PLATFORM_URLS.opensea}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:ring-2 hover:ring-sky-500/50 rounded-full transition-all cursor-pointer"
-                  title="Visit OpenSea"
-                >
-                  <img
-                    src="https://opensea.io/favicon.ico"
-                    alt="OpenSea"
-                    className="w-6 h-6 rounded-full object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=OS&background=2081e2&color=fff&size=24';
-                    }}
-                  />
-                </a>
-                OpenSea
-              </h3>
-            </div>
-
-            {!isDemo ? (
-              (isMetricLoading('openseaBuyCount') || isMetricLoading('mintCount') || isMetricLoading('openseaSaleCount') || !realOpenSeaBuys) ? (
-                <div className="flex-1 flex flex-col justify-center">
-                  <div className="h-8 w-16 bg-slate-700/50 rounded animate-pulse mb-2"></div>
-                  <div className="h-3 w-24 bg-slate-700/30 rounded animate-pulse mb-3"></div>
-                  <div className="h-6 w-16 bg-slate-700/50 rounded animate-pulse mb-2"></div>
-                  <div className="h-3 w-20 bg-slate-700/30 rounded animate-pulse mb-3"></div>
-                  <div className="h-6 w-16 bg-slate-700/50 rounded animate-pulse mb-2"></div>
-                  <div className="h-3 w-20 bg-slate-700/30 rounded animate-pulse"></div>
-                </div>
-              ) : (
-                <>
-                  <div className="mb-3">
-                    <div className="text-2xl font-bold font-display text-sky-400">
-                      {realOpenSeaBuys.count.toLocaleString()}
-                    </div>
-                    <div className="text-xs text-slate-500">{realOpenSeaBuys.count} buy{realOpenSeaBuys.count !== 1 ? 's' : ''}</div>
-                  </div>
-                  {realMintCount && (
-                    <div className="mb-3">
-                      <div className="text-xl font-bold font-display text-sky-300">
-                        {realMintCount.count.toLocaleString()}
-                      </div>
-                      <div className="text-xs text-slate-500">{realMintCount.count} mint{realMintCount.count !== 1 ? 's' : ''}</div>
-                    </div>
-                  )}
-                  {realOpenSeaSales && (
-                    <div className="mb-3">
-                      <div className="text-xl font-bold font-display text-emerald-400">
-                        {realOpenSeaSales.count.toLocaleString()}
-                      </div>
-                      <div className="text-xs text-slate-500">{realOpenSeaSales.count} sale{realOpenSeaSales.count !== 1 ? 's' : ''}</div>
-                    </div>
-                  )}
-                  {realOpenSeaBuys.count > 0 && (
-                    <div className="mt-2 text-xs text-sky-400 opacity-80 flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse"></span>
-                      Active OpenSea Buyer
-                    </div>
-                  )}
-                </>
-              )
-            ) : (
-              <>
-                <div className="mb-3">
-                  <div className="text-2xl font-bold font-display text-sky-400">5</div>
-                  <div className="text-xs text-slate-500">Demo OpenSea Buys</div>
-                </div>
-                <div className="mb-3">
-                  <div className="text-xl font-bold font-display text-sky-300">3</div>
-                  <div className="text-xs text-slate-500">Demo Mints</div>
-                </div>
-                <div className="mb-3">
-                  <div className="text-xl font-bold font-display text-emerald-400">2</div>
-                  <div className="text-xs text-slate-500">Demo Sales</div>
-                </div>
-              </>
-            )}
-          </div>
-
-        </div>
-
-        {/* Dynamic Cards Row 4 - Admin added single platform cards */}
-        {!isDemo && dynamicCardsRow4.length > 0 && (
-          <DynamicCardsCarouselRow4 cards={dynamicCardsRow4} />
-        )}
-
-        {/* Row 5: Shellies and Future Cards (4 columns) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-{/* Otomate Card */}
-          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-green-500/20 bg-gradient-to-br from-green-500/12 to-green-900/5 h-[300px] flex flex-col" style={{ animationDelay: '0.9s' }}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                <a
-                  href={PLATFORM_URLS.otomate}
+                  href={PLATFORM_URLS.inkypump}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="hover:ring-2 hover:ring-pink-500/50 rounded-full transition-all cursor-pointer"
-                  title="Visit Otomate"
+                  title="Visit InkyPump"
                 >
                   <img
-                    src="https://www.otomate.trade/favicon.ico"
-                    alt="Otomate"
+                    src="https://www.inkypump.com/favicon.ico"
+                    alt="InkyPump"
                     className="w-6 h-6 rounded-full object-cover"
                     onError={(e) => {
-                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=C&background=ec4899&color=fff&size=24';
+                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=IP&background=ec4899&color=fff&size=24';
                     }}
                   />
                 </a>
-                Otomate
+                InkyPump
               </h3>
             </div>
 
-            {!isDemo ? (
-              (isMetricLoading('copink') || !copinkMetrics) ? (
-                <div className="flex-1 flex flex-col justify-center">
-                  <div className="h-8 w-20 bg-slate-700/50 rounded animate-pulse mb-2"></div>
-                  <div className="h-3 w-32 bg-slate-700/30 rounded animate-pulse mb-4"></div>
-                  <div className="space-y-2">
-                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <div className="mb-3">
-                    <div className="text-2xl font-bold font-display text-green-400">
-                      ${copinkMetrics.totalVolume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </div>
-                    <div className="text-xs text-slate-500">
-                      Total Trading Volume
-                    </div>
-                  </div>
-
-                  <div className="flex-1 pt-3 border-t border-slate-700/50">
-                    <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">Account Details</span>
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center text-[11px]">
-                        <span className="text-slate-400">Subaccounts Found</span>
-                        <span className="font-mono text-white">{copinkMetrics.subaccountsFound}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {copinkMetrics.totalVolume > 0 && (
-                    <div className="mt-2 text-xs text-green-400 opacity-80 flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></span>
-                      Active Otomate Trader
-                    </div>
-                  )}
-                </>
-              )
-            ) : (
-              <>
-                <div className="mb-3">
-                  <div className="text-2xl font-bold font-display text-violet-400">$0.00</div>
-                  <div className="text-xs text-slate-500">Total Trading Volume</div>
-                </div>
-
-                <div className="flex-1 pt-3 border-t border-slate-700/50">
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">Account Details</span>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-slate-400">Subaccounts Found</span>
-                      <span className="font-mono text-white">0</span>
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* InkScore Phase 1 Card */}
-          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-purple-500/20 bg-purple-500/5 h-[300px] flex flex-col" style={{ animationDelay: '1.0s' }}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                <img
-                  src="/favicon.ico"
-                  alt="InkScore"
-                  className="w-6 h-6 rounded-full object-cover"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=IS&background=a855f7&color=fff&size=24';
-                  }}
-                />
-                InkScore Phase 1
-              </h3>
-            </div>
-
-            {!isDemo ? (
-              realWalletStats?.phase1Status ? (
-                <>
-                  <div className="mb-3">
-                    <div className={`text-2xl font-bold font-display ${realWalletStats.phase1Status.isPhase1 ? 'text-emerald-400' : 'text-slate-400'}`}>
-                      {realWalletStats.phase1Status.isPhase1 ? 'Eligible' : 'Not Eligible'}
-                    </div>
-                    <div className="text-xs text-slate-500">
-                      {realWalletStats.phase1Status.isPhase1 && realWalletStats.phase1Status.score 
-                        ? `Score: ${realWalletStats.phase1Status.score.toLocaleString()}`
-                        : 'Phase 1 Eligibility Status'
-                      }
-                    </div>
-                  </div>
-
-                  <div className="flex-1 pt-3 border-t border-slate-700/50">
-                    <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">Details</span>
-                    <div className="space-y-2">
-                      {realWalletStats.phase1Status.isPhase1 && realWalletStats.phase1Status.score ? (
-                        <>
-                          <div className="flex justify-between items-center text-[11px]">
-                            <span className="text-slate-400">Your Score</span>
-                            <span className="font-mono text-white">{realWalletStats.phase1Status.score.toLocaleString()}</span>
-                          </div>
-                          <div className="flex justify-between items-center text-[11px]">
-                            <span className="text-slate-400">Status</span>
-                            <span className="font-mono text-emerald-400">✓ Qualified</span>
-                          </div>
-                        </>
-                      ) : (
-                        <div className="flex justify-between items-center text-[11px]">
-                          <span className="text-slate-400">Status</span>
-                          <span className="font-mono text-slate-400">Not in Phase 1</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {realWalletStats.phase1Status.isPhase1 && (
-                    <div className="mt-2 text-xs text-emerald-400 opacity-80 flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                      Phase 1 Participant
-                    </div>
-                  )}
-                </>
-              ) : (
-                <>
-                  <div className="mb-3">
-                    <div className="text-2xl font-bold font-display text-slate-400">
-                      <div className="animate-pulse bg-slate-700 h-8 w-24 rounded"></div>
-                    </div>
-                    <div className="text-xs text-slate-500">Loading...</div>
-                  </div>
-
-                  <div className="flex-1 pt-3 border-t border-slate-700/50">
-                    <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">Details</span>
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center text-[11px]">
-                        <span className="text-slate-400">Your Score</span>
-                        <div className="animate-pulse bg-slate-700 h-3 w-12 rounded"></div>
-                      </div>
-                      <div className="flex justify-between items-center text-[11px]">
-                        <span className="text-slate-400">Status</span>
-                        <div className="animate-pulse bg-slate-700 h-3 w-16 rounded"></div>
-                      </div>
-                    </div>
-                  </div>
-                </>
-              )
-            ) : (
-              <>
-                <div className="mb-3">
-                  <div className="text-2xl font-bold font-display text-slate-400">Not Eligible</div>
-                  <div className="text-xs text-slate-500">Phase 1 Eligibility Status</div>
-                </div>
-
-                <div className="flex-1 pt-3 border-t border-slate-700/50">
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">Details</span>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-slate-400">Status</span>
-                      <span className="font-mono text-slate-400">Not in Phase 1</span>
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* Sweep Card */}
-          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-yellow-500/20 bg-gradient-to-br from-yellow-500/12 to-yellow-900/5 h-[300px] flex flex-col" style={{ animationDelay: '0.93s' }}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                <a
-                  href={PLATFORM_URLS.sweep}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:ring-2 hover:ring-yellow-500/50 rounded-full transition-all cursor-pointer"
-                  title="Visit Sweep"
-                >
-                  <img
-                    src="https://sweep.haus/sweep.png"
-                    alt="Sweep"
-                    className="w-6 h-6 rounded-full object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=S&background=eab308&color=fff&size=24';
-                    }}
-                  />
-                </a>
-                Sweep
-              </h3>
-            </div>
-
-            {!isDemo && (isMetricLoading('sweep') || !sweepMetrics) ? (
-              <div className="flex-1 flex flex-col justify-center items-center">
-                <div className="h-16 w-24 bg-slate-700/50 rounded animate-pulse mb-2"></div>
-                <div className="h-4 w-32 bg-slate-700/30 rounded animate-pulse"></div>
+            {!isDemo && (isMetricLoading('inkypumpCreatedTokens') || isMetricLoading('inkypumpBuyVolume') || isMetricLoading('inkypumpSellVolume') || !inkyPumpCreatedTokens || !inkyPumpBuyVolume || !inkyPumpSellVolume) ? (
+              <div className="flex-1 flex flex-col justify-center">
+                <div className="h-8 w-20 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+                <div className="h-3 w-24 bg-slate-700/30 rounded animate-pulse mb-4"></div>
+                <div className="h-20 w-full bg-slate-700/30 rounded animate-pulse"></div>
               </div>
             ) : (
               <>
                 <div className="mb-3">
-                  <div className="text-2xl font-bold font-display text-yellow-400">
-                    {(!isDemo && sweepMetrics ? (sweepMetrics.totalCollections || 0) : 0).toLocaleString()}
+                  <div className="text-2xl font-bold font-display text-pink-400">
+                    {!isDemo && inkyPumpCreatedTokens ? inkyPumpCreatedTokens.count : 0}
                   </div>
-                  <div className="text-xs text-slate-500">
-                    NFT Collections Deployed
-                  </div>
-                </div>
-
-                <div className="flex-1 pt-3 border-t border-slate-700/50">
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">Account Details</span>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-slate-400">Sweep Badges</span>
-                      <span className="font-mono text-white">{(sweepMetrics?.sweepBadgeBalance || 0).toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-slate-400">Total Streak</span>
-                      <span className="font-mono text-white">{(sweepMetrics?.totalStreak || 0).toLocaleString()}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {((!isDemo && sweepMetrics ? (sweepMetrics.totalCollections || 0) : 0) > 0 || (!isDemo && sweepMetrics ? (sweepMetrics.sweepBadgeBalance || 0) : 0) > 0) && (
-                  <div className="mt-2 text-xs text-yellow-400 opacity-80 flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-yellow-400 animate-pulse"></span>
-                    NFT Creator
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-
-{/* NFT2Me Card */}
-          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-cyan-500/20 bg-gradient-to-br from-cyan-500/12 to-cyan-900/5 h-[300px] flex flex-col" style={{ animationDelay: '0.95s' }}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                <a
-                  href={PLATFORM_URLS.nft2me}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:ring-2 hover:ring-emerald-500/50 rounded-full transition-all cursor-pointer"
-                  title="Visit NFT2Me"
-                >
-                  <img
-                    src="https://pbs.twimg.com/profile_images/1626191411384053761/NoRNmw9L_400x400.png"
-                    alt="NFT2Me"
-                    className="w-6 h-6 rounded-full object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=N2M&background=10b981&color=fff&size=24';
-                    }}
-                  />
-                </a>
-                NFT2Me
-              </h3>
-            </div>
-
-            {!isDemo ? (
-              (isMetricLoading('nft2me') || !nft2meMetrics) ? (
-                <div className="flex-1 flex flex-col justify-center">
-                  <div className="h-8 w-16 bg-slate-700/50 rounded animate-pulse mb-2"></div>
-                  <div className="h-3 w-24 bg-slate-700/30 rounded animate-pulse mb-4"></div>
-                  <div className="space-y-2">
-                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
-                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <div className="mb-3">
-                    <div className="text-2xl font-bold font-display text-cyan-400">
-                      {nft2meMetrics.totalTransactions.toLocaleString()}
-                    </div>
-                    <div className="text-xs text-slate-500">
-                      {nft2meMetrics.totalTransactions} transaction{nft2meMetrics.totalTransactions !== 1 ? 's' : ''}
-                    </div>
-                  </div>
-
-                  <div className="flex-1 pt-3 border-t border-slate-700/50">
-                    <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">By Action</span>
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center text-[11px]">
-                        <span className="text-slate-400">Collections Created</span>
-                        <span className="font-mono text-white">{nft2meMetrics.collectionsCreated}</span>
-                      </div>
-                      <div className="flex justify-between items-center text-[11px]">
-                        <span className="text-slate-400">NFTs Minted</span>
-                        <span className="font-mono text-white">{nft2meMetrics.nftsMinted}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {nft2meMetrics.totalTransactions > 0 && (
-                    <div className="mt-2 text-xs text-emerald-400 opacity-80 flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                      NFT2Me Creator
-                    </div>
-                  )}
-                </>
-              )
-            ) : (
-              <>
-                <div className="mb-3">
-                  <div className="text-2xl font-bold font-display text-cyan-400">3</div>
-                  <div className="text-xs text-slate-500">3 transactions</div>
+                  <div className="text-xs text-slate-500">Created Tokens</div>
                 </div>
 
                 <div className="flex-1 pt-3 border-t border-slate-700/50">
                   <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">By Action</span>
                   <div className="space-y-2">
                     <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-slate-400">Collections Created</span>
-                      <span className="font-mono text-white">1</span>
+                      <span className="text-slate-400">Created Tokens</span>
+                      <span className="font-mono text-white">{!isDemo && inkyPumpCreatedTokens ? inkyPumpCreatedTokens.count : 0}</span>
                     </div>
                     <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-slate-400">NFTs Minted</span>
-                      <span className="font-mono text-white">2</span>
+                      <span className="text-slate-400">Buy Token volume</span>
+                      <span className="font-mono text-white">
+                        ${!isDemo && inkyPumpBuyVolume ? parseFloat(inkyPumpBuyVolume.total_value).toFixed(2) : '0.00'}
+                        <span className="pl-[2px] text-[10px] text-slate-500"> /
+                          {!isDemo && inkyPumpBuyVolume ? inkyPumpBuyVolume.total_count || 0 : 0} tx
+                        </span>
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">Sell Token volume</span>
+                      <span className="font-mono text-white">
+                        ${!isDemo && inkyPumpSellVolume ? parseFloat(inkyPumpSellVolume.total_value).toFixed(2) : '0.00'}
+                        <span className="pl-[2px] text-[10px] text-slate-500"> /
+                          {!isDemo && inkyPumpSellVolume ? inkyPumpSellVolume.total_count || 0 : 0} tx
+                        </span>
+                      </span>
                     </div>
                   </div>
-                </div>
-
-                <div className="mt-2 text-xs text-emerald-400 opacity-80 flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                  NFT2Me Creator
                 </div>
               </>
             )}
           </div>
-
-          {/* Shellies Unified Card */}
-          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-violet-500/20 bg-gradient-to-br from-violet-500/12 to-violet-900/5 h-[300px] flex flex-col" style={{ animationDelay: '1.0s' }}>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {/* NFT Staking Card */}
+          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-amber-500/20 bg-gradient-to-br from-amber-500/12 to-amber-900/5 h-[300px] flex flex-col" style={{ animationDelay: '1.05s' }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                <a
-                  href={PLATFORM_URLS.shellies}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:ring-2 hover:ring-violet-500/50 rounded-full transition-all cursor-pointer"
-                  title="Visit Shellies"
-                >
-                  <img
-                    src="https://pbs.twimg.com/profile_images/1948768160733175808/aNFNH1IH_400x400.jpg"
-                    alt="Shellies"
-                    className="w-6 h-6 rounded-full object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=S&background=8b5cf6&color=fff&size=24';
-                    }}
-                  />
-                </a>
-                Shellies
+                <div className="flex items-center -space-x-3">
+                  <a
+                    href="https://twitter.com/ShelliesNFT"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:z-10 hover:ring-2 hover:ring-amber-500/50 rounded-full transition-all cursor-pointer"
+                    style={{ zIndex: 3 }}
+                    title="Shellies"
+                  >
+                    <img
+                      src="https://pbs.twimg.com/profile_images/1948768160733175808/aNFNH1IH_400x400.jpg"
+                      alt="Shellies"
+                      className="w-6 h-6 rounded-full object-cover bg-slate-800"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=S&background=f59e0b&color=fff&size=24';
+                      }}
+                    />
+                  </a>
+                  <a
+                    href="https://twitter.com/InkBunnies"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:z-10 hover:ring-2 hover:ring-amber-500/50 rounded-full transition-all cursor-pointer"
+                    style={{ zIndex: 2 }}
+                    title="INK Bunnies"
+                  >
+                    <img
+                      src="https://pbs.twimg.com/profile_images/2017562853859815425/OmYpLZrN_400x400.jpg"
+                      alt="INK Bunnies"
+                      className="w-6 h-6 rounded-full object-cover bg-slate-800"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=IB&background=f59e0b&color=fff&size=24';
+                      }}
+                    />
+                  </a>
+                  <a
+                    href="https://twitter.com/Boi_Ink"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:z-10 hover:ring-2 hover:ring-amber-500/50 rounded-full transition-all cursor-pointer"
+                    style={{ zIndex: 1 }}
+                    title="Boink"
+                  >
+                    <img
+                      src="https://pbs.twimg.com/profile_images/1972236253119623168/DqTXu2J5_400x400.png"
+                      alt="Boink"
+                      className="w-6 h-6 rounded-full object-cover bg-slate-800"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=B&background=f59e0b&color=fff&size=24';
+                      }}
+                    />
+                  </a>
+                </div>
+                NFT Staking
               </h3>
             </div>
 
-            {!isDemo && (isMetricLoading('shelliesJoinedRaffles') || isMetricLoading('shelliesPayToPlay') || isMetricLoading('shelliesStaking') || !shelliesJoinedRaffles || !shelliesPayToPlay || !shelliesStaking) ? (
+            {!isDemo && (isMetricLoading('nftStaking') || !nftStaking) ? (
               <div className="flex-1 flex flex-col justify-center">
                 <div className="h-8 w-20 bg-slate-700/50 rounded animate-pulse mb-2"></div>
                 <div className="h-3 w-32 bg-slate-700/30 rounded animate-pulse mb-4"></div>
                 <div className="space-y-2">
-                  <div className="h-4 w-full bg-slate-700/30 rounded animate-pulse"></div>
                   <div className="h-4 w-full bg-slate-700/30 rounded animate-pulse"></div>
                   <div className="h-4 w-full bg-slate-700/30 rounded animate-pulse"></div>
                 </div>
@@ -2805,49 +3245,57 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
             ) : (
               <>
                 <div className="mb-3">
-                  <div className="text-2xl font-bold font-display text-violet-400">
-                    {!isDemo && shelliesJoinedRaffles && shelliesPayToPlay && shelliesStaking
-                      ? (shelliesJoinedRaffles.total_count + shelliesPayToPlay.total_count + shelliesStaking.total_count)
-                      : 0}
+                  <div className="text-2xl font-bold font-display text-amber-400">
+                    {!isDemo && nftStaking ? nftStaking.total_count : 0}
                   </div>
-                  <div className="text-xs text-slate-500">Total Transactions</div>
+                  <div className="text-xs text-slate-500">Total Staked NFTs</div>
                 </div>
 
                 <div className="flex-1 pt-3 border-t border-slate-700/50">
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">By Activity</span>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-slate-400">Joined Raffles</span>
-                      <span className="font-mono text-white">
-                        {!isDemo && shelliesJoinedRaffles ? shelliesJoinedRaffles.total_count : 0}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-slate-400">Pay to Play</span>
-                      <span className="font-mono text-white">
-                        {!isDemo && shelliesPayToPlay ? shelliesPayToPlay.total_count : 0}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-slate-400">Staked Nfts</span>
-                      <span className="font-mono text-white">
-                        {!isDemo && shelliesStaking ? shelliesStaking.total_count : 0}
-                      </span>
-                    </div>
+                  <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-1 block">By Collection</span>
+                  <div className="space-y-1">
+                    {!isDemo && nftStaking?.sub_aggregates?.map((item, idx) => {
+                      const collectionInfo = NFT_STAKING_COLLECTIONS[item.label];
+                      return (
+                        <div key={idx} className="flex justify-between items-center text-[11px]">
+                          <span className="text-slate-400 flex items-center gap-1">
+                            {collectionInfo && (
+                              <a
+                                href={collectionInfo.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="hover:ring-2 hover:ring-amber-500/50 rounded transition-all cursor-pointer"
+                                title={`Visit ${collectionInfo.name}`}
+                              >
+                                <img
+                                  src={collectionInfo.logo}
+                                  alt={collectionInfo.name}
+                                  className="w-3 h-3 rounded"
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).style.display = 'none';
+                                  }}
+                                />
+                              </a>
+                            )}
+                            {collectionInfo?.name || item.label}
+                          </span>
+                          <span className="font-mono text-white">{item.value}</span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
 
-                {!isDemo && shelliesJoinedRaffles && shelliesPayToPlay && shelliesStaking &&
-                  (shelliesJoinedRaffles.total_count + shelliesPayToPlay.total_count + shelliesStaking.total_count) > 0 && (
-                    <div className="mt-2 text-xs text-violet-400 opacity-80 flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse"></span>
-                      Active Shellies User
-                    </div>
-                  )}
+                {!isDemo && nftStaking && nftStaking.total_count > 0 && (
+                  <div className="mt-2 text-xs text-amber-400 opacity-80 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+                    Active Staker
+                  </div>
+                )}
               </>
             )}
           </div>
-{/* Marvk Card */}
+          {/* Marvk Card */}
           <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-violet-500/20 bg-gradient-to-br from-violet-500/12 to-violet-900/5 h-[300px] flex flex-col" style={{ animationDelay: '0.85s' }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
@@ -2937,290 +3385,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
               </>
             )}
           </div>
-
-          {/* InkDCA Card */}
-          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-emerald-500/20 bg-gradient-to-br from-emerald-500/12 to-emerald-900/5 h-[300px] flex flex-col" style={{ animationDelay: '1.05s' }}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                <a
-                  href="https://inkdca.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:ring-2 hover:ring-emerald-500/50 rounded-full transition-all cursor-pointer"
-                  title="Visit InkDCA"
-                >
-                  <img
-                    src={getProxiedImageUrl('https://inkdca.com/ink_dca_logo.png')}
-                    alt="InkDCA"
-                    className="w-6 h-6 rounded-full object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=DCA&background=10b981&color=fff&size=24';
-                    }}
-                  />
-                </a>
-                InkDCA
-              </h3>
-            </div>
-
-            {!isDemo ? (
-              (isMetricLoading('inkdcaRunDca') || !inkdcaRunDca) ? (
-                <div className="flex-1 flex flex-col justify-center">
-                  <div className="h-8 w-16 bg-slate-700/50 rounded animate-pulse mb-2"></div>
-                  <div className="h-3 w-24 bg-slate-700/30 rounded animate-pulse mb-4"></div>
-                  <div className="space-y-2">
-                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
-                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <div className="mb-3">
-                    <div className="text-2xl font-bold font-display text-emerald-400">
-                      {inkdcaRunDca.total_count.toLocaleString()}
-                    </div>
-                    <div className="text-xs text-slate-500">
-                      Total Registered DCA{inkdcaRunDca.total_count !== 1 ? 's' : ''}
-                    </div>
-                  </div>
-
-                  <div className="flex-1 pt-3 border-t border-slate-700/50">
-                    <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">Activity</span>
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center text-[11px]">
-                        <span className="text-slate-400">Total Spent</span>
-                        <span className="font-mono text-emerald-400">
-                          {(() => {
-                            const spentAggregate = inkdcaRunDca.sub_aggregates?.find((s) => s.label === 'Total Spent');
-                            return spentAggregate ? spentAggregate.value : '$0.00';
-                          })()}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {inkdcaRunDca.total_count > 0 && (
-                    <div className="mt-2 text-xs text-emerald-400 opacity-80 flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                      Smart DCA Investor
-                    </div>
-                  )}
-                </>
-              )
-            ) : (
-              <>
-                <div className="mb-3">
-                  <div className="text-2xl font-bold font-display text-emerald-400">0</div>
-                  <div className="text-xs text-slate-500">0 DCA runs</div>
-                </div>
-
-                <div className="flex-1 pt-3 border-t border-slate-700/50">
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">Strategy</span>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-slate-400">Dollar Cost Averaging</span>
-                      <span className="font-mono text-slate-500">Inactive</span>
-                    </div>
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-slate-400">Automated Buys</span>
-                      <span className="font-mono text-white">0</span>
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* Templars of the Storm NFT Card */}
-          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-purple-500/20 bg-gradient-to-br from-purple-500/12 to-purple-900/5 h-[300px] flex flex-col" style={{ animationDelay: '1.1s' }}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                <a
-                  href={PLATFORM_URLS['templars']}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:ring-2 hover:ring-purple-500/50 rounded-full transition-all cursor-pointer"
-                  title="View Collection"
-                >
-                  <img
-                    src={getProxiedImageUrl('https://i2c.seadn.io/admin-uploads/f189f573f43d0fa8eab11049be7133/aaf189f573f43d0fa8eab11049be7133.png?h=250&w=250')}
-                    alt="Templars of the Storm"
-                    className="w-6 h-6 rounded-full object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=Templars&background=a855f7&color=fff&size=24';
-                    }}
-                  />
-                </a>
-                Templars of the Storm
-              </h3>
-            </div>
-
-            {!isDemo ? (
-              (isMetricLoading('templarsNftBalance') || !templarsNftBalance) ? (
-                <div className="flex-1 flex flex-col justify-center">
-                  <div className="h-8 w-16 bg-slate-700/50 rounded animate-pulse mb-2"></div>
-                  <div className="h-3 w-24 bg-slate-700/30 rounded animate-pulse mb-4"></div>
-                  <div className="space-y-2">
-                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
-                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <div className="mb-3">
-                    <div className="text-2xl font-bold font-display text-purple-400">
-                      {templarsNftBalance.total_count.toLocaleString()}
-                    </div>
-                    <div className="text-xs text-slate-500">
-                      {templarsNftBalance.total_count} NFT{templarsNftBalance.total_count !== 1 ? 's' : ''} held
-                    </div>
-                  </div>
-
-                  <div className="flex-1 pt-3 border-t border-slate-700/50">
-                    <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">Collection</span>
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center text-[11px]">
-                        <span className="text-slate-400">Templars of the Storm</span>
-                        <span className="font-mono text-purple-400">NFT</span>
-                      </div>
-                      <div className="flex justify-between items-center text-[11px]">
-                        <span className="text-slate-400">Balance</span>
-                        <span className="font-mono text-white">{templarsNftBalance.total_count}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {templarsNftBalance.total_count > 0 && (
-                    <div className="mt-2 text-xs text-purple-400 opacity-80 flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse"></span>
-                      Templar Holder
-                    </div>
-                  )}
-                </>
-              )
-            ) : (
-              <>
-                <div className="mb-3">
-                  <div className="text-2xl font-bold font-display text-purple-400">0</div>
-                  <div className="text-xs text-slate-500">0 NFTs held</div>
-                </div>
-
-                <div className="flex-1 pt-3 border-t border-slate-700/50">
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">Collection</span>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-slate-400">Templars of the Storm</span>
-                      <span className="font-mono text-slate-500">NFT</span>
-                    </div>
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-slate-400">Balance</span>
-                      <span className="font-mono text-white">0</span>
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* Cow Swap Card */}
-          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-blue-500/20 bg-gradient-to-br from-blue-500/12 to-blue-900/5 h-[300px] flex flex-col" style={{ animationDelay: '1.15s' }}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                <a
-                  href={PLATFORM_URLS['cowswap']}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:ring-2 hover:ring-blue-500/50 rounded-full transition-all cursor-pointer"
-                  title="Visit Cow Swap"
-                >
-                  <img
-                    src={getProxiedImageUrl('https://swap.cow.fi/favicon-dark-mode.png')}
-                    alt="Cow Swap"
-                    className="w-6 h-6 rounded-full object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=COW&background=3b82f6&color=fff&size=24';
-                    }}
-                  />
-                </a>
-                Cow Swap
-              </h3>
-            </div>
-
-            {!isDemo ? (
-              (isMetricLoading('cowswapSwaps') || !cowswapSwaps) ? (
-                <div className="flex-1 flex flex-col justify-center">
-                  <div className="h-8 w-16 bg-slate-700/50 rounded animate-pulse mb-2"></div>
-                  <div className="h-3 w-24 bg-slate-700/30 rounded animate-pulse mb-4"></div>
-                  <div className="space-y-2">
-                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
-                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <div className="mb-3">
-                    <div className="text-2xl font-bold font-display text-blue-400">
-                      ${parseFloat(cowswapSwaps.total_value).toLocaleString(undefined, { 
-                        minimumFractionDigits: 2, 
-                        maximumFractionDigits: 2 
-                      })}
-                    </div>
-                    <div className="text-xs text-slate-500">
-                      {cowswapSwaps.total_count} swap{cowswapSwaps.total_count !== 1 ? 's' : ''}
-                    </div>
-                  </div>
-
-                  <div className="flex-1 pt-3 border-t border-slate-700/50 flex flex-col min-h-0">
-                    <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">By Token</span>
-                    <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar">
-                      {cowswapSwaps.sub_aggregates.slice(0, 5).map((item, i) => (
-                        <div key={i} className="text-[11px]">
-                          <div className="flex justify-between items-center py-0.5">
-                            <span className="text-slate-400">{item.token}</span>
-                            <span className="font-mono text-white text-[10px]">
-                              ${parseFloat(item.usd_value).toLocaleString(undefined, { 
-                                minimumFractionDigits: 2, 
-                                maximumFractionDigits: 2 
-                              })}
-                            </span>
-                          </div>
-                          <div className="text-[9px] text-slate-500">
-                            {item.count} swap{item.count !== 1 ? 's' : ''}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {cowswapSwaps.total_count > 0 && (
-                    <div className="mt-2 text-xs text-blue-400 opacity-80 flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse"></span>
-                      Active Swapper
-                    </div>
-                  )}
-                </>
-              )
-            ) : (
-              <>
-                <div className="mb-3">
-                  <div className="text-2xl font-bold font-display text-blue-400">$0.00</div>
-                  <div className="text-xs text-slate-500">0 swaps</div>
-                </div>
-
-                <div className="flex-1 pt-3 border-t border-slate-700/50">
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">By Token</span>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-slate-400">No swaps yet</span>
-                      <span className="font-mono text-slate-500">-</span>
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-
-          </div>
-
+        </div>
         {/* Holdings Section - Tokens & NFTs */}
         {!isDemo && realWalletStats && (
           <HoldingsSection
