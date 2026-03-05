@@ -313,17 +313,7 @@ export default function LeaderboardPage() {
                 </button>
               </div>
 
-              {/* Refresh Button */}
-              <div className="mt-4 text-center">
-                <button
-                  onClick={() => setCurrentPage(1)}
-                  disabled={isFetching}
-                  className="inline-flex items-center gap-2 px-4 py-2 text-sm text-slate-400 hover:text-white transition-colors disabled:opacity-50"
-                >
-                  <RefreshCw size={16} className={isFetching ? 'animate-spin' : ''} />
-                  {isFetching ? 'Refreshing...' : 'Refresh'}
-                </button>
-              </div>
+
             </>
           )}
         </div>
