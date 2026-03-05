@@ -406,6 +406,108 @@ const platformMetrics: PlatformRule[] = [
     color: 'from-pink-500 to-fuchsia-500',
     url: 'https://www.copink.xyz',
   },
+  {
+    name: 'Templars of the Storm',
+    logo: 'https://i2c.seadn.io/admin-uploads/f189f573f43d0fa8eab11049be7133/aaf189f573f43d0fa8eab11049be7133.png?h=250&w=250',
+    description: 'Points for holding Templars NFTs',
+    formula: 'Tiered: 1 NFT = 1,500pts, 2 NFTs = 2,100pts, 3+ NFTs = 2,700pts',
+    details: [
+      'Tier 1: 1 NFT = 1,500 points (⚔️ Templar)',
+      'Tier 2: 2 NFTs = 2,100 points (🛡️ Knight)',
+      'Tier 3: 3+ NFTs = 2,700 points (👑 Commander)',
+      'Unlocks core holder multiplier for Phase 2',
+      'Maximum possible: 2,700 points',
+    ],
+    color: 'from-red-500 to-orange-500',
+    url: 'https://opensea.io/collection/templars-of-the-storm',
+  },
+  {
+    name: 'OpenSea',
+    logo: 'https://opensea.io/favicon.ico',
+    description: 'Points for NFT activities on OpenSea',
+    formula: 'Buy (max 1,000) + Sell (max 1,000) + Mint (max 500) = Max 2,500pts',
+    details: [
+      'Buy: 1 NFT = 100, 5 NFTs = 300, 10 NFTs = 500, 25+ NFTs = 1,000',
+      'Sell: 1 NFT = 100, 5 NFTs = 300, 10 NFTs = 500, 25+ NFTs = 1,000',
+      'Mint: 1 NFT = 50, 5 NFTs = 150, 10 NFTs = 300, 25+ NFTs = 500',
+      'Maximum possible: 2,500 points',
+    ],
+    color: 'from-blue-500 to-cyan-500',
+    url: 'https://opensea.io',
+  },
+  {
+    name: 'CowSwap',
+    logo: 'https://swap.cow.fi/favicon-dark-mode.png',
+    description: 'Points for swap volume on CowSwap',
+    formula: 'Tiered: $10-$100 = 400pts, $101-$1K = 1,200pts, $1K+ = 2,000pts',
+    details: [
+      'Tier 1: $10-$100 = 400 points (🐮 Starter)',
+      'Tier 2: $101-$1,000 = 1,200 points (🐂 Trader)',
+      'Tier 3: $1,000+ = 2,000 points (🦬 Whale)',
+      'Maximum possible: 2,000 points',
+    ],
+    color: 'from-blue-600 to-indigo-600',
+    url: 'https://swap.cow.fi',
+  },
+  {
+    name: 'Phase 1 Eligibility',
+    logo: 'https://inkonchain.com/favicon.ico',
+    description: 'Bonus for early InkScore Phase 1 participants',
+    formula: 'One-time bonus: 1,000pts',
+    details: [
+      'Rewards wallets that participated in Phase 1',
+      'One-time bonus: 1,000 points',
+      'Recognizes early adopters and supporters',
+    ],
+    color: 'from-yellow-500 to-amber-500',
+    url: 'https://inkonchain.com',
+  },
+  {
+    name: 'Sweep',
+    logo: 'https://sweep.haus/sweep.png',
+    description: 'Points for Sweep platform activities',
+    formula: 'Collections (max 350) + Badges (max 250) + Streak (max 200) = Max 800pts',
+    details: [
+      'Collections: 1 = 100, 2-5 = 250, 6+ = 350',
+      'Badges: 1 = 100, 2 = 150, 3+ = 250',
+      'Streak: 1 day = 50, 2-5 days = 100, 6+ days = 200',
+      'Maximum possible: 800 points',
+    ],
+    color: 'from-purple-500 to-pink-500',
+    url: 'https://sweep.haus',
+  },
+  {
+    name: 'NFT Staking',
+    logos: [
+      { name: 'Shellies', logo: 'https://pbs.twimg.com/profile_images/1948768160733175808/aNFNH1IH_400x400.jpg', url: 'https://twitter.com/ShelliesNFT' },
+      { name: 'INK Bunnies', logo: 'https://pbs.twimg.com/profile_images/2017562853859815425/OmYpLZrN_400x400.jpg', url: 'https://twitter.com/InkBunnies' },
+      { name: 'Boink', logo: 'https://pbs.twimg.com/profile_images/1972236253119623168/DqTXu2J5_400x400.png', url: 'https://twitter.com/Boi_Ink' },
+    ],
+    description: 'Points for staking NFTs (Shellies, INK Bunnies, Boink)',
+    formula: 'Shellies (max 166) + INK Bunnies (max 167) + Boink (max 167) = Max 500pts',
+    details: [
+      'Each collection: 1 NFT = 50, 2-5 NFTs = 100, 6+ NFTs = 166-167',
+      'Shellies: Max 166 points',
+      'INK Bunnies: Max 167 points',
+      'Boink: Max 167 points',
+      'Maximum possible: 500 points',
+    ],
+    color: 'from-green-500 to-teal-500',
+    url: 'https://shellies.xyz',
+  },
+  {
+    name: 'INKDCA',
+    logo: 'https://inkdca.com/ink_dca_logo.png',
+    description: 'Points for DCA (Dollar Cost Averaging) activities',
+    formula: 'Total Spent (max 400) + Registered DCAs (max 100) = Max 500pts',
+    details: [
+      'Spent: $10-$100 = 100, $101-$500 = 250, $500+ = 400',
+      'DCAs: 1 = 25, 2-5 = 50, 6+ = 100',
+      'Maximum possible: 500 points',
+    ],
+    color: 'from-cyan-500 to-blue-500',
+    url: 'https://inkdca.com',
+  },
 ];
 
 const PlatformCard = ({ platform }: { platform: PlatformRule }) => (
@@ -657,23 +759,56 @@ export default function HowItWorksPage() {
                       <span className="text-2xl">👑</span>
                       <div>
                         <h3 className="font-bold text-white text-lg">THE GIANTS</h3>
-                        <p className="text-xs text-slate-400">50% of Total Score</p>
+                        <p className="text-xs text-slate-400">27% of Total Score</p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-2xl font-bold text-yellow-400">5,000</div>
+                      <div className="text-2xl font-bold text-yellow-400">7,700</div>
                       <div className="text-xs text-slate-500">Total Points</div>
                     </div>
                   </div>
                 </div>
                 <div className="p-4 space-y-3">
                   <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
+                    <span className="text-slate-200">Templars of the Storm</span>
+                    <span className="font-semibold text-yellow-400">2,700 pts</span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
                     <span className="text-slate-200">Nado Finance</span>
                     <span className="font-semibold text-yellow-400">2,500 pts</span>
                   </div>
                   <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
-                    <span className="text-slate-200">Tydro DeFi</span>
+                    <span className="text-slate-200">OpenSea</span>
                     <span className="font-semibold text-yellow-400">2,500 pts</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* HEAVY HITTERS */}
+              <div className="glass-card rounded-xl overflow-hidden border-l-4 border-red-500">
+                <div className="bg-gradient-to-r from-red-500/10 to-transparent p-4 border-b border-slate-700/50">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">💪</span>
+                      <div>
+                        <h3 className="font-bold text-white text-lg">HEAVY HITTERS</h3>
+                        <p className="text-xs text-slate-400">17% of Total Score</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-2xl font-bold text-red-400">4,500</div>
+                      <div className="text-xs text-slate-500">Total Points</div>
+                    </div>
+                  </div>
+                </div>
+                <div className="p-4 space-y-3">
+                  <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
+                    <span className="text-slate-200">Tydro DeFi</span>
+                    <span className="font-semibold text-red-400">2,500 pts</span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
+                    <span className="text-slate-200">CowSwap</span>
+                    <span className="font-semibold text-red-400">2,000 pts</span>
                   </div>
                 </div>
               </div>
@@ -690,19 +825,35 @@ export default function HowItWorksPage() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-2xl font-bold text-blue-400">1,000</div>
+                      <div className="text-2xl font-bold text-blue-400">3,000</div>
                       <div className="text-xs text-slate-500">Total Points</div>
                     </div>
                   </div>
                 </div>
                 <div className="p-4 space-y-3">
                   <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
-                    <span className="text-slate-200">Bridge Volume</span>
+                    <span className="text-slate-200">Wallet Age</span>
+                    <span className="font-semibold text-blue-400">600 pts</span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
+                    <span className="text-slate-200">Total Transactions</span>
+                    <span className="font-semibold text-blue-400">600 pts</span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
+                    <span className="text-slate-200">Bridge IN</span>
+                    <span className="font-semibold text-blue-400">500 pts</span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
+                    <span className="text-slate-200">Bridge OUT</span>
                     <span className="font-semibold text-blue-400">500 pts</span>
                   </div>
                   <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
                     <span className="text-slate-200">Swap Volume</span>
                     <span className="font-semibold text-blue-400">500 pts</span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
+                    <span className="text-slate-200">Phase 1 Eligibility</span>
+                    <span className="font-semibold text-blue-400">1,000 pts</span>
                   </div>
                 </div>
               </div>
@@ -715,16 +866,24 @@ export default function HowItWorksPage() {
                       <span className="text-2xl">🔥</span>
                       <div>
                         <h3 className="font-bold text-white text-lg">GROUP A</h3>
-                        <p className="text-xs text-slate-400">28% of Total Score • 7 Items × 400 pts</p>
+                        <p className="text-xs text-slate-400">20% of Total Score • 7 Items × 400-500 pts</p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-2xl font-bold text-orange-400">2,800</div>
+                      <div className="text-2xl font-bold text-orange-400">3,200</div>
                       <div className="text-xs text-slate-500">Total Points</div>
                     </div>
                   </div>
                 </div>
                 <div className="p-4 grid sm:grid-cols-2 gap-3">
+                  <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
+                    <span className="text-slate-200">NFT Staking</span>
+                    <span className="font-semibold text-orange-400">500</span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
+                    <span className="text-slate-200">INKDCA</span>
+                    <span className="font-semibold text-orange-400">500</span>
+                  </div>
                   <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
                     <span className="text-slate-200">Token Holdings</span>
                     <span className="font-semibold text-orange-400">400</span>
@@ -742,7 +901,7 @@ export default function HowItWorksPage() {
                     <span className="font-semibold text-orange-400">400</span>
                   </div>
                   <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
-                    <span className="text-slate-200">NFT Marketplace</span>
+                    <span className="text-slate-200">NFT Trading</span>
                     <span className="font-semibold text-orange-400">400</span>
                   </div>
                   <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
@@ -764,11 +923,11 @@ export default function HowItWorksPage() {
                       <span className="text-2xl">🛡️</span>
                       <div>
                         <h3 className="font-bold text-white text-lg">GROUP B</h3>
-                        <p className="text-xs text-slate-400">12% of Total Score • 4 Items × 300 pts</p>
+                        <p className="text-xs text-slate-400">9% of Total Score • 5 Items × 300 pts</p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-2xl font-bold text-purple-400">1,200</div>
+                      <div className="text-2xl font-bold text-purple-400">1,500</div>
                       <div className="text-xs text-slate-500">Total Points</div>
                     </div>
                   </div>
@@ -790,6 +949,10 @@ export default function HowItWorksPage() {
                     <span className="text-slate-200">Marvk</span>
                     <span className="font-semibold text-purple-400">300</span>
                   </div>
+                  <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
+                    <span className="text-slate-200">Sweep</span>
+                    <span className="font-semibold text-purple-400">800</span>
+                  </div>
                 </div>
               </div>
 
@@ -805,7 +968,7 @@ export default function HowItWorksPage() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-4xl font-bold text-gradient">10,000</div>
+                      <div className="text-4xl font-bold text-gradient">23,900</div>
                       <div className="text-sm text-slate-400">Maximum Points</div>
                     </div>
                   </div>
