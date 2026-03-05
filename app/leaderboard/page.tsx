@@ -23,6 +23,7 @@ interface LeaderboardResponse {
   currentPage: number;
   totalPages: number;
   hasMore: boolean;
+  lastUpdated: string | null;
 }
 
 async function fetchLeaderboard(page: number): Promise<LeaderboardResponse> {
@@ -31,6 +32,20 @@ async function fetchLeaderboard(page: number): Promise<LeaderboardResponse> {
     throw new Error('Failed to fetch leaderboard');
   }
   return response.json();
+}
+
+function formatLastUpdated(isoString: string | null): string {
+  if (!isoString) return 'Loading...';
+  const date = new Date(isoString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMins / 60);
+
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  return date.toLocaleDateString();
 }
 
 export default function LeaderboardPage() {
@@ -123,9 +138,14 @@ export default function LeaderboardPage() {
               NFT holders on InkScore
             </p>
             {total > 0 && (
-              <div className="flex items-center justify-center gap-2 text-slate-500 text-sm">
-                <Sparkles size={16} className="text-purple-400" />
-                <span>{total.toLocaleString()} NFT{total === 1 ? '' : 's'} minted</span>
+              <div className="flex flex-col items-center justify-center gap-2 text-slate-500 text-sm">
+                <div className="flex items-center gap-2">
+                  <Sparkles size={16} className="text-purple-400" />
+                  <span>{total.toLocaleString()} NFT{total === 1 ? '' : 's'} minted</span>
+                </div>
+                <div className="flex items-center gap-1 text-xs text-slate-600">
+                  <span>Data refreshes every 5 hours</span>
+                </div>
               </div>
             )}
           </div>

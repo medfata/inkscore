@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1', 10);
     const limit = 50;
 
-    const { leaderboard, total, source } = await getLeaderboardData();
+    const { leaderboard, total, source, lastUpdated } = await getLeaderboardData();
 
     const startIndex = (page - 1) * limit;
     const endIndex = startIndex + limit;
@@ -26,6 +26,7 @@ export async function GET(request: NextRequest) {
       totalPages,
       hasMore: page < totalPages,
       source,
+      lastUpdated: lastUpdated ? lastUpdated.toISOString() : null,
     });
 
     response.headers.set('Cache-Control', 's-maxage=600, stale-while-revalidate=300');

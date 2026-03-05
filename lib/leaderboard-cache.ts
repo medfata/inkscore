@@ -66,6 +66,7 @@ export async function getCachedLeaderboard(): Promise<{
   data: any[];
   isStale: boolean;
   isExpired: boolean;
+  lastUpdated: Date | null;
 } | null> {
   try {
     const row = await queryOne<CachedLeaderboard>(
@@ -78,6 +79,7 @@ export async function getCachedLeaderboard(): Promise<{
     }
 
     const now = new Date();
+    const updatedAt = row.updated_at ? new Date(row.updated_at) : null;
     const expiresAt = new Date(row.expires_at);
     const isExpired = now > expiresAt;
     const staleThreshold = new Date(expiresAt.getTime() + STALE_THRESHOLD_HOURS * 60 * 60 * 1000);
@@ -87,6 +89,7 @@ export async function getCachedLeaderboard(): Promise<{
       data: row.leaderboard_data,
       isStale,
       isExpired,
+      lastUpdated: updatedAt,
     };
   } catch (error) {
     console.error('[LeaderboardCache] Error fetching cache:', error);
@@ -230,6 +233,7 @@ export async function getLeaderboardData(): Promise<{
   leaderboard: any[];
   total: number;
   source: 'cache' | 'fresh';
+  lastUpdated: Date | null;
 }> {
   const cached = await getCachedLeaderboard();
 
@@ -237,22 +241,22 @@ export async function getLeaderboardData(): Promise<{
     console.log('[LeaderboardCache] No cache found, fetching fresh data');
     const leaderboard = await fetchLeaderboardFromExplorer();
     await setCachedLeaderboard(leaderboard);
-    return { leaderboard, total: leaderboard.length, source: 'fresh' };
+    return { leaderboard, total: leaderboard.length, source: 'fresh', lastUpdated: new Date() };
   }
 
   if (!cached.isExpired && !cached.isStale) {
     console.log('[LeaderboardCache] Cache hit (valid)');
-    return { leaderboard: cached.data, total: cached.data.length, source: 'cache' };
+    return { leaderboard: cached.data, total: cached.data.length, source: 'cache', lastUpdated: cached.lastUpdated };
   }
 
   if (cached.isStale && !cached.isExpired) {
     console.log('[LeaderboardCache] Cache hit (stale), triggering background refresh');
     triggerBackgroundRefresh();
-    return { leaderboard: cached.data, total: cached.data.length, source: 'cache' };
+    return { leaderboard: cached.data, total: cached.data.length, source: 'cache', lastUpdated: cached.lastUpdated };
   }
 
   console.log('[LeaderboardCache] Cache expired (> 2 hours), fetching fresh data');
   const leaderboard = await fetchLeaderboardFromExplorer();
   await setCachedLeaderboard(leaderboard);
-  return { leaderboard, total: leaderboard.length, source: 'fresh' };
+  return { leaderboard, total: leaderboard.length, source: 'fresh', lastUpdated: new Date() };
 }
