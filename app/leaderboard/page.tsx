@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Logo } from '../components/Logo';
-import { Trophy, Loader2, ExternalLink, Star, Sparkles, RefreshCw, Menu, X, Plus } from '../components/Icons';
+import { Trophy, Loader2, ExternalLink, Sparkles, RefreshCw, Menu, X } from '../components/Icons';
 import Link from 'next/link';
 
 const NFT_CONTRACT_ADDRESS = '0xBE1965cE0D06A79A411FFCD9a1C334638dF77649';
@@ -24,42 +25,30 @@ interface LeaderboardResponse {
   hasMore: boolean;
 }
 
+async function fetchLeaderboard(page: number): Promise<LeaderboardResponse> {
+  const response = await fetch(`/api/nft/leaderboard?page=${page}`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch leaderboard');
+  }
+  return response.json();
+}
+
 export default function LeaderboardPage() {
-  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [total, setTotal] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [hasMore, setHasMore] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  useEffect(() => {
-    fetchLeaderboard(currentPage);
-  }, [currentPage]);
+  const { data, isLoading, error, isFetching } = useQuery({
+    queryKey: ['leaderboard', currentPage],
+    queryFn: () => fetchLeaderboard(currentPage),
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    placeholderData: (previousData) => previousData,
+  });
 
-  const fetchLeaderboard = async (page: number) => {
-    try {
-      setIsLoading(true);
-      const response = await fetch(`/api/nft/leaderboard?page=${page}`, {
-        cache: 'no-store' // Prevent browser caching
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch leaderboard');
-      }
-
-      const data: LeaderboardResponse = await response.json();
-      setLeaderboard(data.leaderboard);
-      setTotal(data.total);
-      setTotalPages(data.totalPages);
-      setHasMore(data.hasMore);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const leaderboard = data?.leaderboard || [];
+  const total = data?.total || 0;
+  const totalPages = data?.totalPages || 1;
+  const hasMore = data?.hasMore || false;
 
   const abbreviateAddress = (address: string) => {
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
@@ -155,9 +144,9 @@ export default function LeaderboardPage() {
               <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-red-500/10 border border-red-500/20 mb-6">
                 <ExternalLink size={32} className="text-red-400" />
               </div>
-              <p className="text-red-400 text-lg mb-6">{error}</p>
+              <p className="text-red-400 text-lg mb-6">{error.message}</p>
               <button
-                onClick={() => fetchLeaderboard(1)}
+                onClick={() => setCurrentPage(1)}
                 className="group relative px-6 py-3 rounded-lg text-sm font-medium transition-all overflow-hidden"
               >
                 <div className="absolute inset-0 bg-purple-500/20 border border-purple-500/40 group-hover:bg-purple-500/30 transition-colors"></div>
@@ -307,14 +296,12 @@ export default function LeaderboardPage() {
               {/* Refresh Button */}
               <div className="mt-4 text-center">
                 <button
-                  onClick={() => {
-                    setCurrentPage(1);
-                    fetchLeaderboard(1);
-                  }}
-                  className="inline-flex items-center gap-2 px-4 py-2 text-sm text-slate-400 hover:text-white transition-colors"
+                  onClick={() => setCurrentPage(1)}
+                  disabled={isFetching}
+                  className="inline-flex items-center gap-2 px-4 py-2 text-sm text-slate-400 hover:text-white transition-colors disabled:opacity-50"
                 >
-                  <RefreshCw size={16} />
-                  Refresh
+                  <RefreshCw size={16} className={isFetching ? 'animate-spin' : ''} />
+                  {isFetching ? 'Refreshing...' : 'Refresh'}
                 </button>
               </div>
             </>
