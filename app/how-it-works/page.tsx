@@ -968,7 +968,7 @@ export default function HowItWorksPage() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-4xl font-bold text-gradient">23,900</div>
+                      <div className="text-4xl font-bold text-gradient">20,000</div>
                       <div className="text-sm text-slate-400">Maximum Points</div>
                     </div>
                   </div>

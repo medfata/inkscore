@@ -168,7 +168,7 @@ export class PointsServiceV2 {
       native: {},
       platforms: {},
     };
-    let totalPoints = 0;
+    let totalPoints = 900;
 
     console.log(`\n========== CALCULATING SCORE FOR ${wallet} ==========`);
 

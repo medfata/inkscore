@@ -562,7 +562,7 @@ export class PointsServiceV2 {
       native: {},
       platforms: {},
     };
-    let totalPoints = 0;
+    let totalPoints = 900;
 
     try {
       // Use the same endpoints as the dashboard
