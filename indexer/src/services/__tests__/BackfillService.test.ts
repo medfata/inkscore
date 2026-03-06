@@ -13,7 +13,7 @@ import { pool } from '../../db/index.js';
  * Date Range: (currentDate - 8 days) to currentDate
  */
 
-const TEST_CONTRACT_ADDRESS = '0x05ec92D78ED421f3D3Ada77FFdE167106565974E';
+const TEST_CONTRACT_ADDRESS = '0x00005EA00Ac477B1030CE78506496e8C2dE24bf5';
 
 describe('BackfillService Integration Test', () => {
   let backfillService: BackfillService;
@@ -65,12 +65,12 @@ describe('BackfillService Integration Test', () => {
       return;
     }
 
-    // Calculate date range: 8 days ago to now (to trigger multiple batches)
+    // Calculate date range: 32 days ago to now (to trigger multiple batches)
     const now = new Date();
-    const twoDaysAgo = new Date(now.getTime() - 62 * 24 * 60 * 60 * 1000);
+    const _fromDate = new Date(now.getTime() - (32 * 24 * 60 * 60 * 1000));
 
-    const fromDate = twoDaysAgo.toISOString();
-    const toDate = now.toISOString();
+    const fromDate = _fromDate.toISOString();
+    const toDate = '2026-01-30 23:59:59';
 
     console.log('📅 Test Parameters:');
     console.log(`   Contract: ${TEST_CONTRACT_ADDRESS}`);

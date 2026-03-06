@@ -59,10 +59,10 @@ class ConcurrentGapEnrichmentService {
   private readonly WORKER_TIMEOUT_MS = 300000; // 5 minutes timeout per worker
 
   constructor(maxWorkers?: number) {
-    // Use 50% of available cores, minimum 2, maximum 4 for balanced concurrency
+    // Use 25% of available cores, minimum 2, maximum 3 for API rate limiting
     // The Routerscan API heavily throttles concurrent requests
     const availableCores = cpus().length;
-    this.maxWorkers = maxWorkers || Math.min(Math.max(Math.floor(availableCores * 0.5), 2), 4);
+    this.maxWorkers = maxWorkers || Math.min(Math.max(Math.floor(availableCores * 0.25), 2), 3);
     console.log(`🚀 Concurrent Gap Enrichment Service`);
     console.log(`💻 Available cores: ${availableCores}, Using workers: ${this.maxWorkers}`);
     console.log(`⚠️  Note: API rate limiting detected - using conservative concurrency`);
@@ -297,23 +297,31 @@ class ConcurrentGapEnrichmentService {
     childProcess.stdout?.on('data', (data) => {
       const output = data.toString().trim();
       if (output) {
-        // Parse worker results
-        if (output.startsWith('RESULT:')) {
-          try {
-            const result = JSON.parse(output.substring(7));
-            worker.processed += result.processed;
-            worker.failed += result.failed;
-            this.completedTasks++;
+        // Split by newlines in case multiple lines are buffered together
+        const lines = output.split('\n');
+        
+        for (const line of lines) {
+          const trimmedLine = line.trim();
+          if (!trimmedLine) continue;
+          
+          // Parse worker results
+          if (trimmedLine.startsWith('RESULT:')) {
+            try {
+              const result = JSON.parse(trimmedLine.substring(7));
+              worker.processed += result.processed;
+              worker.failed += result.failed;
+              this.completedTasks++;
 
-            console.log(`✅ [Worker-${workerId}] Batch ${result.batchId} complete: +${result.processed} success, ${result.failed} failed`);
+              console.log(`✅ [Worker-${workerId}] Batch ${result.batchId} complete: +${result.processed} success, ${result.failed} failed`);
 
-            // Assign next task
-            this.assignNextTask(worker);
-          } catch (error) {
-            console.error(`❌ [Worker-${workerId}] Failed to parse result: ${output}`);
+              // Assign next task
+              this.assignNextTask(worker);
+            } catch (error) {
+              console.error(`❌ [Worker-${workerId}] Failed to parse result: ${trimmedLine}`);
+            }
+          } else {
+            console.log(`[Worker-${workerId}] ${trimmedLine}`);
           }
-        } else {
-          console.log(`[Worker-${workerId}] ${output}`);
         }
       }
     });

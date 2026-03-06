@@ -1,5 +1,6 @@
 import { query } from '../db';
 import { assetsService } from './assets-service';
+import { phase1Service } from './phase1-service';
 import {
   Rank,
   WalletPointsBreakdown,
@@ -345,6 +346,112 @@ export class PointsServiceV2 {
     return volumePoints + subaccountPoints;
   }
 
+  private calculateTemplarsPoints(nftBalance: number): number {
+    // Templars of the Storm NFT Holding Points (Max: 2,700 points)
+    // 1 NFT: 1,500 pts (Base Tier - Unlocks core holder multiplier for Phase 2)
+    // 2 NFTs: 2,200 pts (Silver Tier - +700 loyalty bonus)
+    // 3+ NFTs: 2,700 pts (Gold/Whale Tier - Maximum points)
+    if (nftBalance >= 3) return 2700; // Gold/Whale Tier
+    if (nftBalance >= 2) return 2200; // Silver Tier
+    if (nftBalance >= 1) return 1500; // Base Tier
+    return 0;
+  }
+
+  private calculateOpenSeaPoints(buyCount: number, sellCount: number, mintCount: number): number {
+    // OpenSea NFT Activity Points (Max: 2,500 points)
+    // Tiered system based on total NFT transaction count
+    
+    const totalNftTxs = buyCount + sellCount + mintCount;
+    
+    // Determine tier based on total NFT transactions
+    let tier: 'bronze' | 'silver' | 'gold';
+    if (totalNftTxs >= 6) {
+      tier = 'gold';   // Tier 3: Gold (6+ NFTs)
+    } else if (totalNftTxs >= 2) {
+      tier = 'silver'; // Tier 2: Silver (2-5 NFTs)
+    } else if (totalNftTxs >= 1) {
+      tier = 'bronze'; // Tier 1: Bronze (1 NFT)
+    } else {
+      return 0; // No activity
+    }
+    
+    // Calculate points for each action type based on tier
+    let buyPoints = 0;
+    if (buyCount > 0) {
+      if (tier === 'gold') buyPoints = 1200;
+      else if (tier === 'silver') buyPoints = 800;
+      else buyPoints = 300; // bronze
+    }
+    
+    let sellPoints = 0;
+    if (sellCount > 0) {
+      if (tier === 'gold') sellPoints = 800;
+      else if (tier === 'silver') sellPoints = 500;
+      else sellPoints = 200; // bronze
+    }
+    
+    let mintPoints = 0;
+    if (mintCount > 0) {
+      if (tier === 'gold') mintPoints = 500;
+      else if (tier === 'silver') mintPoints = 300;
+      else mintPoints = 100; // bronze
+    }
+    
+    return buyPoints + sellPoints + mintPoints;
+  }
+
+  private calculateCowSwapPoints(totalSwapAmountUsd: number): number {
+    // Cow Swap Volume Points (Max: 2,000 points)
+    // Tiered system based on total swap volume in USD
+    if (totalSwapAmountUsd > 1000) return 2000;  // Tier 3: Whale (Liquidity Provider)
+    if (totalSwapAmountUsd >= 101) return 1200;  // Tier 2: Trader (Active Participant)
+    if (totalSwapAmountUsd >= 10) return 400;    // Tier 1: Starter (Basic DeFi User)
+    return 0; // No activity
+  }
+
+  private calculatePhase1Points(isPhase1: boolean): number {
+    // InkScore Phase 1 Eligibility Points (Max: 1,000 points)
+    // Rewards early adopters who participated in Phase 1
+    return isPhase1 ? 1000 : 0;
+  }
+
+  private calculateSweepPoints(collectionsCreated: number, badgesMinted: number, dailyStreak: number): number {
+    // Sweep Platform Points (Max: 800 points)
+    // Tiered system based on activity counts
+    
+    // 1. Create Collection (Max: 350 points)
+    let collectionPoints = 0;
+    if (collectionsCreated >= 6) {
+      collectionPoints = 350; // Tier 3: Gold (6+ collections)
+    } else if (collectionsCreated >= 2) {
+      collectionPoints = 250; // Tier 2: Silver (2-5 collections)
+    } else if (collectionsCreated >= 1) {
+      collectionPoints = 100; // Tier 1: Bronze (1 collection)
+    }
+    
+    // 2. Mint Badge (Max: 250 points)
+    let badgePoints = 0;
+    if (badgesMinted >= 3) {
+      badgePoints = 250; // Tier 3: Gold (3+ badges)
+    } else if (badgesMinted >= 2) {
+      badgePoints = 150; // Tier 2: Silver (2 badges)
+    } else if (badgesMinted >= 1) {
+      badgePoints = 100; // Tier 1: Bronze (1 badge)
+    }
+    
+    // 3. Daily Streak (Max: 200 points)
+    let streakPoints = 0;
+    if (dailyStreak >= 6) {
+      streakPoints = 200; // Tier 3: Gold (6+ days)
+    } else if (dailyStreak >= 2) {
+      streakPoints = 100; // Tier 2: Silver (2-5 days)
+    } else if (dailyStreak >= 1) {
+      streakPoints = 50; // Tier 1: Bronze (1 day)
+    }
+    
+    return collectionPoints + badgePoints + streakPoints;
+  }
+
   private calculateNft2mePoints(collectionCreatedCount: number, nftMintedCount: number): number {
     // New tiered system for NFT2Me (Max: 300 points)
     // 1. Create Collection (Max: 100 points)
@@ -383,6 +490,70 @@ export class PointsServiceV2 {
     
     return platformPoints + tradePoints;
   }
+  private calculateNftStakingPoints(shelliesCount: number, inkBunniesCount: number, boinkCount: number): number {
+    // NFT Staking Points (Max: 500 points)
+    // Tiered system based on staked NFT counts per collection
+
+    // 1. Shellies (Max: 166 points)
+    let shelliesPoints = 0;
+    if (shelliesCount >= 6) {
+      shelliesPoints = 166; // Tier 3: Gold (6+ NFTs)
+    } else if (shelliesCount >= 2) {
+      shelliesPoints = 100; // Tier 2: Silver (2-5 NFTs)
+    } else if (shelliesCount >= 1) {
+      shelliesPoints = 50; // Tier 1: Bronze (1 NFT)
+    }
+
+    // 2. INK Bunnies (Max: 167 points)
+    let inkBunniesPoints = 0;
+    if (inkBunniesCount >= 6) {
+      inkBunniesPoints = 167; // Tier 3: Gold (6+ NFTs)
+    } else if (inkBunniesCount >= 2) {
+      inkBunniesPoints = 100; // Tier 2: Silver (2-5 NFTs)
+    } else if (inkBunniesCount >= 1) {
+      inkBunniesPoints = 50; // Tier 1: Bronze (1 NFT)
+    }
+
+    // 3. Boink (Max: 167 points)
+    let boinkPoints = 0;
+    if (boinkCount >= 6) {
+      boinkPoints = 167; // Tier 3: Gold (6+ NFTs)
+    } else if (boinkCount >= 2) {
+      boinkPoints = 100; // Tier 2: Silver (2-5 NFTs)
+    } else if (boinkCount >= 1) {
+      boinkPoints = 50; // Tier 1: Bronze (1 NFT)
+    }
+
+    return shelliesPoints + inkBunniesPoints + boinkPoints;
+  }
+
+  private calculateInkDcaPoints(totalSpentUsd: number, totalRegisteredDcas: number): number {
+    // INKDCA Points (Max: 500 points)
+    // Tiered system based on total spent and registered DCAs
+    
+    // 1. Total Spent (Max: 400 points)
+    let spentPoints = 0;
+    if (totalSpentUsd >= 500) {
+      spentPoints = 400; // Tier 3: Gold ($500+)
+    } else if (totalSpentUsd >= 101) {
+      spentPoints = 250; // Tier 2: Silver ($101-$500)
+    } else if (totalSpentUsd >= 10) {
+      spentPoints = 100; // Tier 1: Bronze ($10-$100)
+    }
+    
+    // 2. Total Registered DCAs (Max: 100 points)
+    let registeredPoints = 0;
+    if (totalRegisteredDcas >= 6) {
+      registeredPoints = 100; // Tier 3: Gold (6+ DCAs)
+    } else if (totalRegisteredDcas >= 2) {
+      registeredPoints = 50; // Tier 2: Silver (2-5 DCAs)
+    } else if (totalRegisteredDcas >= 1) {
+      registeredPoints = 25; // Tier 1: Bronze (1 DCA)
+    }
+    
+    return spentPoints + registeredPoints;
+  }
+
 
 
   async calculateWalletScore(walletAddress: string): Promise<WalletScoreResponse> {
@@ -391,7 +562,7 @@ export class PointsServiceV2 {
       native: {},
       platforms: {},
     };
-    let totalPoints = 0;
+    let totalPoints = 900;
 
     try {
       // Use the same endpoints as the dashboard
@@ -414,7 +585,15 @@ export class PointsServiceV2 {
         nftTradingRes,
         marvkRes,
         nadoRes,
-        copinkRes
+        copinkRes,
+        templarsRes,
+        openseaBuyRes,
+        openseaSellRes,
+        mintRes,
+        cowSwapRes,
+        sweepRes,
+        nftStakingRes,
+        inkDcaRes
       ] = await Promise.all([
         fetch(`${baseUrl}/api/wallet/${wallet}/stats`),
         fetch(`${baseUrl}/api/wallet/${wallet}/bridge`),
@@ -432,7 +611,15 @@ export class PointsServiceV2 {
         fetch(`${baseUrl}/api/analytics/${wallet}/nft_traded`),
         fetch(`${baseUrl}/api/marvk/${wallet}`),
         fetch(`${baseUrl}/api/nado/${wallet}`),
-        fetch(`${baseUrl}/api/copink/${wallet}`)
+        fetch(`${baseUrl}/api/copink/${wallet}`),
+        fetch(`${baseUrl}/api/analytics/${wallet}/templars_nft_balance`),
+        fetch(`${baseUrl}/api/analytics/${wallet}/opensea_buy_count`),
+        fetch(`${baseUrl}/api/analytics/${wallet}/opensea_sale_count`),
+        fetch(`${baseUrl}/api/analytics/${wallet}/mint_count`),
+        fetch(`${baseUrl}/api/analytics/${wallet}/cowswap_swaps`),
+        fetch(`${baseUrl}/api/sweep/${wallet}`),
+        fetch(`${baseUrl}/api/analytics/${wallet}/nft_staking`),
+        fetch(`${baseUrl}/api/analytics/${wallet}/inkdca_run_dca`)
       ]);
 
       // Type definitions for API responses
@@ -473,6 +660,33 @@ export class PointsServiceV2 {
         totalVolume?: number;
         subaccountsFound?: number;
       }
+      interface TemplarsResponse {
+        total_count?: number;
+        value?: number;
+      }
+      interface OpenSeaResponse {
+        total_count?: number;
+        value?: number;
+      }
+      interface CowSwapResponse {
+        total_count?: number;
+        total_value?: string;
+      }
+      interface SweepResponse {
+        totalCollections?: number;
+        sweepBadgeBalance?: number;
+        totalStreak?: number;
+      }
+      interface NftStakingResponse {
+        total_count?: number;
+        total_value?: string;
+        sub_aggregates?: Array<{ label: string; value: string }>;
+      }
+      interface InkDcaResponse {
+        total_count?: number;
+        total_value?: string;
+        sub_aggregates?: Array<{ label: string; value: string }>;
+      }
 
       const walletStats = walletStatsRes.ok ? await walletStatsRes.json() as WalletStatsResponse : null;
       const bridgeData = bridgeRes.ok ? await bridgeRes.json() as BridgeResponse : null;
@@ -491,17 +705,25 @@ export class PointsServiceV2 {
       const marvkData = marvkRes.ok ? await marvkRes.json() as MarvkResponse : null;
       const nadoData = nadoRes.ok ? await nadoRes.json() as NadoResponse : null;
       const copinkData = copinkRes.ok ? await copinkRes.json() as CopinkResponse : null;
+      const templarsData = templarsRes.ok ? await templarsRes.json() as TemplarsResponse : null;
+      const openseaBuyData = openseaBuyRes.ok ? await openseaBuyRes.json() as OpenSeaResponse : null;
+      const openseaSellData = openseaSellRes.ok ? await openseaSellRes.json() as OpenSeaResponse : null;
+      const mintData = mintRes.ok ? await mintRes.json() as OpenSeaResponse : null;
+      const cowSwapData = cowSwapRes.ok ? await cowSwapRes.json() as CowSwapResponse : null;
+      const sweepData = sweepRes.ok ? await sweepRes.json() as SweepResponse : null;
+      const nftStakingData = nftStakingRes.ok ? await nftStakingRes.json() as NftStakingResponse : null;
+      const inkDcaData = inkDcaRes.ok ? await inkDcaRes.json() as InkDcaResponse : null;
 
       if (!walletStats) throw new Error('Failed to fetch wallet stats');
 
       // Calculate points using dashboard data
-      const supportedNftCount = (walletStats.nftCollections || []).reduce((sum: number, col: { count?: number }) => sum + (col.count || 0), 0);
+      const supportedNftCount = (walletStats!.nftCollections || []).reduce((sum: number, col: { count?: number }) => sum + (col.count || 0), 0);
       const nftPoints = this.calculateNftCollectionsPoints(supportedNftCount);
       breakdown.native['nft_collections'] = { value: supportedNftCount, points: nftPoints };
       totalPoints += nftPoints;
 
-      const tokenHoldings = walletStats.tokenHoldings || [];
-      const nativeEthUsd = Number(walletStats.balanceUsd) || 0;
+      const tokenHoldings = walletStats!.tokenHoldings || [];
+      const nativeEthUsd = Number(walletStats!.balanceUsd) || 0;
 
       const allHoldings = [
         ...tokenHoldings,
@@ -519,12 +741,12 @@ export class PointsServiceV2 {
       breakdown.native['meme_coins'] = { value: memeTokenCount, points: memePoints };
       totalPoints += memePoints;
 
-      const agePoints = this.calculateWalletAgePoints(walletStats.ageDays || 0);
-      breakdown.native['wallet_age'] = { value: walletStats.ageDays || 0, points: agePoints };
+      const agePoints = this.calculateWalletAgePoints(walletStats!.ageDays || 0);
+      breakdown.native['wallet_age'] = { value: walletStats!.ageDays || 0, points: agePoints };
       totalPoints += agePoints;
 
-      const txPoints = this.calculateTotalTxPoints(walletStats.totalTxns || 0);
-      breakdown.native['total_tx'] = { value: walletStats.totalTxns || 0, points: txPoints };
+      const txPoints = this.calculateTotalTxPoints(walletStats!.totalTxns || 0);
+      breakdown.native['total_tx'] = { value: walletStats!.totalTxns || 0, points: txPoints };
       totalPoints += txPoints;
 
       const bridgeInUsd = bridgeData?.bridgedInUsd || 0;
@@ -609,6 +831,62 @@ export class PointsServiceV2 {
       const copinkPoints = this.calculateCopinkPoints(copinkSubaccounts, copinkVolume);
       breakdown.platforms['copink'] = { tx_count: copinkSubaccounts, usd_volume: copinkVolume, points: copinkPoints };
       totalPoints += copinkPoints;
+
+      // Templars of the Storm NFT points
+      const templarsBalance = templarsData?.value || 0;
+      const templarsPoints = this.calculateTemplarsPoints(templarsBalance);
+      breakdown.platforms['templars'] = { tx_count: templarsBalance, usd_volume: 0, points: templarsPoints };
+      totalPoints += templarsPoints;
+
+      // OpenSea NFT Activity points
+      const openseaBuyCount = openseaBuyData?.total_count || 0;
+      const openseaSellCount = openseaSellData?.total_count || 0;
+      const mintCount = mintData?.total_count || 0;
+      const openSeaPoints = this.calculateOpenSeaPoints(openseaBuyCount, openseaSellCount, mintCount);
+      const totalOpenSeaTxs = openseaBuyCount + openseaSellCount + mintCount;
+      breakdown.platforms['opensea'] = { tx_count: totalOpenSeaTxs, usd_volume: 0, points: openSeaPoints };
+      totalPoints += openSeaPoints;
+
+      // Cow Swap points
+      const cowSwapVolumeUsd = parseFloat(cowSwapData?.total_value || '0');
+      const cowSwapCount = cowSwapData?.total_count || 0;
+      const cowSwapPoints = this.calculateCowSwapPoints(cowSwapVolumeUsd);
+      breakdown.platforms['cowswap'] = { tx_count: cowSwapCount, usd_volume: cowSwapVolumeUsd, points: cowSwapPoints };
+      totalPoints += cowSwapPoints;
+
+      // Phase 1 Eligibility points
+      const phase1Status = phase1Service.getPhase1Status(wallet);
+      const phase1Points = this.calculatePhase1Points(phase1Status.isPhase1);
+      breakdown.platforms['phase1'] = { tx_count: phase1Status.isPhase1 ? 1 : 0, usd_volume: 0, points: phase1Points };
+      totalPoints += phase1Points;
+
+      // Sweep Platform points
+      const sweepCollections = sweepData?.totalCollections || 0;
+      const sweepBadges = sweepData?.sweepBadgeBalance || 0;
+      const sweepStreak = sweepData?.totalStreak || 0;
+      const sweepPoints = this.calculateSweepPoints(sweepCollections, sweepBadges, sweepStreak);
+      const totalSweepActivity = sweepCollections + sweepBadges + sweepStreak;
+      breakdown.platforms['sweep'] = { tx_count: totalSweepActivity, usd_volume: 0, points: sweepPoints };
+      totalPoints += sweepPoints;
+
+      // NFT Staking points (Shellies + INK Bunnies + Boink)
+      const nftStakingSubAggregates = nftStakingData?.sub_aggregates || [];
+      const shelliesStaked = parseInt(nftStakingSubAggregates.find(s => s.label === 'Shellies Staked')?.value || '0', 10);
+      const inkBunniesStaked = parseInt(nftStakingSubAggregates.find(s => s.label === 'INK Bunnies Staked')?.value || '0', 10);
+      const boinkStaked = parseInt(nftStakingSubAggregates.find(s => s.label === 'Boink Staked')?.value || '0', 10);
+      const nftStakingPoints = this.calculateNftStakingPoints(shelliesStaked, inkBunniesStaked, boinkStaked);
+      const totalNftStaked = shelliesStaked + inkBunniesStaked + boinkStaked;
+      breakdown.platforms['nft_staking'] = { tx_count: totalNftStaked, usd_volume: 0, points: nftStakingPoints };
+      totalPoints += nftStakingPoints;
+
+      // INKDCA points
+      const inkDcaSubAggregates = inkDcaData?.sub_aggregates || [];
+      const totalSpentStr = inkDcaSubAggregates.find(s => s.label === 'Total Spent')?.value || '$0';
+      const totalSpentUsd = parseFloat(totalSpentStr.replace(/[$,]/g, '')) || 0;
+      const totalRegisteredDcas = inkDcaData?.total_count || 0;
+      const inkDcaPoints = this.calculateInkDcaPoints(totalSpentUsd, totalRegisteredDcas);
+      breakdown.platforms['inkdca'] = { tx_count: totalRegisteredDcas, usd_volume: totalSpentUsd, points: inkDcaPoints };
+      totalPoints += inkDcaPoints;
 
       // Verification logs - check formula correctness
 

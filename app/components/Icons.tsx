@@ -37,7 +37,10 @@ import {
   AlertCircle,
   Calculator,
   Info,
-  Users
+  Users,
+  XCircle,
+  Wifi,
+  WifiOff
 } from 'lucide-react';
 
 export {
@@ -76,5 +79,8 @@ export {
   AlertCircle,
   Calculator,
   Info,
-  Users
+  Users,
+  XCircle,
+  Wifi,
+  WifiOff
 };

@@ -1,0 +1,1618 @@
+{
+    "chainId": "57073",
+    "ecosystems": [
+        "optimism"
+    ],
+    "blockNumber": 32512747,
+    "txIndex": 4,
+    "timestamp": "2025-12-17T22:39:18.000Z",
+    "from": {
+        "id": "0x4C50254DaFD191bBA2A6e0517C1742Caf1426dF5",
+        "isContract": false
+    },
+    "to": {
+        "id": "0x01D40099fCD87C018969B0e8D4aB1633Fb34763C",
+        "isContract": true
+    },
+    "blockHash": "0x70365fe3454d73ca1db44804504df377d4362944947be403fd45c160df320594",
+    "txHash": "0x7092223cd423547fe152b07110dc6f0f5db12818396d3bf99c7a3839f2e00913",
+    "value": "0",
+    "gasLimit": "456125",
+    "gasUsed": "272332",
+    "gasPrice": "2681",
+    "burnedFees": "730122092",
+    "methodId": "0x3593564c",
+    "method": "execute(bytes commands, bytes[] inputs, uint256 deadline) payable",
+    "contractVerified": true,
+    "type": "evm_tx",
+    "status": true,
+    "nonce": 738,
+    "deployments": [],
+    "input": "0x3593564c000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000006943380c000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000001400000000000000000000000004c50254dafd191bba2a6e0517c1742caf1426df50000000000000000000000000000000000000000000000056bc75e2d631000000000000000000000000000000000000000000000000000000000000005f3d39100000000000000000000000000000000000000000000000000000000000000c0000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000042fc421ad3c883bf9e7c4f42de845c4e4405799e730000010200c29006150606b650577bbe7b6248f58470c1000001e343167631d89b6ffc58b88d6b7fb0228795491d0000000000000000000000000000000000000000000000000000000000008779ce964b87d3f8964386409401",
+    "indexingStatus": "completed",
+    "hasEIP7702Authorizations": false,
+    "userOperationsCount": 0,
+    "logs": [
+        {
+            "index": 0,
+            "address": {
+                "id": "0x0200C29006150606B650577BBE7B6248F58470c1",
+                "name": "USD₮0",
+                "alias": "USDT0",
+                "dapp": {
+                    "alias": "USDT0",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": []
+                },
+                "owner": "USDT0",
+                "icon": "https://cms-cdn.avascan.com/cms2/USDT0.a2be8f8b972f.svg",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/_8hp010bP9NFQsifKeCUbLv49hXAGcFj2kARI1CV0jg/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "64": "https://imgproxy-mainnet.routescan.io/Dr7R2CqkGcFp_XST1b8f8vwavBxGp1STy1Ui9AHmg24/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "256": "https://imgproxy-mainnet.routescan.io/FeiBn-bxqNvNosgdLEliorOSm4cg5lr0YDklMlrjep8/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "1024": "https://imgproxy-mainnet.routescan.io/4B0OrxYrfSAgOwHKnLCqbWm6EGA2_YGf64IWDOhmMk8/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw"
+                },
+                "tags": [
+                    "stablecoin",
+                    "payments"
+                ],
+                "isContract": false
+            },
+            "topics": [
+                "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+                "0x00000000000000000000000068ea2123ce20514127b07378773f617491e290cc",
+                "0x00000000000000000000000001d40099fcd87c018969b0e8d4ab1633fb34763c"
+            ],
+            "data": "0x0000000000000000000000000000000000000000000000000000000005f5d43a",
+            "removed": false,
+            "event": "Transfer(address indexed from, address indexed to, uint256 value)",
+            "contractVerified": false
+        },
+        {
+            "index": 1,
+            "address": {
+                "id": "0xfc421aD3C883Bf9E7C4f42dE845C4e4405799e73",
+                "name": "Gho Token",
+                "icon": "https://cms-cdn.avascan.com/cms2/gho.729e04517926.png",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/Wc8SrXvdtwVkbGWGHD8G4n1vEKDp3L5VazVmmaOoTJ4/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvZ2hvLjcyOWUwNDUxNzkyNi5wbmc",
+                    "64": "https://imgproxy-mainnet.routescan.io/vo82VWc4iVjrH7hTXn_Cnx4ZHh8J1Zygaf6LCIuGP5o/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvZ2hvLjcyOWUwNDUxNzkyNi5wbmc",
+                    "256": "https://imgproxy-mainnet.routescan.io/M7gxZoeHfD3tOn78-_x__W8dL519_ZuF7DeKoRGFXxw/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvZ2hvLjcyOWUwNDUxNzkyNi5wbmc",
+                    "1024": "https://imgproxy-mainnet.routescan.io/6eIoiqN8Ulfhwcc2TSMNrje2bZIiQCJBAdHKqMN2sdc/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvZ2hvLjcyOWUwNDUxNzkyNi5wbmc"
+                },
+                "tags": [],
+                "isContract": true
+            },
+            "topics": [
+                "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+                "0x0000000000000000000000004c50254dafd191bba2a6e0517c1742caf1426df5",
+                "0x00000000000000000000000068ea2123ce20514127b07378773f617491e290cc"
+            ],
+            "data": "0x0000000000000000000000000000000000000000000000056bc75e2d63100000",
+            "removed": false,
+            "event": "Transfer(address indexed from, address indexed to, uint256 value)",
+            "contractVerified": false
+        },
+        {
+            "index": 2,
+            "address": {
+                "id": "0x68Ea2123cE20514127B07378773f617491E290cC",
+                "alias": "Pool Gho Token (GHO)/USD₮0 (USD₮0)",
+                "dapp": {
+                    "alias": "Velodrome",
+                    "description": "Velodrome Finance, at its core, is a solution for protocols on Optimism to properly incentivize liquidity for their own use cases. Building on top of the groundwork laid out by Solidly, our team has addressed that first iteration's core issues to realize its full potential.",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": [
+                        "dex"
+                    ]
+                },
+                "owner": "Velodrome",
+                "icon": "https://cms-cdn.avascan.com/cms2/velodrome-v2--modified.3cd6cadb0262.png",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/inXRtJgSfPtvV_BphK1RRPdeJLUwfWS5uIU_tfN5zz8/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "64": "https://imgproxy-mainnet.routescan.io/cRn740UF5HjCcFcU8ZaZIovhvEMSEgJVF1OrGge5Srg/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "256": "https://imgproxy-mainnet.routescan.io/88RQPLF5UdK48vOqnTP64AWPsyoAVOe-cEp84u-ge4s/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "1024": "https://imgproxy-mainnet.routescan.io/ckbHabrsAtUiLiKaevoJFQlxm14gDu0WlXGOrgHDqNc/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n"
+                },
+                "tags": [
+                    "liquidity_pool"
+                ],
+                "isContract": true
+            },
+            "topics": [
+                "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67",
+                "0x00000000000000000000000001d40099fcd87c018969b0e8d4ab1633fb34763c",
+                "0x00000000000000000000000001d40099fcd87c018969b0e8d4ab1633fb34763c"
+            ],
+            "data": "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffa0a2bc60000000000000000000000000000000000000000000000056bc75e2d6310000000000000000000000000000000000000000f41ec5aa4995791b604b71cd002710000000000000000000000000000000000000000000000f54a652d0febb270c20000000000000000000000000000000000000000000000000000000000043762",
+            "removed": false,
+            "event": "Swap(address indexed sender, address indexed recipient, int256 amount0, int256 amount1, uint160 sqrtPriceX96, uint128 liquidity, int24 tick)",
+            "contractVerified": false
+        },
+        {
+            "index": 3,
+            "address": {
+                "id": "0xe343167631d89B6Ffc58B88d6b7fB0228795491D",
+                "name": "Global Dollar",
+                "icon": "https://cms-cdn.avascan.com/cms2/globaldollar.ebb6e4c7486b.png",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/Rl_HcA4F1N1dMqQvEBgX8mn7A_bF4Yu2EkhihcnuGmk/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvZ2xvYmFsZG9sbGFyLmViYjZlNGM3NDg2Yi5wbmc",
+                    "64": "https://imgproxy-mainnet.routescan.io/OwQPMPhP30Kx1h6muxHU8wU_AFD0XvJ0bRMnQQTqx8w/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvZ2xvYmFsZG9sbGFyLmViYjZlNGM3NDg2Yi5wbmc",
+                    "256": "https://imgproxy-mainnet.routescan.io/2d_OeV16qa70DDZxS6XsPpNQ23WxzDnrZCD3YXyge4w/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvZ2xvYmFsZG9sbGFyLmViYjZlNGM3NDg2Yi5wbmc",
+                    "1024": "https://imgproxy-mainnet.routescan.io/QdKa-rpDKsrcdpuqls5sLVAOXrepMrcj0dfWf0V9v7A/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvZ2xvYmFsZG9sbGFyLmViYjZlNGM3NDg2Yi5wbmc"
+                },
+                "tags": [
+                    "stablecoin"
+                ],
+                "isContract": true
+            },
+            "topics": [
+                "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+                "0x00000000000000000000000031826a86cd62c6fa12a0a8441ec4c8bcfee8a453",
+                "0x0000000000000000000000004c50254dafd191bba2a6e0517c1742caf1426df5"
+            ],
+            "data": "0x0000000000000000000000000000000000000000000000000000000005f55a0e",
+            "removed": false,
+            "event": "Transfer(address indexed from, address indexed to, uint256 value)",
+            "contractVerified": false
+        },
+        {
+            "index": 4,
+            "address": {
+                "id": "0x0200C29006150606B650577BBE7B6248F58470c1",
+                "name": "USD₮0",
+                "alias": "USDT0",
+                "dapp": {
+                    "alias": "USDT0",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": []
+                },
+                "owner": "USDT0",
+                "icon": "https://cms-cdn.avascan.com/cms2/USDT0.a2be8f8b972f.svg",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/_8hp010bP9NFQsifKeCUbLv49hXAGcFj2kARI1CV0jg/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "64": "https://imgproxy-mainnet.routescan.io/Dr7R2CqkGcFp_XST1b8f8vwavBxGp1STy1Ui9AHmg24/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "256": "https://imgproxy-mainnet.routescan.io/FeiBn-bxqNvNosgdLEliorOSm4cg5lr0YDklMlrjep8/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "1024": "https://imgproxy-mainnet.routescan.io/4B0OrxYrfSAgOwHKnLCqbWm6EGA2_YGf64IWDOhmMk8/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw"
+                },
+                "tags": [
+                    "stablecoin",
+                    "payments"
+                ],
+                "isContract": false
+            },
+            "topics": [
+                "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+                "0x00000000000000000000000001d40099fcd87c018969b0e8d4ab1633fb34763c",
+                "0x00000000000000000000000031826a86cd62c6fa12a0a8441ec4c8bcfee8a453"
+            ],
+            "data": "0x0000000000000000000000000000000000000000000000000000000005f5d43a",
+            "removed": false,
+            "event": "Transfer(address indexed from, address indexed to, uint256 value)",
+            "contractVerified": false
+        },
+        {
+            "index": 5,
+            "address": {
+                "id": "0x31826a86cD62c6FA12A0a8441eC4C8BCfeE8A453",
+                "alias": "Pool Global Dollar (USDG)/USD₮0 (USD₮0)",
+                "dapp": {
+                    "alias": "Velodrome",
+                    "description": "Velodrome Finance, at its core, is a solution for protocols on Optimism to properly incentivize liquidity for their own use cases. Building on top of the groundwork laid out by Solidly, our team has addressed that first iteration's core issues to realize its full potential.",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": [
+                        "dex"
+                    ]
+                },
+                "owner": "Velodrome",
+                "icon": "https://cms-cdn.avascan.com/cms2/velodrome-v2--modified.3cd6cadb0262.png",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/inXRtJgSfPtvV_BphK1RRPdeJLUwfWS5uIU_tfN5zz8/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "64": "https://imgproxy-mainnet.routescan.io/cRn740UF5HjCcFcU8ZaZIovhvEMSEgJVF1OrGge5Srg/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "256": "https://imgproxy-mainnet.routescan.io/88RQPLF5UdK48vOqnTP64AWPsyoAVOe-cEp84u-ge4s/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "1024": "https://imgproxy-mainnet.routescan.io/ckbHabrsAtUiLiKaevoJFQlxm14gDu0WlXGOrgHDqNc/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n"
+                },
+                "tags": [
+                    "liquidity_pool"
+                ],
+                "isContract": true
+            },
+            "topics": [
+                "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67",
+                "0x00000000000000000000000001d40099fcd87c018969b0e8d4ab1633fb34763c",
+                "0x0000000000000000000000004c50254dafd191bba2a6e0517c1742caf1426df5"
+            ],
+            "data": "0x0000000000000000000000000000000000000000000000000000000005f5d43afffffffffffffffffffffffffffffffffffffffffffffffffffffffffa0aa5f20000000000000000000000000000000000000000fffc4dd674a188666489ab6a00000000000000000000000000000000000000000000000000709992559da260fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe",
+            "removed": false,
+            "event": "Swap(address indexed sender, address indexed recipient, int256 amount0, int256 amount1, uint160 sqrtPriceX96, uint128 liquidity, int24 tick)",
+            "contractVerified": false
+        },
+        {
+            "index": 6,
+            "address": {
+                "id": "0x01D40099fCD87C018969B0e8D4aB1633Fb34763C",
+                "isContract": true
+            },
+            "topics": [
+                "0xaa2dd386ed08047486db39ea1a9e5461b6a95c8bb3ca845cce27a537799a4672",
+                "0x0000000000000000000000004c50254dafd191bba2a6e0517c1742caf1426df5",
+                "0x0000000000000000000000004c50254dafd191bba2a6e0517c1742caf1426df5"
+            ],
+            "data": "0x",
+            "removed": false,
+            "event": "UniversalRouterSwap(address indexed sender, address indexed recipient)",
+            "contractVerified": true
+        }
+    ],
+    "operations": [
+        {
+            "index": 0,
+            "status": true,
+            "type": "CALL",
+            "from": {
+                "id": "0x4C50254DaFD191bBA2A6e0517C1742Caf1426dF5",
+                "isContract": false
+            },
+            "to": {
+                "id": "0x01D40099fCD87C018969B0e8D4aB1633Fb34763C",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "456125",
+            "gasUsed": "272332",
+            "methodId": "0x3593564c"
+        },
+        {
+            "index": 1,
+            "status": true,
+            "type": "CALL",
+            "from": {
+                "id": "0x01D40099fCD87C018969B0e8D4aB1633Fb34763C",
+                "isContract": true
+            },
+            "to": {
+                "id": "0x68Ea2123cE20514127B07378773f617491E290cC",
+                "alias": "Pool Gho Token (GHO)/USD₮0 (USD₮0)",
+                "dapp": {
+                    "alias": "Velodrome",
+                    "description": "Velodrome Finance, at its core, is a solution for protocols on Optimism to properly incentivize liquidity for their own use cases. Building on top of the groundwork laid out by Solidly, our team has addressed that first iteration's core issues to realize its full potential.",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": [
+                        "dex"
+                    ]
+                },
+                "owner": "Velodrome",
+                "icon": "https://cms-cdn.avascan.com/cms2/velodrome-v2--modified.3cd6cadb0262.png",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/inXRtJgSfPtvV_BphK1RRPdeJLUwfWS5uIU_tfN5zz8/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "64": "https://imgproxy-mainnet.routescan.io/cRn740UF5HjCcFcU8ZaZIovhvEMSEgJVF1OrGge5Srg/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "256": "https://imgproxy-mainnet.routescan.io/88RQPLF5UdK48vOqnTP64AWPsyoAVOe-cEp84u-ge4s/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "1024": "https://imgproxy-mainnet.routescan.io/ckbHabrsAtUiLiKaevoJFQlxm14gDu0WlXGOrgHDqNc/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n"
+                },
+                "tags": [
+                    "liquidity_pool"
+                ],
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "418549",
+            "gasUsed": "152752",
+            "methodId": "0x128acb08"
+        },
+        {
+            "index": 2,
+            "status": true,
+            "type": "DELEGATECALL",
+            "from": {
+                "id": "0x68Ea2123cE20514127B07378773f617491E290cC",
+                "alias": "Pool Gho Token (GHO)/USD₮0 (USD₮0)",
+                "dapp": {
+                    "alias": "Velodrome",
+                    "description": "Velodrome Finance, at its core, is a solution for protocols on Optimism to properly incentivize liquidity for their own use cases. Building on top of the groundwork laid out by Solidly, our team has addressed that first iteration's core issues to realize its full potential.",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": [
+                        "dex"
+                    ]
+                },
+                "owner": "Velodrome",
+                "icon": "https://cms-cdn.avascan.com/cms2/velodrome-v2--modified.3cd6cadb0262.png",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/inXRtJgSfPtvV_BphK1RRPdeJLUwfWS5uIU_tfN5zz8/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "64": "https://imgproxy-mainnet.routescan.io/cRn740UF5HjCcFcU8ZaZIovhvEMSEgJVF1OrGge5Srg/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "256": "https://imgproxy-mainnet.routescan.io/88RQPLF5UdK48vOqnTP64AWPsyoAVOe-cEp84u-ge4s/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "1024": "https://imgproxy-mainnet.routescan.io/ckbHabrsAtUiLiKaevoJFQlxm14gDu0WlXGOrgHDqNc/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n"
+                },
+                "tags": [
+                    "liquidity_pool"
+                ],
+                "isContract": true
+            },
+            "to": {
+                "id": "0x321f7Dfb9B2eA9131B8C17691CF6e01E5c149cA8",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "409350",
+            "gasUsed": "150011",
+            "methodId": "0x128acb08"
+        },
+        {
+            "index": 3,
+            "status": true,
+            "type": "STATICCALL",
+            "from": {
+                "id": "0x68Ea2123cE20514127B07378773f617491E290cC",
+                "alias": "Pool Gho Token (GHO)/USD₮0 (USD₮0)",
+                "dapp": {
+                    "alias": "Velodrome",
+                    "description": "Velodrome Finance, at its core, is a solution for protocols on Optimism to properly incentivize liquidity for their own use cases. Building on top of the groundwork laid out by Solidly, our team has addressed that first iteration's core issues to realize its full potential.",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": [
+                        "dex"
+                    ]
+                },
+                "owner": "Velodrome",
+                "icon": "https://cms-cdn.avascan.com/cms2/velodrome-v2--modified.3cd6cadb0262.png",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/inXRtJgSfPtvV_BphK1RRPdeJLUwfWS5uIU_tfN5zz8/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "64": "https://imgproxy-mainnet.routescan.io/cRn740UF5HjCcFcU8ZaZIovhvEMSEgJVF1OrGge5Srg/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "256": "https://imgproxy-mainnet.routescan.io/88RQPLF5UdK48vOqnTP64AWPsyoAVOe-cEp84u-ge4s/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "1024": "https://imgproxy-mainnet.routescan.io/ckbHabrsAtUiLiKaevoJFQlxm14gDu0WlXGOrgHDqNc/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n"
+                },
+                "tags": [
+                    "liquidity_pool"
+                ],
+                "isContract": true
+            },
+            "to": {
+                "id": "0x04625B046C69577EfC40e6c0Bb83CDBAfab5a55F",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "387455",
+            "gasUsed": "9369",
+            "methodId": "0x35458dcc"
+        },
+        {
+            "index": 4,
+            "status": true,
+            "type": "STATICCALL",
+            "from": {
+                "id": "0x04625B046C69577EfC40e6c0Bb83CDBAfab5a55F",
+                "isContract": true
+            },
+            "to": {
+                "id": "0x6812eefC19deB79D5191b52f4B763260d9F3C238",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "375973",
+            "gasUsed": "3539",
+            "methodId": "0xb88c9148"
+        },
+        {
+            "index": 5,
+            "status": true,
+            "type": "STATICCALL",
+            "from": {
+                "id": "0x6812eefC19deB79D5191b52f4B763260d9F3C238",
+                "isContract": true
+            },
+            "to": {
+                "id": "0x68Ea2123cE20514127B07378773f617491E290cC",
+                "alias": "Pool Gho Token (GHO)/USD₮0 (USD₮0)",
+                "dapp": {
+                    "alias": "Velodrome",
+                    "description": "Velodrome Finance, at its core, is a solution for protocols on Optimism to properly incentivize liquidity for their own use cases. Building on top of the groundwork laid out by Solidly, our team has addressed that first iteration's core issues to realize its full potential.",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": [
+                        "dex"
+                    ]
+                },
+                "owner": "Velodrome",
+                "icon": "https://cms-cdn.avascan.com/cms2/velodrome-v2--modified.3cd6cadb0262.png",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/inXRtJgSfPtvV_BphK1RRPdeJLUwfWS5uIU_tfN5zz8/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "64": "https://imgproxy-mainnet.routescan.io/cRn740UF5HjCcFcU8ZaZIovhvEMSEgJVF1OrGge5Srg/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "256": "https://imgproxy-mainnet.routescan.io/88RQPLF5UdK48vOqnTP64AWPsyoAVOe-cEp84u-ge4s/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "1024": "https://imgproxy-mainnet.routescan.io/ckbHabrsAtUiLiKaevoJFQlxm14gDu0WlXGOrgHDqNc/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n"
+                },
+                "tags": [
+                    "liquidity_pool"
+                ],
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "367366",
+            "gasUsed": "547",
+            "methodId": "0xd0c93a7c"
+        },
+        {
+            "index": 6,
+            "status": true,
+            "type": "DELEGATECALL",
+            "from": {
+                "id": "0x68Ea2123cE20514127B07378773f617491E290cC",
+                "alias": "Pool Gho Token (GHO)/USD₮0 (USD₮0)",
+                "dapp": {
+                    "alias": "Velodrome",
+                    "description": "Velodrome Finance, at its core, is a solution for protocols on Optimism to properly incentivize liquidity for their own use cases. Building on top of the groundwork laid out by Solidly, our team has addressed that first iteration's core issues to realize its full potential.",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": [
+                        "dex"
+                    ]
+                },
+                "owner": "Velodrome",
+                "icon": "https://cms-cdn.avascan.com/cms2/velodrome-v2--modified.3cd6cadb0262.png",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/inXRtJgSfPtvV_BphK1RRPdeJLUwfWS5uIU_tfN5zz8/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "64": "https://imgproxy-mainnet.routescan.io/cRn740UF5HjCcFcU8ZaZIovhvEMSEgJVF1OrGge5Srg/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "256": "https://imgproxy-mainnet.routescan.io/88RQPLF5UdK48vOqnTP64AWPsyoAVOe-cEp84u-ge4s/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "1024": "https://imgproxy-mainnet.routescan.io/ckbHabrsAtUiLiKaevoJFQlxm14gDu0WlXGOrgHDqNc/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n"
+                },
+                "tags": [
+                    "liquidity_pool"
+                ],
+                "isContract": true
+            },
+            "to": {
+                "id": "0x321f7Dfb9B2eA9131B8C17691CF6e01E5c149cA8",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "361498",
+            "gasUsed": "381",
+            "methodId": "0xd0c93a7c"
+        },
+        {
+            "index": 7,
+            "status": true,
+            "type": "STATICCALL",
+            "from": {
+                "id": "0x68Ea2123cE20514127B07378773f617491E290cC",
+                "alias": "Pool Gho Token (GHO)/USD₮0 (USD₮0)",
+                "dapp": {
+                    "alias": "Velodrome",
+                    "description": "Velodrome Finance, at its core, is a solution for protocols on Optimism to properly incentivize liquidity for their own use cases. Building on top of the groundwork laid out by Solidly, our team has addressed that first iteration's core issues to realize its full potential.",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": [
+                        "dex"
+                    ]
+                },
+                "owner": "Velodrome",
+                "icon": "https://cms-cdn.avascan.com/cms2/velodrome-v2--modified.3cd6cadb0262.png",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/inXRtJgSfPtvV_BphK1RRPdeJLUwfWS5uIU_tfN5zz8/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "64": "https://imgproxy-mainnet.routescan.io/cRn740UF5HjCcFcU8ZaZIovhvEMSEgJVF1OrGge5Srg/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "256": "https://imgproxy-mainnet.routescan.io/88RQPLF5UdK48vOqnTP64AWPsyoAVOe-cEp84u-ge4s/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "1024": "https://imgproxy-mainnet.routescan.io/ckbHabrsAtUiLiKaevoJFQlxm14gDu0WlXGOrgHDqNc/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n"
+                },
+                "tags": [
+                    "liquidity_pool"
+                ],
+                "isContract": true
+            },
+            "to": {
+                "id": "0x04625B046C69577EfC40e6c0Bb83CDBAfab5a55F",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "366641",
+            "gasUsed": "17090",
+            "methodId": "0x48cf7a43"
+        },
+        {
+            "index": 8,
+            "status": true,
+            "type": "STATICCALL",
+            "from": {
+                "id": "0x04625B046C69577EfC40e6c0Bb83CDBAfab5a55F",
+                "isContract": true
+            },
+            "to": {
+                "id": "0x97cDBCe21B6fd0585d29E539B1B99dAd328a1123",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "357806",
+            "gasUsed": "2627",
+            "methodId": "0xb9a09fd5"
+        },
+        {
+            "index": 9,
+            "status": true,
+            "type": "STATICCALL",
+            "from": {
+                "id": "0x04625B046C69577EfC40e6c0Bb83CDBAfab5a55F",
+                "isContract": true
+            },
+            "to": {
+                "id": "0x97cDBCe21B6fd0585d29E539B1B99dAd328a1123",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "354784",
+            "gasUsed": "2568",
+            "methodId": "0x1703e5f9"
+        },
+        {
+            "index": 10,
+            "status": true,
+            "type": "STATICCALL",
+            "from": {
+                "id": "0x04625B046C69577EfC40e6c0Bb83CDBAfab5a55F",
+                "isContract": true
+            },
+            "to": {
+                "id": "0xFF02E0330bD42976754FB37CBFfd9549473E1E60",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "346948",
+            "gasUsed": "2587",
+            "methodId": "0xb88c9148"
+        },
+        {
+            "index": 11,
+            "status": true,
+            "type": "CALL",
+            "from": {
+                "id": "0x68Ea2123cE20514127B07378773f617491E290cC",
+                "alias": "Pool Gho Token (GHO)/USD₮0 (USD₮0)",
+                "dapp": {
+                    "alias": "Velodrome",
+                    "description": "Velodrome Finance, at its core, is a solution for protocols on Optimism to properly incentivize liquidity for their own use cases. Building on top of the groundwork laid out by Solidly, our team has addressed that first iteration's core issues to realize its full potential.",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": [
+                        "dex"
+                    ]
+                },
+                "owner": "Velodrome",
+                "icon": "https://cms-cdn.avascan.com/cms2/velodrome-v2--modified.3cd6cadb0262.png",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/inXRtJgSfPtvV_BphK1RRPdeJLUwfWS5uIU_tfN5zz8/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "64": "https://imgproxy-mainnet.routescan.io/cRn740UF5HjCcFcU8ZaZIovhvEMSEgJVF1OrGge5Srg/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "256": "https://imgproxy-mainnet.routescan.io/88RQPLF5UdK48vOqnTP64AWPsyoAVOe-cEp84u-ge4s/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "1024": "https://imgproxy-mainnet.routescan.io/ckbHabrsAtUiLiKaevoJFQlxm14gDu0WlXGOrgHDqNc/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n"
+                },
+                "tags": [
+                    "liquidity_pool"
+                ],
+                "isContract": true
+            },
+            "to": {
+                "id": "0x0200C29006150606B650577BBE7B6248F58470c1",
+                "name": "USD₮0",
+                "alias": "USDT0",
+                "dapp": {
+                    "alias": "USDT0",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": []
+                },
+                "owner": "USDT0",
+                "icon": "https://cms-cdn.avascan.com/cms2/USDT0.a2be8f8b972f.svg",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/_8hp010bP9NFQsifKeCUbLv49hXAGcFj2kARI1CV0jg/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "64": "https://imgproxy-mainnet.routescan.io/Dr7R2CqkGcFp_XST1b8f8vwavBxGp1STy1Ui9AHmg24/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "256": "https://imgproxy-mainnet.routescan.io/FeiBn-bxqNvNosgdLEliorOSm4cg5lr0YDklMlrjep8/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "1024": "https://imgproxy-mainnet.routescan.io/4B0OrxYrfSAgOwHKnLCqbWm6EGA2_YGf64IWDOhmMk8/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw"
+                },
+                "tags": [
+                    "stablecoin",
+                    "payments"
+                ],
+                "isContract": false
+            },
+            "value": "0",
+            "gas": "332482",
+            "gasUsed": "39316",
+            "methodId": "0xa9059cbb"
+        },
+        {
+            "index": 12,
+            "status": true,
+            "type": "DELEGATECALL",
+            "from": {
+                "id": "0x0200C29006150606B650577BBE7B6248F58470c1",
+                "name": "USD₮0",
+                "alias": "USDT0",
+                "dapp": {
+                    "alias": "USDT0",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": []
+                },
+                "owner": "USDT0",
+                "icon": "https://cms-cdn.avascan.com/cms2/USDT0.a2be8f8b972f.svg",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/_8hp010bP9NFQsifKeCUbLv49hXAGcFj2kARI1CV0jg/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "64": "https://imgproxy-mainnet.routescan.io/Dr7R2CqkGcFp_XST1b8f8vwavBxGp1STy1Ui9AHmg24/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "256": "https://imgproxy-mainnet.routescan.io/FeiBn-bxqNvNosgdLEliorOSm4cg5lr0YDklMlrjep8/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "1024": "https://imgproxy-mainnet.routescan.io/4B0OrxYrfSAgOwHKnLCqbWm6EGA2_YGf64IWDOhmMk8/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw"
+                },
+                "tags": [
+                    "stablecoin",
+                    "payments"
+                ],
+                "isContract": false
+            },
+            "to": {
+                "id": "0x06d886Ff518b5E642E7E6aaD3cE797B7DABD8e9a",
+                "name": "",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "320277",
+            "gasUsed": "32153",
+            "methodId": "0xa9059cbb"
+        },
+        {
+            "index": 13,
+            "status": true,
+            "type": "STATICCALL",
+            "from": {
+                "id": "0x68Ea2123cE20514127B07378773f617491E290cC",
+                "alias": "Pool Gho Token (GHO)/USD₮0 (USD₮0)",
+                "dapp": {
+                    "alias": "Velodrome",
+                    "description": "Velodrome Finance, at its core, is a solution for protocols on Optimism to properly incentivize liquidity for their own use cases. Building on top of the groundwork laid out by Solidly, our team has addressed that first iteration's core issues to realize its full potential.",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": [
+                        "dex"
+                    ]
+                },
+                "owner": "Velodrome",
+                "icon": "https://cms-cdn.avascan.com/cms2/velodrome-v2--modified.3cd6cadb0262.png",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/inXRtJgSfPtvV_BphK1RRPdeJLUwfWS5uIU_tfN5zz8/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "64": "https://imgproxy-mainnet.routescan.io/cRn740UF5HjCcFcU8ZaZIovhvEMSEgJVF1OrGge5Srg/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "256": "https://imgproxy-mainnet.routescan.io/88RQPLF5UdK48vOqnTP64AWPsyoAVOe-cEp84u-ge4s/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "1024": "https://imgproxy-mainnet.routescan.io/ckbHabrsAtUiLiKaevoJFQlxm14gDu0WlXGOrgHDqNc/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n"
+                },
+                "tags": [
+                    "liquidity_pool"
+                ],
+                "isContract": true
+            },
+            "to": {
+                "id": "0xfc421aD3C883Bf9E7C4f42dE845C4e4405799e73",
+                "name": "Gho Token",
+                "icon": "https://cms-cdn.avascan.com/cms2/gho.729e04517926.png",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/Wc8SrXvdtwVkbGWGHD8G4n1vEKDp3L5VazVmmaOoTJ4/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvZ2hvLjcyOWUwNDUxNzkyNi5wbmc",
+                    "64": "https://imgproxy-mainnet.routescan.io/vo82VWc4iVjrH7hTXn_Cnx4ZHh8J1Zygaf6LCIuGP5o/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvZ2hvLjcyOWUwNDUxNzkyNi5wbmc",
+                    "256": "https://imgproxy-mainnet.routescan.io/M7gxZoeHfD3tOn78-_x__W8dL519_ZuF7DeKoRGFXxw/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvZ2hvLjcyOWUwNDUxNzkyNi5wbmc",
+                    "1024": "https://imgproxy-mainnet.routescan.io/6eIoiqN8Ulfhwcc2TSMNrje2bZIiQCJBAdHKqMN2sdc/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvZ2hvLjcyOWUwNDUxNzkyNi5wbmc"
+                },
+                "tags": [],
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "288383",
+            "gasUsed": "7535",
+            "methodId": "0x70a08231"
+        },
+        {
+            "index": 14,
+            "status": true,
+            "type": "DELEGATECALL",
+            "from": {
+                "id": "0xfc421aD3C883Bf9E7C4f42dE845C4e4405799e73",
+                "name": "Gho Token",
+                "icon": "https://cms-cdn.avascan.com/cms2/gho.729e04517926.png",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/Wc8SrXvdtwVkbGWGHD8G4n1vEKDp3L5VazVmmaOoTJ4/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvZ2hvLjcyOWUwNDUxNzkyNi5wbmc",
+                    "64": "https://imgproxy-mainnet.routescan.io/vo82VWc4iVjrH7hTXn_Cnx4ZHh8J1Zygaf6LCIuGP5o/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvZ2hvLjcyOWUwNDUxNzkyNi5wbmc",
+                    "256": "https://imgproxy-mainnet.routescan.io/M7gxZoeHfD3tOn78-_x__W8dL519_ZuF7DeKoRGFXxw/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvZ2hvLjcyOWUwNDUxNzkyNi5wbmc",
+                    "1024": "https://imgproxy-mainnet.routescan.io/6eIoiqN8Ulfhwcc2TSMNrje2bZIiQCJBAdHKqMN2sdc/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvZ2hvLjcyOWUwNDUxNzkyNi5wbmc"
+                },
+                "tags": [],
+                "isContract": true
+            },
+            "to": {
+                "id": "0xb0e1c7830aA781362f79225559Aa068E6bDaF1d1",
+                "name": "",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "279047",
+            "gasUsed": "2587",
+            "methodId": "0x70a08231"
+        },
+        {
+            "index": 15,
+            "status": true,
+            "type": "CALL",
+            "from": {
+                "id": "0x68Ea2123cE20514127B07378773f617491E290cC",
+                "alias": "Pool Gho Token (GHO)/USD₮0 (USD₮0)",
+                "dapp": {
+                    "alias": "Velodrome",
+                    "description": "Velodrome Finance, at its core, is a solution for protocols on Optimism to properly incentivize liquidity for their own use cases. Building on top of the groundwork laid out by Solidly, our team has addressed that first iteration's core issues to realize its full potential.",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": [
+                        "dex"
+                    ]
+                },
+                "owner": "Velodrome",
+                "icon": "https://cms-cdn.avascan.com/cms2/velodrome-v2--modified.3cd6cadb0262.png",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/inXRtJgSfPtvV_BphK1RRPdeJLUwfWS5uIU_tfN5zz8/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "64": "https://imgproxy-mainnet.routescan.io/cRn740UF5HjCcFcU8ZaZIovhvEMSEgJVF1OrGge5Srg/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "256": "https://imgproxy-mainnet.routescan.io/88RQPLF5UdK48vOqnTP64AWPsyoAVOe-cEp84u-ge4s/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "1024": "https://imgproxy-mainnet.routescan.io/ckbHabrsAtUiLiKaevoJFQlxm14gDu0WlXGOrgHDqNc/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n"
+                },
+                "tags": [
+                    "liquidity_pool"
+                ],
+                "isContract": true
+            },
+            "to": {
+                "id": "0x01D40099fCD87C018969B0e8D4aB1633Fb34763C",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "280176",
+            "gasUsed": "19813",
+            "methodId": "0xfa461e33"
+        },
+        {
+            "index": 16,
+            "status": true,
+            "type": "CALL",
+            "from": {
+                "id": "0x01D40099fCD87C018969B0e8D4aB1633Fb34763C",
+                "isContract": true
+            },
+            "to": {
+                "id": "0xfc421aD3C883Bf9E7C4f42dE845C4e4405799e73",
+                "name": "Gho Token",
+                "icon": "https://cms-cdn.avascan.com/cms2/gho.729e04517926.png",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/Wc8SrXvdtwVkbGWGHD8G4n1vEKDp3L5VazVmmaOoTJ4/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvZ2hvLjcyOWUwNDUxNzkyNi5wbmc",
+                    "64": "https://imgproxy-mainnet.routescan.io/vo82VWc4iVjrH7hTXn_Cnx4ZHh8J1Zygaf6LCIuGP5o/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvZ2hvLjcyOWUwNDUxNzkyNi5wbmc",
+                    "256": "https://imgproxy-mainnet.routescan.io/M7gxZoeHfD3tOn78-_x__W8dL519_ZuF7DeKoRGFXxw/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvZ2hvLjcyOWUwNDUxNzkyNi5wbmc",
+                    "1024": "https://imgproxy-mainnet.routescan.io/6eIoiqN8Ulfhwcc2TSMNrje2bZIiQCJBAdHKqMN2sdc/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvZ2hvLjcyOWUwNDUxNzkyNi5wbmc"
+                },
+                "tags": [],
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "273169",
+            "gasUsed": "16630",
+            "methodId": "0x23b872dd"
+        },
+        {
+            "index": 17,
+            "status": true,
+            "type": "DELEGATECALL",
+            "from": {
+                "id": "0xfc421aD3C883Bf9E7C4f42dE845C4e4405799e73",
+                "name": "Gho Token",
+                "icon": "https://cms-cdn.avascan.com/cms2/gho.729e04517926.png",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/Wc8SrXvdtwVkbGWGHD8G4n1vEKDp3L5VazVmmaOoTJ4/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvZ2hvLjcyOWUwNDUxNzkyNi5wbmc",
+                    "64": "https://imgproxy-mainnet.routescan.io/vo82VWc4iVjrH7hTXn_Cnx4ZHh8J1Zygaf6LCIuGP5o/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvZ2hvLjcyOWUwNDUxNzkyNi5wbmc",
+                    "256": "https://imgproxy-mainnet.routescan.io/M7gxZoeHfD3tOn78-_x__W8dL519_ZuF7DeKoRGFXxw/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvZ2hvLjcyOWUwNDUxNzkyNi5wbmc",
+                    "1024": "https://imgproxy-mainnet.routescan.io/6eIoiqN8Ulfhwcc2TSMNrje2bZIiQCJBAdHKqMN2sdc/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvZ2hvLjcyOWUwNDUxNzkyNi5wbmc"
+                },
+                "tags": [],
+                "isContract": true
+            },
+            "to": {
+                "id": "0xb0e1c7830aA781362f79225559Aa068E6bDaF1d1",
+                "name": "",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "268492",
+            "gasUsed": "16173",
+            "methodId": "0x23b872dd"
+        },
+        {
+            "index": 18,
+            "status": true,
+            "type": "STATICCALL",
+            "from": {
+                "id": "0x68Ea2123cE20514127B07378773f617491E290cC",
+                "alias": "Pool Gho Token (GHO)/USD₮0 (USD₮0)",
+                "dapp": {
+                    "alias": "Velodrome",
+                    "description": "Velodrome Finance, at its core, is a solution for protocols on Optimism to properly incentivize liquidity for their own use cases. Building on top of the groundwork laid out by Solidly, our team has addressed that first iteration's core issues to realize its full potential.",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": [
+                        "dex"
+                    ]
+                },
+                "owner": "Velodrome",
+                "icon": "https://cms-cdn.avascan.com/cms2/velodrome-v2--modified.3cd6cadb0262.png",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/inXRtJgSfPtvV_BphK1RRPdeJLUwfWS5uIU_tfN5zz8/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "64": "https://imgproxy-mainnet.routescan.io/cRn740UF5HjCcFcU8ZaZIovhvEMSEgJVF1OrGge5Srg/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "256": "https://imgproxy-mainnet.routescan.io/88RQPLF5UdK48vOqnTP64AWPsyoAVOe-cEp84u-ge4s/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "1024": "https://imgproxy-mainnet.routescan.io/ckbHabrsAtUiLiKaevoJFQlxm14gDu0WlXGOrgHDqNc/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n"
+                },
+                "tags": [
+                    "liquidity_pool"
+                ],
+                "isContract": true
+            },
+            "to": {
+                "id": "0xfc421aD3C883Bf9E7C4f42dE845C4e4405799e73",
+                "name": "Gho Token",
+                "icon": "https://cms-cdn.avascan.com/cms2/gho.729e04517926.png",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/Wc8SrXvdtwVkbGWGHD8G4n1vEKDp3L5VazVmmaOoTJ4/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvZ2hvLjcyOWUwNDUxNzkyNi5wbmc",
+                    "64": "https://imgproxy-mainnet.routescan.io/vo82VWc4iVjrH7hTXn_Cnx4ZHh8J1Zygaf6LCIuGP5o/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvZ2hvLjcyOWUwNDUxNzkyNi5wbmc",
+                    "256": "https://imgproxy-mainnet.routescan.io/M7gxZoeHfD3tOn78-_x__W8dL519_ZuF7DeKoRGFXxw/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvZ2hvLjcyOWUwNDUxNzkyNi5wbmc",
+                    "1024": "https://imgproxy-mainnet.routescan.io/6eIoiqN8Ulfhwcc2TSMNrje2bZIiQCJBAdHKqMN2sdc/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvZ2hvLjcyOWUwNDUxNzkyNi5wbmc"
+                },
+                "tags": [],
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "259942",
+            "gasUsed": "1035",
+            "methodId": "0x70a08231"
+        },
+        {
+            "index": 19,
+            "status": true,
+            "type": "DELEGATECALL",
+            "from": {
+                "id": "0xfc421aD3C883Bf9E7C4f42dE845C4e4405799e73",
+                "name": "Gho Token",
+                "icon": "https://cms-cdn.avascan.com/cms2/gho.729e04517926.png",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/Wc8SrXvdtwVkbGWGHD8G4n1vEKDp3L5VazVmmaOoTJ4/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvZ2hvLjcyOWUwNDUxNzkyNi5wbmc",
+                    "64": "https://imgproxy-mainnet.routescan.io/vo82VWc4iVjrH7hTXn_Cnx4ZHh8J1Zygaf6LCIuGP5o/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvZ2hvLjcyOWUwNDUxNzkyNi5wbmc",
+                    "256": "https://imgproxy-mainnet.routescan.io/M7gxZoeHfD3tOn78-_x__W8dL519_ZuF7DeKoRGFXxw/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvZ2hvLjcyOWUwNDUxNzkyNi5wbmc",
+                    "1024": "https://imgproxy-mainnet.routescan.io/6eIoiqN8Ulfhwcc2TSMNrje2bZIiQCJBAdHKqMN2sdc/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvZ2hvLjcyOWUwNDUxNzkyNi5wbmc"
+                },
+                "tags": [],
+                "isContract": true
+            },
+            "to": {
+                "id": "0xb0e1c7830aA781362f79225559Aa068E6bDaF1d1",
+                "name": "",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "255480",
+            "gasUsed": "587",
+            "methodId": "0x70a08231"
+        },
+        {
+            "index": 20,
+            "status": true,
+            "type": "CALL",
+            "from": {
+                "id": "0x01D40099fCD87C018969B0e8D4aB1633Fb34763C",
+                "isContract": true
+            },
+            "to": {
+                "id": "0x31826a86cD62c6FA12A0a8441eC4C8BCfeE8A453",
+                "alias": "Pool Global Dollar (USDG)/USD₮0 (USD₮0)",
+                "dapp": {
+                    "alias": "Velodrome",
+                    "description": "Velodrome Finance, at its core, is a solution for protocols on Optimism to properly incentivize liquidity for their own use cases. Building on top of the groundwork laid out by Solidly, our team has addressed that first iteration's core issues to realize its full potential.",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": [
+                        "dex"
+                    ]
+                },
+                "owner": "Velodrome",
+                "icon": "https://cms-cdn.avascan.com/cms2/velodrome-v2--modified.3cd6cadb0262.png",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/inXRtJgSfPtvV_BphK1RRPdeJLUwfWS5uIU_tfN5zz8/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "64": "https://imgproxy-mainnet.routescan.io/cRn740UF5HjCcFcU8ZaZIovhvEMSEgJVF1OrGge5Srg/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "256": "https://imgproxy-mainnet.routescan.io/88RQPLF5UdK48vOqnTP64AWPsyoAVOe-cEp84u-ge4s/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "1024": "https://imgproxy-mainnet.routescan.io/ckbHabrsAtUiLiKaevoJFQlxm14gDu0WlXGOrgHDqNc/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n"
+                },
+                "tags": [
+                    "liquidity_pool"
+                ],
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "263663",
+            "gasUsed": "106476",
+            "methodId": "0x128acb08"
+        },
+        {
+            "index": 21,
+            "status": true,
+            "type": "DELEGATECALL",
+            "from": {
+                "id": "0x31826a86cD62c6FA12A0a8441eC4C8BCfeE8A453",
+                "alias": "Pool Global Dollar (USDG)/USD₮0 (USD₮0)",
+                "dapp": {
+                    "alias": "Velodrome",
+                    "description": "Velodrome Finance, at its core, is a solution for protocols on Optimism to properly incentivize liquidity for their own use cases. Building on top of the groundwork laid out by Solidly, our team has addressed that first iteration's core issues to realize its full potential.",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": [
+                        "dex"
+                    ]
+                },
+                "owner": "Velodrome",
+                "icon": "https://cms-cdn.avascan.com/cms2/velodrome-v2--modified.3cd6cadb0262.png",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/inXRtJgSfPtvV_BphK1RRPdeJLUwfWS5uIU_tfN5zz8/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "64": "https://imgproxy-mainnet.routescan.io/cRn740UF5HjCcFcU8ZaZIovhvEMSEgJVF1OrGge5Srg/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "256": "https://imgproxy-mainnet.routescan.io/88RQPLF5UdK48vOqnTP64AWPsyoAVOe-cEp84u-ge4s/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "1024": "https://imgproxy-mainnet.routescan.io/ckbHabrsAtUiLiKaevoJFQlxm14gDu0WlXGOrgHDqNc/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n"
+                },
+                "tags": [
+                    "liquidity_pool"
+                ],
+                "isContract": true
+            },
+            "to": {
+                "id": "0x321f7Dfb9B2eA9131B8C17691CF6e01E5c149cA8",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "259345",
+            "gasUsed": "106235",
+            "methodId": "0x128acb08"
+        },
+        {
+            "index": 22,
+            "status": true,
+            "type": "STATICCALL",
+            "from": {
+                "id": "0x31826a86cD62c6FA12A0a8441eC4C8BCfeE8A453",
+                "alias": "Pool Global Dollar (USDG)/USD₮0 (USD₮0)",
+                "dapp": {
+                    "alias": "Velodrome",
+                    "description": "Velodrome Finance, at its core, is a solution for protocols on Optimism to properly incentivize liquidity for their own use cases. Building on top of the groundwork laid out by Solidly, our team has addressed that first iteration's core issues to realize its full potential.",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": [
+                        "dex"
+                    ]
+                },
+                "owner": "Velodrome",
+                "icon": "https://cms-cdn.avascan.com/cms2/velodrome-v2--modified.3cd6cadb0262.png",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/inXRtJgSfPtvV_BphK1RRPdeJLUwfWS5uIU_tfN5zz8/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "64": "https://imgproxy-mainnet.routescan.io/cRn740UF5HjCcFcU8ZaZIovhvEMSEgJVF1OrGge5Srg/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "256": "https://imgproxy-mainnet.routescan.io/88RQPLF5UdK48vOqnTP64AWPsyoAVOe-cEp84u-ge4s/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "1024": "https://imgproxy-mainnet.routescan.io/ckbHabrsAtUiLiKaevoJFQlxm14gDu0WlXGOrgHDqNc/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n"
+                },
+                "tags": [
+                    "liquidity_pool"
+                ],
+                "isContract": true
+            },
+            "to": {
+                "id": "0x04625B046C69577EfC40e6c0Bb83CDBAfab5a55F",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "242266",
+            "gasUsed": "4869",
+            "methodId": "0x35458dcc"
+        },
+        {
+            "index": 23,
+            "status": true,
+            "type": "STATICCALL",
+            "from": {
+                "id": "0x04625B046C69577EfC40e6c0Bb83CDBAfab5a55F",
+                "isContract": true
+            },
+            "to": {
+                "id": "0x6812eefC19deB79D5191b52f4B763260d9F3C238",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "237482",
+            "gasUsed": "3539",
+            "methodId": "0xb88c9148"
+        },
+        {
+            "index": 24,
+            "status": true,
+            "type": "STATICCALL",
+            "from": {
+                "id": "0x6812eefC19deB79D5191b52f4B763260d9F3C238",
+                "isContract": true
+            },
+            "to": {
+                "id": "0x31826a86cD62c6FA12A0a8441eC4C8BCfeE8A453",
+                "alias": "Pool Global Dollar (USDG)/USD₮0 (USD₮0)",
+                "dapp": {
+                    "alias": "Velodrome",
+                    "description": "Velodrome Finance, at its core, is a solution for protocols on Optimism to properly incentivize liquidity for their own use cases. Building on top of the groundwork laid out by Solidly, our team has addressed that first iteration's core issues to realize its full potential.",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": [
+                        "dex"
+                    ]
+                },
+                "owner": "Velodrome",
+                "icon": "https://cms-cdn.avascan.com/cms2/velodrome-v2--modified.3cd6cadb0262.png",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/inXRtJgSfPtvV_BphK1RRPdeJLUwfWS5uIU_tfN5zz8/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "64": "https://imgproxy-mainnet.routescan.io/cRn740UF5HjCcFcU8ZaZIovhvEMSEgJVF1OrGge5Srg/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "256": "https://imgproxy-mainnet.routescan.io/88RQPLF5UdK48vOqnTP64AWPsyoAVOe-cEp84u-ge4s/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "1024": "https://imgproxy-mainnet.routescan.io/ckbHabrsAtUiLiKaevoJFQlxm14gDu0WlXGOrgHDqNc/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n"
+                },
+                "tags": [
+                    "liquidity_pool"
+                ],
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "231039",
+            "gasUsed": "547",
+            "methodId": "0xd0c93a7c"
+        },
+        {
+            "index": 25,
+            "status": true,
+            "type": "DELEGATECALL",
+            "from": {
+                "id": "0x31826a86cD62c6FA12A0a8441eC4C8BCfeE8A453",
+                "alias": "Pool Global Dollar (USDG)/USD₮0 (USD₮0)",
+                "dapp": {
+                    "alias": "Velodrome",
+                    "description": "Velodrome Finance, at its core, is a solution for protocols on Optimism to properly incentivize liquidity for their own use cases. Building on top of the groundwork laid out by Solidly, our team has addressed that first iteration's core issues to realize its full potential.",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": [
+                        "dex"
+                    ]
+                },
+                "owner": "Velodrome",
+                "icon": "https://cms-cdn.avascan.com/cms2/velodrome-v2--modified.3cd6cadb0262.png",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/inXRtJgSfPtvV_BphK1RRPdeJLUwfWS5uIU_tfN5zz8/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "64": "https://imgproxy-mainnet.routescan.io/cRn740UF5HjCcFcU8ZaZIovhvEMSEgJVF1OrGge5Srg/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "256": "https://imgproxy-mainnet.routescan.io/88RQPLF5UdK48vOqnTP64AWPsyoAVOe-cEp84u-ge4s/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "1024": "https://imgproxy-mainnet.routescan.io/ckbHabrsAtUiLiKaevoJFQlxm14gDu0WlXGOrgHDqNc/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n"
+                },
+                "tags": [
+                    "liquidity_pool"
+                ],
+                "isContract": true
+            },
+            "to": {
+                "id": "0x321f7Dfb9B2eA9131B8C17691CF6e01E5c149cA8",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "227302",
+            "gasUsed": "381",
+            "methodId": "0xd0c93a7c"
+        },
+        {
+            "index": 26,
+            "status": true,
+            "type": "STATICCALL",
+            "from": {
+                "id": "0x31826a86cD62c6FA12A0a8441eC4C8BCfeE8A453",
+                "alias": "Pool Global Dollar (USDG)/USD₮0 (USD₮0)",
+                "dapp": {
+                    "alias": "Velodrome",
+                    "description": "Velodrome Finance, at its core, is a solution for protocols on Optimism to properly incentivize liquidity for their own use cases. Building on top of the groundwork laid out by Solidly, our team has addressed that first iteration's core issues to realize its full potential.",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": [
+                        "dex"
+                    ]
+                },
+                "owner": "Velodrome",
+                "icon": "https://cms-cdn.avascan.com/cms2/velodrome-v2--modified.3cd6cadb0262.png",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/inXRtJgSfPtvV_BphK1RRPdeJLUwfWS5uIU_tfN5zz8/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "64": "https://imgproxy-mainnet.routescan.io/cRn740UF5HjCcFcU8ZaZIovhvEMSEgJVF1OrGge5Srg/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "256": "https://imgproxy-mainnet.routescan.io/88RQPLF5UdK48vOqnTP64AWPsyoAVOe-cEp84u-ge4s/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "1024": "https://imgproxy-mainnet.routescan.io/ckbHabrsAtUiLiKaevoJFQlxm14gDu0WlXGOrgHDqNc/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n"
+                },
+                "tags": [
+                    "liquidity_pool"
+                ],
+                "isContract": true
+            },
+            "to": {
+                "id": "0x04625B046C69577EfC40e6c0Bb83CDBAfab5a55F",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "225916",
+            "gasUsed": "10090",
+            "methodId": "0x48cf7a43"
+        },
+        {
+            "index": 27,
+            "status": true,
+            "type": "STATICCALL",
+            "from": {
+                "id": "0x04625B046C69577EfC40e6c0Bb83CDBAfab5a55F",
+                "isContract": true
+            },
+            "to": {
+                "id": "0x97cDBCe21B6fd0585d29E539B1B99dAd328a1123",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "221741",
+            "gasUsed": "2627",
+            "methodId": "0xb9a09fd5"
+        },
+        {
+            "index": 28,
+            "status": true,
+            "type": "STATICCALL",
+            "from": {
+                "id": "0x04625B046C69577EfC40e6c0Bb83CDBAfab5a55F",
+                "isContract": true
+            },
+            "to": {
+                "id": "0x97cDBCe21B6fd0585d29E539B1B99dAd328a1123",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "218719",
+            "gasUsed": "2568",
+            "methodId": "0x1703e5f9"
+        },
+        {
+            "index": 29,
+            "status": true,
+            "type": "STATICCALL",
+            "from": {
+                "id": "0x04625B046C69577EfC40e6c0Bb83CDBAfab5a55F",
+                "isContract": true
+            },
+            "to": {
+                "id": "0xFF02E0330bD42976754FB37CBFfd9549473E1E60",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "215313",
+            "gasUsed": "2587",
+            "methodId": "0xb88c9148"
+        },
+        {
+            "index": 30,
+            "status": true,
+            "type": "CALL",
+            "from": {
+                "id": "0x31826a86cD62c6FA12A0a8441eC4C8BCfeE8A453",
+                "alias": "Pool Global Dollar (USDG)/USD₮0 (USD₮0)",
+                "dapp": {
+                    "alias": "Velodrome",
+                    "description": "Velodrome Finance, at its core, is a solution for protocols on Optimism to properly incentivize liquidity for their own use cases. Building on top of the groundwork laid out by Solidly, our team has addressed that first iteration's core issues to realize its full potential.",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": [
+                        "dex"
+                    ]
+                },
+                "owner": "Velodrome",
+                "icon": "https://cms-cdn.avascan.com/cms2/velodrome-v2--modified.3cd6cadb0262.png",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/inXRtJgSfPtvV_BphK1RRPdeJLUwfWS5uIU_tfN5zz8/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "64": "https://imgproxy-mainnet.routescan.io/cRn740UF5HjCcFcU8ZaZIovhvEMSEgJVF1OrGge5Srg/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "256": "https://imgproxy-mainnet.routescan.io/88RQPLF5UdK48vOqnTP64AWPsyoAVOe-cEp84u-ge4s/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "1024": "https://imgproxy-mainnet.routescan.io/ckbHabrsAtUiLiKaevoJFQlxm14gDu0WlXGOrgHDqNc/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n"
+                },
+                "tags": [
+                    "liquidity_pool"
+                ],
+                "isContract": true
+            },
+            "to": {
+                "id": "0xe343167631d89B6Ffc58B88d6b7fB0228795491D",
+                "name": "Global Dollar",
+                "icon": "https://cms-cdn.avascan.com/cms2/globaldollar.ebb6e4c7486b.png",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/Rl_HcA4F1N1dMqQvEBgX8mn7A_bF4Yu2EkhihcnuGmk/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvZ2xvYmFsZG9sbGFyLmViYjZlNGM3NDg2Yi5wbmc",
+                    "64": "https://imgproxy-mainnet.routescan.io/OwQPMPhP30Kx1h6muxHU8wU_AFD0XvJ0bRMnQQTqx8w/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvZ2xvYmFsZG9sbGFyLmViYjZlNGM3NDg2Yi5wbmc",
+                    "256": "https://imgproxy-mainnet.routescan.io/2d_OeV16qa70DDZxS6XsPpNQ23WxzDnrZCD3YXyge4w/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvZ2xvYmFsZG9sbGFyLmViYjZlNGM3NDg2Yi5wbmc",
+                    "1024": "https://imgproxy-mainnet.routescan.io/QdKa-rpDKsrcdpuqls5sLVAOXrepMrcj0dfWf0V9v7A/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvZ2xvYmFsZG9sbGFyLmViYjZlNGM3NDg2Yi5wbmc"
+                },
+                "tags": [
+                    "stablecoin"
+                ],
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "198830",
+            "gasUsed": "24599",
+            "methodId": "0xa9059cbb"
+        },
+        {
+            "index": 31,
+            "status": true,
+            "type": "DELEGATECALL",
+            "from": {
+                "id": "0xe343167631d89B6Ffc58B88d6b7fB0228795491D",
+                "name": "Global Dollar",
+                "icon": "https://cms-cdn.avascan.com/cms2/globaldollar.ebb6e4c7486b.png",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/Rl_HcA4F1N1dMqQvEBgX8mn7A_bF4Yu2EkhihcnuGmk/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvZ2xvYmFsZG9sbGFyLmViYjZlNGM3NDg2Yi5wbmc",
+                    "64": "https://imgproxy-mainnet.routescan.io/OwQPMPhP30Kx1h6muxHU8wU_AFD0XvJ0bRMnQQTqx8w/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvZ2xvYmFsZG9sbGFyLmViYjZlNGM3NDg2Yi5wbmc",
+                    "256": "https://imgproxy-mainnet.routescan.io/2d_OeV16qa70DDZxS6XsPpNQ23WxzDnrZCD3YXyge4w/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvZ2xvYmFsZG9sbGFyLmViYjZlNGM3NDg2Yi5wbmc",
+                    "1024": "https://imgproxy-mainnet.routescan.io/QdKa-rpDKsrcdpuqls5sLVAOXrepMrcj0dfWf0V9v7A/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvZ2xvYmFsZG9sbGFyLmViYjZlNGM3NDg2Yi5wbmc"
+                },
+                "tags": [
+                    "stablecoin"
+                ],
+                "isContract": true
+            },
+            "to": {
+                "id": "0x568C28170115FE772b30229199d4Ae0595A507F7",
+                "name": "Global Dollar",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "190940",
+            "gasUsed": "19698",
+            "methodId": "0xa9059cbb"
+        },
+        {
+            "index": 32,
+            "status": true,
+            "type": "STATICCALL",
+            "from": {
+                "id": "0x31826a86cD62c6FA12A0a8441eC4C8BCfeE8A453",
+                "alias": "Pool Global Dollar (USDG)/USD₮0 (USD₮0)",
+                "dapp": {
+                    "alias": "Velodrome",
+                    "description": "Velodrome Finance, at its core, is a solution for protocols on Optimism to properly incentivize liquidity for their own use cases. Building on top of the groundwork laid out by Solidly, our team has addressed that first iteration's core issues to realize its full potential.",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": [
+                        "dex"
+                    ]
+                },
+                "owner": "Velodrome",
+                "icon": "https://cms-cdn.avascan.com/cms2/velodrome-v2--modified.3cd6cadb0262.png",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/inXRtJgSfPtvV_BphK1RRPdeJLUwfWS5uIU_tfN5zz8/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "64": "https://imgproxy-mainnet.routescan.io/cRn740UF5HjCcFcU8ZaZIovhvEMSEgJVF1OrGge5Srg/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "256": "https://imgproxy-mainnet.routescan.io/88RQPLF5UdK48vOqnTP64AWPsyoAVOe-cEp84u-ge4s/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "1024": "https://imgproxy-mainnet.routescan.io/ckbHabrsAtUiLiKaevoJFQlxm14gDu0WlXGOrgHDqNc/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n"
+                },
+                "tags": [
+                    "liquidity_pool"
+                ],
+                "isContract": true
+            },
+            "to": {
+                "id": "0x0200C29006150606B650577BBE7B6248F58470c1",
+                "name": "USD₮0",
+                "alias": "USDT0",
+                "dapp": {
+                    "alias": "USDT0",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": []
+                },
+                "owner": "USDT0",
+                "icon": "https://cms-cdn.avascan.com/cms2/USDT0.a2be8f8b972f.svg",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/_8hp010bP9NFQsifKeCUbLv49hXAGcFj2kARI1CV0jg/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "64": "https://imgproxy-mainnet.routescan.io/Dr7R2CqkGcFp_XST1b8f8vwavBxGp1STy1Ui9AHmg24/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "256": "https://imgproxy-mainnet.routescan.io/FeiBn-bxqNvNosgdLEliorOSm4cg5lr0YDklMlrjep8/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "1024": "https://imgproxy-mainnet.routescan.io/4B0OrxYrfSAgOwHKnLCqbWm6EGA2_YGf64IWDOhmMk8/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw"
+                },
+                "tags": [
+                    "stablecoin",
+                    "payments"
+                ],
+                "isContract": false
+            },
+            "value": "0",
+            "gas": "171678",
+            "gasUsed": "3240",
+            "methodId": "0x70a08231"
+        },
+        {
+            "index": 33,
+            "status": true,
+            "type": "DELEGATECALL",
+            "from": {
+                "id": "0x0200C29006150606B650577BBE7B6248F58470c1",
+                "name": "USD₮0",
+                "alias": "USDT0",
+                "dapp": {
+                    "alias": "USDT0",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": []
+                },
+                "owner": "USDT0",
+                "icon": "https://cms-cdn.avascan.com/cms2/USDT0.a2be8f8b972f.svg",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/_8hp010bP9NFQsifKeCUbLv49hXAGcFj2kARI1CV0jg/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "64": "https://imgproxy-mainnet.routescan.io/Dr7R2CqkGcFp_XST1b8f8vwavBxGp1STy1Ui9AHmg24/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "256": "https://imgproxy-mainnet.routescan.io/FeiBn-bxqNvNosgdLEliorOSm4cg5lr0YDklMlrjep8/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "1024": "https://imgproxy-mainnet.routescan.io/4B0OrxYrfSAgOwHKnLCqbWm6EGA2_YGf64IWDOhmMk8/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw"
+                },
+                "tags": [
+                    "stablecoin",
+                    "payments"
+                ],
+                "isContract": false
+            },
+            "to": {
+                "id": "0x06d886Ff518b5E642E7E6aaD3cE797B7DABD8e9a",
+                "name": "",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "168387",
+            "gasUsed": "2580",
+            "methodId": "0x70a08231"
+        },
+        {
+            "index": 34,
+            "status": true,
+            "type": "CALL",
+            "from": {
+                "id": "0x31826a86cD62c6FA12A0a8441eC4C8BCfeE8A453",
+                "alias": "Pool Global Dollar (USDG)/USD₮0 (USD₮0)",
+                "dapp": {
+                    "alias": "Velodrome",
+                    "description": "Velodrome Finance, at its core, is a solution for protocols on Optimism to properly incentivize liquidity for their own use cases. Building on top of the groundwork laid out by Solidly, our team has addressed that first iteration's core issues to realize its full potential.",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": [
+                        "dex"
+                    ]
+                },
+                "owner": "Velodrome",
+                "icon": "https://cms-cdn.avascan.com/cms2/velodrome-v2--modified.3cd6cadb0262.png",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/inXRtJgSfPtvV_BphK1RRPdeJLUwfWS5uIU_tfN5zz8/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "64": "https://imgproxy-mainnet.routescan.io/cRn740UF5HjCcFcU8ZaZIovhvEMSEgJVF1OrGge5Srg/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "256": "https://imgproxy-mainnet.routescan.io/88RQPLF5UdK48vOqnTP64AWPsyoAVOe-cEp84u-ge4s/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "1024": "https://imgproxy-mainnet.routescan.io/ckbHabrsAtUiLiKaevoJFQlxm14gDu0WlXGOrgHDqNc/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n"
+                },
+                "tags": [
+                    "liquidity_pool"
+                ],
+                "isContract": true
+            },
+            "to": {
+                "id": "0x01D40099fCD87C018969B0e8D4aB1633Fb34763C",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "167700",
+            "gasUsed": "11563",
+            "methodId": "0xfa461e33"
+        },
+        {
+            "index": 35,
+            "status": true,
+            "type": "CALL",
+            "from": {
+                "id": "0x01D40099fCD87C018969B0e8D4aB1633Fb34763C",
+                "isContract": true
+            },
+            "to": {
+                "id": "0x0200C29006150606B650577BBE7B6248F58470c1",
+                "name": "USD₮0",
+                "alias": "USDT0",
+                "dapp": {
+                    "alias": "USDT0",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": []
+                },
+                "owner": "USDT0",
+                "icon": "https://cms-cdn.avascan.com/cms2/USDT0.a2be8f8b972f.svg",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/_8hp010bP9NFQsifKeCUbLv49hXAGcFj2kARI1CV0jg/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "64": "https://imgproxy-mainnet.routescan.io/Dr7R2CqkGcFp_XST1b8f8vwavBxGp1STy1Ui9AHmg24/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "256": "https://imgproxy-mainnet.routescan.io/FeiBn-bxqNvNosgdLEliorOSm4cg5lr0YDklMlrjep8/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "1024": "https://imgproxy-mainnet.routescan.io/4B0OrxYrfSAgOwHKnLCqbWm6EGA2_YGf64IWDOhmMk8/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw"
+                },
+                "tags": [
+                    "stablecoin",
+                    "payments"
+                ],
+                "isContract": false
+            },
+            "value": "0",
+            "gas": "162549",
+            "gasUsed": "8916",
+            "methodId": "0xa9059cbb"
+        },
+        {
+            "index": 36,
+            "status": true,
+            "type": "DELEGATECALL",
+            "from": {
+                "id": "0x0200C29006150606B650577BBE7B6248F58470c1",
+                "name": "USD₮0",
+                "alias": "USDT0",
+                "dapp": {
+                    "alias": "USDT0",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": []
+                },
+                "owner": "USDT0",
+                "icon": "https://cms-cdn.avascan.com/cms2/USDT0.a2be8f8b972f.svg",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/_8hp010bP9NFQsifKeCUbLv49hXAGcFj2kARI1CV0jg/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "64": "https://imgproxy-mainnet.routescan.io/Dr7R2CqkGcFp_XST1b8f8vwavBxGp1STy1Ui9AHmg24/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "256": "https://imgproxy-mainnet.routescan.io/FeiBn-bxqNvNosgdLEliorOSm4cg5lr0YDklMlrjep8/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "1024": "https://imgproxy-mainnet.routescan.io/4B0OrxYrfSAgOwHKnLCqbWm6EGA2_YGf64IWDOhmMk8/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw"
+                },
+                "tags": [
+                    "stablecoin",
+                    "payments"
+                ],
+                "isContract": false
+            },
+            "to": {
+                "id": "0x06d886Ff518b5E642E7E6aaD3cE797B7DABD8e9a",
+                "name": "",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "159397",
+            "gasUsed": "8253",
+            "methodId": "0xa9059cbb"
+        },
+        {
+            "index": 37,
+            "status": true,
+            "type": "STATICCALL",
+            "from": {
+                "id": "0x31826a86cD62c6FA12A0a8441eC4C8BCfeE8A453",
+                "alias": "Pool Global Dollar (USDG)/USD₮0 (USD₮0)",
+                "dapp": {
+                    "alias": "Velodrome",
+                    "description": "Velodrome Finance, at its core, is a solution for protocols on Optimism to properly incentivize liquidity for their own use cases. Building on top of the groundwork laid out by Solidly, our team has addressed that first iteration's core issues to realize its full potential.",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": [
+                        "dex"
+                    ]
+                },
+                "owner": "Velodrome",
+                "icon": "https://cms-cdn.avascan.com/cms2/velodrome-v2--modified.3cd6cadb0262.png",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/inXRtJgSfPtvV_BphK1RRPdeJLUwfWS5uIU_tfN5zz8/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "64": "https://imgproxy-mainnet.routescan.io/cRn740UF5HjCcFcU8ZaZIovhvEMSEgJVF1OrGge5Srg/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "256": "https://imgproxy-mainnet.routescan.io/88RQPLF5UdK48vOqnTP64AWPsyoAVOe-cEp84u-ge4s/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n",
+                    "1024": "https://imgproxy-mainnet.routescan.io/ckbHabrsAtUiLiKaevoJFQlxm14gDu0WlXGOrgHDqNc/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvdmVsb2Ryb21lLXYyLS1tb2RpZmllZC4zY2Q2Y2FkYjAyNjIucG5n"
+                },
+                "tags": [
+                    "liquidity_pool"
+                ],
+                "isContract": true
+            },
+            "to": {
+                "id": "0x0200C29006150606B650577BBE7B6248F58470c1",
+                "name": "USD₮0",
+                "alias": "USDT0",
+                "dapp": {
+                    "alias": "USDT0",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": []
+                },
+                "owner": "USDT0",
+                "icon": "https://cms-cdn.avascan.com/cms2/USDT0.a2be8f8b972f.svg",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/_8hp010bP9NFQsifKeCUbLv49hXAGcFj2kARI1CV0jg/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "64": "https://imgproxy-mainnet.routescan.io/Dr7R2CqkGcFp_XST1b8f8vwavBxGp1STy1Ui9AHmg24/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "256": "https://imgproxy-mainnet.routescan.io/FeiBn-bxqNvNosgdLEliorOSm4cg5lr0YDklMlrjep8/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "1024": "https://imgproxy-mainnet.routescan.io/4B0OrxYrfSAgOwHKnLCqbWm6EGA2_YGf64IWDOhmMk8/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw"
+                },
+                "tags": [
+                    "stablecoin",
+                    "payments"
+                ],
+                "isContract": false
+            },
+            "value": "0",
+            "gas": "155586",
+            "gasUsed": "1240",
+            "methodId": "0x70a08231"
+        },
+        {
+            "index": 38,
+            "status": true,
+            "type": "DELEGATECALL",
+            "from": {
+                "id": "0x0200C29006150606B650577BBE7B6248F58470c1",
+                "name": "USD₮0",
+                "alias": "USDT0",
+                "dapp": {
+                    "alias": "USDT0",
+                    "socialProfile": {
+                        "items": []
+                    },
+                    "tags": []
+                },
+                "owner": "USDT0",
+                "icon": "https://cms-cdn.avascan.com/cms2/USDT0.a2be8f8b972f.svg",
+                "iconUrls": {
+                    "32": "https://imgproxy-mainnet.routescan.io/_8hp010bP9NFQsifKeCUbLv49hXAGcFj2kARI1CV0jg/pr:thumb_32/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "64": "https://imgproxy-mainnet.routescan.io/Dr7R2CqkGcFp_XST1b8f8vwavBxGp1STy1Ui9AHmg24/pr:thumb_64/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "256": "https://imgproxy-mainnet.routescan.io/FeiBn-bxqNvNosgdLEliorOSm4cg5lr0YDklMlrjep8/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw",
+                    "1024": "https://imgproxy-mainnet.routescan.io/4B0OrxYrfSAgOwHKnLCqbWm6EGA2_YGf64IWDOhmMk8/pr:thumb_1024/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIvVVNEVDAuYTJiZThmOGI5NzJmLnN2Zw"
+                },
+                "tags": [
+                    "stablecoin",
+                    "payments"
+                ],
+                "isContract": false
+            },
+            "to": {
+                "id": "0x06d886Ff518b5E642E7E6aaD3cE797B7DABD8e9a",
+                "name": "",
+                "isContract": true
+            },
+            "value": "0",
+            "gas": "152546",
+            "gasUsed": "580",
+            "methodId": "0x70a08231"
+        }
+    ],
+    "l1GasPrice": "28378743",
+    "l1GasUsed": "3614",
+    "l1Fee": "780562237",
+    "l1BaseFeeScalar": "4424",
+    "l1BlobBaseFee": "1783492",
+    "l1BlobBaseFeeScalar": "810831"
+}

@@ -65,9 +65,9 @@ interface RouterscanTransaction {
 
 class GapEnrichmentWorker {
   private baseUrl = 'https://cdn.routescan.io/api/evm/57073/transactions';
-  private apiBatchSize = 5; // API calls in parallel (reduced from 25 to avoid rate limiting)
-  private rateLimitDelay = 500; // ms between API batches (increased from 150ms)
-  private maxRetries = 3;
+  private apiBatchSize = 3; // API calls in parallel (reduced from 5 to avoid rate limiting)
+  private rateLimitDelay = 1000; // ms between API batches (increased from 500ms)
+  private maxRetries = 5; // Increased retries for rate limiting
   private workerId: string;
   private consecutiveTimeouts = 0; // Track timeouts to detect rate limiting
 
@@ -242,9 +242,18 @@ class GapEnrichmentWorker {
               return { tx, details, success: true };
             } catch (error) {
               const isTimeout = error instanceof Error && (error.message.includes('timeout') || error.message.includes('hang up'));
+              const isRateLimit = error instanceof Error && error.message.includes('Rate limited');
 
               if (isTimeout) {
                 this.consecutiveTimeouts++;
+              }
+
+              if (isRateLimit && attempt < this.maxRetries) {
+                // For rate limiting, wait longer before retry
+                const rateLimitDelay = 2000 * attempt; // 2s, 4s, 6s, 8s, 10s
+                console.log(`      ⏳ Worker ${this.workerId} rate limited, waiting ${rateLimitDelay}ms before retry ${attempt + 1}/${this.maxRetries}`);
+                await this.sleep(rateLimitDelay);
+                continue;
               }
 
               if (attempt === this.maxRetries) {
@@ -252,7 +261,7 @@ class GapEnrichmentWorker {
                 apiFailures++;
                 return { tx, details: null, success: false };
               }
-              // Exponential backoff for retries
+              // Exponential backoff for other retries
               await this.sleep(1000 * Math.pow(2, attempt - 1));
             }
           }
@@ -276,10 +285,11 @@ class GapEnrichmentWorker {
         let delay = this.rateLimitDelay;
 
         if (this.consecutiveTimeouts > 5) {
-          delay = 2000; // 2 seconds if heavily rate limited
-          console.log(`   ⚠️  Worker ${this.workerId} detected rate limiting (${this.consecutiveTimeouts} timeouts), slowing down to ${delay}ms`);
+          delay = 3000; // 3 seconds if heavily rate limited
+          console.log(`   ⚠️  Worker ${this.workerId} detected heavy rate limiting (${this.consecutiveTimeouts} timeouts), slowing down to ${delay}ms`);
         } else if (this.consecutiveTimeouts > 2) {
-          delay = 1000; // 1 second if moderately rate limited
+          delay = 2000; // 2 seconds if moderately rate limited
+          console.log(`   ⚠️  Worker ${this.workerId} detected rate limiting (${this.consecutiveTimeouts} timeouts), slowing down to ${delay}ms`);
         }
 
         await this.sleep(delay);

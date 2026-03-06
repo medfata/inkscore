@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+// Use Node.js runtime - Edge Runtime blocks requests to IP addresses
+// Node.js runtime still supports SSE streaming via ReadableStream
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 const API_SERVER_URL = process.env.API_SERVER_URL || 'http://localhost:4000';
 
 interface FetchResult<T> {
@@ -9,15 +14,172 @@ interface FetchResult<T> {
 
 async function fetchFromExpress<T>(endpoint: string): Promise<FetchResult<T>> {
   try {
-    const response = await fetch(`${API_SERVER_URL}${endpoint}`);
+    console.log(`[FETCH] Requesting: ${API_SERVER_URL}${endpoint}`);
+    const response = await fetch(`${API_SERVER_URL}${endpoint}`, {
+      headers: {
+        'User-Agent': 'Vercel-Next.js',
+        'Accept': 'application/json',
+      }
+    });
+    console.log(`[FETCH] Response status: ${response.status} for ${endpoint}`);
     if (!response.ok) {
+      const errorText = await response.text().catch(() => 'Unable to read error');
+      console.error(`[FETCH] Error response: ${errorText}`);
       return { data: null, error: `HTTP ${response.status}` };
     }
     const data = await response.json();
+    console.log(`[FETCH] Response data for ${endpoint}:`, JSON.stringify(data));
     return { data, error: null };
   } catch (error) {
+    console.error(`[FETCH] Exception for ${endpoint}:`, error);
     return { data: null, error: error instanceof Error ? error.message : 'Unknown error' };
   }
+}
+
+// Streaming implementation for progressive dashboard loading
+async function getStreamingDashboard(walletAddress: string) {
+  const encoder = new TextEncoder();
+
+  const stream = new ReadableStream({
+    async start(controller) {
+      const startTime = Date.now();
+      const TIMEOUT_MS = 30000; // 30 seconds
+      let timeoutId: NodeJS.Timeout | null = null;
+      let isTimedOut = false;
+
+      // Send immediate heartbeat to bypass Vercel proxy buffering
+      controller.enqueue(encoder.encode(': ok\n\n'));
+
+      // Define all metrics with IDs and endpoints
+      const metrics = [
+        { id: 'stats', fetch: () => fetchFromExpress(`/api/wallet/${walletAddress}/stats`) },
+        { id: 'bridge', fetch: () => fetchFromExpress(`/api/wallet/${walletAddress}/bridge`) },
+        { id: 'swap', fetch: () => fetchFromExpress(`/api/wallet/${walletAddress}/swap`) },
+        { id: 'volume', fetch: () => fetchFromExpress(`/api/wallet/${walletAddress}/volume`) },
+        { id: 'score', fetch: () => fetchFromExpress(`/api/wallet/${walletAddress}/score`) },
+        { id: 'analytics', fetch: () => fetchFromExpress(`/api/analytics/${walletAddress}`) },
+        { id: 'cards', fetch: () => fetchFromExpress(`/api/dashboard/cards/${walletAddress}`) },
+        { id: 'marvk', fetch: () => fetchFromExpress(`/api/marvk/${walletAddress}`) },
+        { id: 'nado', fetch: () => fetchFromExpress(`/api/nado/${walletAddress}`) },
+        { id: 'copink', fetch: () => fetchFromExpress(`/api/copink/${walletAddress}`) },
+        { id: 'cryptoclash', fetch: () => fetchFromExpress(`/api/cryptoclash/${walletAddress}`) },
+        { id: 'nft2me', fetch: () => fetchFromExpress(`/api/wallet/${walletAddress}/nft2me`) },
+        { id: 'tydro', fetch: () => fetchFromExpress(`/api/wallet/${walletAddress}/tydro`) },
+        { id: 'gmCount', fetch: () => fetchFromExpress(`/api/analytics/${walletAddress}/gm_count`) },
+        { id: 'inkypumpCreatedTokens', fetch: () => fetchFromExpress(`/api/analytics/${walletAddress}/inkypump_created_tokens`) },
+        { id: 'inkypumpBuyVolume', fetch: () => fetchFromExpress(`/api/analytics/${walletAddress}/inkypump_buy_volume`) },
+        { id: 'inkypumpSellVolume', fetch: () => fetchFromExpress(`/api/analytics/${walletAddress}/inkypump_sell_volume`) },
+        { id: 'nftTraded', fetch: () => fetchFromExpress(`/api/analytics/${walletAddress}/nft_traded`) },
+        { id: 'zns', fetch: () => fetchFromExpress(`/api/analytics/${walletAddress}/zns`) },
+        { id: 'shelliesJoinedRaffles', fetch: () => fetchFromExpress(`/api/analytics/${walletAddress}/shellies_joined_raffles`) },
+        { id: 'shelliesPayToPlay', fetch: () => fetchFromExpress(`/api/analytics/${walletAddress}/shellies_pay_to_play`) },
+        { id: 'nftStaking', fetch: () => fetchFromExpress(`/api/analytics/${walletAddress}/nft_staking`) },
+        { id: 'openseaBuyCount', fetch: () => fetchFromExpress(`/api/analytics/${walletAddress}/opensea_buy_count`) },
+        { id: 'mintCount', fetch: () => fetchFromExpress(`/api/analytics/${walletAddress}/mint_count`) },
+        { id: 'openseaSaleCount', fetch: () => fetchFromExpress(`/api/analytics/${walletAddress}/opensea_sale_count`) },
+        { id: 'inkdcaRunDca', fetch: () => fetchFromExpress(`/api/analytics/${walletAddress}/inkdca_run_dca`) },
+        { id: 'templarsNftBalance', fetch: () => fetchFromExpress(`/api/analytics/${walletAddress}/templars_nft_balance`) },
+        { id: 'cowswapSwaps', fetch: () => fetchFromExpress(`/api/analytics/${walletAddress}/cowswap_swaps`) },
+        { id: 'sweep', fetch: () => fetchFromExpress(`/api/analytics/${walletAddress}/sweep`) },
+      ];
+
+      console.log(`[STREAM] Started for wallet: ${walletAddress}`);
+
+      // Set up 30s timeout
+      const timeoutPromise = new Promise<void>((resolve) => {
+        timeoutId = setTimeout(() => {
+          isTimedOut = true;
+          console.warn(`[STREAM] Timeout reached (${TIMEOUT_MS}ms) for wallet: ${walletAddress}`);
+          resolve();
+        }, TIMEOUT_MS);
+      });
+
+      // Start all fetches and stream each as it completes
+      const promises = metrics.map(async (metric) => {
+        const metricStartTime = Date.now();
+
+        try {
+          const result = await metric.fetch();
+          const duration = Date.now() - metricStartTime;
+
+          // Don't stream if we've timed out
+          if (isTimedOut) {
+            console.log(`[STREAM] Skipping metric ${metric.id} - stream timed out`);
+            return;
+          }
+
+          // Stream this metric immediately
+          const event = {
+            type: 'metric',
+            id: metric.id,
+            data: result.data,
+            error: result.error,
+            duration,
+            timestamp: Date.now(),
+          };
+
+          const message = `data: ${JSON.stringify(event)}\n\n`;
+          controller.enqueue(encoder.encode(message));
+
+          console.log(`[STREAM] Metric ${metric.id} completed in ${duration}ms`);
+        } catch (error) {
+          // Don't stream if we've timed out
+          if (isTimedOut) {
+            console.log(`[STREAM] Skipping error for metric ${metric.id} - stream timed out`);
+            return;
+          }
+
+          // Stream error for this metric
+          const errorEvent = {
+            type: 'error',
+            id: metric.id,
+            error: error instanceof Error ? error.message : 'Unknown error',
+            timestamp: Date.now(),
+          };
+
+          const message = `data: ${JSON.stringify(errorEvent)}\n\n`;
+          controller.enqueue(encoder.encode(message));
+
+          console.error(`[STREAM] Metric ${metric.id} failed:`, error);
+        }
+      });
+
+      // Wait for all to complete or timeout
+      await Promise.race([
+        Promise.allSettled(promises),
+        timeoutPromise
+      ]);
+
+      // Clear timeout if it hasn't fired
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+
+      const totalDuration = Date.now() - startTime;
+
+      // Send completion event
+      const doneEvent = `data: ${JSON.stringify({ 
+        type: 'done', 
+        totalDuration,
+        timedOut: isTimedOut,
+        timestamp: Date.now() 
+      })}\n\n`;
+      controller.enqueue(encoder.encode(doneEvent));
+
+      console.log(`[STREAM] ${isTimedOut ? 'Timed out' : 'All metrics completed'} in ${totalDuration}ms`);
+
+      controller.close();
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache, no-transform',
+      'Connection': 'keep-alive',
+      'X-Accel-Buffering': 'no',
+    },
+  });
 }
 
 // GET /api/[wallet]/dashboard - Aggregated dashboard data from Express server
@@ -38,6 +200,17 @@ export async function GET(
 
     const walletAddress = wallet.toLowerCase();
 
+    // Check if streaming is requested
+    const { searchParams } = new URL(request.url);
+    const enableStreaming = searchParams.get('stream') === 'true';
+
+    // Route to streaming implementation if requested
+    if (enableStreaming) {
+      return getStreamingDashboard(walletAddress);
+    }
+
+    // Continue with existing non-streaming implementation
+
     // Parallel fetch all dashboard data from Express server
     const [
       statsResult,
@@ -52,6 +225,7 @@ export async function GET(
       copinkResult,
       nft2meResult,
       tydroResult,
+      sweepResult,
       // Specific analytics metrics
       gmCountResult,
       inkypumpCreatedTokensResult,
@@ -61,7 +235,13 @@ export async function GET(
       znsResult,
       shelliesJoinedRafflesResult,
       shelliesPayToPlayResult,
-      shelliesStakingResult,
+      nftStakingResult,
+      openseaBuyCountResult,
+      mintCountResult,
+      openseaSaleCountResult,
+      inkdcaRunDcaResult,
+      templarsNftBalanceResult,
+      cowswapSwapsResult,
     ] = await Promise.all([
       fetchFromExpress(`/api/wallet/${walletAddress}/stats`),
       fetchFromExpress(`/api/wallet/${walletAddress}/bridge`),
@@ -75,6 +255,7 @@ export async function GET(
       fetchFromExpress(`/api/copink/${walletAddress}`),
       fetchFromExpress(`/api/wallet/${walletAddress}/nft2me`),
       fetchFromExpress(`/api/wallet/${walletAddress}/tydro`),
+      fetchFromExpress(`/api/sweep/${walletAddress}`),
       // Specific analytics metrics
       fetchFromExpress(`/api/analytics/${walletAddress}/gm_count`),
       fetchFromExpress(`/api/analytics/${walletAddress}/inkypump_created_tokens`),
@@ -84,7 +265,13 @@ export async function GET(
       fetchFromExpress(`/api/analytics/${walletAddress}/zns`),
       fetchFromExpress(`/api/analytics/${walletAddress}/shellies_joined_raffles`),
       fetchFromExpress(`/api/analytics/${walletAddress}/shellies_pay_to_play`),
-      fetchFromExpress(`/api/analytics/${walletAddress}/shellies_staking`),
+      fetchFromExpress(`/api/analytics/${walletAddress}/nft_staking`),
+      fetchFromExpress(`/api/analytics/${walletAddress}/opensea_buy_count`),
+      fetchFromExpress(`/api/analytics/${walletAddress}/mint_count`),
+      fetchFromExpress(`/api/analytics/${walletAddress}/opensea_sale_count`),
+      fetchFromExpress(`/api/analytics/${walletAddress}/inkdca_run_dca`),
+      fetchFromExpress(`/api/analytics/${walletAddress}/templars_nft_balance`),
+      fetchFromExpress(`/api/analytics/${walletAddress}/cowswap_swaps`),
     ]);
 
     // Collect any errors (only log critical ones)
@@ -101,6 +288,10 @@ export async function GET(
     if (copinkResult.error) errors.push(`copink: ${copinkResult.error}`);
     if (nft2meResult.error) errors.push(`nft2me: ${nft2meResult.error}`);
     if (tydroResult.error) errors.push(`tydro: ${tydroResult.error}`);
+    if (sweepResult.error) errors.push(`sweep: ${sweepResult.error}`);
+    if (openseaBuyCountResult.error) errors.push(`openseaBuyCount: ${openseaBuyCountResult.error}`);
+    if (mintCountResult.error) errors.push(`mintCount: ${mintCountResult.error}`);
+    if (openseaSaleCountResult.error) errors.push(`openseaSaleCount: ${openseaSaleCountResult.error}`);
 
     const response = {
       stats: statsResult.data,
@@ -115,6 +306,7 @@ export async function GET(
       copink: copinkResult.data,
       nft2me: nft2meResult.data,
       tydro: tydroResult.data,
+      sweep: sweepResult.data,
       // Specific analytics metrics
       gmCount: gmCountResult.data,
       inkypumpCreatedTokens: inkypumpCreatedTokensResult.data,
@@ -124,7 +316,13 @@ export async function GET(
       zns: znsResult.data,
       shelliesJoinedRaffles: shelliesJoinedRafflesResult.data,
       shelliesPayToPlay: shelliesPayToPlayResult.data,
-      shelliesStaking: shelliesStakingResult.data,
+      nftStaking: nftStakingResult.data,
+      openseaBuyCount: openseaBuyCountResult.data,
+      mintCount: mintCountResult.data,
+      openseaSaleCount: openseaSaleCountResult.data,
+      inkdcaRunDca: inkdcaRunDcaResult.data,
+      templarsNftBalance: templarsNftBalanceResult.data,
+      cowswapSwaps: cowswapSwapsResult.data,
       ...(errors.length > 0 && { errors }),
     };
 
