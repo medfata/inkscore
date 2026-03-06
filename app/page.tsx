@@ -104,7 +104,7 @@ function HomeContent() {
               Leaderboard
               <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-ink-purple group-hover:w-full transition-all duration-300"></span>
             </a>
-<a href="/phase1" className="text-sm font-medium text-white transition-colors relative group">
+<a href="/phase1" className="text-sm font-medium text-slate-400 hover:text-white transition-colors relative group">
               Phase1
               <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-ink-purple group-hover:w-full transition-all duration-300"></span>
             </a>
