@@ -282,18 +282,18 @@ const platformMetrics: PlatformRule[] = [
     url: 'https://inkyswap.com',
   },
   {
-    name: 'Tydro (Lending)',
-    logo: PLATFORM_LOGOS.tydro,
-    description: 'Points for lending and borrowing on Tydro',
-    formula: 'Supply Tiers (max 1,250) + Borrow Tiers (max 1,250) = Max 2,500pts',
+    name: 'OpenSea',
+    logo: 'https://opensea.io/favicon.ico',
+    description: 'Points for NFT activities on OpenSea',
+    formula: 'Buy (max 1,000) + Sell (max 1,000) + Mint (max 500) = Max 2,500pts',
     details: [
-      'Supply: $1-$99 = 50, $100-$999 = 250, $1K-$10K = 600, $10K-$50K = 1,000, $50K+ = 1,250',
-      'Borrow: $1-$49 = 50, $50-$499 = 250, $500-$5K = 600, $5K-$25K = 1,000, $25K+ = 1,250',
-      'Both supply and borrow positions earn points independently',
+      'Buy: 1 NFT = 100, 5 NFTs = 300, 10 NFTs = 500, 25+ NFTs = 1,000',
+      'Sell: 1 NFT = 100, 5 NFTs = 300, 10 NFTs = 500, 25+ NFTs = 1,000',
+      'Mint: 1 NFT = 50, 5 NFTs = 150, 10 NFTs = 300, 25+ NFTs = 500',
       'Maximum possible: 2,500 points',
     ],
-    color: 'from-cyan-500 to-blue-500',
-    url: 'https://app.tydro.com',
+    color: 'from-blue-500 to-cyan-500',
+    url: 'https://opensea.io',
   },
   {
     name: 'InkyPump',
@@ -422,18 +422,18 @@ const platformMetrics: PlatformRule[] = [
     url: 'https://opensea.io/collection/templars-of-the-storm',
   },
   {
-    name: 'OpenSea',
-    logo: 'https://opensea.io/favicon.ico',
-    description: 'Points for NFT activities on OpenSea',
-    formula: 'Buy (max 1,000) + Sell (max 1,000) + Mint (max 500) = Max 2,500pts',
+    name: 'Tydro (Lending)',
+    logo: PLATFORM_LOGOS.tydro,
+    description: 'Points for lending and borrowing on Tydro',
+    formula: 'Supply Tiers (max 1,250) + Borrow Tiers (max 1,250) = Max 2,500pts',
     details: [
-      'Buy: 1 NFT = 100, 5 NFTs = 300, 10 NFTs = 500, 25+ NFTs = 1,000',
-      'Sell: 1 NFT = 100, 5 NFTs = 300, 10 NFTs = 500, 25+ NFTs = 1,000',
-      'Mint: 1 NFT = 50, 5 NFTs = 150, 10 NFTs = 300, 25+ NFTs = 500',
+      'Supply: $1-$99 = 50, $100-$999 = 250, $1K-$10K = 600, $10K-$50K = 1,000, $50K+ = 1,250',
+      'Borrow: $1-$49 = 50, $50-$499 = 250, $500-$5K = 600, $5K-$25K = 1,000, $25K+ = 1,250',
+      'Both supply and borrow positions earn points independently',
       'Maximum possible: 2,500 points',
     ],
-    color: 'from-blue-500 to-cyan-500',
-    url: 'https://opensea.io',
+    color: 'from-cyan-500 to-blue-500',
+    url: 'https://app.tydro.com',
   },
   {
     name: 'CowSwap',
@@ -803,7 +803,7 @@ export default function HowItWorksPage() {
                 </div>
                 <div className="p-4 space-y-3">
                   <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
-                    <span className="text-slate-200">Tydro DeFi</span>
+                    <span className="text-slate-200">OpenSea</span>
                     <span className="font-semibold text-red-400">2,500 pts</span>
                   </div>
                   <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
