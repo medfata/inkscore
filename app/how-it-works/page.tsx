@@ -803,7 +803,7 @@ export default function HowItWorksPage() {
                 </div>
                 <div className="p-4 space-y-3">
                   <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
-                    <span className="text-slate-200">OpenSea</span>
+                    <span className="text-slate-200">Tydro DeFi</span>
                     <span className="font-semibold text-red-400">2,500 pts</span>
                   </div>
                   <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
