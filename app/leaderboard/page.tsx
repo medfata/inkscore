@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Logo } from '../components/Logo';
 import { Trophy, Loader2, ExternalLink, Sparkles, RefreshCw, Menu, X } from '../components/Icons';
@@ -34,6 +34,17 @@ async function fetchLeaderboard(page: number): Promise<LeaderboardResponse> {
   return response.json();
 }
 
+async function fetchImageUrl(tokenId: string): Promise<string | null> {
+  try {
+    const response = await fetch(`/api/nft/image-url/${tokenId}`);
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data.imageUrl || null;
+  } catch {
+    return null;
+  }
+}
+
 function formatLastUpdated(isoString: string | null): string {
   if (!isoString) return 'Loading...';
   const date = new Date(isoString);
@@ -51,6 +62,8 @@ function formatLastUpdated(isoString: string | null): string {
 export default function LeaderboardPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
+  const [loadingImages, setLoadingImages] = useState(false);
 
   const { data, isLoading, error, isFetching } = useQuery({
     queryKey: ['leaderboard', currentPage],
@@ -59,6 +72,28 @@ export default function LeaderboardPage() {
     gcTime: 10 * 60 * 1000,
     placeholderData: (previousData) => previousData,
   });
+
+  useEffect(() => {
+    const currentLeaderboard = data?.leaderboard || [];
+    if (!currentLeaderboard.length) return;
+
+    setLoadingImages(true);
+    const fetchImages = async () => {
+      const newUrls: Record<string, string> = {};
+      await Promise.all(
+        currentLeaderboard.map(async (entry) => {
+          const url = await fetchImageUrl(entry.token_id);
+          if (url) {
+            newUrls[entry.token_id] = url;
+          }
+        })
+      );
+      setImageUrls((prev) => ({ ...prev, ...newUrls }));
+      setLoadingImages(false);
+    };
+
+    fetchImages();
+  }, [currentPage, data?.leaderboard]);
 
   const leaderboard = data?.leaderboard || [];
   const total = data?.total || 0;
@@ -242,14 +277,20 @@ export default function LeaderboardPage() {
                                   className="block"
                                 >
                                   <div className="w-14 h-14 md:w-16 md:h-16 rounded-lg overflow-hidden border-2 border-slate-700 hover:border-purple-500/50 transition-all hover:scale-110 shadow-lg cursor-pointer">
-                                    <img
-                                      src={entry.nft_image_url}
-                                      alt={`NFT #${entry.token_id}`}
-                                      className="w-full h-full object-cover"
-                                      onError={(e) => {
-                                        (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="64" height="64"%3E%3Crect fill="%23334155" width="64" height="64"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%23cbd5e1" font-size="20"%3ENFT%3C/text%3E%3C/svg%3E';
-                                      }}
-                                    />
+                                    {loadingImages && !imageUrls[entry.token_id] ? (
+                                      <div className="w-full h-full bg-slate-800 animate-pulse flex items-center justify-center">
+                                        <Loader2 size={16} className="animate-spin text-slate-500" />
+                                      </div>
+                                    ) : (
+                                      <img
+                                        src={imageUrls[entry.token_id] || entry.nft_image_url}
+                                        alt={`NFT #${entry.token_id}`}
+                                        className="w-full h-full object-cover"
+                                        onError={(e) => {
+                                          (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="64" height="64"%3E%3Crect fill="%23334155" width="64" height="64"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%23cbd5e1" font-size="20"%3ENFT%3C/text%3E%3C/svg%3E';
+                                        }}
+                                      />
+                                    )}
                                   </div>
                                 </a>
                               </div>

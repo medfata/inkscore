@@ -98,11 +98,11 @@ export async function GET(
       topPercentage,
     });
 
-    // Return SVG with proper headers
+    // Return SVG with proper headers (no-cache to always get fresh score)
     return new NextResponse(svgImage, {
       headers: {
         'Content-Type': 'image/svg+xml',
-        'Cache-Control': 'public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400',
+        'Cache-Control': 'no-cache, no-transform',
         'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline';",
         'X-Content-Type-Options': 'nosniff',
       },
