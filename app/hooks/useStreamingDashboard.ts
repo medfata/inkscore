@@ -98,7 +98,7 @@ export function useStreamingDashboard(
     );
     eventSourceRef.current = eventSource;
 
-    // Set timeout (30 seconds)
+    // Set timeout (60 seconds)
     timeoutRef.current = setTimeout(() => {
       console.warn('[STREAM] Client timeout reached, closing connection');
       eventSource.close();
@@ -107,7 +107,7 @@ export function useStreamingDashboard(
         isComplete: true,
         timedOut: true,
       }));
-    }, 30000);
+    }, 60000);
 
     eventSource.onopen = () => {
       console.log('[STREAM] Connection opened');

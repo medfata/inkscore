@@ -7,6 +7,88 @@ export const dynamic = 'force-dynamic';
 
 const API_SERVER_URL = process.env.API_SERVER_URL || 'http://localhost:4000';
 
+const OPENSEA_GRAPHQL_URL = 'https://gql.opensea.io/graphql';
+const OPENSEA_ACTIVITY_QUERY = `
+query UseProfileActivityQuery($addresses: [Address!], $filter: ProfileActivityFilterInput, $cursor: String, $limit: Int!) {
+  userActivity(addresses: $addresses, filter: $filter, cursor: $cursor, limit: $limit) {
+    items { id type transactionHash from { address } to { address } }
+    nextPageCursor
+  }
+}`;
+
+/**
+ * Fetch OpenSea buy/sale/mint counts directly from OpenSea GraphQL API (runs on Vercel).
+ * Bypasses Express server which can't reliably reach OpenSea from datacenter IP.
+ */
+async function fetchOpenSeaCounts(walletAddress: string): Promise<{ buys: number; sales: number; mints: number }> {
+  const normalized = walletAddress.toLowerCase();
+  const allItems: Array<{ type: string; from?: { address: string }; to?: { address: string }; transactionHash: string }> = [];
+  let cursor: string | null = null;
+  let hasMore = true;
+  let page = 0;
+  const start = Date.now();
+
+  while (hasMore && page < 30) {
+    page++;
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
+
+      const res = await fetch(OPENSEA_GRAPHQL_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
+        body: JSON.stringify({
+          operationName: 'UseProfileActivityQuery',
+          query: OPENSEA_ACTIVITY_QUERY,
+          variables: {
+            addresses: [normalized],
+            filter: { activityTypes: ['SALE', 'MINT'], chains: ['ink'], collectionSlugs: [], markets: ['opensea'] },
+            cursor,
+            limit: 50,
+          },
+        }),
+      });
+      clearTimeout(timeout);
+
+      if (res.status === 429) {
+        const wait = parseInt(res.headers.get('Retry-After') || '3') * 1000;
+        console.warn(`[OpenSea-Vercel] page ${page} rate limited, waiting ${wait}ms`);
+        await new Promise(r => setTimeout(r, wait));
+        page--;
+        continue;
+      }
+      if (!res.ok) { console.error(`[OpenSea-Vercel] page ${page} error: ${res.status}`); break; }
+
+      const data = await res.json() as any;
+      const items = data.data?.userActivity?.items || [];
+      allItems.push(...items);
+      cursor = data.data?.userActivity?.nextPageCursor;
+      hasMore = cursor !== null && items.length > 0;
+      console.log(`[OpenSea-Vercel] page ${page}: ${items.length} items (total: ${allItems.length}) in ${Date.now() - start}ms`);
+    } catch (err: any) {
+      console.error(`[OpenSea-Vercel] page ${page} failed:`, err.message);
+      break;
+    }
+  }
+
+  let buys = 0, sales = 0;
+  const mintTxs = new Set<string>();
+  for (const item of allItems) {
+    const from = item.from?.address?.toLowerCase();
+    const to = item.to?.address?.toLowerCase();
+    if (item.type === 'SALE') {
+      if (to === normalized) buys++;
+      else if (from === normalized) sales++;
+    } else if (item.type === 'MINT' && to === normalized) {
+      mintTxs.add(item.transactionHash);
+    }
+  }
+
+  console.log(`[OpenSea-Vercel] ${walletAddress.slice(0, 10)}: buys=${buys} sales=${sales} mints=${mintTxs.size} in ${((Date.now() - start) / 1000).toFixed(2)}s`);
+  return { buys, sales, mints: mintTxs.size };
+}
+
 interface FetchResult<T> {
   data: T | null;
   error: string | null;
@@ -15,12 +97,16 @@ interface FetchResult<T> {
 async function fetchFromExpress<T>(endpoint: string): Promise<FetchResult<T>> {
   try {
     console.log(`[FETCH] Requesting: ${API_SERVER_URL}${endpoint}`);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 50000); // 50s per-metric timeout
     const response = await fetch(`${API_SERVER_URL}${endpoint}`, {
       headers: {
         'User-Agent': 'Vercel-Next.js',
         'Accept': 'application/json',
-      }
+      },
+      signal: controller.signal,
     });
+    clearTimeout(timeout);
     console.log(`[FETCH] Response status: ${response.status} for ${endpoint}`);
     if (!response.ok) {
       const errorText = await response.text().catch(() => 'Unable to read error');
@@ -43,12 +129,29 @@ async function getStreamingDashboard(walletAddress: string) {
   const stream = new ReadableStream({
     async start(controller) {
       const startTime = Date.now();
-      const TIMEOUT_MS = 30000; // 30 seconds
+      const TIMEOUT_MS = 60000; // 60 seconds
       let timeoutId: NodeJS.Timeout | null = null;
       let isTimedOut = false;
 
       // Send immediate heartbeat to bypass Vercel proxy buffering
       controller.enqueue(encoder.encode(': ok\n\n'));
+
+      // Shared OpenSea fetch — both buy and sale metrics reuse this single promise.
+      // Also pushes counts to Express cache so the score endpoint can use them.
+      const openSeaCountsPromise = fetchOpenSeaCounts(walletAddress).then(async (counts) => {
+        // Push to Express cache so score endpoint doesn't need to call OpenSea API
+        try {
+          await fetch(`${API_SERVER_URL}/api/analytics/${walletAddress}/opensea-cache`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ buys: counts.buys, sales: counts.sales, mints: counts.mints }),
+          });
+          console.log(`[OpenSea-Vercel] Pushed counts to Express cache for ${walletAddress.slice(0, 10)}`);
+        } catch (err) {
+          console.warn(`[OpenSea-Vercel] Failed to push cache to Express:`, err);
+        }
+        return counts;
+      });
 
       // Define all metrics with IDs and endpoints
       const metrics = [
@@ -56,7 +159,8 @@ async function getStreamingDashboard(walletAddress: string) {
         { id: 'bridge', fetch: () => fetchFromExpress(`/api/wallet/${walletAddress}/bridge`) },
         { id: 'swap', fetch: () => fetchFromExpress(`/api/wallet/${walletAddress}/swap`) },
         { id: 'volume', fetch: () => fetchFromExpress(`/api/wallet/${walletAddress}/volume`) },
-        { id: 'score', fetch: () => fetchFromExpress(`/api/wallet/${walletAddress}/score`) },
+        // Score waits for OpenSea cache to be populated first, so Express has the counts ready
+        { id: 'score', fetch: async () => { await openSeaCountsPromise; return fetchFromExpress(`/api/wallet/${walletAddress}/score`); } },
         { id: 'analytics', fetch: () => fetchFromExpress(`/api/analytics/${walletAddress}`) },
         { id: 'cards', fetch: () => fetchFromExpress(`/api/dashboard/cards/${walletAddress}`) },
         { id: 'marvk', fetch: () => fetchFromExpress(`/api/marvk/${walletAddress}`) },
@@ -74,9 +178,17 @@ async function getStreamingDashboard(walletAddress: string) {
         { id: 'shelliesJoinedRaffles', fetch: () => fetchFromExpress(`/api/analytics/${walletAddress}/shellies_joined_raffles`) },
         { id: 'shelliesPayToPlay', fetch: () => fetchFromExpress(`/api/analytics/${walletAddress}/shellies_pay_to_play`) },
         { id: 'nftStaking', fetch: () => fetchFromExpress(`/api/analytics/${walletAddress}/nft_staking`) },
-        { id: 'openseaBuyCount', fetch: () => fetchFromExpress(`/api/analytics/${walletAddress}/opensea_buy_count`) },
+        // OpenSea metrics: fetched directly from OpenSea GraphQL on Vercel (bypasses Express server
+        // which can't reliably reach OpenSea from datacenter IP)
+        { id: 'openseaBuyCount', fetch: async () => {
+          const counts = await openSeaCountsPromise;
+          return { data: { slug: 'opensea_buy_count', name: 'OpenSea Buys', icon: 'https://opensea.io/favicon.ico', currency: 'COUNT', total_count: counts.buys, total_value: counts.buys.toString(), sub_aggregates: [], last_updated: new Date() }, error: null };
+        }},
         { id: 'mintCount', fetch: () => fetchFromExpress(`/api/analytics/${walletAddress}/mint_count`) },
-        { id: 'openseaSaleCount', fetch: () => fetchFromExpress(`/api/analytics/${walletAddress}/opensea_sale_count`) },
+        { id: 'openseaSaleCount', fetch: async () => {
+          const counts = await openSeaCountsPromise;
+          return { data: { slug: 'opensea_sale_count', name: 'OpenSea Sales', icon: 'https://opensea.io/favicon.ico', currency: 'COUNT', total_count: counts.sales, total_value: counts.sales.toString(), sub_aggregates: [], last_updated: new Date() }, error: null };
+        }},
         { id: 'inkdcaRunDca', fetch: () => fetchFromExpress(`/api/analytics/${walletAddress}/inkdca_run_dca`) },
         { id: 'templarsNftBalance', fetch: () => fetchFromExpress(`/api/analytics/${walletAddress}/templars_nft_balance`) },
         { id: 'cowswapSwaps', fetch: () => fetchFromExpress(`/api/analytics/${walletAddress}/cowswap_swaps`) },
@@ -211,13 +323,23 @@ export async function GET(
 
     // Continue with existing non-streaming implementation
 
-    // Parallel fetch all dashboard data from Express server
+    // Step 1: Fetch OpenSea counts from Vercel + push to Express cache + fetch non-score metrics in parallel
+    const openSeaPromise = fetchOpenSeaCounts(walletAddress).then(async (counts) => {
+      try {
+        await fetch(`${API_SERVER_URL}/api/analytics/${walletAddress}/opensea-cache`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ buys: counts.buys, sales: counts.sales, mints: counts.mints }),
+        });
+      } catch (err) { /* cache push is best-effort */ }
+      return counts;
+    });
+
     const [
       statsResult,
       bridgeResult,
       swapResult,
       volumeResult,
-      scoreResult,
       analyticsResult,
       cardsResult,
       marvkResult,
@@ -236,18 +358,16 @@ export async function GET(
       shelliesJoinedRafflesResult,
       shelliesPayToPlayResult,
       nftStakingResult,
-      openseaBuyCountResult,
       mintCountResult,
-      openseaSaleCountResult,
       inkdcaRunDcaResult,
       templarsNftBalanceResult,
       cowswapSwapsResult,
+      openSeaCounts,
     ] = await Promise.all([
       fetchFromExpress(`/api/wallet/${walletAddress}/stats`),
       fetchFromExpress(`/api/wallet/${walletAddress}/bridge`),
       fetchFromExpress(`/api/wallet/${walletAddress}/swap`),
       fetchFromExpress(`/api/wallet/${walletAddress}/volume`),
-      fetchFromExpress(`/api/wallet/${walletAddress}/score`),
       fetchFromExpress(`/api/analytics/${walletAddress}`),
       fetchFromExpress(`/api/dashboard/cards/${walletAddress}`),
       fetchFromExpress(`/api/marvk/${walletAddress}`),
@@ -266,13 +386,24 @@ export async function GET(
       fetchFromExpress(`/api/analytics/${walletAddress}/shellies_joined_raffles`),
       fetchFromExpress(`/api/analytics/${walletAddress}/shellies_pay_to_play`),
       fetchFromExpress(`/api/analytics/${walletAddress}/nft_staking`),
-      fetchFromExpress(`/api/analytics/${walletAddress}/opensea_buy_count`),
       fetchFromExpress(`/api/analytics/${walletAddress}/mint_count`),
-      fetchFromExpress(`/api/analytics/${walletAddress}/opensea_sale_count`),
       fetchFromExpress(`/api/analytics/${walletAddress}/inkdca_run_dca`),
       fetchFromExpress(`/api/analytics/${walletAddress}/templars_nft_balance`),
       fetchFromExpress(`/api/analytics/${walletAddress}/cowswap_swaps`),
+      openSeaPromise,
     ]);
+
+    // Step 2: Now that OpenSea cache is populated on Express, fetch the score
+    const scoreResult = await fetchFromExpress(`/api/wallet/${walletAddress}/score`);
+
+    const openseaBuyCountResult: FetchResult<any> = {
+      data: { slug: 'opensea_buy_count', name: 'OpenSea Buys', icon: 'https://opensea.io/favicon.ico', currency: 'COUNT', total_count: openSeaCounts.buys, total_value: openSeaCounts.buys.toString(), sub_aggregates: [], last_updated: new Date() },
+      error: null,
+    };
+    const openseaSaleCountResult: FetchResult<any> = {
+      data: { slug: 'opensea_sale_count', name: 'OpenSea Sales', icon: 'https://opensea.io/favicon.ico', currency: 'COUNT', total_count: openSeaCounts.sales, total_value: openSeaCounts.sales.toString(), sub_aggregates: [], last_updated: new Date() },
+      error: null,
+    };
 
     // Collect any errors (only log critical ones)
     const errors: string[] = [];
