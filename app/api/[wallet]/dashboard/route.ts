@@ -114,7 +114,7 @@ async function fetchFromExpress<T>(endpoint: string): Promise<FetchResult<T>> {
       return { data: null, error: `HTTP ${response.status}` };
     }
     const data = await response.json();
-    console.log(`[FETCH] Response data for ${endpoint}:`, JSON.stringify(data));
+    console.log(`[FETCH] Response OK for ${endpoint}`);
     return { data, error: null };
   } catch (error) {
     console.error(`[FETCH] Exception for ${endpoint}:`, error);

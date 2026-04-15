@@ -2078,7 +2078,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
           <DynamicCardsCarouselRow3 cards={dynamicCardsRow3} />
         )}
 
-        {/* Row 4: ZNS Domain + NFT2Mint + NFT Trading (5 columns) */}
+        {/* Row 4: Templars + OpenSea + Otomate + InkScore Phase 1 */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
            {/* Templars of the Storm NFT Card */}
           <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-purple-500/20 bg-gradient-to-br from-purple-500/12 to-purple-900/5 h-[300px] flex flex-col" style={{ animationDelay: '1.1s' }}>
@@ -2272,80 +2272,64 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
               </>
             )}
           </div>
-           {/* Cow Swap Card */}
-          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-blue-500/20 bg-gradient-to-br from-blue-500/12 to-blue-900/5 h-[300px] flex flex-col" style={{ animationDelay: '1.15s' }}>
+          {/* Otomate Card */}
+          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-green-500/20 bg-gradient-to-br from-green-500/12 to-green-900/5 h-[300px] flex flex-col" style={{ animationDelay: '0.9s' }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                 <a
-                  href={PLATFORM_URLS['cowswap']}
+                  href={PLATFORM_URLS.otomate}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="hover:ring-2 hover:ring-blue-500/50 rounded-full transition-all cursor-pointer"
-                  title="Visit Cow Swap"
+                  className="hover:ring-2 hover:ring-pink-500/50 rounded-full transition-all cursor-pointer"
+                  title="Visit Otomate"
                 >
                   <img
-                    src={getProxiedImageUrl('https://swap.cow.fi/favicon-dark-mode.png')}
-                    alt="Cow Swap"
+                    src="https://www.otomate.trade/favicon.ico"
+                    alt="Otomate"
                     className="w-6 h-6 rounded-full object-cover"
                     onError={(e) => {
-                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=COW&background=3b82f6&color=fff&size=24';
+                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=C&background=ec4899&color=fff&size=24';
                     }}
                   />
                 </a>
-                Cow Swap
+                Otomate
               </h3>
             </div>
 
             {!isDemo ? (
-              (isMetricLoading('cowswapSwaps') || !cowswapSwaps) ? (
+              (isMetricLoading('copink') || !copinkMetrics) ? (
                 <div className="flex-1 flex flex-col justify-center">
-                  <div className="h-8 w-16 bg-slate-700/50 rounded animate-pulse mb-2"></div>
-                  <div className="h-3 w-24 bg-slate-700/30 rounded animate-pulse mb-4"></div>
+                  <div className="h-8 w-20 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+                  <div className="h-3 w-32 bg-slate-700/30 rounded animate-pulse mb-4"></div>
                   <div className="space-y-2">
-                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
                     <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
                   </div>
                 </div>
               ) : (
                 <>
                   <div className="mb-3">
-                    <div className="text-2xl font-bold font-display text-blue-400">
-                      ${parseFloat(cowswapSwaps.total_value).toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2
-                      })}
+                    <div className="text-2xl font-bold font-display text-green-400">
+                      ${copinkMetrics.totalVolume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </div>
                     <div className="text-xs text-slate-500">
-                      {cowswapSwaps.total_count} swap{cowswapSwaps.total_count !== 1 ? 's' : ''}
+                      Total Trading Volume
                     </div>
                   </div>
 
-                  <div className="flex-1 pt-3 border-t border-slate-700/50 flex flex-col min-h-0">
-                    <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">By Token</span>
-                    <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar">
-                      {cowswapSwaps.sub_aggregates.slice(0, 5).map((item, i) => (
-                        <div key={i} className="text-[11px]">
-                          <div className="flex justify-between items-center py-0.5">
-                            <span className="text-slate-400">{item.token}</span>
-                            <span className="font-mono text-white text-[10px]">
-                              ${parseFloat(item.usd_value).toLocaleString(undefined, {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2
-                              })}
-                            </span>
-                          </div>
-                          <div className="text-[9px] text-slate-500">
-                            {item.count} swap{item.count !== 1 ? 's' : ''}
-                          </div>
-                        </div>
-                      ))}
+                  <div className="flex-1 pt-3 border-t border-slate-700/50">
+                    <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">Account Details</span>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center text-[11px]">
+                        <span className="text-slate-400">Subaccounts Found</span>
+                        <span className="font-mono text-white">{copinkMetrics.subaccountsFound}</span>
+                      </div>
                     </div>
                   </div>
 
-                  {cowswapSwaps.total_count > 0 && (
-                    <div className="mt-2 text-xs text-blue-400 opacity-80 flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse"></span>
-                      Active Swapper
+                  {copinkMetrics.totalVolume > 0 && (
+                    <div className="mt-2 text-xs text-green-400 opacity-80 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></span>
+                      Active Otomate Trader
                     </div>
                   )}
                 </>
@@ -2353,16 +2337,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
             ) : (
               <>
                 <div className="mb-3">
-                  <div className="text-2xl font-bold font-display text-blue-400">$0.00</div>
-                  <div className="text-xs text-slate-500">0 swaps</div>
+                  <div className="text-2xl font-bold font-display text-violet-400">$0.00</div>
+                  <div className="text-xs text-slate-500">Total Trading Volume</div>
                 </div>
 
                 <div className="flex-1 pt-3 border-t border-slate-700/50">
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">By Token</span>
+                  <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">Account Details</span>
                   <div className="space-y-2">
                     <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-slate-400">No swaps yet</span>
-                      <span className="font-mono text-slate-500">-</span>
+                      <span className="text-slate-400">Subaccounts Found</span>
+                      <span className="font-mono text-white">0</span>
                     </div>
                   </div>
                 </div>
@@ -2480,89 +2464,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
           <DynamicCardsCarouselRow4 cards={dynamicCardsRow4} />
         )}
 
-        {/* Row 5: Shellies and Future Cards (4 columns) */}
+        {/* Row 5: Sweep + InkDCA + NFT Staking + ZNS */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {/* Otomate Card */}
-          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-green-500/20 bg-gradient-to-br from-green-500/12 to-green-900/5 h-[300px] flex flex-col" style={{ animationDelay: '0.9s' }}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                <a
-                  href={PLATFORM_URLS.otomate}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:ring-2 hover:ring-pink-500/50 rounded-full transition-all cursor-pointer"
-                  title="Visit Otomate"
-                >
-                  <img
-                    src="https://www.otomate.trade/favicon.ico"
-                    alt="Otomate"
-                    className="w-6 h-6 rounded-full object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=C&background=ec4899&color=fff&size=24';
-                    }}
-                  />
-                </a>
-                Otomate
-              </h3>
-            </div>
-
-            {!isDemo ? (
-              (isMetricLoading('copink') || !copinkMetrics) ? (
-                <div className="flex-1 flex flex-col justify-center">
-                  <div className="h-8 w-20 bg-slate-700/50 rounded animate-pulse mb-2"></div>
-                  <div className="h-3 w-32 bg-slate-700/30 rounded animate-pulse mb-4"></div>
-                  <div className="space-y-2">
-                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <div className="mb-3">
-                    <div className="text-2xl font-bold font-display text-green-400">
-                      ${copinkMetrics.totalVolume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </div>
-                    <div className="text-xs text-slate-500">
-                      Total Trading Volume
-                    </div>
-                  </div>
-
-                  <div className="flex-1 pt-3 border-t border-slate-700/50">
-                    <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">Account Details</span>
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center text-[11px]">
-                        <span className="text-slate-400">Subaccounts Found</span>
-                        <span className="font-mono text-white">{copinkMetrics.subaccountsFound}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {copinkMetrics.totalVolume > 0 && (
-                    <div className="mt-2 text-xs text-green-400 opacity-80 flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></span>
-                      Active Otomate Trader
-                    </div>
-                  )}
-                </>
-              )
-            ) : (
-              <>
-                <div className="mb-3">
-                  <div className="text-2xl font-bold font-display text-violet-400">$0.00</div>
-                  <div className="text-xs text-slate-500">Total Trading Volume</div>
-                </div>
-
-                <div className="flex-1 pt-3 border-t border-slate-700/50">
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">Account Details</span>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-slate-400">Subaccounts Found</span>
-                      <span className="font-mono text-white">0</span>
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
           {/* Sweep Card */}
           <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-yellow-500/20 bg-gradient-to-br from-yellow-500/12 to-yellow-900/5 h-[300px] flex flex-col" style={{ animationDelay: '0.93s' }}>
             <div className="flex items-center justify-between mb-4">
@@ -2840,9 +2743,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
               </>
             )}
           </div>
-        
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {/* ZNS Domain Card */}
           <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-lime-500/20 bg-gradient-to-br from-lime-500/12 to-lime-900/5 h-[300px] flex flex-col" style={{ animationDelay: '0.8s' }}>
             <div className="flex items-center justify-between mb-4">
@@ -2921,7 +2821,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
               </>
             )}
           </div>
-           {/* NFT Trading Card */}
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {/* NFT Trading Card */}
           <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-green-500/20 bg-gradient-to-br from-green-500/12 to-green-900/5 h-[300px] flex flex-col" style={{ animationDelay: '0.95s' }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
@@ -3195,9 +3097,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
               </>
             )}
           </div>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-           {/* NFT2Me Card */}
+          {/* NFT2Me Card */}
           <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-cyan-500/20 bg-gradient-to-br from-cyan-500/12 to-cyan-900/5 h-[300px] flex flex-col" style={{ animationDelay: '0.95s' }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
@@ -3292,6 +3192,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
               </>
             )}
           </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {/* Marvk Card */}
           <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-violet-500/20 bg-gradient-to-br from-violet-500/12 to-violet-900/5 h-[300px] flex flex-col" style={{ animationDelay: '0.85s' }}>
             <div className="flex items-center justify-between mb-4">
