@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { responseCache } from '../cache';
-import { analyticsService, sweepService, inkDcaService } from '../services';
+import { analyticsService, sweepService, inkDcaService, openSeaService } from '../services';
 import { query } from '../db';
 import { createPublicClient, http } from 'viem';
 import { defineChain } from 'viem';
@@ -307,6 +307,37 @@ router.get('/:wallet/zns', async (req: Request, res: Response) => {
 });
 
 // ============================================
+// POST /api/analytics/:wallet/opensea-cache - Receive OpenSea counts from Vercel
+// ============================================
+router.post('/:wallet/opensea-cache', async (req: Request, res: Response) => {
+  try {
+    const { wallet } = req.params;
+    if (!isValidAddress(wallet)) {
+      return res.status(400).json({ error: 'Invalid wallet address format' });
+    }
+
+    const { buys, sales, mints } = req.body;
+    if (typeof buys !== 'number' || typeof sales !== 'number' || typeof mints !== 'number') {
+      return res.status(400).json({ error: 'buys, sales, and mints must be numbers' });
+    }
+
+    const walletLower = wallet.toLowerCase();
+    openSeaService.setCachedCounts(walletLower, buys, sales, mints);
+
+    // Invalidate stale responseCache entries so the next score calculation
+    // reads the fresh counts from openSeaService rather than a cached 0
+    responseCache.delete(`analytics:opensea_buy_count:${walletLower}`);
+    responseCache.delete(`analytics:opensea_sale_count:${walletLower}`);
+    responseCache.delete(`wallet:score:${walletLower}`);
+
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Error setting OpenSea cache:', error);
+    res.status(500).json({ error: 'Failed to set OpenSea cache' });
+  }
+});
+
+// ============================================
 // GET /api/analytics/:wallet/:metric - Get specific metric for a wallet
 // ============================================
 router.get('/:wallet/:metric', async (req: Request, res: Response) => {
@@ -325,25 +356,26 @@ router.get('/:wallet/:metric', async (req: Request, res: Response) => {
     }
 
     // ============================================================
-    // NEW IMPLEMENTATION - External GM API (commented out, using DB instead)
+    // External GM API (https://gm.inkonchain.com)
+    // Disabled due to external endpoint instability. Kept for reference.
     // ============================================================
     // if (metric === 'gm_count') {
     //   const walletLower = wallet.toLowerCase();
     //   const externalApiUrl = `https://gm.inkonchain.com/api/gm-data?address=${walletLower}`;
-    //   
+    //
     //   const response = await fetch(externalApiUrl);
     //   if (!response.ok) {
     //     return res.status(502).json({ error: 'Failed to fetch GM data from external API' });
     //   }
-    //   
+    //
     //   const data = await response.json() as {
     //     totalGms: number;
     //     userGms: Record<string, number>;
     //     receivedGms: Record<string, number>;
     //   };
-    //   
+    //
     //   const count = data.userGms[walletLower] || 0;
-    // 
+    //
     //   const result = {
     //     slug: 'gm_count',
     //     name: 'GM Count',
@@ -354,17 +386,17 @@ router.get('/:wallet/:metric', async (req: Request, res: Response) => {
     //     sub_aggregates: [],
     //     last_updated: new Date(),
     //   };
-    // 
+    //
     //   responseCache.set(cacheKey, result);
     //   return res.json(result);
     // }
 
-    // Special handling for gm_count - direct native query (database)
+    // GM count from indexed transaction_details table
     if (metric === 'gm_count') {
       const rows = await query<{ count: string }>(`
-        SELECT count(tx_hash) as count 
-        FROM transaction_details 
-        WHERE contract_address = $1 
+        SELECT count(tx_hash) as count
+        FROM transaction_details
+        WHERE contract_address = $1
           AND wallet_address = lower($2)
       `, [GM_CONTRACT_ADDRESS, wallet]);
 
@@ -414,26 +446,17 @@ router.get('/:wallet/:metric', async (req: Request, res: Response) => {
       return res.json(result);
     }
 
-    // Special handling for opensea_buy_count
+    // Special handling for opensea_buy_count (uses OpenSea GraphQL API)
     if (metric === 'opensea_buy_count') {
-      const rows = await query<{ count: string }>(`
-        SELECT count(tx_hash) as count 
-        FROM transaction_details 
-        WHERE contract_address = lower($1)
-          AND wallet_address = lower($2)
-          AND lower(function_name) = lower($3)
-          AND status = 1
-      `, [OPENSEA_CONTRACT_ADDRESS, wallet, OPENSEA_BUY_FUNCTION]);
-
-      const count = parseInt(rows[0]?.count || '0', 10);
+      const counts = await openSeaService.getAllCounts(wallet);
 
       const result = {
         slug: 'opensea_buy_count',
         name: 'OpenSea Buys',
         icon: 'https://opensea.io/favicon.ico',
         currency: 'COUNT',
-        total_count: count,
-        total_value: count.toString(),
+        total_count: counts.buys,
+        total_value: counts.buys.toString(),
         sub_aggregates: [],
         last_updated: new Date(),
       };
@@ -518,48 +541,20 @@ router.get('/:wallet/:metric', async (req: Request, res: Response) => {
       return res.json(result);
     }
 
-    // Special handling for opensea_sale_count
+    // Special handling for opensea_sale_count (uses OpenSea GraphQL API)
     if (metric === 'opensea_sale_count') {
-      const queryStartTime = Date.now();
-      console.log(`[OPENSEA_SALE] Starting query for wallet: ${wallet}`);
-      
-      // Query transaction_enrichment for sales where wallet is the seller (from address in Transfer event)
-      // The wallet address in topics[1] is padded to 64 hex chars (32 bytes)
-      const paddedWallet = '0x' + wallet.slice(2).toLowerCase().padStart(64, '0');
-      console.log(`[OPENSEA_SALE] Padded wallet: ${paddedWallet}`);
-      
-      const dbQueryStart = Date.now();
-      // OPTIMIZED: Use JSONB containment operator with LATERAL join
-      // Leverages GIN index: idx_tx_enrichment_opensea_logs_gin
-      const rows = await query<{ count: string }>(`
-        SELECT COUNT(DISTINCT te.tx_hash) as count
-        FROM transaction_enrichment te,
-             LATERAL jsonb_array_elements(te.logs) AS log
-        WHERE lower(te.contract_address::text) = lower($1)
-          AND te.logs IS NOT NULL
-          AND log @> '{"event": "Transfer(address indexed from, address indexed to, uint256 value)"}'::jsonb
-          AND jsonb_array_length(log->'topics') >= 2
-          AND lower(log->'topics'->>1) = lower($2)
-      `, [OPENSEA_CONTRACT_ADDRESS, paddedWallet]);
-      const dbQueryTime = Date.now() - dbQueryStart;
-      console.log(`[OPENSEA_SALE] DB query completed in ${dbQueryTime}ms`);
-
-      const count = parseInt(rows[0]?.count || '0', 10);
-      console.log(`[OPENSEA_SALE] Found ${count} sales`);
+      const counts = await openSeaService.getAllCounts(wallet);
 
       const result = {
         slug: 'opensea_sale_count',
         name: 'OpenSea Sales',
         icon: 'https://opensea.io/favicon.ico',
         currency: 'COUNT',
-        total_count: count,
-        total_value: count.toString(),
+        total_count: counts.sales,
+        total_value: counts.sales.toString(),
         sub_aggregates: [],
         last_updated: new Date(),
       };
-
-      const totalTime = Date.now() - queryStartTime;
-      console.log(`[OPENSEA_SALE] Total processing time: ${totalTime}ms`);
 
       responseCache.set(cacheKey, result);
       return res.json(result);
@@ -1265,6 +1260,7 @@ router.get('/:wallet/:metric', async (req: Request, res: Response) => {
           name: 'Templars of the Storm',
           icon: '⚔️',
           currency: 'COUNT',
+          value: count,
           total_count: count,
           total_value: count.toString(),
           sub_aggregates: [],
@@ -1281,6 +1277,7 @@ router.get('/:wallet/:metric', async (req: Request, res: Response) => {
           name: 'Templars of the Storm',
           icon: '⚔️',
           currency: 'COUNT',
+          value: 0,
           total_count: 0,
           total_value: '0',
           sub_aggregates: [],
