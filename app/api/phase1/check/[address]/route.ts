@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const API_SERVER_URL = process.env.API_SERVER_URL || 'http://localhost:4000';
 
+export const revalidate = 60;
+
 // GET /api/phase1/check/[address] - Check if wallet is in Phase 1
 export async function GET(
   request: NextRequest,
@@ -22,7 +24,7 @@ export async function GET(
 
     // Fetch from Express server
     const response = await fetch(`${API_SERVER_URL}/api/phase1/check/${walletAddress}`);
-    
+
     if (!response.ok) {
       return NextResponse.json(
         { error: 'Failed to check Phase 1 status' },
@@ -31,7 +33,9 @@ export async function GET(
     }
 
     const data = await response.json();
-    return NextResponse.json(data);
+    return NextResponse.json(data, {
+      headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300' },
+    });
   } catch (error) {
     console.error('Error checking Phase 1 status:', error);
     return NextResponse.json(

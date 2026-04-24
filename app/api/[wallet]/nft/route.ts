@@ -61,7 +61,9 @@ export async function GET(
       ...(errors.length > 0 && { errors }),
     };
 
-    return NextResponse.json(response);
+    return NextResponse.json(response, {
+      headers: { 'Cache-Control': 'private, s-maxage=30, stale-while-revalidate=120' },
+    });
   } catch (error) {
     console.error('Error fetching NFT data:', error);
     return NextResponse.json(

@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
+export const revalidate = 300;
+
 export async function GET() {
   try {
     const response = await fetch(`${API_BASE_URL}/api/ranks`, {
@@ -13,7 +15,9 @@ export async function GET() {
     }
 
     const ranks = await response.json();
-    return NextResponse.json(ranks);
+    return NextResponse.json(ranks, {
+      headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=1800' },
+    });
   } catch (error) {
     console.error('Error fetching ranks:', error);
     return NextResponse.json([], { status: 500 });
