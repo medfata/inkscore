@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createPublicClient, http } from 'viem';
 import { NFT_CONTRACT_ADDRESS, NFT_CONTRACT_ABI } from '@/lib/nft-contract';
 
+export const revalidate = 21600;
+
 // Ink Chain configuration
 const inkChain = {
   id: 57073,
@@ -122,7 +124,7 @@ export async function GET(
     // Set cache headers for dynamic content
     return NextResponse.json(metadata, {
       headers: {
-        'Cache-Control': 'public, max-age=3600, s-maxage=3600',
+        'Cache-Control': 'public, max-age=21600, s-maxage=21600, stale-while-revalidate=86400',
         'Content-Type': 'application/json',
         'X-Content-Type-Options': 'nosniff',
       },

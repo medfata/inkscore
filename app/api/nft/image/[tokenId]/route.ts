@@ -3,6 +3,8 @@ import { createPublicClient, http } from 'viem';
 import { NFT_CONTRACT_ADDRESS, NFT_CONTRACT_ABI } from '@/lib/nft-contract';
 import { generateScoreNFTSvg } from '@/lib/services/nft-image-service';
 
+export const revalidate = 600;
+
 // Ink Chain configuration
 const inkChain = {
   id: 57073,
@@ -102,7 +104,7 @@ export async function GET(
     return new NextResponse(svgImage, {
       headers: {
         'Content-Type': 'image/svg+xml',
-        'Cache-Control': 'no-cache, no-transform',
+        'Cache-Control': 'public, s-maxage=600, stale-while-revalidate=3600',
         'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline';",
         'X-Content-Type-Options': 'nosniff',
       },
