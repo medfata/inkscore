@@ -1,0 +1,10 @@
+{
+  "functions": {
+    "app/api/**/route.ts": {
+      "memory": 512
+    },
+    "app/api/\\[wallet\\]/dashboard/route.ts": {
+      "memory": 1024
+    }
+  }
+}

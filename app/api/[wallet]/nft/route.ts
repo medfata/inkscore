@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+export const runtime = 'edge';
+
 const API_SERVER_URL = process.env.API_SERVER_URL || 'http://localhost:4000';
 
 interface FetchResult<T> {
