@@ -28,11 +28,11 @@ async function fetchOpenSeaCounts(walletAddress: string): Promise<{ buys: number
   let page = 0;
   const start = Date.now();
 
-  while (hasMore && page < 30) {
+  while (hasMore && page < 8) {
     page++;
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 10000);
+      const timeout = setTimeout(() => controller.abort(), 5000);
 
       const res = await fetch(OPENSEA_GRAPHQL_URL, {
         method: 'POST',
@@ -98,7 +98,7 @@ async function fetchFromExpress<T>(endpoint: string): Promise<FetchResult<T>> {
   try {
     console.log(`[FETCH] Requesting: ${API_SERVER_URL}${endpoint}`);
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 50000); // 50s per-metric timeout
+    const timeout = setTimeout(() => controller.abort(), 8000); // 8s per-metric timeout
     const response = await fetch(`${API_SERVER_URL}${endpoint}`, {
       headers: {
         'User-Agent': 'Vercel-Next.js',
@@ -129,7 +129,7 @@ async function getStreamingDashboard(walletAddress: string) {
   const stream = new ReadableStream({
     async start(controller) {
       const startTime = Date.now();
-      const TIMEOUT_MS = 60000; // 60 seconds
+      const TIMEOUT_MS = 20000; // 20 seconds
       let timeoutId: NodeJS.Timeout | null = null;
       let isTimedOut = false;
 
@@ -287,7 +287,7 @@ async function getStreamingDashboard(walletAddress: string) {
   return new Response(stream, {
     headers: {
       'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache, no-transform',
+      'Cache-Control': 'private, s-maxage=30, stale-while-revalidate=120, no-transform',
       'Connection': 'keep-alive',
       'X-Accel-Buffering': 'no',
     },
