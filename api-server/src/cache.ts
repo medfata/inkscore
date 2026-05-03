@@ -24,6 +24,10 @@ class ResponseCache {
     this.cache.set(key, { data, timestamp: Date.now() });
   }
 
+  delete(key: string): void {
+    this.cache.delete(key);
+  }
+
   cleanup(): void {
     const now = Date.now();
     for (const [key, entry] of this.cache.entries()) {

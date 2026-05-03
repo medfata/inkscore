@@ -6,6 +6,9 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const API_SERVER_URL = process.env.API_SERVER_URL || 'http://localhost:4000';
+const EXPRESS_TIMEOUT_MS = 15000;
+const SCORE_TIMEOUT_MS = 30000;
+const STREAM_TIMEOUT_MS = 45000;
 
 const OPENSEA_GRAPHQL_URL = 'https://gql.opensea.io/graphql';
 const OPENSEA_ACTIVITY_QUERY = `
@@ -94,11 +97,11 @@ interface FetchResult<T> {
   error: string | null;
 }
 
-async function fetchFromExpress<T>(endpoint: string): Promise<FetchResult<T>> {
+async function fetchFromExpress<T>(endpoint: string, timeoutMs = EXPRESS_TIMEOUT_MS): Promise<FetchResult<T>> {
   try {
     console.log(`[FETCH] Requesting: ${API_SERVER_URL}${endpoint}`);
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000); // 8s per-metric timeout
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
     const response = await fetch(`${API_SERVER_URL}${endpoint}`, {
       headers: {
         'User-Agent': 'Vercel-Next.js',
@@ -129,7 +132,7 @@ async function getStreamingDashboard(walletAddress: string) {
   const stream = new ReadableStream({
     async start(controller) {
       const startTime = Date.now();
-      const TIMEOUT_MS = 20000; // 20 seconds
+      const TIMEOUT_MS = STREAM_TIMEOUT_MS;
       let timeoutId: NodeJS.Timeout | null = null;
       let isTimedOut = false;
 
@@ -160,7 +163,7 @@ async function getStreamingDashboard(walletAddress: string) {
         { id: 'swap', fetch: () => fetchFromExpress(`/api/wallet/${walletAddress}/swap`) },
         { id: 'volume', fetch: () => fetchFromExpress(`/api/wallet/${walletAddress}/volume`) },
         // Score waits for OpenSea cache to be populated first, so Express has the counts ready
-        { id: 'score', fetch: async () => { await openSeaCountsPromise; return fetchFromExpress(`/api/wallet/${walletAddress}/score`); } },
+        { id: 'score', fetch: async () => { await openSeaCountsPromise; return fetchFromExpress(`/api/wallet/${walletAddress}/score`, SCORE_TIMEOUT_MS); } },
         { id: 'analytics', fetch: () => fetchFromExpress(`/api/analytics/${walletAddress}`) },
         { id: 'cards', fetch: () => fetchFromExpress(`/api/dashboard/cards/${walletAddress}`) },
         { id: 'marvk', fetch: () => fetchFromExpress(`/api/marvk/${walletAddress}`) },
@@ -394,7 +397,7 @@ export async function GET(
     ]);
 
     // Step 2: Now that OpenSea cache is populated on Express, fetch the score
-    const scoreResult = await fetchFromExpress(`/api/wallet/${walletAddress}/score`);
+    const scoreResult = await fetchFromExpress(`/api/wallet/${walletAddress}/score`, SCORE_TIMEOUT_MS);
 
     const openseaBuyCountResult: FetchResult<any> = {
       data: { slug: 'opensea_buy_count', name: 'OpenSea Buys', icon: 'https://opensea.io/favicon.ico', currency: 'COUNT', total_count: openSeaCounts.buys, total_value: openSeaCounts.buys.toString(), sub_aggregates: [], last_updated: new Date() },

@@ -58,6 +58,39 @@ interface WalletScoreResponse {
 
 let isRefreshing = false;
 
+// TEMPORARY: in-memory map of wallet -> stored leaderboard score, used to
+// floor NFT metadata/image scores so explorers never display a degraded value
+// caused by upstream third-party platform regressions. 5 min TTL.
+interface FloorCache {
+  scores: Map<string, number>;
+  timestamp: number;
+}
+let floorCache: FloorCache | null = null;
+const FLOOR_CACHE_TTL_MS = 5 * 60 * 1000;
+
+export async function getLeaderboardScoreFloor(wallet: string): Promise<number | null> {
+  try {
+    if (!floorCache || Date.now() - floorCache.timestamp > FLOOR_CACHE_TTL_MS) {
+      const row = await queryOne<{ leaderboard_data: Array<{ wallet_address?: string; score?: number }> }>(
+        `SELECT leaderboard_data FROM cached_leaderboard WHERE id = 1`
+      );
+      const data = row?.leaderboard_data || [];
+      const map = new Map<string, number>();
+      for (const entry of data) {
+        if (entry?.wallet_address && typeof entry.score === 'number') {
+          map.set(entry.wallet_address.toLowerCase(), entry.score);
+        }
+      }
+      floorCache = { scores: map, timestamp: Date.now() };
+    }
+    const score = floorCache.scores.get(wallet.toLowerCase());
+    return typeof score === 'number' ? score : null;
+  } catch (error) {
+    console.error('[LeaderboardFloor] Failed to read floor:', error);
+    return null;
+  }
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }

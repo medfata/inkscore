@@ -487,6 +487,10 @@ interface ConsolidatedDashboardResponse {
 
 const REFRESH_COOLDOWN_MS = 30000; // 30 seconds
 
+const isUsableWalletScore = (score: WalletScoreResponse | null | undefined): score is WalletScoreResponse => {
+  return Boolean(score && Number(score.total_points) > 0);
+};
+
 export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isAdmin }) => {
   // Feature flag for streaming
   const enableStreaming = process.env.NEXT_PUBLIC_ENABLE_STREAMING === 'true';
@@ -676,7 +680,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
     }
 
     // Process wallet score
-    if (response.score) {
+    if (isUsableWalletScore(response.score)) {
       setWalletScore(response.score);
     }
 
@@ -916,7 +920,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
           setTotalVolume(data);
           break;
         case 'score':
-          setWalletScore(data);
+          if (isUsableWalletScore(data)) {
+            setWalletScore(data);
+          }
           break;
         case 'tydro':
           setTydroCurrentSupply(data);

@@ -210,48 +210,20 @@ export class SweepService {
     }
 
     try {
-      // Query Sweep API for collections deployed by this wallet
-      // We only need the total count, so use pageSize=1 to minimize data transfer
-      const url = `${SWEEP_API_BASE}/nft-collections?filters[contractDeployer][$containsi]=${wallet}&pagination[pageSize]=1`;
-      
-      let response = await fetch(url, {
-        headers: {
-          'accept': '*/*',
-          'authorization': `Bearer ${SWEEP_BEARER_TOKEN}`,
-          'content-type': 'application/json',
-        },
-      });
+      // Run the three independent lookups in parallel with per-call timeouts
+      // so a slow Sweep API or RPC call doesn't serialize total latency.
+      const collectionsPromise = this.fetchTotalCollections(wallet);
+      const badgePromise = this.getSweepBadgeBalance(wallet);
+      const streakPromise = this.getTotalStreak(walletAddress);
 
-      // If we get 401 or 403, try to fetch a fresh token and retry
-      if (response.status === 401 || response.status === 403) {
-        console.warn(`Sweep API returned ${response.status}, attempting to fetch fresh token...`);
-        
-        const freshToken = await this.fetchFreshToken();
-        
-        if (freshToken) {
-          console.log('Retrying Sweep API with fresh token...');
-          response = await fetch(url, {
-            headers: {
-              'accept': '*/*',
-              'authorization': `Bearer ${freshToken}`,
-              'content-type': 'application/json',
-            },
-          });
-        }
-      }
-
-      if (!response.ok) {
-        console.error(`Sweep API error: ${response.status} ${response.statusText}`);
-        return { totalCollections: 0, sweepBadgeBalance: 0, totalStreak: 0 };
-      }
-
-      const data = await response.json() as SweepApiResponse;
-
-      const sweepBadgeBalance = await this.getSweepBadgeBalance(wallet);
-      const totalStreak = await this.getTotalStreak(walletAddress);
+      const [totalCollections, sweepBadgeBalance, totalStreak] = await Promise.all([
+        collectionsPromise,
+        badgePromise,
+        streakPromise,
+      ]);
 
       const metrics: SweepMetrics = {
-        totalCollections: data.meta.pagination.total,
+        totalCollections,
         sweepBadgeBalance,
         totalStreak,
       };
@@ -263,6 +235,51 @@ export class SweepService {
     } catch (error) {
       console.error('Failed to fetch Sweep collections:', error);
       return { totalCollections: 0, sweepBadgeBalance: 0, totalStreak: 0 };
+    }
+  }
+
+  private async fetchTotalCollections(wallet: string): Promise<number> {
+    const url = `${SWEEP_API_BASE}/nft-collections?filters[contractDeployer][$containsi]=${wallet}&pagination[pageSize]=1`;
+
+    try {
+      let response = await fetch(url, {
+        headers: {
+          'accept': '*/*',
+          'authorization': `Bearer ${SWEEP_BEARER_TOKEN}`,
+          'content-type': 'application/json',
+        },
+        signal: AbortSignal.timeout(8000),
+      });
+
+      // If we get 401 or 403, try to fetch a fresh token and retry
+      if (response.status === 401 || response.status === 403) {
+        console.warn(`Sweep API returned ${response.status}, attempting to fetch fresh token...`);
+
+        const freshToken = await this.fetchFreshToken();
+
+        if (freshToken) {
+          console.log('Retrying Sweep API with fresh token...');
+          response = await fetch(url, {
+            headers: {
+              'accept': '*/*',
+              'authorization': `Bearer ${freshToken}`,
+              'content-type': 'application/json',
+            },
+            signal: AbortSignal.timeout(8000),
+          });
+        }
+      }
+
+      if (!response.ok) {
+        console.error(`Sweep API error: ${response.status} ${response.statusText}`);
+        return 0;
+      }
+
+      const data = await response.json() as SweepApiResponse;
+      return data.meta.pagination.total;
+    } catch (error) {
+      console.error('Failed to fetch Sweep collections:', error);
+      return 0;
     }
   }
 
@@ -284,7 +301,7 @@ export class SweepService {
   private async getTotalStreak(walletAddress: string): Promise<number> {
     try {
       const url = `${SWEEP_BASE_URL}/api/streak?address=${walletAddress}`;
-      const response = await fetch(url);
+      const response = await fetch(url, { signal: AbortSignal.timeout(8000) });
 
       if (!response.ok) {
         console.error(`Sweep streak API error: ${response.status} ${response.statusText}`);

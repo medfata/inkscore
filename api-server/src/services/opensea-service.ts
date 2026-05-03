@@ -76,8 +76,26 @@ interface ActivityCounts {
 }
 
 export class OpenSeaService {
-  private lastRequestTime: number = 0;
-  private minRequestInterval: number = 500; // 500ms between requests
+  // In-memory cache: wallet -> { counts, timestamp }
+  private countsCache: Map<string, { counts: ActivityCounts; timestamp: number }> = new Map();
+  private readonly CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+
+  // Dedup lock: wallet -> in-flight promise (prevents parallel duplicate fetches)
+  private inflight: Map<string, Promise<ActivityCounts>> = new Map();
+
+  /**
+   * Populate the cache externally (called when Vercel pushes OpenSea counts).
+   * This prevents Express from needing to call the OpenSea API itself.
+   */
+  setCachedCounts(walletAddress: string, buys: number, sales: number, mints: number): void {
+    const key = walletAddress.toLowerCase();
+    const counts: ActivityCounts = {
+      buys, sales, mints,
+      buyTransactions: [], saleTransactions: [], mintTransactions: [],
+    };
+    this.countsCache.set(key, { counts, timestamp: Date.now() });
+    console.log(`[OpenSea] Cache set externally for ${key.slice(0, 10)}: buys=${buys} sales=${sales} mints=${mints}`);
+  }
 
   /**
    * Fetch all activity for a wallet from OpenSea GraphQL API
@@ -92,17 +110,27 @@ export class OpenSeaService {
     const allItems: OpenSeaActivity[] = [];
     let cursor: string | null = null;
     let hasMore = true;
+    let page = 0;
+    const walletLabel = walletAddress.slice(0, 10);
+    const overallStart = Date.now();
+    const MAX_PAGES = 30; // Safety limit: 30 pages * 50 items = 1500 items max
+    const PER_PAGE_TIMEOUT_MS = 10000; // 10s timeout per API call
+    const OVERALL_TIMEOUT_MS = 45000; // 45s overall — return partial results after this
 
     while (hasMore) {
-      try {
-        // Rate limiting: ensure minimum time between requests
-        const now = Date.now();
-        const timeSinceLastRequest = now - this.lastRequestTime;
-        if (timeSinceLastRequest < this.minRequestInterval) {
-          await new Promise(resolve => setTimeout(resolve, this.minRequestInterval - timeSinceLastRequest));
-        }
-        this.lastRequestTime = Date.now();
+      page++;
+      if (page > MAX_PAGES) {
+        console.warn(`[OpenSea] ${walletLabel} hit max pages (${MAX_PAGES}), stopping. Got ${allItems.length} items.`);
+        break;
+      }
 
+      // Overall timeout: return whatever we have so far
+      if (Date.now() - overallStart > OVERALL_TIMEOUT_MS) {
+        console.warn(`[OpenSea] ${walletLabel} overall timeout (${OVERALL_TIMEOUT_MS}ms) after ${page - 1} pages. Returning ${allItems.length} partial items.`);
+        break;
+      }
+
+      try {
         const filter: any = {
           activityTypes,
           chains: [chain],
@@ -116,11 +144,16 @@ export class OpenSeaService {
           filter.markets = [];
         }
 
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), PER_PAGE_TIMEOUT_MS);
+
+        const pageStart = Date.now();
         const response = await fetch(OPENSEA_GRAPHQL_URL, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
+          signal: controller.signal,
           body: JSON.stringify({
             operationName: 'UseProfileActivityQuery',
             query: USER_ACTIVITY_QUERY,
@@ -133,17 +166,20 @@ export class OpenSeaService {
           }),
         });
 
-        // Handle rate limiting with exponential backoff
+        clearTimeout(timeout);
+
+        // Handle rate limiting with exponential backoff (max 2 retries)
         if (response.status === 429) {
           const retryAfter = response.headers.get('Retry-After');
-          const waitTime = retryAfter ? parseInt(retryAfter) * 1000 : 5000; // Default 5s
-          console.warn(`[OpenSea] Rate limited, waiting ${waitTime}ms before retry`);
+          const waitTime = retryAfter ? parseInt(retryAfter) * 1000 : 3000;
+          console.warn(`[OpenSea] ${walletLabel} page ${page} rate limited (429), waiting ${waitTime}ms`);
           await new Promise(resolve => setTimeout(resolve, waitTime));
-          continue; // Retry the same request
+          page--; // Retry same page
+          continue;
         }
 
         if (!response.ok) {
-          console.error(`[OpenSea] API error: ${response.status} ${response.statusText}`);
+          console.error(`[OpenSea] ${walletLabel} page ${page} API error: ${response.status} ${response.statusText}`);
           break;
         }
 
@@ -155,12 +191,19 @@ export class OpenSeaService {
         cursor = data.data?.userActivity?.nextPageCursor;
         hasMore = cursor !== null && items.length > 0;
 
-      } catch (error) {
-        console.error('[OpenSea] Error fetching activity:', error);
+        console.log(`[OpenSea] ${walletLabel} page ${page}: ${items.length} items in ${Date.now() - pageStart}ms (total: ${allItems.length})`);
+
+      } catch (error: any) {
+        if (error.name === 'AbortError') {
+          console.error(`[OpenSea] ${walletLabel} page ${page} timed out after ${PER_PAGE_TIMEOUT_MS}ms`);
+        } else {
+          console.error(`[OpenSea] ${walletLabel} page ${page} error:`, error.message || error);
+        }
         break;
       }
     }
 
+    console.log(`[OpenSea] ${walletLabel} done: ${allItems.length} items in ${page} pages, ${((Date.now() - overallStart) / 1000).toFixed(2)}s`);
     return allItems;
   }
 
@@ -247,10 +290,41 @@ export class OpenSeaService {
 
   /**
    * Get all counts at once (more efficient - single API call)
+   * Uses in-memory cache (1hr TTL) and dedup lock to prevent parallel duplicate fetches.
    */
   async getAllCounts(walletAddress: string): Promise<ActivityCounts> {
-    const activities = await this.fetchWalletActivity(walletAddress, ['SALE', 'MINT'], 'ink', true);
-    return this.calculateActivityCounts(activities, walletAddress);
+    const key = walletAddress.toLowerCase();
+
+    // 1. Check cache
+    const cached = this.countsCache.get(key);
+    if (cached && Date.now() - cached.timestamp < this.CACHE_TTL_MS) {
+      console.log(`[OpenSea] Cache hit for ${key.slice(0, 10)}...`);
+      return cached.counts;
+    }
+
+    // 2. If there's already an in-flight request for this wallet, wait for it
+    const existing = this.inflight.get(key);
+    if (existing) {
+      console.log(`[OpenSea] Dedup: joining in-flight request for ${key.slice(0, 10)}...`);
+      return existing;
+    }
+
+    // 3. Start a new fetch with a 15s timeout
+    const fetchPromise = (async (): Promise<ActivityCounts> => {
+      try {
+        const activities = await this.fetchWalletActivity(walletAddress, ['SALE', 'MINT'], 'ink', true);
+        const counts = this.calculateActivityCounts(activities, walletAddress);
+
+        // Store in cache
+        this.countsCache.set(key, { counts, timestamp: Date.now() });
+        return counts;
+      } finally {
+        this.inflight.delete(key);
+      }
+    })();
+
+    this.inflight.set(key, fetchPromise);
+    return fetchPromise;
   }
 }
 

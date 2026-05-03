@@ -7,6 +7,7 @@ export { walletStatsService, clearWalletStatsCache } from './wallet-stats-servic
 export { sweepService } from './sweep-service';
 export { inkDcaService } from './inkdca-service';
 export { phase1Service } from './phase1-service';
+export { openSeaService } from './opensea-service';
 
 // Re-export types from wallet-stats-service
 export type {

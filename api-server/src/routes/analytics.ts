@@ -391,16 +391,23 @@ router.get('/:wallet/:metric', async (req: Request, res: Response) => {
     //   return res.json(result);
     // }
 
-    // GM count from indexed transaction_details table
+    // GM count from external API (https://gm.inkonchain.com)
     if (metric === 'gm_count') {
-      const rows = await query<{ count: string }>(`
-        SELECT count(tx_hash) as count
-        FROM transaction_details
-        WHERE contract_address = $1
-          AND wallet_address = lower($2)
-      `, [GM_CONTRACT_ADDRESS, wallet]);
+      const walletLower = wallet.toLowerCase();
+const externalApiUrl = `https://www.gm.ink/api/gm-data?address=${walletLower}`;
 
-      const count = parseInt(rows[0]?.count || '0', 10);
+      const response = await fetch(externalApiUrl);
+      if (!response.ok) {
+        return res.status(502).json({ error: 'Failed to fetch GM data from external API' });
+      }
+
+      const data = await response.json() as {
+        totalGms: number;
+        userGms: Record<string, number>;
+        receivedGms: Record<string, number>;
+      };
+
+      const count = data.userGms[walletLower] || 0;
 
       const result = {
         slug: 'gm_count',

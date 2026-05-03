@@ -1,6 +1,7 @@
 import { query } from '../db';
 import { assetsService } from './assets-service';
 import { phase1Service } from './phase1-service';
+import { openSeaService } from './opensea-service';
 import {
   Rank,
   WalletPointsBreakdown,
@@ -22,6 +23,22 @@ interface MemeTokensCache {
 }
 let memeTokensCache: MemeTokensCache | null = null;
 const MEME_TOKENS_CACHE_TTL = 5 * 60 * 1000;
+
+// TEMPORARY: leaderboard score floor cache (5 min TTL)
+// Used to prevent regressions when third-party platform data is degraded.
+interface LeaderboardScoresCache {
+  scores: Map<string, number>;
+  timestamp: number;
+}
+let leaderboardScoresCache: LeaderboardScoresCache | null = null;
+const LEADERBOARD_SCORES_CACHE_TTL = 5 * 60 * 1000;
+
+type JsonResponseLike = {
+  ok: boolean;
+  status: number;
+  statusText: string;
+  json(): Promise<unknown>;
+};
 
 export class PointsServiceV2 {
   // Get meme token addresses from database
@@ -95,6 +112,34 @@ export class PointsServiceV2 {
     }
   }
 
+  // TEMPORARY: returns stored leaderboard score for a wallet, used as a floor
+  // when realtime calculation regresses due to a degraded third-party source.
+  private async getLeaderboardScoreFloor(wallet: string): Promise<number | null> {
+    try {
+      if (
+        !leaderboardScoresCache ||
+        Date.now() - leaderboardScoresCache.timestamp > LEADERBOARD_SCORES_CACHE_TTL
+      ) {
+        const rows = await query<{ leaderboard_data: Array<{ wallet_address?: string; score?: number }> }>(
+          `SELECT leaderboard_data FROM cached_leaderboard WHERE id = 1`
+        );
+        const data = rows[0]?.leaderboard_data || [];
+        const map = new Map<string, number>();
+        for (const entry of data) {
+          if (entry?.wallet_address && typeof entry.score === 'number') {
+            map.set(entry.wallet_address.toLowerCase(), entry.score);
+          }
+        }
+        leaderboardScoresCache = { scores: map, timestamp: Date.now() };
+      }
+      const score = leaderboardScoresCache.scores.get(wallet.toLowerCase());
+      return typeof score === 'number' ? score : null;
+    } catch (error) {
+      console.error('[PointsServiceV2] Failed to read leaderboard score floor:', error);
+      return null;
+    }
+  }
+
   private getRankForPoints(ranks: Rank[], totalPoints: number): Rank | null {
     // Find the rank where totalPoints falls within min_points and max_points range
     for (const rank of ranks) {
@@ -105,6 +150,24 @@ export class PointsServiceV2 {
       }
     }
     return null;
+  }
+
+  private async readOptionalJson<T>(response: JsonResponseLike | null, label: string): Promise<T | null> {
+    if (!response) {
+      return null;
+    }
+
+    if (!response.ok) {
+      console.warn(`[Score] ${label} returned HTTP ${response.status} ${response.statusText}; treating as missing`);
+      return null;
+    }
+
+    try {
+      return await response.json() as T;
+    } catch (error) {
+      console.warn(`[Score] ${label} response body failed; treating as missing:`, error);
+      return null;
+    }
   }
 
   // Manual points calculation methods
@@ -568,6 +631,11 @@ export class PointsServiceV2 {
       // Use the same endpoints as the dashboard
       const baseUrl = process.env.API_BASE_URL || 'http://localhost:4000';
 
+      // Fetch OpenSea counts directly from the service (bypasses HTTP + responseCache)
+      // This ensures we always read the freshest data from openSeaService.countsCache
+      // (which Vercel populates via POST /opensea-cache before requesting the score)
+      const openSeaCountsPromise = openSeaService.getAllCounts(wallet);
+
       const [
         walletStatsRes,
         bridgeRes,
@@ -587,13 +655,12 @@ export class PointsServiceV2 {
         nadoRes,
         copinkRes,
         templarsRes,
-        openseaBuyRes,
-        openseaSellRes,
         mintRes,
         cowSwapRes,
         sweepRes,
         nftStakingRes,
-        inkDcaRes
+        inkDcaRes,
+        openSeaCounts
       ] = await Promise.all([
         fetch(`${baseUrl}/api/wallet/${wallet}/stats`),
         fetch(`${baseUrl}/api/wallet/${wallet}/bridge`),
@@ -613,13 +680,20 @@ export class PointsServiceV2 {
         fetch(`${baseUrl}/api/nado/${wallet}`),
         fetch(`${baseUrl}/api/copink/${wallet}`),
         fetch(`${baseUrl}/api/analytics/${wallet}/templars_nft_balance`),
-        fetch(`${baseUrl}/api/analytics/${wallet}/opensea_buy_count`),
-        fetch(`${baseUrl}/api/analytics/${wallet}/opensea_sale_count`),
         fetch(`${baseUrl}/api/analytics/${wallet}/mint_count`),
         fetch(`${baseUrl}/api/analytics/${wallet}/cowswap_swaps`),
         fetch(`${baseUrl}/api/sweep/${wallet}`),
         fetch(`${baseUrl}/api/analytics/${wallet}/nft_staking`),
-        fetch(`${baseUrl}/api/analytics/${wallet}/inkdca_run_dca`)
+        // InkDCA is the slowest upstream (external API + multiple price lookups).
+        // Give it a larger budget than normal metrics, but keep it optional so
+        // a cold cache cannot fail the whole score calculation.
+        fetch(`${baseUrl}/api/analytics/${wallet}/inkdca_run_dca`, {
+          signal: AbortSignal.timeout(15000),
+        }).catch((err: unknown) => {
+          console.warn('[Score] inkdca fetch failed/timed out, treating as 0 points:', err);
+          return null;
+        }),
+        openSeaCountsPromise
       ]);
 
       // Type definitions for API responses
@@ -689,30 +763,28 @@ export class PointsServiceV2 {
       }
 
       const walletStats = walletStatsRes.ok ? await walletStatsRes.json() as WalletStatsResponse : null;
-      const bridgeData = bridgeRes.ok ? await bridgeRes.json() as BridgeResponse : null;
-      const swapData = swapRes.ok ? await swapRes.json() as SwapResponse : null;
-      const tydroData = tydroRes.ok ? await tydroRes.json() as TydroResponse : null;
-      const gmData = gmRes.ok ? await gmRes.json() as CountResponse : null;
-      const inkyPumpCreated = inkyPumpCreatedRes.ok ? await inkyPumpCreatedRes.json() as CountResponse : null;
-      const inkyPumpBuy = inkyPumpBuyRes.ok ? await inkyPumpBuyRes.json() as CountResponse : null;
-      const inkyPumpSell = inkyPumpSellRes.ok ? await inkyPumpSellRes.json() as CountResponse : null;
-      const shelliesRaffles = shelliesRafflesRes.ok ? await shelliesRafflesRes.json() as CountResponse : null;
-      const shelliesPayToPlay = shelliesPayToPlayRes.ok ? await shelliesPayToPlayRes.json() as CountResponse : null;
-      const shelliesStaking = shelliesStakingRes.ok ? await shelliesStakingRes.json() as CountResponse : null;
-      const znsData = znsRes.ok ? await znsRes.json() as ZnsResponse : null;
-      const nft2meData = nft2meRes.ok ? await nft2meRes.json() as Nft2meResponse : null;
-      const nftTradingData = nftTradingRes.ok ? await nftTradingRes.json() as NftTradingResponse : null;
-      const marvkData = marvkRes.ok ? await marvkRes.json() as MarvkResponse : null;
-      const nadoData = nadoRes.ok ? await nadoRes.json() as NadoResponse : null;
-      const copinkData = copinkRes.ok ? await copinkRes.json() as CopinkResponse : null;
-      const templarsData = templarsRes.ok ? await templarsRes.json() as TemplarsResponse : null;
-      const openseaBuyData = openseaBuyRes.ok ? await openseaBuyRes.json() as OpenSeaResponse : null;
-      const openseaSellData = openseaSellRes.ok ? await openseaSellRes.json() as OpenSeaResponse : null;
-      const mintData = mintRes.ok ? await mintRes.json() as OpenSeaResponse : null;
-      const cowSwapData = cowSwapRes.ok ? await cowSwapRes.json() as CowSwapResponse : null;
-      const sweepData = sweepRes.ok ? await sweepRes.json() as SweepResponse : null;
-      const nftStakingData = nftStakingRes.ok ? await nftStakingRes.json() as NftStakingResponse : null;
-      const inkDcaData = inkDcaRes.ok ? await inkDcaRes.json() as InkDcaResponse : null;
+      const bridgeData = await this.readOptionalJson<BridgeResponse>(bridgeRes, 'bridge');
+      const swapData = await this.readOptionalJson<SwapResponse>(swapRes, 'swap');
+      const tydroData = await this.readOptionalJson<TydroResponse>(tydroRes, 'tydro');
+      const gmData = await this.readOptionalJson<CountResponse>(gmRes, 'gm');
+      const inkyPumpCreated = await this.readOptionalJson<CountResponse>(inkyPumpCreatedRes, 'inkypump created');
+      const inkyPumpBuy = await this.readOptionalJson<CountResponse>(inkyPumpBuyRes, 'inkypump buy');
+      const inkyPumpSell = await this.readOptionalJson<CountResponse>(inkyPumpSellRes, 'inkypump sell');
+      const shelliesRaffles = await this.readOptionalJson<CountResponse>(shelliesRafflesRes, 'shellies raffles');
+      const shelliesPayToPlay = await this.readOptionalJson<CountResponse>(shelliesPayToPlayRes, 'shellies pay-to-play');
+      const shelliesStaking = await this.readOptionalJson<CountResponse>(shelliesStakingRes, 'shellies staking');
+      const znsData = await this.readOptionalJson<ZnsResponse>(znsRes, 'zns');
+      const nft2meData = await this.readOptionalJson<Nft2meResponse>(nft2meRes, 'nft2me');
+      const nftTradingData = await this.readOptionalJson<NftTradingResponse>(nftTradingRes, 'nft trading');
+      const marvkData = await this.readOptionalJson<MarvkResponse>(marvkRes, 'marvk');
+      const nadoData = await this.readOptionalJson<NadoResponse>(nadoRes, 'nado');
+      const copinkData = await this.readOptionalJson<CopinkResponse>(copinkRes, 'copink');
+      const templarsData = await this.readOptionalJson<TemplarsResponse>(templarsRes, 'templars');
+      const mintData = await this.readOptionalJson<OpenSeaResponse>(mintRes, 'mint count');
+      const cowSwapData = await this.readOptionalJson<CowSwapResponse>(cowSwapRes, 'cowswap');
+      const sweepData = await this.readOptionalJson<SweepResponse>(sweepRes, 'sweep');
+      const nftStakingData = await this.readOptionalJson<NftStakingResponse>(nftStakingRes, 'nft staking');
+      const inkDcaData = await this.readOptionalJson<InkDcaResponse>(inkDcaRes, 'inkdca');
 
       if (!walletStats) throw new Error('Failed to fetch wallet stats');
 
@@ -838,14 +910,15 @@ export class PointsServiceV2 {
       breakdown.platforms['templars'] = { tx_count: templarsBalance, usd_volume: 0, points: templarsPoints };
       totalPoints += templarsPoints;
 
-      // OpenSea NFT Activity points
-      const openseaBuyCount = openseaBuyData?.total_count || 0;
-      const openseaSellCount = openseaSellData?.total_count || 0;
+      // OpenSea NFT Activity points (buys/sales from direct service call, mints from DB)
+      const openseaBuyCount = openSeaCounts.buys;
+      const openseaSellCount = openSeaCounts.sales;
       const mintCount = mintData?.total_count || 0;
       const openSeaPoints = this.calculateOpenSeaPoints(openseaBuyCount, openseaSellCount, mintCount);
       const totalOpenSeaTxs = openseaBuyCount + openseaSellCount + mintCount;
       breakdown.platforms['opensea'] = { tx_count: totalOpenSeaTxs, usd_volume: 0, points: openSeaPoints };
       totalPoints += openSeaPoints;
+      console.log(`[Score] ${wallet.slice(0, 10)} OpenSea: buys=${openseaBuyCount} sales=${openseaSellCount} mints=${mintCount} → ${openSeaPoints}pts`);
 
       // Cow Swap points
       const cowSwapVolumeUsd = parseFloat(cowSwapData?.total_value || '0');
@@ -890,6 +963,18 @@ export class PointsServiceV2 {
 
       // Verification logs - check formula correctness
 
+
+      // TEMPORARY: floor total_points to the wallet's stored leaderboard score
+      // when the realtime computation comes back lower. Some third-party
+      // platforms are reporting degraded data and pushing scores down; remove
+      // this clamp once the upstream source is fixed.
+      const leaderboardFloor = await this.getLeaderboardScoreFloor(wallet);
+      if (leaderboardFloor !== null && totalPoints < leaderboardFloor) {
+        console.log(
+          `[PointsServiceV2] Wallet ${wallet}: clamped ${totalPoints} -> ${leaderboardFloor} (leaderboard floor)`
+        );
+        totalPoints = leaderboardFloor;
+      }
 
       const ranks = await this.getCachedRanks();
       const rank = this.getRankForPoints(ranks, totalPoints);

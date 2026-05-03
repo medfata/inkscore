@@ -155,7 +155,7 @@ export class InkDcaService {
 
     try {
       // Fetch purchase history from InkDCA API
-      const url = `${INKDCA_API_BASE}/get-user-data?address=${walletAddress}&type=purchase-history`;
+      const url = `${INKDCA_API_BASE}/portfolio?address=${walletAddress}&type=purchase-history`;
       const response = await fetch(url);
 
       if (!response.ok) {

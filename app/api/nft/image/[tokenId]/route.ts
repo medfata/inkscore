@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createPublicClient, http } from 'viem';
 import { NFT_CONTRACT_ADDRESS, NFT_CONTRACT_ABI } from '@/lib/nft-contract';
 import { generateScoreNFTSvg } from '@/lib/services/nft-image-service';
+import { getLeaderboardScoreFloor } from '@/lib/leaderboard-cache';
 
 export const revalidate = 600;
 
@@ -77,9 +78,17 @@ export async function GET(
     }
 
     const scoreData: WalletScoreResponse = await scoreRes.json();
-    const score = scoreData.total_points;
+    let score = scoreData.total_points;
     const rank = scoreData.rank?.name || 'Unranked';
     const rankColor = scoreData.rank?.color || '#6366f1';
+
+    // TEMPORARY: redundant floor against the cached leaderboard so explorers
+    // never render a degraded score even if the api-server clamp regressed.
+    const floor = await getLeaderboardScoreFloor(walletAddress);
+    if (floor !== null && score < floor) {
+      console.log(`[NFT Image] Clamped ${score} -> ${floor} for ${walletAddress}`);
+      score = floor;
+    }
 
     console.log(`[NFT Image] Token ${tokenId}, Wallet: ${walletAddress}, Score: ${score}, Rank: ${rank}`);
     

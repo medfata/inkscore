@@ -1065,16 +1065,7 @@ router.get('/:address/score', async (req: Request, res: Response) => {
     } catch (error) {
         console.error('Failed to calculate wallet score:', error);
 
-        const { address } = req.params;
-        const emptyScore = {
-            wallet_address: address.toLowerCase(),
-            total_points: 0,
-            rank: null,
-            breakdown: { native: {}, platforms: {} },
-            last_updated: new Date(),
-        };
-
-        return res.json(emptyScore);
+        return res.status(500).json({ error: 'Failed to calculate wallet score' });
     }
 });
 
