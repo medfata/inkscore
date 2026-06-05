@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-export const runtime = 'edge';
+export const runtime = 'nodejs';
 
 const API_SERVER_URL = process.env.API_SERVER_URL || 'http://localhost:4000';
 

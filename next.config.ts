@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Standalone server bundle for self-hosted Docker (Hetzner)
+  output: 'standalone',
+  // Single next/image usage; skip server-side optimization (no sharp dependency)
+  images: { unoptimized: true },
   // Empty turbopack config to silence the warning (webpack config kept for Vercel builds)
   turbopack: {},
   // Exclude server-only packages from client bundle

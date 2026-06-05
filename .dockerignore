@@ -1,0 +1,25 @@
+# Dependencies & build output (reinstalled/rebuilt inside the image)
+**/node_modules
+.next
+**/.next
+out
+
+# Other services — not part of the Next.js build
+indexer
+api-server
+
+# VCS, env, local junk
+.git
+.gitignore
+.env
+.env.*
+.codex-logs
+**/*.log
+nul
+.vscode
+.idea
+
+# Docs & tests
+**/*.md
+**/__tests__
+coverage

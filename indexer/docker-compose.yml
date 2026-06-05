@@ -98,6 +98,47 @@ services:
       timeout: 10s
       retries: 3
 
+  # Next.js Frontend + API - migrated off Vercel.
+  # Builds the repo-root Dockerfile (standalone output). Internal only;
+  # cloudflared provides public ingress. Reaches api-server over this network.
+  web:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: ${NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID}
+        NEXT_PUBLIC_NFT_CONTRACT_ADDRESS: ${NEXT_PUBLIC_NFT_CONTRACT_ADDRESS}
+        NEXT_PUBLIC_ENABLE_STREAMING: ${NEXT_PUBLIC_ENABLE_STREAMING:-true}
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+      api-server:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://ink:${DB_PASSWORD}@postgres:5432/ink_analytics
+      API_SERVER_URL: http://api-server:4000
+      # ranks/route.ts reads NEXT_PUBLIC_API_URL (not API_SERVER_URL); supply both
+      NEXT_PUBLIC_API_URL: http://api-server:4000
+      ADMIN_WALLETS: ${ADMIN_WALLETS}
+      NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: ${NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID}
+      NEXT_PUBLIC_NFT_CONTRACT_ADDRESS: ${NEXT_PUBLIC_NFT_CONTRACT_ADDRESS}
+      NEXT_PUBLIC_ENABLE_STREAMING: ${NEXT_PUBLIC_ENABLE_STREAMING:-true}
+    expose:
+      - "3000"
+
+  # Cloudflare Tunnel - public ingress with zero open inbound ports.
+  # Create the tunnel in the Cloudflare Zero Trust dashboard, route the hostname
+  # to http://web:3000, and put the token in .env as CF_TUNNEL_TOKEN.
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: always
+    command: tunnel run
+    environment:
+      TUNNEL_TOKEN: ${CF_TUNNEL_TOKEN}
+    depends_on:
+      - web
+
 volumes:
   postgres_data:
   csv_exports:
