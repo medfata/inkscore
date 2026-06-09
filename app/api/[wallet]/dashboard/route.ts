@@ -23,15 +23,28 @@ query UseProfileActivityQuery($addresses: [Address!], $filter: ProfileActivityFi
  * Fetch OpenSea buy/sale/mint counts directly from OpenSea GraphQL API (runs on Vercel).
  * Bypasses Express server which can't reliably reach OpenSea from datacenter IP.
  */
+const OPENSEA_DISABLED = process.env.DISABLE_OPENSEA === 'true';
+const OPENSEA_BUDGET_MS = 12000;
+const OPENSEA_MAX_429_RETRIES = 2;
+
 async function fetchOpenSeaCounts(walletAddress: string): Promise<{ buys: number; sales: number; mints: number }> {
+  if (OPENSEA_DISABLED) {
+    console.warn('[OpenSea-Vercel] disabled via DISABLE_OPENSEA, returning zeros');
+    return { buys: 0, sales: 0, mints: 0 };
+  }
   const normalized = walletAddress.toLowerCase();
   const allItems: Array<{ type: string; from?: { address: string }; to?: { address: string }; transactionHash: string }> = [];
   let cursor: string | null = null;
   let hasMore = true;
   let page = 0;
+  let rateLimitRetries = 0;
   const start = Date.now();
 
   while (hasMore && page < 8) {
+    if (Date.now() - start > OPENSEA_BUDGET_MS) {
+      console.warn(`[OpenSea-Vercel] budget exceeded (${OPENSEA_BUDGET_MS}ms), returning partial counts`);
+      break;
+    }
     page++;
     try {
       const controller = new AbortController();
@@ -55,8 +68,13 @@ async function fetchOpenSeaCounts(walletAddress: string): Promise<{ buys: number
       clearTimeout(timeout);
 
       if (res.status === 429) {
+        rateLimitRetries++;
+        if (rateLimitRetries > OPENSEA_MAX_429_RETRIES) {
+          console.warn(`[OpenSea-Vercel] giving up after ${OPENSEA_MAX_429_RETRIES} rate-limit retries`);
+          break;
+        }
         const wait = parseInt(res.headers.get('Retry-After') || '3') * 1000;
-        console.warn(`[OpenSea-Vercel] page ${page} rate limited, waiting ${wait}ms`);
+        console.warn(`[OpenSea-Vercel] page ${page} rate limited, waiting ${wait}ms (retry ${rateLimitRetries}/${OPENSEA_MAX_429_RETRIES})`);
         await new Promise(r => setTimeout(r, wait));
         page--;
         continue;
@@ -142,6 +160,7 @@ async function getStreamingDashboard(walletAddress: string) {
       // Shared OpenSea fetch — both buy and sale metrics reuse this single promise.
       // Also pushes counts to Express cache so the score endpoint can use them.
       const openSeaCountsPromise = fetchOpenSeaCounts(walletAddress).then(async (counts) => {
+        if (OPENSEA_DISABLED) return counts;
         // Push to Express cache so score endpoint doesn't need to call OpenSea API
         try {
           await fetch(`${API_SERVER_URL}/api/analytics/${walletAddress}/opensea-cache`, {
@@ -162,8 +181,12 @@ async function getStreamingDashboard(walletAddress: string) {
         { id: 'bridge', fetch: () => fetchFromExpress(`/api/wallet/${walletAddress}/bridge`) },
         { id: 'swap', fetch: () => fetchFromExpress(`/api/wallet/${walletAddress}/swap`) },
         { id: 'volume', fetch: () => fetchFromExpress(`/api/wallet/${walletAddress}/volume`) },
-        // Score waits for OpenSea cache to be populated first, so Express has the counts ready
-        { id: 'score', fetch: async () => { await openSeaCountsPromise; return fetchFromExpress(`/api/wallet/${walletAddress}/score`, SCORE_TIMEOUT_MS); } },
+        // Score waits for OpenSea cache to be populated first, so Express has the counts ready.
+        // Capped wait — score must stream even if OpenSea hangs or is rate limited.
+        { id: 'score', fetch: async () => {
+          await Promise.race([openSeaCountsPromise, new Promise(r => setTimeout(r, OPENSEA_BUDGET_MS + 3000))]);
+          return fetchFromExpress(`/api/wallet/${walletAddress}/score`, SCORE_TIMEOUT_MS);
+        } },
         { id: 'analytics', fetch: () => fetchFromExpress(`/api/analytics/${walletAddress}`) },
         { id: 'cards', fetch: () => fetchFromExpress(`/api/dashboard/cards/${walletAddress}`) },
         { id: 'marvk', fetch: () => fetchFromExpress(`/api/marvk/${walletAddress}`) },
@@ -328,6 +351,7 @@ export async function GET(
 
     // Step 1: Fetch OpenSea counts from Vercel + push to Express cache + fetch non-score metrics in parallel
     const openSeaPromise = fetchOpenSeaCounts(walletAddress).then(async (counts) => {
+      if (OPENSEA_DISABLED) return counts;
       try {
         await fetch(`${API_SERVER_URL}/api/analytics/${walletAddress}/opensea-cache`, {
           method: 'POST',
