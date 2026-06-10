@@ -130,15 +130,23 @@ interface Operation {
 }
 
 function parseOftSentAmount(data: string): bigint {
-    const cleanData = data.startsWith('0x') ? data.slice(2) : data;
-    const amountHex = cleanData.slice(64, 128);
-    return BigInt('0x' + amountHex);
+    try {
+        const cleanData = data.startsWith('0x') ? data.slice(2) : data;
+        const amountHex = cleanData.slice(64, 128);
+        return amountHex ? BigInt('0x' + amountHex) : BigInt(0);
+    } catch {
+        return BigInt(0);
+    }
 }
 
 function parseOftReceivedAmount(data: string): bigint {
-    const cleanData = data.startsWith('0x') ? data.slice(2) : data;
-    const amountHex = cleanData.slice(64, 128);
-    return BigInt('0x' + amountHex);
+    try {
+        const cleanData = data.startsWith('0x') ? data.slice(2) : data;
+        const amountHex = cleanData.slice(64, 128);
+        return amountHex ? BigInt('0x' + amountHex) : BigInt(0);
+    } catch {
+        return BigInt(0);
+    }
 }
 
 function extractAddressFromTopic(topic: string): string {
@@ -147,14 +155,19 @@ function extractAddressFromTopic(topic: string): string {
 }
 
 // Parse SocketBridge event: (uint256 amount, address token, uint256 toChainId, bytes32 bridgeName, address sender, address receiver, bytes32 metadata)
-function parseSocketBridgeEvent(data: string): { amount: bigint; token: string } {
-    const cleanData = data.startsWith('0x') ? data.slice(2) : data;
-    // SocketBridge: amount is first 32 bytes, token is second 32 bytes
-    const amountHex = cleanData.slice(0, 64);
-    const amount = BigInt('0x' + amountHex);
-    const tokenHex = cleanData.slice(64, 128);
-    const token = '0x' + tokenHex.slice(-40).toLowerCase();
-    return { amount, token };
+// Returns null on malformed data so one bad log cannot fail the whole route.
+function parseSocketBridgeEvent(data: string): { amount: bigint; token: string } | null {
+    try {
+        const cleanData = data.startsWith('0x') ? data.slice(2) : data;
+        // SocketBridge: amount is first 32 bytes, token is second 32 bytes
+        const amountHex = cleanData.slice(0, 64);
+        const amount = BigInt('0x' + amountHex);
+        const tokenHex = cleanData.slice(64, 128);
+        const token = '0x' + tokenHex.slice(-40).toLowerCase();
+        return { amount, token };
+    } catch {
+        return null;
+    }
 }
 
 // Parse SocketSwapTokens event: (address fromToken, address toToken, uint256 buyAmount, uint256 sellAmount, bytes32 routeName, address receiver, bytes32 metadata)
@@ -222,9 +235,21 @@ router.get('/:address/bridge', async (req: Request, res: Response) => {
             // Use fallback price
         }
 
-        // 1. Query Relay/Ink Official bridge IN transactions
-        try {
-            const relayResult = await pool.query(
+        // Run all bridge queries in parallel instead of sequentially.
+        // Each query falls back to empty rows on failure so one bad query
+        // cannot fail the whole route (same behavior as the old per-section catch).
+        const dbStart = Date.now();
+        const emptyRows = { rows: [] as any[] };
+        const [
+            relayResult,
+            relayOutResult,
+            nativeBridgeInResult,
+            bridgeOutResult,
+            bungeeInResult,
+            bungeeOutResult,
+            bungeeGatewayResult,
+        ] = await Promise.all([
+            pool.query(
                 `SELECT
            tx_hash, method_id, operations, value,
            COALESCE(eth_value_decimal, 0) as eth_value_decimal,
@@ -233,8 +258,61 @@ router.get('/:address/bridge', async (req: Request, res: Response) => {
          WHERE LOWER(contract_address) = LOWER($1)
            AND related_wallets @> ARRAY[$3]::text[]`,
                 [RELAY_WALLET, ethPrice, walletAddress]
-            );
+            ).catch(e => { console.error('Error querying Relay/Ink Official:', e instanceof Error ? e.message : e); return emptyRows; }),
+            pool.query(
+                `SELECT tx_hash, value, method_id,
+           COALESCE(eth_value_decimal, 0) as eth_value_decimal,
+           COALESCE(eth_price_usd, $2) as eth_price_usd
+         FROM transaction_enrichment
+         WHERE LOWER(contract_address) = LOWER($1)
+           AND LOWER(wallet_address) = LOWER($3)`,
+                [RELAY_DEPOSIT_CONTRACT, ethPrice, walletAddress]
+            ).catch(e => { console.error('Error querying Relay/Ink Official OUT:', e instanceof Error ? e.message : e); return emptyRows; }),
+            pool.query(
+                `SELECT tx_hash, logs
+         FROM transaction_enrichment
+         WHERE LOWER(contract_address) = LOWER($1)
+           AND related_wallets @> ARRAY[$2]::text[]`,
+                [LZ_EXECUTOR_ADDRESS, walletAddress]
+            ).catch(e => { console.error('Error querying Native Bridge IN:', e instanceof Error ? e.message : e); return emptyRows; }),
+            pool.query(
+                `SELECT tx_hash, logs
+         FROM transaction_enrichment
+         WHERE LOWER(contract_address) = LOWER($1)
+           AND LOWER(wallet_address) = LOWER($2)
+           AND logs IS NOT NULL`,
+                [OFT_ADAPTER_ADDRESS, walletAddress]
+            ).catch(e => { console.error('Error querying Native Bridge OUT:', e instanceof Error ? e.message : e); return emptyRows; }),
+            pool.query(
+                `SELECT tx_hash, operations, logs, value,
+           COALESCE(eth_value_decimal, 0) as eth_value_decimal,
+           COALESCE(eth_price_usd, $2) as eth_price_usd
+         FROM transaction_enrichment
+         WHERE LOWER(contract_address) = LOWER($1)
+           AND related_wallets @> ARRAY[$3]::text[]`,
+                [BUNGEE_FULFILLMENT_CONTRACT, ethPrice, walletAddress]
+            ).catch(e => { console.error('Error querying Bungee IN:', e instanceof Error ? e.message : e); return emptyRows; }),
+            pool.query(
+                `SELECT tx_hash, value,
+           COALESCE(eth_value_decimal, 0) as eth_value_decimal,
+           COALESCE(eth_price_usd, $2) as eth_price_usd
+         FROM transaction_enrichment
+         WHERE LOWER(contract_address) = LOWER($1)
+           AND LOWER(wallet_address) = LOWER($3)`,
+                [BUNGEE_REQUEST_CONTRACT, ethPrice, walletAddress]
+            ).catch(e => { console.error('Error querying Bungee OUT:', e instanceof Error ? e.message : e); return emptyRows; }),
+            pool.query(
+                `SELECT tx_hash, logs, operations, eth_value_decimal, eth_price_usd, total_usd_volume, value
+         FROM transaction_enrichment
+         WHERE LOWER(contract_address) = LOWER($1)
+           AND LOWER(wallet_address) = LOWER($2)`,
+                [BUNGEE_SOCKET_GATEWAY, walletAddress]
+            ).catch(e => { console.error('Error querying Bungee Gateway:', e instanceof Error ? e.message : e); return emptyRows; }),
+        ]);
+        console.log(`[Bridge ${walletAddress}] all bridge queries completed in ${Date.now() - dbStart}ms`);
 
+        // 1. Process Relay/Ink Official bridge IN transactions
+        try {
             for (const row of relayResult.rows) {
                 let operations: Operation[] = [];
                 try {
@@ -275,18 +353,8 @@ router.get('/:address/bridge', async (req: Request, res: Response) => {
         }
 
 
-        // 1b. Query Relay/Ink Official bridge OUT transactions (depositNative)
+        // 1b. Process Relay/Ink Official bridge OUT transactions (depositNative)
         try {
-            const relayOutResult = await pool.query(
-                `SELECT tx_hash, value, method_id,
-           COALESCE(eth_value_decimal, 0) as eth_value_decimal,
-           COALESCE(eth_price_usd, $2) as eth_price_usd
-         FROM transaction_enrichment
-         WHERE LOWER(contract_address) = LOWER($1)
-           AND LOWER(wallet_address) = LOWER($3)`,
-                [RELAY_DEPOSIT_CONTRACT, ethPrice, walletAddress]
-            );
-
             let sharedBridgeOutEth = 0;
             let sharedBridgeOutUsd = 0;
             let sharedBridgeOutCount = 0;
@@ -324,16 +392,8 @@ router.get('/:address/bridge', async (req: Request, res: Response) => {
             console.error('Error querying Relay/Ink Official OUT:', dbError instanceof Error ? dbError.message : dbError);
         }
 
-        // 2a. Query Native Bridge (USDT0) IN transactions
+        // 2a. Process Native Bridge (USDT0) IN transactions
         try {
-            const nativeBridgeInResult = await pool.query(
-                `SELECT tx_hash, logs
-         FROM transaction_enrichment
-         WHERE LOWER(contract_address) = LOWER($1)
-           AND related_wallets @> ARRAY[$2]::text[]`,
-                [LZ_EXECUTOR_ADDRESS, walletAddress]
-            );
-
             for (const row of nativeBridgeInResult.rows) {
                 const logs: OftEventLog[] = typeof row.logs === 'string' ? JSON.parse(row.logs) : row.logs;
                 if (!Array.isArray(logs)) continue;
@@ -367,17 +427,8 @@ router.get('/:address/bridge', async (req: Request, res: Response) => {
             console.error('Error querying Native Bridge IN:', dbError instanceof Error ? dbError.message : dbError);
         }
 
-        // 2b. Query Native Bridge (USDT0) OUT transactions
+        // 2b. Process Native Bridge (USDT0) OUT transactions
         try {
-            const bridgeOutResult = await pool.query(
-                `SELECT tx_hash, logs
-         FROM transaction_enrichment
-         WHERE LOWER(contract_address) = LOWER($1)
-           AND LOWER(wallet_address) = LOWER($2)
-           AND logs IS NOT NULL`,
-                [OFT_ADAPTER_ADDRESS, walletAddress]
-            );
-
             for (const row of bridgeOutResult.rows) {
                 const logs: OftEventLog[] = typeof row.logs === 'string' ? JSON.parse(row.logs) : row.logs;
                 if (!Array.isArray(logs)) continue;
@@ -412,19 +463,9 @@ router.get('/:address/bridge', async (req: Request, res: Response) => {
         }
 
 
-        // 3. Query Bungee bridge transactions
+        // 3. Process Bungee bridge transactions
         try {
             // 3a. Bungee Bridge IN (PerformFulfilment)
-            const bungeeInResult = await pool.query(
-                `SELECT tx_hash, operations, logs, value,
-           COALESCE(eth_value_decimal, 0) as eth_value_decimal,
-           COALESCE(eth_price_usd, $2) as eth_price_usd
-         FROM transaction_enrichment
-         WHERE LOWER(contract_address) = LOWER($1)
-           AND related_wallets @> ARRAY[$3]::text[]`,
-                [BUNGEE_FULFILLMENT_CONTRACT, ethPrice, walletAddress]
-            );
-
             for (const row of bungeeInResult.rows) {
                 let operations: Operation[] = [];
                 try {
@@ -467,16 +508,6 @@ router.get('/:address/bridge', async (req: Request, res: Response) => {
             }
 
             // 3b. Bungee Bridge OUT (CreateRequest)
-            const bungeeOutResult = await pool.query(
-                `SELECT tx_hash, value,
-           COALESCE(eth_value_decimal, 0) as eth_value_decimal,
-           COALESCE(eth_price_usd, $2) as eth_price_usd
-         FROM transaction_enrichment
-         WHERE LOWER(contract_address) = LOWER($1)
-           AND LOWER(wallet_address) = LOWER($3)`,
-                [BUNGEE_REQUEST_CONTRACT, ethPrice, walletAddress]
-            );
-
             for (const row of bungeeOutResult.rows) {
                 let ethValue = parseFloat(row.eth_value_decimal || '0');
                 if (ethValue === 0 && row.value) {
@@ -499,14 +530,6 @@ router.get('/:address/bridge', async (req: Request, res: Response) => {
             }
 
             // 3c. Legacy Socket Gateway transactions - MUST check for SocketBridge event to distinguish from swaps
-            const bungeeGatewayResult = await pool.query(
-                `SELECT tx_hash, logs, operations, eth_value_decimal, eth_price_usd, total_usd_volume, value
-         FROM transaction_enrichment
-         WHERE LOWER(contract_address) = LOWER($1)
-           AND LOWER(wallet_address) = LOWER($2)`,
-                [BUNGEE_SOCKET_GATEWAY, walletAddress]
-            );
-
             for (const row of bungeeGatewayResult.rows) {
                 // Parse logs to check for bridge vs swap
                 let logs: OftEventLog[] = [];
@@ -728,7 +751,7 @@ async function getTokenInfo(tokenAddress: string): Promise<TokenInfo> {
     try {
         // Use DeFi Llama API for Ink Chain
         const llamaUrl = `https://coins.llama.fi/prices/current/ink:${tokenAddress}`;
-        const response = await fetch(llamaUrl, { method: 'GET', headers: { 'Accept': 'application/json' } });
+        const response = await fetch(llamaUrl, { method: 'GET', headers: { 'Accept': 'application/json' }, signal: AbortSignal.timeout(3000) });
 
         if (response.ok) {
             const data: any = await response.json();
@@ -1195,7 +1218,7 @@ async function getBtcPrice(): Promise<number> {
         return btcPriceCache.price;
     }
     try {
-        const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd');
+        const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd', { signal: AbortSignal.timeout(3000) });
         if (response.ok) {
             const data = await response.json() as { bitcoin?: { usd?: number } };
             const price = data.bitcoin?.usd || 95000;

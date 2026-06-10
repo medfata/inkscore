@@ -104,7 +104,7 @@ export class WalletStatsService {
       const url = `${ROUTESCAN_BASE_URL}/blockchain/all/address/${walletAddress}?excludedChainIds=1682324,2061,80002,4202,295&ecosystem=all`;
       
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
       
       const response = await fetch(url, { 
         signal: controller.signal,
@@ -154,7 +154,7 @@ export class WalletStatsService {
       const url = `${ROUTESCAN_BASE_URL}/evm/all/transactions?fromAddresses=${walletAddress}&toAddresses=${walletAddress}&includedChainIds=${INK_CHAIN_ID}&count=true&limit=1&sort=asc`;
       
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
       
       const response = await fetch(url, { 
         signal: controller.signal,
@@ -193,13 +193,17 @@ export class WalletStatsService {
 
     try {
       let hasMore = true;
-      while (hasMore) {
+      const paginationDeadline = Date.now() + 5000; // 5s max for all pages
+      while (hasMore && Date.now() < paginationDeadline) {
         const baseUrl = `${ROUTESCAN_BASE_URL}/evm/all/address/${walletAddress}/nft-holdings?includedChainIds=${INK_CHAIN_ID}&count=true&limit=500`;
         const fetchUrl: string = nextToken
           ? `${baseUrl}&next=${encodeURIComponent(nextToken)}`
           : baseUrl;
 
-        const response: Response = await fetch(fetchUrl);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3000);
+        const response: Response = await fetch(fetchUrl, { signal: controller.signal });
+        clearTimeout(timeoutId);
 
         if (!response.ok) {
           throw new Error(`Routescan API error: ${response.status}`);
@@ -265,7 +269,10 @@ export class WalletStatsService {
     }
 
     try {
-      const response = await fetch(`${COINGECKO_API}/simple/price?ids=bitcoin&vs_currencies=usd`);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000);
+      const response = await fetch(`${COINGECKO_API}/simple/price?ids=bitcoin&vs_currencies=usd`, { signal: controller.signal });
+      clearTimeout(timeoutId);
       
       if (!response.ok) {
         console.error(`CoinGecko API error: ${response.status}`);
@@ -299,7 +306,10 @@ export class WalletStatsService {
 
     try {
       const addresses = tokenAddresses.join(',');
-      const response = await fetch(`${DEXSCREENER_API}/${addresses}`);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000);
+      const response = await fetch(`${DEXSCREENER_API}/${addresses}`, { signal: controller.signal });
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         console.error(`DexScreener API error: ${response.status}`);
@@ -352,13 +362,17 @@ export class WalletStatsService {
 
     try {
       let hasMore = true;
-      while (hasMore) {
+      const paginationDeadline = Date.now() + 5000; // 5s max for all pages
+      while (hasMore && Date.now() < paginationDeadline) {
         const baseUrl = `${ROUTESCAN_BASE_URL}/evm/all/address/${walletAddress}/erc20-holdings?includedChainIds=${INK_CHAIN_ID}&limit=500`;
         const fetchUrl: string = nextToken
           ? `${baseUrl}&next=${encodeURIComponent(nextToken)}`
           : baseUrl;
 
-        const response: Response = await fetch(fetchUrl);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3000);
+        const response: Response = await fetch(fetchUrl, { signal: controller.signal });
+        clearTimeout(timeoutId);
 
         if (!response.ok) {
           throw new Error(`Routescan API error: ${response.status}`);

@@ -307,37 +307,6 @@ router.get('/:wallet/zns', async (req: Request, res: Response) => {
 });
 
 // ============================================
-// POST /api/analytics/:wallet/opensea-cache - Receive OpenSea counts from Vercel
-// ============================================
-router.post('/:wallet/opensea-cache', async (req: Request, res: Response) => {
-  try {
-    const { wallet } = req.params;
-    if (!isValidAddress(wallet)) {
-      return res.status(400).json({ error: 'Invalid wallet address format' });
-    }
-
-    const { buys, sales, mints } = req.body;
-    if (typeof buys !== 'number' || typeof sales !== 'number' || typeof mints !== 'number') {
-      return res.status(400).json({ error: 'buys, sales, and mints must be numbers' });
-    }
-
-    const walletLower = wallet.toLowerCase();
-    openSeaService.setCachedCounts(walletLower, buys, sales, mints);
-
-    // Invalidate stale responseCache entries so the next score calculation
-    // reads the fresh counts from openSeaService rather than a cached 0
-    responseCache.delete(`analytics:opensea_buy_count:${walletLower}`);
-    responseCache.delete(`analytics:opensea_sale_count:${walletLower}`);
-    responseCache.delete(`wallet:score:${walletLower}`);
-
-    res.json({ ok: true });
-  } catch (error) {
-    console.error('Error setting OpenSea cache:', error);
-    res.status(500).json({ error: 'Failed to set OpenSea cache' });
-  }
-});
-
-// ============================================
 // GET /api/analytics/:wallet/:metric - Get specific metric for a wallet
 // ============================================
 router.get('/:wallet/:metric', async (req: Request, res: Response) => {
@@ -396,7 +365,10 @@ router.get('/:wallet/:metric', async (req: Request, res: Response) => {
       const walletLower = wallet.toLowerCase();
 const externalApiUrl = `https://www.gm.ink/api/gm-data?address=${walletLower}`;
 
-      const response = await fetch(externalApiUrl);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000);
+      const response = await fetch(externalApiUrl, { signal: controller.signal });
+      clearTimeout(timeoutId);
       if (!response.ok) {
         return res.status(502).json({ error: 'Failed to fetch GM data from external API' });
       }
@@ -453,7 +425,7 @@ const externalApiUrl = `https://www.gm.ink/api/gm-data?address=${walletLower}`;
       return res.json(result);
     }
 
-    // Special handling for opensea_buy_count (uses OpenSea GraphQL API)
+    // Special handling for opensea_buy_count (uses OpenSea v2 REST API)
     if (metric === 'opensea_buy_count') {
       const counts = await openSeaService.getAllCounts(wallet);
 
@@ -548,7 +520,7 @@ const externalApiUrl = `https://www.gm.ink/api/gm-data?address=${walletLower}`;
       return res.json(result);
     }
 
-    // Special handling for opensea_sale_count (uses OpenSea GraphQL API)
+    // Special handling for opensea_sale_count (uses OpenSea v2 REST API)
     if (metric === 'opensea_sale_count') {
       const counts = await openSeaService.getAllCounts(wallet);
 
@@ -1059,13 +1031,17 @@ const externalApiUrl = `https://www.gm.ink/api/gm-data?address=${walletLower}`;
         let allOrders: any[] = [];
         let offset = 0;
         let hasMorePages = true;
+        const cowSwapDeadline = Date.now() + 3000; // 3s max
 
-        // Paginate through all orders
-        while (hasMorePages) {
+        // Paginate through all orders (with 3s global deadline)
+        while (hasMorePages && Date.now() < cowSwapDeadline) {
           const ordersUrl = `${COW_SWAP_CONFIG.apiBaseUrl}/account/${walletLower}/orders?offset=${offset}&limit=${COW_SWAP_CONFIG.pageSize}`;
           
           try {
-            const response = await fetch(ordersUrl);
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 2000);
+            const response = await fetch(ordersUrl, { signal: controller.signal });
+            clearTimeout(timeoutId);
             if (!response.ok) {
               console.error(`Cow Swap API error: ${response.status}`);
               break;
@@ -1116,10 +1092,14 @@ const externalApiUrl = `https://www.gm.ink/api/gm-data?address=${walletLower}`;
               .join(',');
             
             const priceUrl = `https://coins.llama.fi/prices/current/${addressList}`;
+            const priceController = new AbortController();
+            const priceTimeoutId = setTimeout(() => priceController.abort(), 2000);
             const priceResponse = await fetch(priceUrl, { 
               method: 'GET', 
-              headers: { 'Accept': 'application/json' } 
+              headers: { 'Accept': 'application/json' },
+              signal: priceController.signal,
             });
+            clearTimeout(priceTimeoutId);
             
             if (priceResponse.ok) {
               const priceData = await priceResponse.json() as { 
