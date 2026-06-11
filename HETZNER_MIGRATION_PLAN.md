@@ -173,6 +173,7 @@ Run Caddy as a service, open 80/443 on the Hetzner firewall, Cloudflare SSL = Fu
 
 1. Stand up the new stack on Hetzner under a temp hostname (`staging.<domain>` via the tunnel). Smoke test: home, a wallet dashboard (SSE streams), `/api/nft/image/1`, leaderboard, an admin route.
 2. Verify env parity: copy every Vercel project env var into the box `.env`. Cross-check against `.env.example` (`DATABASE_URL`, `API_SERVER_URL`, `CRON_SECRET`, `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID`, `ADMIN_WALLETS`, `NEXT_PUBLIC_NFT_CONTRACT_ADDRESS`, `NEXT_PUBLIC_ENABLE_STREAMING`). Skip `REDIS_URL` — unused by the code.
+   **Also required (read by code, not in `.env.example`):** `NFT_SIGNER_PRIVATE_KEY` (NFT mint authorization — `app/api/nft/authorize`), `GOOGLE_CLIENT_EMAIL` / `GOOGLE_PRIVATE_KEY` / `GOOGLE_SHEET_COLAB_REQUEST_ID` (colab requests via Google Sheets; keep `\n` escaped in the key — code unescapes it). The compose `environment:` block whitelists vars — putting a var in `.env` alone does NOT reach the container; it must be listed in the `web` service (done in `indexer/docker-compose.yml`).
 3. **Check the Vercel dashboard for Cron Jobs** — none are in `vercel.json`, but confirm none were added in the UI. If any exist, replace with a `cron` container or a host crontab cur(using `CRON_SECRET`).
 4. Flip DNS / tunnel route for the apex/`www` to the box. TTL low beforehand.
 5. Watch logs (`docker compose logs -f web`) and Cloudflare analytics for errors.
@@ -213,10 +214,8 @@ Sources:
 
 ## Migration risks (verified in code)
 
-### R1 — OpenSea fetch from a datacenter IP (HIGH)
-`app/api/[wallet]/dashboard/route.ts:22-24` fetches OpenSea GraphQL **directly from the Next server** with the comment: *"runs on Vercel. Bypasses Express server which can't reliably reach OpenSea from datacenter IP."* Today that call originates from Vercel's IPs. After migration it originates from the **Hetzner datacenter IP — the exact thing the code says is unreliable for the Express box.** OpenSea buy/sale/mint counts may rate-limit or fail post-cutover.
-- **Test during Phase 4 staging:** load a dashboard on the box, confirm OpenSea counts populate.
-- **If broken:** route that one fetch through a proxy/residential egress, or accept degraded counts. Do not discover this at cutover.
+### R1 — OpenSea fetch from a datacenter IP — RESOLVED (was HIGH)
+~~The dashboard route fetched OpenSea GraphQL directly from the Next server (a Vercel-IP workaround).~~ After merging main (`7524527 disabled opensea` + opensea-service rewrite), the dashboard fetches OpenSea counts from `api-server` (`/api/analytics/:wallet/opensea_*_count`), which serves them from the `opensea_wallet_counts` Postgres table (auto-created via `CREATE TABLE IF NOT EXISTS`). No direct OpenSea call from the web container remains — nothing IP-sensitive moves in this migration. Still smoke-test OpenSea counts on staging in Phase 4.
 
 ### R2 — `cached_leaderboard` table must exist on the box's Postgres
 The leaderboard cache reads/writes the `cached_leaderboard` table (`lib/leaderboard-cache.ts`). The box's Postgres already serves the indexer + api-server, so the schema should be present — **verify the table exists** before cutover (it's not Redis; it's a real table).

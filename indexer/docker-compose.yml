@@ -124,8 +124,22 @@ services:
       NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: ${NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID}
       NEXT_PUBLIC_NFT_CONTRACT_ADDRESS: ${NEXT_PUBLIC_NFT_CONTRACT_ADDRESS}
       NEXT_PUBLIC_ENABLE_STREAMING: ${NEXT_PUBLIC_ENABLE_STREAMING:-true}
+      # nft/authorize/route.ts signs mint authorizations with this key
+      NFT_SIGNER_PRIVATE_KEY: ${NFT_SIGNER_PRIVATE_KEY}
+      # google-sheets-service (colab requests); private key keeps \n escaped in .env
+      GOOGLE_CLIENT_EMAIL: ${GOOGLE_CLIENT_EMAIL}
+      GOOGLE_PRIVATE_KEY: ${GOOGLE_PRIVATE_KEY}
+      GOOGLE_SHEET_COLAB_REQUEST_ID: ${GOOGLE_SHEET_COLAB_REQUEST_ID}
+      RPC_URL: ${RPC_URL:-https://rpc-gel.inkonchain.com}
+      # points-service-v2 self-fetch base; default resolves inside the container
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
     expose:
       - "3000"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   # Cloudflare Tunnel - public ingress with zero open inbound ports.
   # Create the tunnel in the Cloudflare Zero Trust dashboard, route the hostname
@@ -137,7 +151,8 @@ services:
     environment:
       TUNNEL_TOKEN: ${CF_TUNNEL_TOKEN}
     depends_on:
-      - web
+      web:
+        condition: service_healthy
 
 volumes:
   postgres_data:
