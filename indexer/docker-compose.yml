@@ -13,10 +13,19 @@
 
 version: "3.8"
 
+# Log rotation for every service — without this json-file logs grow unbounded
+# (bit us on the VPS root disk 2026-06-10).
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "20m"
+    max-file: "3"
+
 services:
   postgres:
     image: postgres:16-alpine
     restart: always
+    logging: *default-logging
     environment:
       POSTGRES_USER: ink
       POSTGRES_PASSWORD: ${DB_PASSWORD}
@@ -40,6 +49,7 @@ services:
   indexer-backfill:
     build: .
     restart: always
+    logging: *default-logging
     depends_on:
       postgres:
         condition: service_healthy
@@ -56,6 +66,7 @@ services:
   indexer-realtime:
     build: .
     restart: always
+    logging: *default-logging
     depends_on:
       postgres:
         condition: service_healthy
@@ -71,6 +82,7 @@ services:
   indexer-enrichment:
     build: .
     restart: always
+    logging: *default-logging
     depends_on:
       postgres:
         condition: service_healthy
@@ -83,6 +95,7 @@ services:
   api-server:
     build: ../api-server
     restart: always
+    logging: *default-logging
     depends_on:
       postgres:
         condition: service_healthy
@@ -110,6 +123,7 @@ services:
         NEXT_PUBLIC_NFT_CONTRACT_ADDRESS: ${NEXT_PUBLIC_NFT_CONTRACT_ADDRESS}
         NEXT_PUBLIC_ENABLE_STREAMING: ${NEXT_PUBLIC_ENABLE_STREAMING:-true}
     restart: always
+    logging: *default-logging
     depends_on:
       postgres:
         condition: service_healthy
@@ -147,6 +161,7 @@ services:
   cloudflared:
     image: cloudflare/cloudflared:latest
     restart: always
+    logging: *default-logging
     command: tunnel run
     environment:
       TUNNEL_TOKEN: ${CF_TUNNEL_TOKEN}
