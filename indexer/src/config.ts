@@ -6,6 +6,12 @@ export const config = {
   rpcUrl: process.env.RPC_URL || 'https://rpc-qnd.inkonchain.com',
   pollIntervalMs: parseInt(process.env.POLL_INTERVAL_MS || '15000'),
   chainId: 57073, // Ink Mainnet
+  // Routescan API key. Leave empty for anonymous (rate-limited) access.
+  // The literal 'REPLACE_WITH_REAL_KEY' sentinel is treated as "unset".
+  routescanApiKey:
+    process.env.ROUTESCAN_API_KEY && process.env.ROUTESCAN_API_KEY.trim() !== 'REPLACE_WITH_REAL_KEY'
+      ? process.env.ROUTESCAN_API_KEY.trim()
+      : '',
 };
 
 // Multiple RPC endpoints for load balancing (official Ink RPCs only)
