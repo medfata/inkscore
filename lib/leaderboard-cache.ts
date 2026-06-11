@@ -3,8 +3,12 @@ import { query, queryOne } from './db';
 const NFT_CONTRACT_ADDRESS = '0xBE1965cE0D06A79A411FFCD9a1C334638dF77649';
 const EXPLORER_API = 'https://explorer.inkonchain.com/api/v2/tokens';
 const DEAD_WALLET = '0x0000000000000000000000000000000000000000';
-const BROKEN_SCORE_WALLET = '0x4C50254DaFD191bBA2A6e0517C1742Caf1426dF5';
-const API_SERVER_URL = process.env.API_SERVER_URL || 'http://localhost:4000';
+
+// Manual score overrides for wallets whose on-chain NFT metadata is stale.
+// Applied every time the leaderboard is built from the Explorer API.
+const SCORE_OVERRIDES: Record<string, { score: number; rank?: string }> = {
+  '0x4c50254dafd191bba2a6e0517c1742caf1426df5': { score: 8700 },
+};
 
 const CACHE_TTL_HOURS = 5;
 const STALE_THRESHOLD_HOURS = 2;
@@ -43,16 +47,6 @@ interface ExplorerResponse {
   items: ExplorerNFT[];
   next_page_params: {
     unique_token: number;
-  } | null;
-}
-
-interface WalletScoreResponse {
-  wallet_address: string;
-  total_points: number;
-  rank: {
-    name: string;
-    color: string | null;
-    logo_url: string | null;
   } | null;
 }
 
@@ -201,22 +195,12 @@ async function fetchLeaderboardFromExplorer(): Promise<any[]> {
     };
   });
 
-  const brokenWalletEntry = leaderboard.find(
-    entry => entry.wallet_address.toLowerCase() === BROKEN_SCORE_WALLET.toLowerCase()
-  );
-
-  if (brokenWalletEntry) {
-    console.log(`[LeaderboardCache] Found broken wallet, fetching correct score...`);
-    try {
-      const scoreRes = await fetch(`${API_SERVER_URL}/api/wallet/${BROKEN_SCORE_WALLET.toLowerCase()}/score`);
-      if (scoreRes.ok) {
-        const scoreData: WalletScoreResponse = await scoreRes.json();
-        brokenWalletEntry.score = scoreData.total_points;
-        brokenWalletEntry.rank = scoreData.rank?.name || 'Unranked';
-        console.log(`[LeaderboardCache] Updated broken wallet score to ${scoreData.total_points}`);
-      }
-    } catch (error) {
-      console.error(`[LeaderboardCache] Failed to fetch correct score:`, error);
+  for (const entry of leaderboard) {
+    const override = SCORE_OVERRIDES[entry.wallet_address.toLowerCase()];
+    if (override) {
+      entry.score = override.score;
+      if (override.rank) entry.rank = override.rank;
+      console.log(`[LeaderboardCache] Applied score override for ${entry.wallet_address}: ${override.score}`);
     }
   }
 
@@ -262,6 +246,28 @@ export function triggerBackgroundRefresh(): void {
   });
 }
 
+function applyOverrides(leaderboard: any[]): any[] {
+  let result = leaderboard.filter(
+    (entry) => !SCORE_OVERRIDES[entry.wallet_address?.toLowerCase()]
+  );
+
+  for (const [wallet, override] of Object.entries(SCORE_OVERRIDES)) {
+    const existing = leaderboard.find(
+      (e) => e.wallet_address?.toLowerCase() === wallet
+    );
+    result.push({
+      wallet_address: existing?.wallet_address || wallet,
+      token_id: existing?.token_id || '',
+      nft_image_url: existing?.nft_image_url || '',
+      score: override.score,
+      rank: override.rank || existing?.rank || 'Unranked',
+    });
+  }
+
+  result.sort((a, b) => b.score - a.score);
+  return result;
+}
+
 export async function getLeaderboardData(): Promise<{
   leaderboard: any[];
   total: number;
@@ -279,13 +285,15 @@ export async function getLeaderboardData(): Promise<{
 
   if (!cached.isExpired && !cached.isStale) {
     console.log('[LeaderboardCache] Cache hit (valid)');
-    return { leaderboard: cached.data, total: cached.data.length, source: 'cache', lastUpdated: cached.lastUpdated };
+    const leaderboard = applyOverrides(cached.data);
+    return { leaderboard, total: leaderboard.length, source: 'cache', lastUpdated: cached.lastUpdated };
   }
 
   if (cached.isStale && !cached.isExpired) {
     console.log('[LeaderboardCache] Cache hit (stale), triggering background refresh');
     triggerBackgroundRefresh();
-    return { leaderboard: cached.data, total: cached.data.length, source: 'cache', lastUpdated: cached.lastUpdated };
+    const leaderboard = applyOverrides(cached.data);
+    return { leaderboard, total: leaderboard.length, source: 'cache', lastUpdated: cached.lastUpdated };
   }
 
   console.log('[LeaderboardCache] Cache expired (> 2 hours), fetching fresh data');

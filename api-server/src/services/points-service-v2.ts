@@ -2,11 +2,18 @@ import { query } from '../db';
 import { assetsService } from './assets-service';
 import { phase1Service } from './phase1-service';
 import { openSeaService } from './opensea-service';
+import { walletStatsService } from './wallet-stats-service';
 import {
   Rank,
   WalletPointsBreakdown,
   WalletScoreResponse,
 } from '../types/platforms';
+
+// TEMPORARY: wallets whose stored leaderboard score is known to be stale;
+// skip the floor clamp for them and trust the realtime score.
+const KNOWN_STALE_WALLETS = new Set([
+  '0x4c50254dafd191bba2a6e0517c1742caf1426df5',
+]);
 
 // Cache for ranks (1 minute TTL)
 interface RanksCache {
@@ -24,21 +31,10 @@ interface MemeTokensCache {
 let memeTokensCache: MemeTokensCache | null = null;
 const MEME_TOKENS_CACHE_TTL = 5 * 60 * 1000;
 
-// TEMPORARY: leaderboard score floor cache (5 min TTL)
+// TEMPORARY: leaderboard score floor cache (5 min TTL, per wallet)
 // Used to prevent regressions when third-party platform data is degraded.
-interface LeaderboardScoresCache {
-  scores: Map<string, number>;
-  timestamp: number;
-}
-let leaderboardScoresCache: LeaderboardScoresCache | null = null;
+const leaderboardFloorCache = new Map<string, { score: number | null; timestamp: number }>();
 const LEADERBOARD_SCORES_CACHE_TTL = 5 * 60 * 1000;
-
-type JsonResponseLike = {
-  ok: boolean;
-  status: number;
-  statusText: string;
-  json(): Promise<unknown>;
-};
 
 export class PointsServiceV2 {
   // Get meme token addresses from database
@@ -114,26 +110,28 @@ export class PointsServiceV2 {
 
   // TEMPORARY: returns stored leaderboard score for a wallet, used as a floor
   // when realtime calculation regresses due to a degraded third-party source.
+  // Extracts only the requested wallet's entry DB-side: shipping the whole
+  // leaderboard_data blob over the wire took several seconds per cold call.
   private async getLeaderboardScoreFloor(wallet: string): Promise<number | null> {
+    const key = wallet.toLowerCase();
+    const cached = leaderboardFloorCache.get(key);
+    if (cached && Date.now() - cached.timestamp < LEADERBOARD_SCORES_CACHE_TTL) {
+      return cached.score;
+    }
+
     try {
-      if (
-        !leaderboardScoresCache ||
-        Date.now() - leaderboardScoresCache.timestamp > LEADERBOARD_SCORES_CACHE_TTL
-      ) {
-        const rows = await query<{ leaderboard_data: Array<{ wallet_address?: string; score?: number }> }>(
-          `SELECT leaderboard_data FROM cached_leaderboard WHERE id = 1`
-        );
-        const data = rows[0]?.leaderboard_data || [];
-        const map = new Map<string, number>();
-        for (const entry of data) {
-          if (entry?.wallet_address && typeof entry.score === 'number') {
-            map.set(entry.wallet_address.toLowerCase(), entry.score);
-          }
-        }
-        leaderboardScoresCache = { scores: map, timestamp: Date.now() };
-      }
-      const score = leaderboardScoresCache.scores.get(wallet.toLowerCase());
-      return typeof score === 'number' ? score : null;
+      const rows = await query<{ score: string | number | null }>(
+        `SELECT entry->>'score' AS score
+           FROM cached_leaderboard, jsonb_array_elements(leaderboard_data) AS entry
+          WHERE id = 1 AND LOWER(entry->>'wallet_address') = $1
+          LIMIT 1`,
+        [key]
+      );
+      const raw = rows[0]?.score;
+      const parsed = raw === null || raw === undefined ? NaN : Number(raw);
+      const score = Number.isFinite(parsed) ? parsed : null;
+      leaderboardFloorCache.set(key, { score, timestamp: Date.now() });
+      return score;
     } catch (error) {
       console.error('[PointsServiceV2] Failed to read leaderboard score floor:', error);
       return null;
@@ -150,24 +148,6 @@ export class PointsServiceV2 {
       }
     }
     return null;
-  }
-
-  private async readOptionalJson<T>(response: JsonResponseLike | null, label: string): Promise<T | null> {
-    if (!response) {
-      return null;
-    }
-
-    if (!response.ok) {
-      console.warn(`[Score] ${label} returned HTTP ${response.status} ${response.statusText}; treating as missing`);
-      return null;
-    }
-
-    try {
-      return await response.json() as T;
-    } catch (error) {
-      console.warn(`[Score] ${label} response body failed; treating as missing:`, error);
-      return null;
-    }
   }
 
   // Manual points calculation methods
@@ -631,70 +611,132 @@ export class PointsServiceV2 {
       // Use the same endpoints as the dashboard
       const baseUrl = process.env.API_BASE_URL || 'http://localhost:4000';
 
-      // Fetch OpenSea counts directly from the service (bypasses HTTP + responseCache)
-      // This ensures we always read the freshest data from openSeaService.countsCache
-      // (which Vercel populates via POST /opensea-cache before requesting the score)
-      const openSeaCountsPromise = openSeaService.getAllCounts(wallet);
+      // Aggressive per-endpoint timeout (3.5 s) so no single slow upstream
+      // can delay the whole score beyond the ~4 s budget. The body is parsed
+      // inside the same timeout window — parsing after Promise.all would let
+      // the abort signal kill bodies whose headers arrived in time.
+      const FETCH_TIMEOUT = 3500;
+      const fetchJson = async <T>(url: string, timeout = FETCH_TIMEOUT): Promise<T | null> => {
+        try {
+          const response = await fetch(url, { signal: AbortSignal.timeout(timeout) });
+          if (!response.ok) {
+            console.warn(`[Score] ${url} returned HTTP ${response.status}; treating as missing`);
+            return null;
+          }
+          return await response.json() as T;
+        } catch (err) {
+          console.warn(`[Score] fetch timed out/failed for ${url}:`, err);
+          return null;
+        }
+      };
 
+      // Resolve with a fallback if the promise is still pending after ms. The
+      // original promise keeps running in the background, so service-level
+      // caches (wallet stats, OpenSea counts) still get filled for next time.
+      const withTimeout = <T>(promise: Promise<T>, ms: number, fallback: T, label: string): Promise<T> => {
+        let timer: NodeJS.Timeout | undefined;
+        return Promise.race([
+          promise.finally(() => clearTimeout(timer)),
+          new Promise<T>((resolve) => {
+            timer = setTimeout(() => {
+              console.warn(`[Score] ${label} exceeded ${ms}ms, continuing with fallback`);
+              resolve(fallback);
+            }, ms);
+          }),
+        ]);
+      };
+
+      // Wallet stats come straight from the service (no HTTP self-fetch):
+      // one hop less, and getAllStats has its own in-memory cache.
+      const walletStatsPromise = withTimeout<WalletStatsResponse | null>(
+        walletStatsService.getAllStats(wallet),
+        3500,
+        null,
+        'wallet stats',
+      );
+
+      // Fetch OpenSea counts directly from the service (bypasses HTTP + responseCache).
+      // The service layers memory (1h) + Postgres (24h) caches over the official
+      // v2 REST API, so warm wallets resolve instantly. Cold wallets need a real
+      // v2 fetch (~0.5s per 50-event page; the service's own budget caps it at
+      // 20s), so this cap is deliberately higher than the 3.5s batch cap —
+      // otherwise active wallets (e.g. 448 events ≈ 4.5s) lose their OpenSea
+      // points on the first-ever request. Still bounded well under the 30s
+      // upstream score timeout.
+      const OPENSEA_SCORE_CAP_MS = 15000;
+      const EMPTY_OPENSEA_COUNTS = { buys: 0, sales: 0, mints: 0, buyTransactions: [], saleTransactions: [], mintTransactions: [] };
+      const openSeaCountsPromise = withTimeout(
+        openSeaService.getAllCounts(wallet).catch((err: unknown) => {
+          console.warn('[Score] OpenSea counts failed, treating as 0:', err);
+          return EMPTY_OPENSEA_COUNTS;
+        }),
+        OPENSEA_SCORE_CAP_MS,
+        EMPTY_OPENSEA_COUNTS,
+        'OpenSea counts',
+      );
+
+      // Start the cheap DB lookups now so they overlap with the fetch batch
+      // instead of running serially after it.
+      const ranksPromise = this.getCachedRanks();
+      const leaderboardFloorPromise = KNOWN_STALE_WALLETS.has(wallet)
+        ? Promise.resolve(null)
+        : this.getLeaderboardScoreFloor(wallet);
+
+      // Every entry below is individually capped at 3.5 s, so the whole
+      // batch resolves within the budget; missing endpoints score 0 points.
+      const batchStart = Date.now();
       const [
-        walletStatsRes,
-        bridgeRes,
-        swapRes,
-        tydroRes,
-        gmRes,
-        inkyPumpCreatedRes,
-        inkyPumpBuyRes,
-        inkyPumpSellRes,
-        shelliesRafflesRes,
-        shelliesPayToPlayRes,
-        shelliesStakingRes,
-        znsRes,
-        nft2meRes,
-        nftTradingRes,
-        marvkRes,
-        nadoRes,
-        copinkRes,
-        templarsRes,
-        mintRes,
-        cowSwapRes,
-        sweepRes,
-        nftStakingRes,
-        inkDcaRes,
+        walletStats,
+        bridgeData,
+        swapData,
+        tydroData,
+        gmData,
+        inkyPumpCreated,
+        inkyPumpBuy,
+        inkyPumpSell,
+        shelliesRaffles,
+        shelliesPayToPlay,
+        shelliesStaking,
+        znsData,
+        nft2meData,
+        nftTradingData,
+        marvkData,
+        nadoData,
+        copinkData,
+        templarsData,
+        mintData,
+        cowSwapData,
+        sweepData,
+        nftStakingData,
+        inkDcaData,
         openSeaCounts
       ] = await Promise.all([
-        fetch(`${baseUrl}/api/wallet/${wallet}/stats`),
-        fetch(`${baseUrl}/api/wallet/${wallet}/bridge`),
-        fetch(`${baseUrl}/api/wallet/${wallet}/swap`),
-        fetch(`${baseUrl}/api/wallet/${wallet}/tydro`),
-        fetch(`${baseUrl}/api/analytics/${wallet}/gm_count`),
-        fetch(`${baseUrl}/api/analytics/${wallet}/inkypump_created_tokens`),
-        fetch(`${baseUrl}/api/analytics/${wallet}/inkypump_buy_volume`),
-        fetch(`${baseUrl}/api/analytics/${wallet}/inkypump_sell_volume`),
-        fetch(`${baseUrl}/api/analytics/${wallet}/shellies_joined_raffles`),
-        fetch(`${baseUrl}/api/analytics/${wallet}/shellies_pay_to_play`),
-        fetch(`${baseUrl}/api/analytics/${wallet}/shellies_staking`),
-        fetch(`${baseUrl}/api/analytics/${wallet}/zns`),
-        fetch(`${baseUrl}/api/wallet/${wallet}/nft2me`),
-        fetch(`${baseUrl}/api/analytics/${wallet}/nft_traded`),
-        fetch(`${baseUrl}/api/marvk/${wallet}`),
-        fetch(`${baseUrl}/api/nado/${wallet}`),
-        fetch(`${baseUrl}/api/copink/${wallet}`),
-        fetch(`${baseUrl}/api/analytics/${wallet}/templars_nft_balance`),
-        fetch(`${baseUrl}/api/analytics/${wallet}/mint_count`),
-        fetch(`${baseUrl}/api/analytics/${wallet}/cowswap_swaps`),
-        fetch(`${baseUrl}/api/sweep/${wallet}`),
-        fetch(`${baseUrl}/api/analytics/${wallet}/nft_staking`),
-        // InkDCA is the slowest upstream (external API + multiple price lookups).
-        // Give it a larger budget than normal metrics, but keep it optional so
-        // a cold cache cannot fail the whole score calculation.
-        fetch(`${baseUrl}/api/analytics/${wallet}/inkdca_run_dca`, {
-          signal: AbortSignal.timeout(15000),
-        }).catch((err: unknown) => {
-          console.warn('[Score] inkdca fetch failed/timed out, treating as 0 points:', err);
-          return null;
-        }),
-        openSeaCountsPromise
+        walletStatsPromise,
+        fetchJson<BridgeResponse>(`${baseUrl}/api/wallet/${wallet}/bridge`),
+        fetchJson<SwapResponse>(`${baseUrl}/api/wallet/${wallet}/swap`),
+        fetchJson<TydroResponse>(`${baseUrl}/api/wallet/${wallet}/tydro`),
+        fetchJson<CountResponse>(`${baseUrl}/api/analytics/${wallet}/gm_count`),
+        fetchJson<CountResponse>(`${baseUrl}/api/analytics/${wallet}/inkypump_created_tokens`),
+        fetchJson<CountResponse>(`${baseUrl}/api/analytics/${wallet}/inkypump_buy_volume`),
+        fetchJson<CountResponse>(`${baseUrl}/api/analytics/${wallet}/inkypump_sell_volume`),
+        fetchJson<CountResponse>(`${baseUrl}/api/analytics/${wallet}/shellies_joined_raffles`),
+        fetchJson<CountResponse>(`${baseUrl}/api/analytics/${wallet}/shellies_pay_to_play`),
+        fetchJson<CountResponse>(`${baseUrl}/api/analytics/${wallet}/shellies_staking`),
+        fetchJson<ZnsResponse>(`${baseUrl}/api/analytics/${wallet}/zns`),
+        fetchJson<Nft2meResponse>(`${baseUrl}/api/wallet/${wallet}/nft2me`),
+        fetchJson<NftTradingResponse>(`${baseUrl}/api/analytics/${wallet}/nft_traded`),
+        fetchJson<MarvkResponse>(`${baseUrl}/api/marvk/${wallet}`),
+        fetchJson<NadoResponse>(`${baseUrl}/api/nado/${wallet}`),
+        fetchJson<CopinkResponse>(`${baseUrl}/api/copink/${wallet}`),
+        fetchJson<TemplarsResponse>(`${baseUrl}/api/analytics/${wallet}/templars_nft_balance`),
+        fetchJson<OpenSeaResponse>(`${baseUrl}/api/analytics/${wallet}/mint_count`),
+        fetchJson<CowSwapResponse>(`${baseUrl}/api/analytics/${wallet}/cowswap_swaps`),
+        fetchJson<SweepResponse>(`${baseUrl}/api/sweep/${wallet}`),
+        fetchJson<NftStakingResponse>(`${baseUrl}/api/analytics/${wallet}/nft_staking`),
+        fetchJson<InkDcaResponse>(`${baseUrl}/api/analytics/${wallet}/inkdca_run_dca`),
+        openSeaCountsPromise,
       ]);
+      console.log(`[Score] ${wallet.slice(0, 10)} fetch batch completed in ${Date.now() - batchStart}ms`);
 
       // Type definitions for API responses
       interface WalletStatsResponse {
@@ -761,30 +803,6 @@ export class PointsServiceV2 {
         total_value?: string;
         sub_aggregates?: Array<{ label: string; value: string }>;
       }
-
-      const walletStats = walletStatsRes.ok ? await walletStatsRes.json() as WalletStatsResponse : null;
-      const bridgeData = await this.readOptionalJson<BridgeResponse>(bridgeRes, 'bridge');
-      const swapData = await this.readOptionalJson<SwapResponse>(swapRes, 'swap');
-      const tydroData = await this.readOptionalJson<TydroResponse>(tydroRes, 'tydro');
-      const gmData = await this.readOptionalJson<CountResponse>(gmRes, 'gm');
-      const inkyPumpCreated = await this.readOptionalJson<CountResponse>(inkyPumpCreatedRes, 'inkypump created');
-      const inkyPumpBuy = await this.readOptionalJson<CountResponse>(inkyPumpBuyRes, 'inkypump buy');
-      const inkyPumpSell = await this.readOptionalJson<CountResponse>(inkyPumpSellRes, 'inkypump sell');
-      const shelliesRaffles = await this.readOptionalJson<CountResponse>(shelliesRafflesRes, 'shellies raffles');
-      const shelliesPayToPlay = await this.readOptionalJson<CountResponse>(shelliesPayToPlayRes, 'shellies pay-to-play');
-      const shelliesStaking = await this.readOptionalJson<CountResponse>(shelliesStakingRes, 'shellies staking');
-      const znsData = await this.readOptionalJson<ZnsResponse>(znsRes, 'zns');
-      const nft2meData = await this.readOptionalJson<Nft2meResponse>(nft2meRes, 'nft2me');
-      const nftTradingData = await this.readOptionalJson<NftTradingResponse>(nftTradingRes, 'nft trading');
-      const marvkData = await this.readOptionalJson<MarvkResponse>(marvkRes, 'marvk');
-      const nadoData = await this.readOptionalJson<NadoResponse>(nadoRes, 'nado');
-      const copinkData = await this.readOptionalJson<CopinkResponse>(copinkRes, 'copink');
-      const templarsData = await this.readOptionalJson<TemplarsResponse>(templarsRes, 'templars');
-      const mintData = await this.readOptionalJson<OpenSeaResponse>(mintRes, 'mint count');
-      const cowSwapData = await this.readOptionalJson<CowSwapResponse>(cowSwapRes, 'cowswap');
-      const sweepData = await this.readOptionalJson<SweepResponse>(sweepRes, 'sweep');
-      const nftStakingData = await this.readOptionalJson<NftStakingResponse>(nftStakingRes, 'nft staking');
-      const inkDcaData = await this.readOptionalJson<InkDcaResponse>(inkDcaRes, 'inkdca');
 
       if (!walletStats) throw new Error('Failed to fetch wallet stats');
 
@@ -968,15 +986,21 @@ export class PointsServiceV2 {
       // when the realtime computation comes back lower. Some third-party
       // platforms are reporting degraded data and pushing scores down; remove
       // this clamp once the upstream source is fixed.
-      const leaderboardFloor = await this.getLeaderboardScoreFloor(wallet);
-      if (leaderboardFloor !== null && totalPoints < leaderboardFloor) {
+      if (!KNOWN_STALE_WALLETS.has(wallet)) {
+        const leaderboardFloor = await leaderboardFloorPromise;
+        if (leaderboardFloor !== null && totalPoints < leaderboardFloor) {
+          console.log(
+            `[PointsServiceV2] Wallet ${wallet}: clamped ${totalPoints} -> ${leaderboardFloor} (leaderboard floor)`
+          );
+          totalPoints = leaderboardFloor;
+        }
+      } else {
         console.log(
-          `[PointsServiceV2] Wallet ${wallet}: clamped ${totalPoints} -> ${leaderboardFloor} (leaderboard floor)`
+          `[PointsServiceV2] Wallet ${wallet}: skipped stale leaderboard floor clamp, using real-time score ${totalPoints}`
         );
-        totalPoints = leaderboardFloor;
       }
 
-      const ranks = await this.getCachedRanks();
+      const ranks = await ranksPromise;
       const rank = this.getRankForPoints(ranks, totalPoints);
 
       return {

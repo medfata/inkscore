@@ -674,20 +674,48 @@ interface Operation {
 }
 
 function parseOftSentAmount(data: string): bigint {
-  const cleanData = data.startsWith('0x') ? data.slice(2) : data;
-  const amountHex = cleanData.slice(64, 128);
-  return BigInt('0x' + amountHex);
+  try {
+    const cleanData = data.startsWith('0x') ? data.slice(2) : data;
+    const amountHex = cleanData.slice(64, 128);
+    return amountHex ? BigInt('0x' + amountHex) : BigInt(0);
+  } catch {
+    return BigInt(0);
+  }
 }
 
 function parseOftReceivedAmount(data: string): bigint {
-  const cleanData = data.startsWith('0x') ? data.slice(2) : data;
-  const amountHex = cleanData.slice(64, 128);
-  return BigInt('0x' + amountHex);
+  try {
+    const cleanData = data.startsWith('0x') ? data.slice(2) : data;
+    const amountHex = cleanData.slice(64, 128);
+    return amountHex ? BigInt('0x' + amountHex) : BigInt(0);
+  } catch {
+    return BigInt(0);
+  }
 }
 
 function extractAddressFromTopic(topic: string): string {
   const cleanTopic = topic.startsWith('0x') ? topic.slice(2) : topic;
   return '0x' + cleanTopic.slice(-40).toLowerCase();
+}
+
+// Conversion helpers that swallow malformed on-chain data instead of
+// throwing — one bad row must not fail the whole bridge aggregation.
+function safeWeiToEth(value: string | null | undefined): number {
+  if (!value) return 0;
+  try {
+    return Number(BigInt(value)) / 1e18;
+  } catch {
+    return 0;
+  }
+}
+
+function safeParseLogs(raw: unknown): OftEventLog[] {
+  try {
+    const logs = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    return Array.isArray(logs) ? logs : [];
+  } catch {
+    return [];
+  }
 }
 
 
@@ -734,78 +762,38 @@ router.get('/:address/bridge', async (req: Request, res: Response) => {
     let bridgedOutUsd = 0;
     let bridgedOutCount = 0;
 
-    // Get ETH price
+    // Get ETH price first (other queries depend on it)
     let ethPrice = 3500;
     try {
-      const priceStart = Date.now();
       const priceResult = await pool.query(
         `SELECT price_usd FROM eth_prices ORDER BY timestamp DESC LIMIT 1`
       );
-      console.log(`[Bridge ${walletAddress}] ETH price query: ${Date.now() - priceStart}ms`);
       ethPrice = priceResult.rows[0]?.price_usd || 3500;
     } catch {
       // Use fallback price
     }
 
-    // 1. Query Relay/Ink Official bridge IN transactions
-    try {
-      const relayInStart = Date.now();
-      const relayResult = await pool.query(
-        `SELECT 
-           tx_hash, method_id, operations, value,
+    // Run ALL bridge queries in parallel instead of sequentially
+    const dbStart = Date.now();
+    const [
+      relayInResult,
+      relayOutResult,
+      nativeBridgeInResult,
+      bridgeOutResult,
+      bungeeInResult,
+      bungeeOutResult,
+      bungeeGatewayResult,
+    ] = await Promise.all([
+      pool.query(
+        `SELECT tx_hash, method_id, operations, value,
            COALESCE(eth_value_decimal, 0) as eth_value_decimal,
            COALESCE(eth_price_usd, $2) as eth_price_usd
          FROM transaction_enrichment
          WHERE LOWER(contract_address) = LOWER($1)
            AND related_wallets @> ARRAY[$3]::text[]`,
         [RELAY_WALLET, ethPrice, walletAddress]
-      );
-      console.log(`[Bridge ${walletAddress}] Relay/Ink IN query: ${Date.now() - relayInStart}ms (${relayResult.rows.length} rows)`);
-
-      for (const row of relayResult.rows) {
-        let operations: Operation[] = [];
-        try {
-          operations = typeof row.operations === 'string' ? JSON.parse(row.operations) : row.operations || [];
-        } catch {
-          continue;
-        }
-
-        const userTransfer = operations.find(op => op.to?.id?.toLowerCase() === walletAddress);
-        if (!userTransfer) continue;
-
-        let ethValue = 0;
-        if (userTransfer.value) {
-          ethValue = Number(BigInt(userTransfer.value)) / 1e18;
-        }
-        if (ethValue === 0) ethValue = parseFloat(row.eth_value_decimal || '0');
-        if (ethValue === 0 && row.value) ethValue = Number(BigInt(row.value)) / 1e18;
-
-        const txEthPrice = parseFloat(row.eth_price_usd || String(ethPrice));
-        const usdValue = ethValue * txEthPrice;
-
-        const methodId = row.method_id?.toLowerCase();
-        const platform = INK_OFFICIAL_METHODS.includes(methodId) ? 'Ink Official' : 'Relay';
-
-        platformData[platform].ethValue += ethValue;
-        platformData[platform].usdValue += usdValue;
-        platformData[platform].txCount += 1;
-        platformData[platform].bridgedInUsd = (platformData[platform].bridgedInUsd || 0) + usdValue;
-        platformData[platform].bridgedInCount = (platformData[platform].bridgedInCount || 0) + 1;
-
-        totalEth += ethValue;
-        totalTxCount += 1;
-        bridgedInUsd += usdValue;
-        bridgedInCount += 1;
-      }
-    } catch (dbError: unknown) {
-      console.error('Error querying Relay/Ink Official:', dbError instanceof Error ? dbError.message : dbError);
-    }
-
-
-    // 1b. Query Relay/Ink Official bridge OUT transactions (depositNative)
-    try {
-      const relayOutStart = Date.now();
-      const relayOutResult = await pool.query(
+      ).catch(e => { console.error('Bridge Relay IN error:', e); return { rows: [] }; }),
+      pool.query(
         `SELECT tx_hash, value, method_id,
            COALESCE(eth_value_decimal, 0) as eth_value_decimal,
            COALESCE(eth_price_usd, $2) as eth_price_usd
@@ -813,143 +801,23 @@ router.get('/:address/bridge', async (req: Request, res: Response) => {
          WHERE LOWER(contract_address) = LOWER($1)
            AND LOWER(wallet_address) = LOWER($3)`,
         [RELAY_DEPOSIT_CONTRACT, ethPrice, walletAddress]
-      );
-      console.log(`[Bridge ${walletAddress}] Relay/Ink OUT query: ${Date.now() - relayOutStart}ms (${relayOutResult.rows.length} rows)`);
-
-      let sharedBridgeOutEth = 0;
-      let sharedBridgeOutUsd = 0;
-      let sharedBridgeOutCount = 0;
-
-      for (const row of relayOutResult.rows) {
-        let ethValue = parseFloat(row.eth_value_decimal || '0');
-        if (ethValue === 0 && row.value) {
-          ethValue = Number(BigInt(row.value)) / 1e18;
-        }
-
-        const txEthPrice = parseFloat(row.eth_price_usd || String(ethPrice));
-        const usdValue = ethValue * txEthPrice;
-
-        sharedBridgeOutEth += ethValue;
-        sharedBridgeOutUsd += usdValue;
-        sharedBridgeOutCount += 1;
-      }
-
-      if (sharedBridgeOutCount > 0) {
-        platformData['Ink Official'].ethValue += sharedBridgeOutEth;
-        platformData['Ink Official'].usdValue += sharedBridgeOutUsd;
-        platformData['Ink Official'].txCount += sharedBridgeOutCount;
-        platformData['Ink Official'].bridgedOutUsd = (platformData['Ink Official'].bridgedOutUsd || 0) + sharedBridgeOutUsd;
-        platformData['Ink Official'].bridgedOutCount = (platformData['Ink Official'].bridgedOutCount || 0) + sharedBridgeOutCount;
-
-        platformData['Relay'].bridgedOutUsd = (platformData['Relay'].bridgedOutUsd || 0) + sharedBridgeOutUsd;
-        platformData['Relay'].bridgedOutCount = (platformData['Relay'].bridgedOutCount || 0) + sharedBridgeOutCount;
-
-        totalEth += sharedBridgeOutEth;
-        totalTxCount += sharedBridgeOutCount;
-        bridgedOutUsd += sharedBridgeOutUsd;
-        bridgedOutCount += sharedBridgeOutCount;
-      }
-    } catch (dbError: unknown) {
-      console.error('Error querying Relay/Ink Official OUT:', dbError instanceof Error ? dbError.message : dbError);
-    }
-
-    // 2a. Query Native Bridge (USDT0) IN transactions
-    try {
-      const nativeBridgeInStart = Date.now();
-      const nativeBridgeInResult = await pool.query(
+      ).catch(e => { console.error('Bridge Relay OUT error:', e); return { rows: [] }; }),
+      pool.query(
         `SELECT tx_hash, logs
          FROM transaction_enrichment
          WHERE LOWER(contract_address) = LOWER($1)
            AND related_wallets @> ARRAY[$2]::text[]`,
         [LZ_EXECUTOR_ADDRESS, walletAddress]
-      );
-      console.log(`[Bridge ${walletAddress}] Native Bridge IN query: ${Date.now() - nativeBridgeInStart}ms (${nativeBridgeInResult.rows.length} rows)`);
-
-      for (const row of nativeBridgeInResult.rows) {
-        const logs: OftEventLog[] = typeof row.logs === 'string' ? JSON.parse(row.logs) : row.logs;
-        if (!Array.isArray(logs)) continue;
-
-        for (const log of logs) {
-          const logAddress = (log.address?.id || '').toLowerCase();
-          const topic0 = log.topics?.[0]?.toLowerCase();
-          const topic2 = log.topics?.[2];
-
-          if (logAddress !== OFT_ADAPTER_ADDRESS.toLowerCase()) continue;
-          if (topic0 !== OFT_RECEIVED_SIGNATURE.toLowerCase()) continue;
-          if (!topic2) continue;
-
-          const eventWallet = extractAddressFromTopic(topic2);
-          if (eventWallet !== walletAddress) continue;
-
-          const amountRaw = parseOftReceivedAmount(log.data);
-          const amountUsd = Number(amountRaw) / Math.pow(10, USDT0_DECIMALS);
-
-          platformData['Native Bridge (USDT0)'].usdValue += amountUsd;
-          platformData['Native Bridge (USDT0)'].txCount += 1;
-          platformData['Native Bridge (USDT0)'].bridgedInUsd = (platformData['Native Bridge (USDT0)'].bridgedInUsd || 0) + amountUsd;
-          platformData['Native Bridge (USDT0)'].bridgedInCount = (platformData['Native Bridge (USDT0)'].bridgedInCount || 0) + 1;
-
-          totalTxCount += 1;
-          bridgedInUsd += amountUsd;
-          bridgedInCount += 1;
-        }
-      }
-    } catch (dbError: unknown) {
-      console.error('Error querying Native Bridge IN:', dbError instanceof Error ? dbError.message : dbError);
-    }
-
-
-    // 2b. Query Native Bridge (USDT0) OUT transactions
-    try {
-      const bridgeOutStart = Date.now();
-      const bridgeOutResult = await pool.query(
+      ).catch(e => { console.error('Bridge Native IN error:', e); return { rows: [] }; }),
+      pool.query(
         `SELECT tx_hash, logs
          FROM transaction_enrichment
          WHERE LOWER(contract_address) = LOWER($1)
            AND LOWER(wallet_address) = LOWER($2)
            AND logs IS NOT NULL`,
         [OFT_ADAPTER_ADDRESS, walletAddress]
-      );
-      console.log(`[Bridge ${walletAddress}] Native Bridge OUT query: ${Date.now() - bridgeOutStart}ms (${bridgeOutResult.rows.length} rows)`);
-
-      for (const row of bridgeOutResult.rows) {
-        const logs: OftEventLog[] = typeof row.logs === 'string' ? JSON.parse(row.logs) : row.logs;
-        if (!Array.isArray(logs)) continue;
-
-        for (const log of logs) {
-          const logAddress = (log.address?.id || '').toLowerCase();
-          const topic0 = log.topics?.[0]?.toLowerCase();
-          const topic2 = log.topics?.[2];
-
-          if (logAddress !== OFT_ADAPTER_ADDRESS.toLowerCase()) continue;
-          if (topic0 !== OFT_SENT_SIGNATURE.toLowerCase()) continue;
-          if (!topic2) continue;
-
-          const eventWallet = extractAddressFromTopic(topic2);
-          if (eventWallet !== walletAddress) continue;
-
-          const amountRaw = parseOftSentAmount(log.data);
-          const amountUsd = Number(amountRaw) / Math.pow(10, USDT0_DECIMALS);
-
-          platformData['Native Bridge (USDT0)'].usdValue += amountUsd;
-          platformData['Native Bridge (USDT0)'].txCount += 1;
-          platformData['Native Bridge (USDT0)'].bridgedOutUsd = (platformData['Native Bridge (USDT0)'].bridgedOutUsd || 0) + amountUsd;
-          platformData['Native Bridge (USDT0)'].bridgedOutCount = (platformData['Native Bridge (USDT0)'].bridgedOutCount || 0) + 1;
-
-          totalTxCount += 1;
-          bridgedOutUsd += amountUsd;
-          bridgedOutCount += 1;
-        }
-      }
-    } catch (dbError: unknown) {
-      console.error('Error querying Native Bridge OUT:', dbError instanceof Error ? dbError.message : dbError);
-    }
-
-    // 3. Query Bungee bridge transactions
-    try {
-      // 3a. Bungee Bridge IN (PerformFulfilment)
-      const bungeeInStart = Date.now();
-      const bungeeInResult = await pool.query(
+      ).catch(e => { console.error('Bridge Native OUT error:', e); return { rows: [] }; }),
+      pool.query(
         `SELECT tx_hash, operations, value,
            COALESCE(eth_value_decimal, 0) as eth_value_decimal,
            COALESCE(eth_price_usd, $2) as eth_price_usd
@@ -957,48 +825,8 @@ router.get('/:address/bridge', async (req: Request, res: Response) => {
          WHERE LOWER(contract_address) = LOWER($1)
            AND related_wallets @> ARRAY[$3]::text[]`,
         [BUNGEE_FULFILLMENT_CONTRACT, ethPrice, walletAddress]
-      );
-      console.log(`[Bridge ${walletAddress}] Bungee IN query: ${Date.now() - bungeeInStart}ms (${bungeeInResult.rows.length} rows)`);
-
-      for (const row of bungeeInResult.rows) {
-        let operations: Operation[] = [];
-        try {
-          operations = typeof row.operations === 'string' ? JSON.parse(row.operations) : row.operations || [];
-        } catch {
-          continue;
-        }
-
-        const userTransfer = operations.find(op => op.to?.id?.toLowerCase() === walletAddress);
-        if (!userTransfer) continue;
-
-        let ethValue = 0;
-        if (userTransfer.value) {
-          ethValue = Number(BigInt(userTransfer.value)) / 1e18;
-        }
-        if (ethValue === 0) ethValue = parseFloat(row.eth_value_decimal || '0');
-
-        const txEthPrice = parseFloat(row.eth_price_usd || String(ethPrice));
-        const usdValue = ethValue * txEthPrice;
-
-        // Sanity check: skip unreasonably large values
-        if (usdValue > 1_000_000) continue;
-
-        platformData['Bungee'].ethValue += ethValue;
-        platformData['Bungee'].usdValue += usdValue;
-        platformData['Bungee'].txCount += 1;
-        platformData['Bungee'].bridgedInUsd = (platformData['Bungee'].bridgedInUsd || 0) + usdValue;
-        platformData['Bungee'].bridgedInCount = (platformData['Bungee'].bridgedInCount || 0) + 1;
-
-        totalEth += ethValue;
-        totalTxCount += 1;
-        bridgedInUsd += usdValue;
-        bridgedInCount += 1;
-      }
-
-
-      // 3b. Bungee Bridge OUT (CreateRequest)
-      const bungeeOutStart = Date.now();
-      const bungeeOutResult = await pool.query(
+      ).catch(e => { console.error('Bridge Bungee IN error:', e); return { rows: [] }; }),
+      pool.query(
         `SELECT tx_hash, value,
            COALESCE(eth_value_decimal, 0) as eth_value_decimal,
            COALESCE(eth_price_usd, $2) as eth_price_usd
@@ -1006,90 +834,236 @@ router.get('/:address/bridge', async (req: Request, res: Response) => {
          WHERE LOWER(contract_address) = LOWER($1)
            AND LOWER(wallet_address) = LOWER($3)`,
         [BUNGEE_REQUEST_CONTRACT, ethPrice, walletAddress]
-      );
-      console.log(`[Bridge ${walletAddress}] Bungee OUT query: ${Date.now() - bungeeOutStart}ms (${bungeeOutResult.rows.length} rows)`);
-
-      for (const row of bungeeOutResult.rows) {
-        let ethValue = parseFloat(row.eth_value_decimal || '0');
-        if (ethValue === 0 && row.value) {
-          ethValue = Number(BigInt(row.value)) / 1e18;
-        }
-
-        const txEthPrice = parseFloat(row.eth_price_usd || String(ethPrice));
-        const usdValue = ethValue * txEthPrice;
-
-        // Sanity check: skip unreasonably large values
-        if (usdValue > 1_000_000) continue;
-
-        platformData['Bungee'].ethValue += ethValue;
-        platformData['Bungee'].usdValue += usdValue;
-        platformData['Bungee'].txCount += 1;
-        platformData['Bungee'].bridgedOutUsd = (platformData['Bungee'].bridgedOutUsd || 0) + usdValue;
-        platformData['Bungee'].bridgedOutCount = (platformData['Bungee'].bridgedOutCount || 0) + 1;
-
-        totalEth += ethValue;
-        totalTxCount += 1;
-        bridgedOutUsd += usdValue;
-        bridgedOutCount += 1;
-      }
-
-      // 3c. Legacy Socket Gateway transactions - skip failed txs, use sanity checks
-      const bungeeGatewayStart = Date.now();
-      const bungeeGatewayResult = await pool.query(
+      ).catch(e => { console.error('Bridge Bungee OUT error:', e); return { rows: [] }; }),
+      pool.query(
         `SELECT tx_hash, operations, eth_value_decimal, total_usd_volume, value
          FROM transaction_enrichment
          WHERE LOWER(contract_address) = LOWER($1)
            AND LOWER(wallet_address) = LOWER($2)`,
         [BUNGEE_SOCKET_GATEWAY, walletAddress]
-      );
-      console.log(`[Bridge ${walletAddress}] Bungee Gateway query: ${Date.now() - bungeeGatewayStart}ms (${bungeeGatewayResult.rows.length} rows)`);
+      ).catch(e => { console.error('Bridge Bungee Gateway error:', e); return { rows: [] }; }),
+    ]);
+    console.log(`[Bridge ${walletAddress}] All 7 DB queries completed in ${Date.now() - dbStart}ms`);
 
-      for (const row of bungeeGatewayResult.rows) {
-        // Parse operations to check transaction status
-        let operations: Operation[] = [];
-        try {
-          operations = typeof row.operations === 'string' ? JSON.parse(row.operations) : row.operations || [];
-        } catch {
-          operations = [];
-        }
+    // 1. Process Relay/Ink Official bridge IN transactions
+    for (const row of relayInResult.rows) {
+      let operations: Operation[] = [];
+      try {
+        operations = typeof row.operations === 'string' ? JSON.parse(row.operations) : row.operations || [];
+      } catch {
+        continue;
+      }
 
-        // Skip failed/reverted transactions
-        if (operations.length > 0 && operations[0].status === false) {
-          continue;
-        }
+      const userTransfer = operations.find(op => op.to?.id?.toLowerCase() === walletAddress);
+      if (!userTransfer) continue;
 
-        let txUsdValue = 0;
+      let ethValue = safeWeiToEth(userTransfer.value);
+      if (ethValue === 0) ethValue = parseFloat(row.eth_value_decimal || '0');
+      if (ethValue === 0) ethValue = safeWeiToEth(row.value);
 
-        // Priority 1: Use pre-calculated total_usd_volume if reasonable
-        const rawUsdVolume = parseFloat(row.total_usd_volume || '0');
-        if (rawUsdVolume > 0 && rawUsdVolume < 1_000_000) {
-          txUsdValue = rawUsdVolume;
-        }
-        // Priority 2: Use eth_value_decimal
-        else if (row.eth_value_decimal && parseFloat(row.eth_value_decimal) > 0) {
-          txUsdValue = parseFloat(row.eth_value_decimal) * ethPrice;
-        }
-        // Priority 3: Use raw transaction value (wei)
-        else if (row.value && parseFloat(row.value) > 0) {
-          txUsdValue = (parseFloat(row.value) / 1e18) * ethPrice;
-        }
-        // Priority 4: Extract from operations (first operation's value)
-        else if (operations.length > 0 && operations[0].value) {
-          const opValue = parseFloat(operations[0].value) / 1e18;
-          if (opValue > 0 && opValue < 10000) {
-            txUsdValue = opValue * ethPrice;
-          }
-        }
+      const txEthPrice = parseFloat(row.eth_price_usd || String(ethPrice));
+      const usdValue = ethValue * txEthPrice;
 
-        // Only count if we have a valid, reasonable USD value
-        if (txUsdValue > 0 && txUsdValue < 1_000_000) {
-          platformData['Bungee'].usdValue += txUsdValue;
-          platformData['Bungee'].txCount += 1;
-          totalTxCount += 1;
+      const methodId = row.method_id?.toLowerCase();
+      const platform = INK_OFFICIAL_METHODS.includes(methodId) ? 'Ink Official' : 'Relay';
+
+      platformData[platform].ethValue += ethValue;
+      platformData[platform].usdValue += usdValue;
+      platformData[platform].txCount += 1;
+      platformData[platform].bridgedInUsd = (platformData[platform].bridgedInUsd || 0) + usdValue;
+      platformData[platform].bridgedInCount = (platformData[platform].bridgedInCount || 0) + 1;
+
+      totalEth += ethValue;
+      totalTxCount += 1;
+      bridgedInUsd += usdValue;
+      bridgedInCount += 1;
+    }
+
+    // 1b. Process Relay/Ink Official bridge OUT transactions (depositNative)
+    let sharedBridgeOutEth = 0;
+    let sharedBridgeOutUsd = 0;
+    let sharedBridgeOutCount = 0;
+
+    for (const row of relayOutResult.rows) {
+      let ethValue = parseFloat(row.eth_value_decimal || '0');
+      if (ethValue === 0) ethValue = safeWeiToEth(row.value);
+
+      const txEthPrice = parseFloat(row.eth_price_usd || String(ethPrice));
+      const usdValue = ethValue * txEthPrice;
+
+      sharedBridgeOutEth += ethValue;
+      sharedBridgeOutUsd += usdValue;
+      sharedBridgeOutCount += 1;
+    }
+
+    if (sharedBridgeOutCount > 0) {
+      platformData['Ink Official'].ethValue += sharedBridgeOutEth;
+      platformData['Ink Official'].usdValue += sharedBridgeOutUsd;
+      platformData['Ink Official'].txCount += sharedBridgeOutCount;
+      platformData['Ink Official'].bridgedOutUsd = (platformData['Ink Official'].bridgedOutUsd || 0) + sharedBridgeOutUsd;
+      platformData['Ink Official'].bridgedOutCount = (platformData['Ink Official'].bridgedOutCount || 0) + sharedBridgeOutCount;
+
+      platformData['Relay'].bridgedOutUsd = (platformData['Relay'].bridgedOutUsd || 0) + sharedBridgeOutUsd;
+      platformData['Relay'].bridgedOutCount = (platformData['Relay'].bridgedOutCount || 0) + sharedBridgeOutCount;
+
+      totalEth += sharedBridgeOutEth;
+      totalTxCount += sharedBridgeOutCount;
+      bridgedOutUsd += sharedBridgeOutUsd;
+      bridgedOutCount += sharedBridgeOutCount;
+    }
+
+    // 2a. Process Native Bridge (USDT0) IN transactions
+    for (const row of nativeBridgeInResult.rows) {
+      const logs = safeParseLogs(row.logs);
+
+      for (const log of logs) {
+        const logAddress = (log.address?.id || '').toLowerCase();
+        const topic0 = log.topics?.[0]?.toLowerCase();
+        const topic2 = log.topics?.[2];
+
+        if (logAddress !== OFT_ADAPTER_ADDRESS.toLowerCase()) continue;
+        if (topic0 !== OFT_RECEIVED_SIGNATURE.toLowerCase()) continue;
+        if (!topic2) continue;
+
+        const eventWallet = extractAddressFromTopic(topic2);
+        if (eventWallet !== walletAddress) continue;
+
+        const amountRaw = parseOftReceivedAmount(log.data);
+        const amountUsd = Number(amountRaw) / Math.pow(10, USDT0_DECIMALS);
+
+        platformData['Native Bridge (USDT0)'].usdValue += amountUsd;
+        platformData['Native Bridge (USDT0)'].txCount += 1;
+        platformData['Native Bridge (USDT0)'].bridgedInUsd = (platformData['Native Bridge (USDT0)'].bridgedInUsd || 0) + amountUsd;
+        platformData['Native Bridge (USDT0)'].bridgedInCount = (platformData['Native Bridge (USDT0)'].bridgedInCount || 0) + 1;
+
+        totalTxCount += 1;
+        bridgedInUsd += amountUsd;
+        bridgedInCount += 1;
+      }
+    }
+
+    // 2b. Process Native Bridge (USDT0) OUT transactions
+    for (const row of bridgeOutResult.rows) {
+      const logs = safeParseLogs(row.logs);
+
+      for (const log of logs) {
+        const logAddress = (log.address?.id || '').toLowerCase();
+        const topic0 = log.topics?.[0]?.toLowerCase();
+        const topic2 = log.topics?.[2];
+
+        if (logAddress !== OFT_ADAPTER_ADDRESS.toLowerCase()) continue;
+        if (topic0 !== OFT_SENT_SIGNATURE.toLowerCase()) continue;
+        if (!topic2) continue;
+
+        const eventWallet = extractAddressFromTopic(topic2);
+        if (eventWallet !== walletAddress) continue;
+
+        const amountRaw = parseOftSentAmount(log.data);
+        const amountUsd = Number(amountRaw) / Math.pow(10, USDT0_DECIMALS);
+
+        platformData['Native Bridge (USDT0)'].usdValue += amountUsd;
+        platformData['Native Bridge (USDT0)'].txCount += 1;
+        platformData['Native Bridge (USDT0)'].bridgedOutUsd = (platformData['Native Bridge (USDT0)'].bridgedOutUsd || 0) + amountUsd;
+        platformData['Native Bridge (USDT0)'].bridgedOutCount = (platformData['Native Bridge (USDT0)'].bridgedOutCount || 0) + 1;
+
+        totalTxCount += 1;
+        bridgedOutUsd += amountUsd;
+        bridgedOutCount += 1;
+      }
+    }
+
+    // 3. Process Bungee bridge transactions
+    // 3a. Bungee Bridge IN (PerformFulfilment)
+    for (const row of bungeeInResult.rows) {
+      let operations: Operation[] = [];
+      try {
+        operations = typeof row.operations === 'string' ? JSON.parse(row.operations) : row.operations || [];
+      } catch {
+        continue;
+      }
+
+      const userTransfer = operations.find(op => op.to?.id?.toLowerCase() === walletAddress);
+      if (!userTransfer) continue;
+
+      let ethValue = safeWeiToEth(userTransfer.value);
+      if (ethValue === 0) ethValue = parseFloat(row.eth_value_decimal || '0');
+
+      const txEthPrice = parseFloat(row.eth_price_usd || String(ethPrice));
+      const usdValue = ethValue * txEthPrice;
+
+      if (usdValue > 1_000_000) continue;
+
+      platformData['Bungee'].ethValue += ethValue;
+      platformData['Bungee'].usdValue += usdValue;
+      platformData['Bungee'].txCount += 1;
+      platformData['Bungee'].bridgedInUsd = (platformData['Bungee'].bridgedInUsd || 0) + usdValue;
+      platformData['Bungee'].bridgedInCount = (platformData['Bungee'].bridgedInCount || 0) + 1;
+
+      totalEth += ethValue;
+      totalTxCount += 1;
+      bridgedInUsd += usdValue;
+      bridgedInCount += 1;
+    }
+
+    // 3b. Bungee Bridge OUT (CreateRequest)
+    for (const row of bungeeOutResult.rows) {
+      let ethValue = parseFloat(row.eth_value_decimal || '0');
+      if (ethValue === 0) ethValue = safeWeiToEth(row.value);
+
+      const txEthPrice = parseFloat(row.eth_price_usd || String(ethPrice));
+      const usdValue = ethValue * txEthPrice;
+
+      if (usdValue > 1_000_000) continue;
+
+      platformData['Bungee'].ethValue += ethValue;
+      platformData['Bungee'].usdValue += usdValue;
+      platformData['Bungee'].txCount += 1;
+      platformData['Bungee'].bridgedOutUsd = (platformData['Bungee'].bridgedOutUsd || 0) + usdValue;
+      platformData['Bungee'].bridgedOutCount = (platformData['Bungee'].bridgedOutCount || 0) + 1;
+
+      totalEth += ethValue;
+      totalTxCount += 1;
+      bridgedOutUsd += usdValue;
+      bridgedOutCount += 1;
+    }
+
+    // 3c. Legacy Socket Gateway transactions - skip failed txs, use sanity checks
+    for (const row of bungeeGatewayResult.rows) {
+      let operations: Operation[] = [];
+      try {
+        operations = typeof row.operations === 'string' ? JSON.parse(row.operations) : row.operations || [];
+      } catch {
+        operations = [];
+      }
+
+      if (operations.length > 0 && operations[0].status === false) {
+        continue;
+      }
+
+      let txUsdValue = 0;
+
+      const rawUsdVolume = parseFloat(row.total_usd_volume || '0');
+      if (rawUsdVolume > 0 && rawUsdVolume < 1_000_000) {
+        txUsdValue = rawUsdVolume;
+      }
+      else if (row.eth_value_decimal && parseFloat(row.eth_value_decimal) > 0) {
+        txUsdValue = parseFloat(row.eth_value_decimal) * ethPrice;
+      }
+      else if (row.value && parseFloat(row.value) > 0) {
+        txUsdValue = (parseFloat(row.value) / 1e18) * ethPrice;
+      }
+      else if (operations.length > 0 && operations[0].value) {
+        const opValue = parseFloat(operations[0].value) / 1e18;
+        if (opValue > 0 && opValue < 10000) {
+          txUsdValue = opValue * ethPrice;
         }
       }
-    } catch (dbError: unknown) {
-      console.error('Error querying Bungee:', dbError instanceof Error ? dbError.message : dbError);
+
+      if (txUsdValue > 0 && txUsdValue < 1_000_000) {
+        platformData['Bungee'].usdValue += txUsdValue;
+        platformData['Bungee'].txCount += 1;
+        totalTxCount += 1;
+      }
     }
 
 

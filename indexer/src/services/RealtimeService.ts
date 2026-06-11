@@ -39,8 +39,19 @@ interface ApiResponse {
   items: RouterscanTransaction[];
 }
 
+class RateLimitError extends Error {
+  constructor(public retryAfterMs: number) {
+    super(`Routescan rate limited (429), retry after ${retryAfterMs}ms`);
+    this.name = 'RateLimitError';
+  }
+}
+
 export class RealtimeService {
   private transactionLimit = 50;
+
+  // Global pause until this epoch-ms (set when Routescan returns 429).
+  // The rate limit is account/IP-wide, so pause ALL polling, not per-contract.
+  private pausedUntil = 0;
 
   // Adaptive polling config - optimized based on activity analysis
   private readonly BASE_INTERVAL_MS = 15_000;      // 15 seconds for active contracts
@@ -87,6 +98,11 @@ export class RealtimeService {
   private async runPollLoop(): Promise<void> {
     while (this.isRunning) {
       try {
+        if (Date.now() < this.pausedUntil) {
+          await this.sleep(1000);
+          continue;
+        }
+
         const contracts = await this.getActiveContracts();
 
         if (contracts.length === 0) {
@@ -150,31 +166,47 @@ export class RealtimeService {
       this.updatePollingState(contract.id, insertedCount, false);
 
     } catch (error) {
-      console.error(`❌ [REALTIME] ${contract.name} poll failed:`, error);
+      if (error instanceof RateLimitError) {
+        this.pausedUntil = Date.now() + error.retryAfterMs;
+        console.error(`⏸️ [REALTIME] Routescan 429 — pausing all polling for ${Math.round(error.retryAfterMs / 1000)}s`);
+      } else {
+        console.error(`❌ [REALTIME] ${contract.name} poll failed:`, error);
+      }
       this.updatePollingState(contract.id, 0, true);
     }
   }
 
   async fetchLatestTransactions(contractAddress: string): Promise<RouterscanTransaction[]> {
-    const url = `https://api.routescan.io/v2/network/mainnet/evm/${config.chainId}/address/${contractAddress}/transactions?limit=${this.transactionLimit}&sort=desc`;
+    const key = config.routescanApiKey; // '' when unset/placeholder
+    const keyParam = key ? `&apikey=${encodeURIComponent(key)}` : '';
+    const url =
+      `https://api.routescan.io/v2/network/mainnet/evm/${config.chainId}` +
+      `/address/${contractAddress}/transactions?limit=${this.transactionLimit}&sort=desc${keyParam}`;
 
     return new Promise((resolve, reject) => {
-      https.get(url, (res) => {
+      const req = https.get(url, (res) => {
         let data = '';
         res.on('data', chunk => data += chunk);
         res.on('end', () => {
+          const status = res.statusCode ?? 0;
+          if (status === 429) {
+            const ra = parseInt(res.headers['retry-after'] as string, 10);
+            const retryAfterMs = Number.isFinite(ra) ? ra * 1000 : 60_000;
+            return reject(new RateLimitError(retryAfterMs));
+          }
+          if (status !== 200) {
+            return reject(new Error(`Routescan HTTP ${status}: ${data.substring(0, 200)}`));
+          }
           try {
             const response: ApiResponse = JSON.parse(data);
-            if (response.items && Array.isArray(response.items)) {
-              resolve(response.items);
-            } else {
-              resolve([]);
-            }
-          } catch (e) {
+            resolve(Array.isArray(response.items) ? response.items : []);
+          } catch {
             reject(new Error(`Invalid API response: ${data.substring(0, 200)}`));
           }
         });
-      }).on('error', reject);
+      });
+      req.on('error', reject);
+      req.setTimeout(15_000, () => req.destroy(new Error('Routescan request timeout')));
     });
   }
 

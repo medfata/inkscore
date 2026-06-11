@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { pool } from '../db/index.js';
 import https from 'https';
+import { INPUT_REQUIRED_FUNCTIONS } from '../services/PureEventDrivenEnrichmentService.js';
 
 /**
  * Gap Enrichment Script
@@ -392,6 +393,8 @@ class GapEnrichmentService {
     const placeholders: string[] = [];
 
     enrichedData.forEach((item, idx) => {
+      const fnName = item.details.method ? item.details.method.split('(')[0].trim() : '';
+      const inputToStore = INPUT_REQUIRED_FUNCTIONS.has(fnName) ? (item.details.input || null) : null;
       const offset = idx * 20; // 20 parameters per row
       placeholders.push(
         `($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5}, $${offset + 6}, $${offset + 7}, $${offset + 8}, $${offset + 9}, $${offset + 10}, $${offset + 11}, $${offset + 12}, $${offset + 13}, $${offset + 14}, $${offset + 15}, $${offset + 16}, $${offset + 17}, $${offset + 18}, $${offset + 19}, $${offset + 20})`
@@ -415,7 +418,7 @@ class GapEnrichmentService {
         item.details.contractVerified || false,
         item.details.methodId || null,
         item.details.method || null,
-        item.details.input || null,
+        inputToStore,
         item.details.logs ? JSON.stringify(item.details.logs) : null,
         item.details.operations ? JSON.stringify(item.details.operations) : null
       );

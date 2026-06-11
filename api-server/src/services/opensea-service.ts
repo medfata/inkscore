@@ -1,69 +1,34 @@
-// OpenSea GraphQL API Service
-// Fetches NFT activity data (buys, sales, mints) from OpenSea's GraphQL endpoint
+// OpenSea Service — official v2 REST API
+// Fetches NFT activity (buys, sales, mints) for wallets on the Ink chain via
+// https://api.opensea.io/api/v2/events/accounts/{address} with an API key.
+//
+// Caching layers:
+//   1. In-memory (1h TTL) — fastest path for repeated requests
+//   2. Postgres `opensea_wallet_counts` (24h TTL) — survives restarts; stale rows
+//      are served immediately while a background refresh updates them
+//
+// Kill switch: DISABLE_OPENSEA=true returns zeros without any API/DB calls.
 
-const OPENSEA_GRAPHQL_URL = 'https://gql.opensea.io/graphql';
+import { query, queryOne } from '../db';
 
-// GraphQL query for user activity
-const USER_ACTIVITY_QUERY = `
-query UseProfileActivityQuery($addresses: [Address!], $filter: ProfileActivityFilterInput, $cursor: String, $limit: Int!) {
-  userActivity(
-    addresses: $addresses
-    filter: $filter
-    cursor: $cursor
-    limit: $limit
-  ) {
-    items {
-      id
-      eventTime
-      type
-      transactionHash
-      from {
-        address
-      }
-      to {
-        address
-      }
-      ... on Sale {
-        saleType
-        price {
-          token {
-            unit
-            symbol
-          }
-          usd
-        }
-      }
-      ... on Mint {
-        quantity
-      }
-    }
-    nextPageCursor
-  }
-}
-`;
+const OPENSEA_V2_EVENTS_URL = 'https://api.opensea.io/api/v2/events/accounts';
 
-interface OpenSeaActivity {
-  id: string;
-  eventTime: string;
-  type: 'SALE' | 'MINT' | 'LISTING' | 'TRANSFER' | 'CANCEL_LISTING';
-  transactionHash: string;
-  from: { address: string };
-  to: { address: string };
-  saleType?: string;
-  price?: {
-    token: { unit: number; symbol: string };
-    usd: number;
-  };
-  quantity?: string;
+interface V2AssetEvent {
+  event_type: string; // 'sale' | 'transfer' | ...
+  transfer_type?: string; // 'mint' on mint transfers
+  transaction?: string;
+  buyer?: string;
+  seller?: string;
+  from_address?: string;
+  to_address?: string;
+  quantity?: number;
+  chain?: string;
+  protocol_address?: string;
 }
 
-interface OpenSeaResponse {
-  data: {
-    userActivity: {
-      items: OpenSeaActivity[];
-      nextPageCursor: string | null;
-    };
-  };
+interface V2EventsResponse {
+  asset_events: V2AssetEvent[];
+  next: string | null;
 }
 
 interface ActivityCounts {
@@ -75,124 +40,131 @@ interface ActivityCounts {
   mintTransactions: string[];
 }
 
+interface CountsRow {
+  wallet_address: string;
+  buys: number;
+  sales: number;
+  mints: number;
+  updated_at: string;
+}
+
+const ZERO_COUNTS: ActivityCounts = {
+  buys: 0, sales: 0, mints: 0,
+  buyTransactions: [], saleTransactions: [], mintTransactions: [],
+};
+
 export class OpenSeaService {
   // In-memory cache: wallet -> { counts, timestamp }
   private countsCache: Map<string, { counts: ActivityCounts; timestamp: number }> = new Map();
-  private readonly CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+  private readonly MEMORY_TTL_MS = 60 * 60 * 1000; // 1 hour
+  private readonly DB_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours — counts change slowly
 
   // Dedup lock: wallet -> in-flight promise (prevents parallel duplicate fetches)
   private inflight: Map<string, Promise<ActivityCounts>> = new Map();
 
-  /**
-   * Populate the cache externally (called when Vercel pushes OpenSea counts).
-   * This prevents Express from needing to call the OpenSea API itself.
-   */
-  setCachedCounts(walletAddress: string, buys: number, sales: number, mints: number): void {
-    const key = walletAddress.toLowerCase();
-    const counts: ActivityCounts = {
-      buys, sales, mints,
-      buyTransactions: [], saleTransactions: [], mintTransactions: [],
-    };
-    this.countsCache.set(key, { counts, timestamp: Date.now() });
-    console.log(`[OpenSea] Cache set externally for ${key.slice(0, 10)}: buys=${buys} sales=${sales} mints=${mints}`);
+  // Lazy one-time table creation
+  private tableReady: Promise<void> | null = null;
+
+  private get apiKey(): string {
+    return process.env.OPENSEA_API_KEY || '';
+  }
+
+  private get disabled(): boolean {
+    return process.env.DISABLE_OPENSEA === 'true';
+  }
+
+  private ensureTable(): Promise<void> {
+    if (!this.tableReady) {
+      this.tableReady = query(`
+        CREATE TABLE IF NOT EXISTS opensea_wallet_counts (
+          wallet_address TEXT PRIMARY KEY,
+          buys INTEGER NOT NULL DEFAULT 0,
+          sales INTEGER NOT NULL DEFAULT 0,
+          mints INTEGER NOT NULL DEFAULT 0,
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        )
+      `).then(() => undefined).catch((err) => {
+        this.tableReady = null; // allow retry on next call
+        throw err;
+      });
+    }
+    return this.tableReady;
   }
 
   /**
-   * Fetch all activity for a wallet from OpenSea GraphQL API
-   * Handles pagination automatically with rate limiting and retries
+   * Fetch all sale + mint events for a wallet on Ink from the official v2 API.
+   * Cursor pagination; retries 429/5xx (the v2 API throws intermittent 500s on
+   * deep pages — single retry usually recovers); hard overall time budget.
    */
-  async fetchWalletActivity(
-    walletAddress: string,
-    activityTypes: string[] = ['SALE', 'MINT'],
-    chain: string = 'ink',
-    filterByMarketplace: boolean = false
-  ): Promise<OpenSeaActivity[]> {
-    const allItems: OpenSeaActivity[] = [];
-    let cursor: string | null = null;
-    let hasMore = true;
-    let page = 0;
+  async fetchV2Events(walletAddress: string): Promise<V2AssetEvent[]> {
     const walletLabel = walletAddress.slice(0, 10);
-    const overallStart = Date.now();
-    const MAX_PAGES = 30; // Safety limit: 30 pages * 50 items = 1500 items max
-    const PER_PAGE_TIMEOUT_MS = 10000; // 10s timeout per API call
-    const OVERALL_TIMEOUT_MS = 45000; // 45s overall — return partial results after this
+    const events: V2AssetEvent[] = [];
+    let next: string | null = null;
+    let page = 0;
+    let retries = 0;
+    const MAX_PAGES = 30; // 30 * 50 = 1500 events max
+    const MAX_RETRIES = 4;
+    const PER_PAGE_TIMEOUT_MS = 10000;
+    const OVERALL_TIMEOUT_MS = 20000; // must stay under the 30s score fetch timeout
+    const start = Date.now();
 
-    while (hasMore) {
+    if (!this.apiKey) {
+      console.warn('[OpenSea] OPENSEA_API_KEY not set, skipping fetch');
+      return events;
+    }
+
+    do {
       page++;
       if (page > MAX_PAGES) {
-        console.warn(`[OpenSea] ${walletLabel} hit max pages (${MAX_PAGES}), stopping. Got ${allItems.length} items.`);
+        console.warn(`[OpenSea] ${walletLabel} hit max pages (${MAX_PAGES}), returning ${events.length} partial events`);
+        break;
+      }
+      if (Date.now() - start > OVERALL_TIMEOUT_MS) {
+        console.warn(`[OpenSea] ${walletLabel} overall timeout (${OVERALL_TIMEOUT_MS}ms) after ${page - 1} pages, returning ${events.length} partial events`);
         break;
       }
 
-      // Overall timeout: return whatever we have so far
-      if (Date.now() - overallStart > OVERALL_TIMEOUT_MS) {
-        console.warn(`[OpenSea] ${walletLabel} overall timeout (${OVERALL_TIMEOUT_MS}ms) after ${page - 1} pages. Returning ${allItems.length} partial items.`);
-        break;
-      }
+      const params = new URLSearchParams({ chain: 'ink', limit: '50' });
+      params.append('event_type', 'sale');
+      params.append('event_type', 'mint');
+      if (next) params.set('next', next);
 
       try {
-        const filter: any = {
-          activityTypes,
-          chains: [chain],
-          collectionSlugs: [],
-        };
-
-        // Only add markets filter if requested (for SALE activities)
-        if (filterByMarketplace) {
-          filter.markets = ['opensea'];
-        } else {
-          filter.markets = [];
-        }
-
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), PER_PAGE_TIMEOUT_MS);
-
         const pageStart = Date.now();
-        const response = await fetch(OPENSEA_GRAPHQL_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          signal: controller.signal,
-          body: JSON.stringify({
-            operationName: 'UseProfileActivityQuery',
-            query: USER_ACTIVITY_QUERY,
-            variables: {
-              addresses: [walletAddress.toLowerCase()],
-              filter,
-              cursor,
-              limit: 50, // Max items per page
-            },
-          }),
-        });
 
+        const res = await fetch(`${OPENSEA_V2_EVENTS_URL}/${walletAddress.toLowerCase()}?${params}`, {
+          headers: { 'x-api-key': this.apiKey, Accept: 'application/json' },
+          signal: controller.signal,
+        });
         clearTimeout(timeout);
 
-        // Handle rate limiting with exponential backoff (max 2 retries)
-        if (response.status === 429) {
-          const retryAfter = response.headers.get('Retry-After');
-          const waitTime = retryAfter ? parseInt(retryAfter) * 1000 : 3000;
-          console.warn(`[OpenSea] ${walletLabel} page ${page} rate limited (429), waiting ${waitTime}ms`);
-          await new Promise(resolve => setTimeout(resolve, waitTime));
-          page--; // Retry same page
+        // 429 = rate limited, 5xx = intermittent v2 API errors; both retryable
+        if (res.status === 429 || res.status >= 500) {
+          retries++;
+          if (retries > MAX_RETRIES) {
+            console.warn(`[OpenSea] ${walletLabel} giving up after ${MAX_RETRIES} retries (HTTP ${res.status}), returning ${events.length} partial events`);
+            break;
+          }
+          const retryAfter = res.headers.get('Retry-After');
+          const waitTime = retryAfter ? parseInt(retryAfter) * 1000 : 2000;
+          console.warn(`[OpenSea] ${walletLabel} page ${page} HTTP ${res.status}, waiting ${waitTime}ms (retry ${retries}/${MAX_RETRIES})`);
+          await new Promise((r) => setTimeout(r, waitTime));
+          page--;
           continue;
         }
 
-        if (!response.ok) {
-          console.error(`[OpenSea] ${walletLabel} page ${page} API error: ${response.status} ${response.statusText}`);
+        if (!res.ok) {
+          console.error(`[OpenSea] ${walletLabel} page ${page} API error: ${res.status} ${res.statusText}`);
           break;
         }
 
-        const data = await response.json() as OpenSeaResponse;
-        const items = data.data?.userActivity?.items || [];
-
-        allItems.push(...items);
-
-        cursor = data.data?.userActivity?.nextPageCursor;
-        hasMore = cursor !== null && items.length > 0;
-
-        console.log(`[OpenSea] ${walletLabel} page ${page}: ${items.length} items in ${Date.now() - pageStart}ms (total: ${allItems.length})`);
-
+        const data = await res.json() as V2EventsResponse;
+        const items = data.asset_events || [];
+        events.push(...items);
+        next = data.next || null;
+        console.log(`[OpenSea] ${walletLabel} page ${page}: ${items.length} events in ${Date.now() - pageStart}ms (total: ${events.length})`);
       } catch (error: any) {
         if (error.name === 'AbortError') {
           console.error(`[OpenSea] ${walletLabel} page ${page} timed out after ${PER_PAGE_TIMEOUT_MS}ms`);
@@ -201,52 +173,37 @@ export class OpenSeaService {
         }
         break;
       }
-    }
+    } while (next);
 
-    console.log(`[OpenSea] ${walletLabel} done: ${allItems.length} items in ${page} pages, ${((Date.now() - overallStart) / 1000).toFixed(2)}s`);
-    return allItems;
+    console.log(`[OpenSea] ${walletLabel} done: ${events.length} events in ${((Date.now() - start) / 1000).toFixed(2)}s`);
+    return events;
   }
 
   /**
-   * Calculate buy, sale, and mint counts from activity data
+   * Calculate buy, sale, and mint counts from v2 events
    *
    * Logic:
-   * - Buy: type=SALE and to.address matches wallet (count individual items)
-   * - Sale: type=SALE and from.address matches wallet (count individual items)
-   * - Mint: type=MINT where to.address matches wallet (count unique transactions)
-   *
-   * Note:
-   * - Buys/Sales count individual NFT items (7 NFTs in one tx = 7 buys)
-   * - Mints count unique transactions (already filtered by OpenSea marketplace at API level)
+   * - Buy: sale event where buyer matches wallet (count individual events)
+   * - Sale: sale event where seller matches wallet (count individual events)
+   * - Mint: transfer event with transfer_type=mint to wallet (count unique transactions)
    */
-  calculateActivityCounts(
-    activities: OpenSeaActivity[],
-    walletAddress: string
-  ): ActivityCounts {
+  calculateActivityCounts(events: V2AssetEvent[], walletAddress: string): ActivityCounts {
     const normalizedWallet = walletAddress.toLowerCase();
 
     const buys: string[] = [];
     const sales: string[] = [];
-    const mintTxs = new Set<string>(); // Use Set for unique transactions
+    const mintTxs = new Set<string>();
 
-    for (const activity of activities) {
-      const fromAddress = activity.from?.address?.toLowerCase();
-      const toAddress = activity.to?.address?.toLowerCase();
-
-      if (activity.type === 'SALE') {
-        // Buy: wallet is the buyer (to address) - count each item
-        if (toAddress === normalizedWallet) {
-          buys.push(activity.transactionHash);
+    for (const event of events) {
+      if (event.event_type === 'sale') {
+        if (event.buyer?.toLowerCase() === normalizedWallet) {
+          buys.push(event.transaction || '');
+        } else if (event.seller?.toLowerCase() === normalizedWallet) {
+          sales.push(event.transaction || '');
         }
-        // Sale: wallet is the seller (from address) - count each item
-        else if (fromAddress === normalizedWallet) {
-          sales.push(activity.transactionHash);
-        }
-      } else if (activity.type === 'MINT') {
-        // Mint: wallet is the minter (to address matches wallet)
-        // Already filtered by OpenSea marketplace at API level
-        if (toAddress === normalizedWallet) {
-          mintTxs.add(activity.transactionHash);
+      } else if (event.event_type === 'mint' || (event.event_type === 'transfer' && event.transfer_type === 'mint')) {
+        if (event.to_address?.toLowerCase() === normalizedWallet && event.transaction) {
+          mintTxs.add(event.transaction);
         }
       }
     }
@@ -254,77 +211,116 @@ export class OpenSeaService {
     return {
       buys: buys.length,
       sales: sales.length,
-      mints: mintTxs.size, // Use size for unique count
+      mints: mintTxs.size,
       buyTransactions: buys,
       saleTransactions: sales,
       mintTransactions: Array.from(mintTxs),
     };
   }
 
-  /**
-   * Get OpenSea buy count for a wallet
-   */
-  async getBuyCount(walletAddress: string): Promise<number> {
-    const activities = await this.fetchWalletActivity(walletAddress, ['SALE']);
-    const counts = this.calculateActivityCounts(activities, walletAddress);
-    return counts.buys;
+  private async readDbCounts(wallet: string): Promise<{ counts: ActivityCounts; ageMs: number } | null> {
+    await this.ensureTable();
+    const row = await queryOne<CountsRow>(
+      'SELECT * FROM opensea_wallet_counts WHERE wallet_address = $1',
+      [wallet]
+    );
+    if (!row) return null;
+    return {
+      counts: {
+        buys: row.buys, sales: row.sales, mints: row.mints,
+        buyTransactions: [], saleTransactions: [], mintTransactions: [],
+      },
+      ageMs: Date.now() - new Date(row.updated_at).getTime(),
+    };
+  }
+
+  private async writeDbCounts(wallet: string, counts: ActivityCounts): Promise<void> {
+    await this.ensureTable();
+    await query(
+      `INSERT INTO opensea_wallet_counts (wallet_address, buys, sales, mints, updated_at)
+       VALUES ($1, $2, $3, $4, now())
+       ON CONFLICT (wallet_address)
+       DO UPDATE SET buys = $2, sales = $3, mints = $4, updated_at = now()`,
+      [wallet, counts.buys, counts.sales, counts.mints]
+    );
   }
 
   /**
-   * Get OpenSea sale count for a wallet
+   * Fetch from the v2 API and persist to both caches. Deduped per wallet.
    */
-  async getSaleCount(walletAddress: string): Promise<number> {
-    const activities = await this.fetchWalletActivity(walletAddress, ['SALE']);
-    const counts = this.calculateActivityCounts(activities, walletAddress);
-    return counts.sales;
-  }
-
-  /**
-   * Get OpenSea mint count for a wallet
-   */
-  async getMintCount(walletAddress: string): Promise<number> {
-    const activities = await this.fetchWalletActivity(walletAddress, ['MINT'], 'ink', true);
-    const counts = this.calculateActivityCounts(activities, walletAddress);
-    return counts.mints;
-  }
-
-  /**
-   * Get all counts at once (more efficient - single API call)
-   * Uses in-memory cache (1hr TTL) and dedup lock to prevent parallel duplicate fetches.
-   */
-  async getAllCounts(walletAddress: string): Promise<ActivityCounts> {
-    const key = walletAddress.toLowerCase();
-
-    // 1. Check cache
-    const cached = this.countsCache.get(key);
-    if (cached && Date.now() - cached.timestamp < this.CACHE_TTL_MS) {
-      console.log(`[OpenSea] Cache hit for ${key.slice(0, 10)}...`);
-      return cached.counts;
-    }
-
-    // 2. If there's already an in-flight request for this wallet, wait for it
-    const existing = this.inflight.get(key);
+  private refresh(wallet: string): Promise<ActivityCounts> {
+    const existing = this.inflight.get(wallet);
     if (existing) {
-      console.log(`[OpenSea] Dedup: joining in-flight request for ${key.slice(0, 10)}...`);
+      console.log(`[OpenSea] Dedup: joining in-flight request for ${wallet.slice(0, 10)}...`);
       return existing;
     }
 
-    // 3. Start a new fetch with a 15s timeout
     const fetchPromise = (async (): Promise<ActivityCounts> => {
       try {
-        const activities = await this.fetchWalletActivity(walletAddress, ['SALE', 'MINT'], 'ink', true);
-        const counts = this.calculateActivityCounts(activities, walletAddress);
-
-        // Store in cache
-        this.countsCache.set(key, { counts, timestamp: Date.now() });
+        const events = await this.fetchV2Events(wallet);
+        const counts = this.calculateActivityCounts(events, wallet);
+        this.countsCache.set(wallet, { counts, timestamp: Date.now() });
+        await this.writeDbCounts(wallet, counts).catch((err) =>
+          console.warn(`[OpenSea] DB cache write failed for ${wallet.slice(0, 10)}:`, err.message || err)
+        );
         return counts;
       } finally {
-        this.inflight.delete(key);
+        this.inflight.delete(wallet);
       }
     })();
 
-    this.inflight.set(key, fetchPromise);
+    this.inflight.set(wallet, fetchPromise);
     return fetchPromise;
+  }
+
+  /**
+   * Get buy/sale/mint counts for a wallet.
+   * Memory cache -> Postgres cache (stale rows served immediately + refreshed in
+   * background) -> inline v2 API fetch. Never throws; falls back to zeros.
+   */
+  async getAllCounts(walletAddress: string): Promise<ActivityCounts> {
+    // Kill switch: skip OpenSea entirely so the score never blocks on it
+    if (this.disabled) {
+      console.warn('[OpenSea] disabled via DISABLE_OPENSEA, returning zeros');
+      return ZERO_COUNTS;
+    }
+
+    const key = walletAddress.toLowerCase();
+
+    // 1. Memory cache
+    const cached = this.countsCache.get(key);
+    if (cached && Date.now() - cached.timestamp < this.MEMORY_TTL_MS) {
+      console.log(`[OpenSea] Memory cache hit for ${key.slice(0, 10)}...`);
+      return cached.counts;
+    }
+
+    // 2. Postgres cache
+    try {
+      const db = await this.readDbCounts(key);
+      if (db) {
+        if (db.ageMs < this.DB_TTL_MS) {
+          console.log(`[OpenSea] DB cache hit for ${key.slice(0, 10)} (age ${(db.ageMs / 60000).toFixed(0)}m)`);
+          this.countsCache.set(key, { counts: db.counts, timestamp: Date.now() });
+          return db.counts;
+        }
+        // Stale: serve immediately, refresh in background
+        console.log(`[OpenSea] DB cache stale for ${key.slice(0, 10)}, refreshing in background`);
+        this.refresh(key).catch((err) =>
+          console.warn(`[OpenSea] background refresh failed for ${key.slice(0, 10)}:`, err.message || err)
+        );
+        return db.counts;
+      }
+    } catch (err: any) {
+      console.warn(`[OpenSea] DB cache read failed for ${key.slice(0, 10)}:`, err.message || err);
+    }
+
+    // 3. No cache anywhere: fetch inline (bounded by fetchV2Events' 20s budget)
+    try {
+      return await this.refresh(key);
+    } catch (err: any) {
+      console.error(`[OpenSea] fetch failed for ${key.slice(0, 10)}:`, err.message || err);
+      return ZERO_COUNTS;
+    }
   }
 }
 

@@ -18,6 +18,13 @@ import https from 'https';
  * - All historical/backlog processing handled by separate concurrent script
  */
 
+// Only these functions have their calldata read back (analytics-service.ts).
+// Storing `input` for anything else wasted ~13 GB — gate it.
+export const INPUT_REQUIRED_FUNCTIONS = new Set([
+  'borrow', 'supply', 'deposit', 'repay', 'withdraw',
+  'borrowETH', 'repayETH', 'withdrawETH',
+]);
+
 interface TransactionToEnrich {
   tx_hash: string;
   contract_address: string;
@@ -274,6 +281,9 @@ export class PureEventDrivenEnrichmentService {
    * Insert enrichment data for a single transaction
    */
   private async insertEnrichmentData(tx: TransactionToEnrich, details: RouterscanTransaction): Promise<void> {
+    const fnName = details.method ? details.method.split('(')[0].trim() : '';
+    const inputToStore = INPUT_REQUIRED_FUNCTIONS.has(fnName) ? (details.input || null) : null;
+
     await pool.query(`
       INSERT INTO transaction_enrichment (
         tx_hash, contract_address, wallet_address,
@@ -305,7 +315,7 @@ export class PureEventDrivenEnrichmentService {
       details.contractVerified || false,
       details.methodId || null,
       details.method || null,
-      details.input || null,
+      inputToStore,
       details.logs ? JSON.stringify(details.logs) : null,
       details.operations ? JSON.stringify(details.operations) : null
     ]);
