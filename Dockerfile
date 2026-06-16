@@ -18,6 +18,9 @@ COPY package*.json ./
 RUN npm ci
 
 COPY . .
+# Next.js webpack build is memory-heavy; Node auto-caps the V8 old-space heap
+# (~2GB on a 4GB box) and OOMs. Raise it so the build completes on small hosts.
+ENV NODE_OPTIONS=--max-old-space-size=4096
 RUN npm run build
 
 # ---- Run stage ----
