@@ -25,6 +25,8 @@ services:
   postgres:
     image: postgres:16-alpine
     restart: always
+    # Default 64MB /dev/shm OOMs parallel queries on the 32M-row tables
+    shm_size: 512mb
     logging: *default-logging
     environment:
       POSTGRES_USER: ink
@@ -72,6 +74,8 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgres://ink:${DB_PASSWORD}@postgres:5432/ink_analytics
+      # Realtime depends on Routescan API (429-fix); blank falls back to no key
+      ROUTESCAN_API_KEY: ${ROUTESCAN_API_KEY:-}
     command: npm run start:realtime
 
   # Event-Driven Enrichment Service - Optimized volume contract enrichment
@@ -88,6 +92,8 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgres://ink:${DB_PASSWORD}@postgres:5432/ink_analytics
+      # Enrichment reads Routescan too (see realtime note)
+      ROUTESCAN_API_KEY: ${ROUTESCAN_API_KEY:-}
     command: npm run start:event-enrichment
 
   # Express API Server - Shared connection pool for dashboard endpoints
