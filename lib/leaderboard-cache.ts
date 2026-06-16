@@ -153,20 +153,33 @@ async function fetchLeaderboardFromExplorer(): Promise<any[]> {
   let allNFTs: ExplorerNFT[] = [];
   let nextPageParams: { unique_token: number } | null = null;
   let baseUrl = `${EXPLORER_API}/${NFT_CONTRACT_ADDRESS}/instances`;
+  let page = 0;
+  const MAX_PAGES = 400;             // hard stop vs runaway pagination (~20k NFTs at 50/page)
+  const PER_PAGE_TIMEOUT_MS = 15000; // explorer can stall; never hang a page forever
 
   do {
+    if (++page > MAX_PAGES) {
+      console.warn(`[LeaderboardCache] hit MAX_PAGES (${MAX_PAGES}), stopping with ${allNFTs.length} NFTs`);
+      break;
+    }
     const url = nextPageParams
       ? `${baseUrl}?unique_token=${nextPageParams.unique_token}`
       : baseUrl;
 
-    const explorerResponse = await fetch(url);
-    if (!explorerResponse.ok) {
-      throw new Error(`Explorer API error: ${explorerResponse.status}`);
-    }
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), PER_PAGE_TIMEOUT_MS);
+    try {
+      const explorerResponse = await fetch(url, { signal: controller.signal });
+      if (!explorerResponse.ok) {
+        throw new Error(`Explorer API error: ${explorerResponse.status}`);
+      }
 
-    const data: ExplorerResponse = await explorerResponse.json();
-    allNFTs = [...allNFTs, ...data.items];
-    nextPageParams = data.next_page_params;
+      const data: ExplorerResponse = await explorerResponse.json();
+      allNFTs = [...allNFTs, ...data.items];
+      nextPageParams = data.next_page_params;
+    } finally {
+      clearTimeout(timeout);
+    }
   } while (nextPageParams !== null);
 
   console.log(`[LeaderboardCache] Fetched ${allNFTs.length} total NFTs`);
@@ -296,8 +309,11 @@ export async function getLeaderboardData(): Promise<{
     return { leaderboard, total: leaderboard.length, source: 'cache', lastUpdated: cached.lastUpdated };
   }
 
-  console.log('[LeaderboardCache] Cache expired (> 2 hours), fetching fresh data');
-  const leaderboard = await fetchLeaderboardFromExplorer();
-  await setCachedLeaderboard(leaderboard);
-  return { leaderboard, total: leaderboard.length, source: 'fresh', lastUpdated: new Date() };
+  // Expired but we still have data: serve it instantly and refresh in the
+  // background. Never block a user request on the multi-minute explorer crawl —
+  // the old synchronous fetch here was the leaderboard hang on cold expiry.
+  console.log('[LeaderboardCache] Cache expired, serving stale + background refresh');
+  triggerBackgroundRefresh();
+  const leaderboard = applyOverrides(cached.data);
+  return { leaderboard, total: leaderboard.length, source: 'cache', lastUpdated: cached.lastUpdated };
 }
