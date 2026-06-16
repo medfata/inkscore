@@ -132,6 +132,7 @@ services:
         NEXT_PUBLIC_ENABLE_STREAMING: ${NEXT_PUBLIC_ENABLE_STREAMING:-true}
     restart: always
     logging: *default-logging
+    mem_limit: 1g
     depends_on:
       postgres:
         condition: service_healthy
@@ -158,7 +159,9 @@ services:
     expose:
       - "3000"
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/"]
+      # 127.0.0.1 not localhost: the standalone server binds IPv4 0.0.0.0, but
+      # in-container 'localhost' resolves to IPv6 ::1 -> probe gets ECONNREFUSED.
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000/"]
       interval: 30s
       timeout: 10s
       retries: 3
