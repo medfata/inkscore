@@ -108,6 +108,8 @@ services:
     environment:
       DATABASE_URL: postgres://ink:${DB_PASSWORD}@postgres:5432/ink_analytics
       PORT: 4000
+      # OpenSea buy/sale/mint counts; blank disables (opensea-service returns zeros)
+      OPENSEA_API_KEY: ${OPENSEA_API_KEY:-}
       RPC_URL: ${RPC_URL}
     ports:
       - "4000:4000"
