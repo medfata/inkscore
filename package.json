@@ -47,6 +47,7 @@
     "wagmi": "^2.14.11"
   },
   "devDependencies": {
+    "@openzeppelin/contracts": "^5.6.1",
     "@tailwindcss/postcss": "^4",
     "@testing-library/jest-dom": "^6.1.5",
     "@testing-library/react": "^14.1.2",
@@ -59,6 +60,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.0.10",
     "jsdom": "^23.0.1",
+    "solc": "^0.8.24",
     "tailwindcss": "^4",
     "tsx": "^4.7.0",
     "typescript": "^5",

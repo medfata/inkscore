@@ -1,5 +1,6 @@
 import { WagmiAdapter } from '@reown/appkit-adapter-wagmi';
 import { defineChain } from '@reown/appkit/networks';
+import { http } from 'wagmi';
 
 // Get your projectId from https://cloud.reown.com
 export const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || '';
@@ -30,6 +31,17 @@ export const wagmiAdapter = new WagmiAdapter({
   ssr: true,
   projectId,
   networks: [inkChain],
+  // Keyless public RPC — keep the browser's request profile small:
+  // - batch: collapse concurrent reads into a single JSON-RPC POST
+  //   (viem defaults to one request per call, which rate-limits fast)
+  // - retryCount 1: viem's default of 3 retries amplifies 429 storms
+  transports: {
+    [inkChain.id]: http('https://rpc-gel.inkonchain.com', {
+      batch: { wait: 50 },
+      retryCount: 1,
+      timeout: 10_000,
+    }),
+  },
 });
 
 export const config = wagmiAdapter.wagmiConfig;
