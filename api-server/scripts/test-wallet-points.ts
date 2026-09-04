@@ -69,17 +69,12 @@ const METRIC_MAX: Record<string, number> = {
   shellies: 400,
   zns: 300,
   nft2me: 300,
-  nft_trading: 400,
-  marvk: 300,
   nado: 2500,
   copink: 400,
   templars: 2700,
   tydro: 2500,
   cowswap: 2000,
-  phase1: 1000,
   sweep: 800,
-  nft_staking: 500,
-  inkdca: 500,
 };
 
 // Human-readable labels
@@ -98,17 +93,12 @@ const METRIC_LABEL: Record<string, string> = {
   shellies: 'Shellies',
   zns: 'ZNS Connect',
   nft2me: 'NFT2Me',
-  nft_trading: 'NFT Trading',
-  marvk: 'Marvk',
   nado: 'Nado Finance',
   copink: 'Copink',
   templars: 'Templars of the Storm',
   tydro: 'Tydro (Lending)',
   cowswap: 'CowSwap',
-  phase1: 'Phase 1 Eligibility',
   sweep: 'Sweep',
-  nft_staking: 'NFT Staking',
-  inkdca: 'INKDCA',
 };
 
 // ---------------------------------------------------------------------------

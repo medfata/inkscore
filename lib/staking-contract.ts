@@ -339,14 +339,17 @@ function normalizeInstance(raw: RawInstance): ZenithNFT | null {
 /**
  * Fetch the Zenith token ids currently HELD by `wallet`.
  *
- * Served by /api/staking/held-nfts — an on-chain ownerOf scan of the fixed
- * 888-token space with a shared server-side cache. This replaced the old
- * explorer holder-index + transfer-history pipeline, which took 7-30s for
- * large wallets (and silently dropped tokens when Blockscout's indexer
- * lagged). The on-chain scan is authoritative and never misses a token.
+ * Served by /api/staking/held-nfts — a Blockscout instances lookup filtered
+ * by holder address, cached per wallet server-side (20s) and on the CDN.
+ * Pass `{ refresh: true }` after stake/unstake/transfer flows to force a
+ * post-tx read instead of the cached one.
  */
-export async function fetchHeldZenithIds(wallet: HexAddress): Promise<string[]> {
-  const res = await fetch(`/api/staking/held-nfts?wallet=${wallet}`);
+export async function fetchHeldZenithIds(
+  wallet: HexAddress,
+  opts?: { refresh?: boolean }
+): Promise<string[]> {
+  const suffix = opts?.refresh ? '&refresh=1' : '';
+  const res = await fetch(`/api/staking/held-nfts?wallet=${wallet}${suffix}`);
   if (!res.ok) {
     throw new Error(`Held-NFT lookup failed (${res.status})`);
   }

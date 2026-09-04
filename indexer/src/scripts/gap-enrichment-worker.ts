@@ -9,7 +9,7 @@ const workerPool = new Pool({
   connectionTimeoutMillis: 10000,
 });
 import https from 'https';
-import { INPUT_REQUIRED_FUNCTIONS } from '../services/PureEventDrivenEnrichmentService.js';
+import { INPUT_REQUIRED_FUNCTIONS, OPERATIONS_REQUIRED_CONTRACTS } from '../services/PureEventDrivenEnrichmentService.js';
 
 /**
  * Gap Enrichment Worker Process
@@ -421,6 +421,9 @@ class GapEnrichmentWorker {
     enrichedData.forEach((item, idx) => {
       const fnName = item.details.method ? item.details.method.split('(')[0].trim() : '';
       const inputToStore = INPUT_REQUIRED_FUNCTIONS.has(fnName) ? (item.details.input || null) : null;
+      const opsToStore = OPERATIONS_REQUIRED_CONTRACTS.has(item.tx.contract_address.toLowerCase())
+        ? (item.details.operations ? JSON.stringify(item.details.operations) : null)
+        : null;
       const offset = idx * 20;
       placeholders.push(
         `($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5}, $${offset + 6}, $${offset + 7}, $${offset + 8}, $${offset + 9}, $${offset + 10}, $${offset + 11}, $${offset + 12}, $${offset + 13}, $${offset + 14}, $${offset + 15}, $${offset + 16}, $${offset + 17}, $${offset + 18}, $${offset + 19}, $${offset + 20})`
@@ -446,7 +449,7 @@ class GapEnrichmentWorker {
         item.details.method || null,
         inputToStore,
         item.details.logs ? JSON.stringify(item.details.logs) : null,
-        item.details.operations ? JSON.stringify(item.details.operations) : null
+        opsToStore
       );
     });
 

@@ -4,13 +4,14 @@ import { pool, testConnection } from './db';
 import walletRoutes from './routes/backup_wallet';
 import analyticsRoutes from './routes/analytics';
 import dashboardRoutes from './routes/dashboard';
-import marvkRoutes from './routes/marvk';
 import nadoRoutes from './routes/nado';
 import copinkRoutes from './routes/copink';
 import ranksRoutes from './routes/ranks';
 import cryptoclashRoutes from './routes/cryptoclash';
 import sweepRoutes from './routes/sweep';
-import phase1Routes from './routes/phase1';
+import { startRefreshWorker } from './services/refresh-worker';
+import { logProxyStatus } from './services/proxy-agent';
+import { bypassWalletCache } from './cache';
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -18,6 +19,14 @@ const PORT = process.env.PORT || 4000;
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Explicit refresh (?refresh=true) opens a short bypass window so wallet
+// cache entries older than the default are recomputed live, while concurrent
+// viewers keep their cached data. See cache.ts bypassWalletCache.
+app.use((req, _res, next) => {
+  if (req.query.refresh === 'true') bypassWalletCache(5000);
+  next();
+});
 
 // Health check endpoint
 app.get('/health', async (_req, res) => {
@@ -34,13 +43,11 @@ app.get('/health', async (_req, res) => {
 app.use('/api/wallet', walletRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/dashboard', dashboardRoutes);
-app.use('/api/marvk', marvkRoutes);
 app.use('/api/nado', nadoRoutes);
 app.use('/api/copink', copinkRoutes);
 app.use('/api/ranks', ranksRoutes);
 app.use('/api/cryptoclash', cryptoclashRoutes);
 app.use('/api/sweep', sweepRoutes);
-app.use('/api/phase1', phase1Routes);
 
 // Start server with database connection test
 async function startServer() {
@@ -54,6 +61,11 @@ async function startServer() {
 
   app.listen(PORT, () => {
     console.log(`API server running on port ${PORT}`);
+    // Residential proxy pool for Blockscout egress (per-IP rate limits).
+    logProxyStatus();
+    // Background worker: completes truncated Blockscout fills + refreshes
+    // stale caches without blocking interactive traffic.
+    startRefreshWorker();
   });
 }
 

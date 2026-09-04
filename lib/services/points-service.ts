@@ -470,6 +470,7 @@ export class PointsService {
         '0x2a1bce657f919ac3f9ab50b2584cfc77563a02ec', // ANDRU (AK47)
         '0x32bcb803f696c99eb263d60a05cafd8689026575', // KRAK (KRAKMASK)
         '0x62c99fac20b33b5423fdf9226179e973a8353e36', // BERT
+        '0xd95b9a5fa7c2708fd4fe0e07e59bde1ef35b194a', // BEAST (Kraken Mascot)
       ]);
     }
   }

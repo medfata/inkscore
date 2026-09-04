@@ -1,9 +1,19 @@
 import { assetsService, setWalletStatsCacheClearer } from './assets-service';
 import { TrackedAsset } from '../types/assets';
-import { phase1Service } from './phase1-service';
+import { priceService } from './price-service';
+import {
+  getNftHoldingsRaw,
+  getTokenHoldingsRaw,
+  getWalletStats,
+  isBlockscoutEnabled,
+} from './blockscout-service';
+import { getInflight, withInflight } from '../cache';
 
-const INK_CHAIN_ID = '57073';
-const ROUTESCAN_BASE_URL = 'https://cdn-canary.routescan.io/api';
+function assertBlockscout(): void {
+  if (!isBlockscoutEnabled()) {
+    throw new Error('Blockscout source disabled via BLOCKSCOUT_SOURCE=off');
+  }
+}
 const DEXSCREENER_API = 'https://api.dexscreener.com/latest/dex/tokens';
 const COINGECKO_API = 'https://api.coingecko.com/api/v3';
 
@@ -33,6 +43,7 @@ export interface NftCollectionHolding {
   name: string;
   address: string;
   logo: string;
+  openseaUrl: string | null;
   count: number;
 }
 
@@ -75,16 +86,16 @@ export interface WalletStatsData {
   firstTxDate: string | null;
   nftCollections: NftCollectionHolding[];
   tokenHoldings: TokenHolding[];
-  phase1Status?: {
-    isPhase1: boolean;
-    score: number | null;
-  };
 }
 
 // Cache for wallet stats (30 second TTL)
 interface StatsCache {
   data: WalletStatsData;
   timestamp: number;
+  // Error fallbacks (all-zero) are cached briefly so a failing upstream isn't
+  // hammered, but NEVER treated as facts: real data cached for 5 min,
+  // degraded data for one TTL window so the next request retries the walk.
+  degraded?: boolean;
 }
 const walletStatsCache = new Map<string, StatsCache>();
 const STATS_CACHE_TTL = 30 * 1000; // 30 seconds
@@ -95,86 +106,35 @@ export function clearWalletStatsCache(): void {
 }
 
 export class WalletStatsService {
-  // Get wallet overview (balance only)
+  // Get wallet overview (native ETH balance only, via Blockscout)
   async getWalletOverview(walletAddress: string): Promise<{
     balanceUsd: number;
     balanceEth: number;
   }> {
     try {
-      const url = `${ROUTESCAN_BASE_URL}/blockchain/all/address/${walletAddress}?excludedChainIds=1682324,2061,80002,4202,295&ecosystem=all`;
-      
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
-      
-      const response = await fetch(url, { 
-        signal: controller.signal,
-        headers: { 'Accept': 'application/json' }
-      });
-      
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        throw new Error(`Routescan API error: ${response.status}`);
-      }
-
-      const data = await response.json() as {
-        instances?: Array<{
-          chainId: string;
-          data?: {
-            evmBalance?: {
-              usdValue?: string;
-              balance?: string;
-            };
-          };
-        }>;
-      };
-      const inkInstance = data.instances?.find((i) => i.chainId === INK_CHAIN_ID);
-
-      let balanceUsd = 0;
-      let balanceEth = 0;
-
-      if (inkInstance?.data?.evmBalance) {
-        balanceUsd = parseFloat(inkInstance.data.evmBalance.usdValue || '0');
-        balanceEth = parseFloat(inkInstance.data.evmBalance.balance || '0') / 1e18;
-      }
-
-      return { balanceUsd, balanceEth };
+      assertBlockscout();
+      const [stats, ethPrice] = await Promise.all([
+        getWalletStats(walletAddress),
+        priceService.getCurrentPrice().catch(() => 3500),
+      ]);
+      // gwei-precision conversion avoids float dust on huge wei values
+      const balanceEth = Number(BigInt(stats.ethWei || '0') / BigInt(1e9)) / 1e9;
+      return { balanceUsd: balanceEth * ethPrice, balanceEth };
     } catch (error) {
       console.error('Failed to fetch wallet overview:', error);
       return { balanceUsd: 0, balanceEth: 0 };
     }
   }
 
-  // Get Ink chain transaction stats
+  // Get Ink chain transaction stats (count + first tx, via Blockscout)
   async getInkChainTxStats(walletAddress: string): Promise<{
     firstTxDate: string | null;
     totalTxns: number;
   }> {
     try {
-      const url = `${ROUTESCAN_BASE_URL}/evm/all/transactions?fromAddresses=${walletAddress}&toAddresses=${walletAddress}&includedChainIds=${INK_CHAIN_ID}&count=true&limit=1&sort=asc`;
-      
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
-      
-      const response = await fetch(url, { 
-        signal: controller.signal,
-        headers: { 'Accept': 'application/json' }
-      });
-      
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        throw new Error(`Routescan API error: ${response.status}`);
-      }
-
-      const data = await response.json() as {
-        items?: Array<{ timestamp?: string }>;
-        count?: number;
-      };
-      const firstTxDate = data.items && data.items.length > 0 ? data.items[0].timestamp || null : null;
-      const totalTxns = data.count || 0;
-
-      return { firstTxDate, totalTxns };
+      assertBlockscout();
+      const stats = await getWalletStats(walletAddress);
+      return { firstTxDate: stats.firstSeen, totalTxns: stats.txns };
     } catch (error) {
       console.error('Failed to fetch Ink chain tx stats:', error);
       return { firstTxDate: null, totalTxns: 0 };
@@ -182,58 +142,22 @@ export class WalletStatsService {
   }
 
 
-  // Get all NFT holdings on Ink chain (paginated)
+  // Get all NFT holdings on Ink chain (via Blockscout collections)
   async getAllNftHoldings(walletAddress: string): Promise<{
     totalCount: number;
     holdings: Array<{ tokenAddress: string; balance: string; type: string }>;
   }> {
-    const allHoldings: Array<{ tokenAddress: string; balance: string; type: string }> = [];
-    let nextToken: string | null = null;
-    let totalCount = 0;
-
     try {
-      let hasMore = true;
-      const paginationDeadline = Date.now() + 5000; // 5s max for all pages
-      while (hasMore && Date.now() < paginationDeadline) {
-        const baseUrl = `${ROUTESCAN_BASE_URL}/evm/all/address/${walletAddress}/nft-holdings?includedChainIds=${INK_CHAIN_ID}&count=true&limit=500`;
-        const fetchUrl: string = nextToken
-          ? `${baseUrl}&next=${encodeURIComponent(nextToken)}`
-          : baseUrl;
-
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 3000);
-        const response: Response = await fetch(fetchUrl, { signal: controller.signal });
-        clearTimeout(timeoutId);
-
-        if (!response.ok) {
-          throw new Error(`Routescan API error: ${response.status}`);
-        }
-
-        const data = (await response.json()) as {
-          count?: number;
-          items?: Array<{ tokenAddress: string; balance?: string; type: string }>;
-          link?: { nextToken?: string };
-        };
-
-        if (data.count) {
-          totalCount = data.count;
-        }
-
-        if (data.items && data.items.length > 0) {
-          allHoldings.push(
-            ...data.items.map((item) => ({
-              tokenAddress: item.tokenAddress.toLowerCase(),
-              balance: item.balance || '1',
-              type: item.type,
-            }))
-          );
-        }
-
-        nextToken = data.link?.nextToken || null;
-        hasMore = !!nextToken;
-      }
-
-      return { totalCount, holdings: allHoldings };
+      assertBlockscout();
+      const holdings = await getNftHoldingsRaw(walletAddress);
+      return {
+        totalCount: holdings.reduce((sum, h) => sum + (h.count || 0), 0),
+        holdings: holdings.map((h) => ({
+          tokenAddress: h.address,
+          balance: String(h.count),
+          type: 'ERC-721',
+        })),
+      };
     } catch (error) {
       console.error('Failed to fetch NFT holdings:', error);
       return { totalCount: 0, holdings: [] };
@@ -257,6 +181,9 @@ export class WalletStatsService {
         name: collection.name,
         address: collection.address,
         logo: collection.logo_url || '',
+        openseaUrl: collection.opensea_slug
+          ? `https://opensea.io/collection/${collection.opensea_slug}`
+          : null,
         count,
       };
     });
@@ -299,6 +226,7 @@ export class WalletStatsService {
     }
 
     const prices = new Map<string, number>();
+    const priceLiquidity = new Map<string, { priceUsd: number; liquidityUsd: number }>();
 
     if (tokenAddresses.length === 0) {
       return prices;
@@ -321,22 +249,31 @@ export class WalletStatsService {
           chainId?: string;
           baseToken?: { address?: string };
           priceUsd?: string;
+          liquidity?: { usd?: number };
         }>;
       };
 
       if (data.pairs && Array.isArray(data.pairs)) {
+        // Keep the price from the HIGHEST-LIQUIDITY pair per token, not the
+        // highest price. Thin pools (e.g. a $0.63-liquidity Velodrome pair
+        // next to a $59k InkySwap pair) can quote a stale/oscillating price;
+        // picking it by value inflated or deflated holdings randomly.
         for (const pair of data.pairs) {
           if (pair.chainId !== 'ink') continue;
 
           const tokenAddress = pair.baseToken?.address?.toLowerCase();
           const priceUsd = parseFloat(pair.priceUsd || '0');
+          const liquidityUsd = pair.liquidity?.usd || 0;
 
           if (tokenAddress && priceUsd > 0) {
-            const existingPrice = prices.get(tokenAddress);
-            if (!existingPrice || priceUsd > existingPrice) {
-              prices.set(tokenAddress, priceUsd);
+            const existing = priceLiquidity.get(tokenAddress);
+            if (!existing || liquidityUsd > existing.liquidityUsd) {
+              priceLiquidity.set(tokenAddress, { priceUsd, liquidityUsd });
             }
           }
+        }
+        for (const [tokenAddress, { priceUsd }] of priceLiquidity) {
+          prices.set(tokenAddress, priceUsd);
         }
       }
 
@@ -355,64 +292,21 @@ export class WalletStatsService {
     return this.getTokenPrices(memeCoins.map((t) => t.address));
   }
 
-  // Get ERC-20 token holdings on Ink chain (paginated)
+  // Get ERC-20 token holdings on Ink chain (via Blockscout).
+  // USD waterfall (unchanged semantics): Blockscout exchange_rate first
+  // (replaces the dead Routescan valueInUsd), then DexScreener, then BTC.
   async getTokenHoldings(walletAddress: string): Promise<TokenHolding[]> {
     const tokenDataMap = new Map<string, { balance: string; usdValue: number; decimals: number }>();
-    let nextToken: string | null = null;
 
     try {
-      let hasMore = true;
-      const paginationDeadline = Date.now() + 5000; // 5s max for all pages
-      while (hasMore && Date.now() < paginationDeadline) {
-        const baseUrl = `${ROUTESCAN_BASE_URL}/evm/all/address/${walletAddress}/erc20-holdings?includedChainIds=${INK_CHAIN_ID}&limit=500`;
-        const fetchUrl: string = nextToken
-          ? `${baseUrl}&next=${encodeURIComponent(nextToken)}`
-          : baseUrl;
-
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 3000);
-        const response: Response = await fetch(fetchUrl, { signal: controller.signal });
-        clearTimeout(timeoutId);
-
-        if (!response.ok) {
-          throw new Error(`Routescan API error: ${response.status}`);
-        }
-
-        const data = (await response.json()) as {
-          items?: Array<{
-            tokenAddress: string;
-            holderBalance: string;
-            valueInUsd?: number;
-            token?: { decimals?: number };
-          }>;
-          link?: { nextToken?: string };
-        };
-
-        if (data.items) {
-          for (const item of data.items) {
-            const addr = item.tokenAddress.toLowerCase();
-            const existing = tokenDataMap.get(addr);
-            const decimals = item.token?.decimals || 18;
-
-            if (existing) {
-              const newBalance = (BigInt(existing.balance) + BigInt(item.holderBalance)).toString();
-              tokenDataMap.set(addr, {
-                balance: newBalance,
-                usdValue: existing.usdValue + (item.valueInUsd || 0),
-                decimals,
-              });
-            } else {
-              tokenDataMap.set(addr, {
-                balance: item.holderBalance,
-                usdValue: item.valueInUsd || 0,
-                decimals,
-              });
-            }
-          }
-        }
-
-        nextToken = data.link?.nextToken || null;
-        hasMore = !!nextToken;
+      assertBlockscout();
+      const raw = await getTokenHoldingsRaw(walletAddress);
+      for (const h of raw) {
+        const balance = h.rawBalance || '0';
+        const decimals = h.decimals || 18;
+        const amount = Number(BigInt(balance)) / Math.pow(10, decimals);
+        const usdValue = amount * (h.exchangeRate || 0);
+        tokenDataMap.set(h.address, { balance, usdValue, decimals });
       }
 
       const allTokens = await assetsService.getAllTokens();
@@ -505,12 +399,28 @@ export class WalletStatsService {
   async getAllStats(walletAddress: string): Promise<WalletStatsData> {
     const wallet = walletAddress.toLowerCase();
 
-    // Check cache first
+    // Check cache first. Degraded (error-fallback) entries expire after one
+    // TTL window so a transient upstream failure doesn't serve zeros as
+    // facts for the full 5-minute window — the next request retries.
     const cached = walletStatsCache.get(wallet);
-    if (cached && Date.now() - cached.timestamp < STATS_CACHE_TTL * 10) {
+    const effectiveTtl = cached?.degraded ? STATS_CACHE_TTL : STATS_CACHE_TTL * 10;
+    if (cached && Date.now() - cached.timestamp < effectiveTtl) {
       return cached.data;
     }
 
+    // Shared in-flight computation: the dashboard's direct /stats fetch and
+    // the score's internal getAllStats call fire together — don't run the
+    // 5-way fan-out twice.
+    const statsInf = getInflight<WalletStatsData>(`walletstats:${wallet}`);
+    if (statsInf) {
+      try {
+        return await statsInf;
+      } catch {
+        // Fall through and compute fresh if the shared run failed.
+      }
+    }
+
+    return withInflight<WalletStatsData>(`walletstats:${wallet}`, async () => {
     try {
       // Pre-fetch meme coin prices before token holdings
       const memePricesPromise = this.getMemeCoinPrices();
@@ -526,9 +436,6 @@ export class WalletStatsService {
       const ageDays = this.calculateAgeDays(txStats.firstTxDate);
       const nftCollections = await this.countSpecialCollections(nftData.holdings);
 
-      // Check Phase 1 status
-      const phase1Status = phase1Service.getPhase1Status(walletAddress);
-
       const result: WalletStatsData = {
         balanceUsd: overview.balanceUsd,
         balanceEth: overview.balanceEth,
@@ -538,10 +445,6 @@ export class WalletStatsService {
         firstTxDate: txStats.firstTxDate,
         nftCollections,
         tokenHoldings,
-        phase1Status: {
-          isPhase1: phase1Status.isPhase1,
-          score: phase1Status.score,
-        },
       };
 
       walletStatsCache.set(wallet, { data: result, timestamp: Date.now() });
@@ -549,7 +452,7 @@ export class WalletStatsService {
       return result;
     } catch (error) {
       console.error('Failed to fetch wallet stats, using fallback data:', error);
-      
+
       const fallbackResult: WalletStatsData = {
         balanceUsd: 0,
         balanceEth: 0,
@@ -561,10 +464,12 @@ export class WalletStatsService {
         tokenHoldings: [],
       };
 
-      walletStatsCache.set(wallet, { data: fallbackResult, timestamp: Date.now() });
-      
+      // Degraded entry: short TTL only — zeros are a placeholder, not facts.
+      walletStatsCache.set(wallet, { data: fallbackResult, timestamp: Date.now(), degraded: true });
+
       return fallbackResult;
     }
+    });
   }
 }
 

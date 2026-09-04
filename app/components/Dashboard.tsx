@@ -81,54 +81,17 @@ const PLATFORM_URLS: Record<string, string> = {
   'gm': 'https://gm.inkonchain.com',
   'inkypump': 'https://www.inkypump.com',
   'zns': 'https://zns.bio',
-  'marvk': 'https://marvk.io',
   'otomate': 'https://www.otomate.trade/',
   'cryptoclash': 'https://www.cryptoclash.ink/',
   'nft2me': 'https://nft2me.com',
   'shellies': 'https://shellies.xyz',
   'opensea': 'https://opensea.io',
-  'inkdca': 'https://inkdca.com',
   'templars': 'https://opensea.io/collection/templars-of-the-storm',
   'cowswap': 'https://swap.cow.fi',
   'sweep': 'https://sweep.haus',
-};
-
-// NFT Marketplace platform logos and info (keyed by lowercase contract address)
-const NFT_PLATFORMS: Record<string, { name: string; logo: string; url: string }> = {
-  '0x9ebf93fdba9f32accab3d6716322dccd617a78f3': {
-    name: 'Squid Market',
-    logo: 'https://www.squidmarket.xyz/favicon.ico',
-    url: 'https://www.squidmarket.xyz/',
-  },
-  '0xd00c96804e9ff35f10c7d2a92239c351ff3f94e5': {
-    name: 'Net Protocol',
-    logo: 'https://www.netprotocol.app/favicon.ico',
-    url: 'https://www.netprotocol.app/',
-  },
-  '0xbd6a027b85fd5285b1623563bbef6fadbe396afb': {
-    name: 'Mintiq',
-    logo: 'https://i.ibb.co/bMN9ppS7/mmm.png',
-    url: 'https://mintiq.market/',
-  }
-};
-
-// NFT Staking collections info (keyed by label from API)
-const NFT_STAKING_COLLECTIONS: Record<string, { name: string; logo: string; url: string }> = {
-  'Shellies Staked': {
-    name: 'Shellies',
-    logo: 'https://pbs.twimg.com/profile_images/1948768160733175808/aNFNH1IH_400x400.jpg',
-    url: 'https://twitter.com/ShelliesNFT',
-  },
-  'INK Bunnies Staked': {
-    name: 'INK Bunnies',
-    logo: 'https://pbs.twimg.com/profile_images/2017562853859815425/OmYpLZrN_400x400.jpg',
-    url: 'https://twitter.com/InkBunnies',
-  },
-  'Boink Staked': {
-    name: 'Boink',
-    logo: 'https://pbs.twimg.com/profile_images/1972236253119623168/DqTXu2J5_400x400.png',
-    url: 'https://twitter.com/Boi_Ink',
-  }
+  'zenithNft': 'https://explorer.inkonchain.com/token/0xd0282f4Cb5c6FE4e3F2fecacFcb9477F42ce8c78',
+  'zenithOpensea': 'https://opensea.io/collection/inkscore-zenith',
+  'zenithStaking': 'https://inkscore.xyz/staking',
 };
 
 // Bridge volume response type
@@ -170,15 +133,6 @@ interface SwapVolumeResponse {
     contractAddress: string;
     usdValue: number;
     txCount: number;
-  }>;
-}
-
-// NFT Trading response type
-interface NftTradingResponse {
-  total_count: number;
-  by_contract: Array<{
-    contract_address: string;
-    count: number;
   }>;
 }
 
@@ -229,13 +183,6 @@ interface CryptoClashMetrics {
   requiresAuth?: boolean;
 }
 
-// Marvk metrics response type
-interface MarvkMetrics {
-  lockTokenCount: number;
-  vestTokenCount: number;
-  totalTransactions: number;
-}
-
 // Nado metrics response type
 interface NadoMetrics {
   totalDeposits: number;
@@ -260,6 +207,18 @@ interface SweepMetrics {
   sub_aggregates?: Array<{ label: string; value: string }>;
 }
 
+// InkScore Zenith metrics response types
+interface ZenithNftMetrics {
+  total_count: number;
+}
+
+interface ZenithStakingMetrics {
+  total_staked: number;
+  one_month_count: number;
+  one_week_count: number;
+  one_day_count: number;
+}
+
 interface DashboardProps {
   walletAddress: string;
   isDemo?: boolean;
@@ -269,7 +228,6 @@ interface DashboardProps {
 const SUPPORTED_COLLECTIONS = [
   { name: 'Shellies', address: '0x1c9838cdc00fa39d953a54c755b95605ed5ea49c', points: 100, twitterHandle: 'ShelliesNFT' },
   { name: 'InkySquad', address: '0xE4e5D5170Ba5cae36D1876893D4b218E8Ed19C91', points: 100, twitterHandle: 'InkySquad' },
-  { name: 'BOI', address: '0x63FEbFa0a5474803F4261a1628763b1B2cC3AB83', points: 100, twitterHandle: 'Boi_Ink' },
   { name: 'INK Bunnies', address: '0x4443970B315d3c08C2f962fe00770c52396AFDb7', points: 100, twitterHandle: 'InkBunnies' },
 ];
 
@@ -279,7 +237,6 @@ const SUPPORTED_TOKENS = [
   { name: 'Ethereum', symbol: 'ETH', address: '0x4200000000000000000000000000000000000006' },
   { name: 'ANITA', symbol: 'ANITA', address: '0x0606FC632ee812bA970af72F8489baAa443C4B98' },
   { name: 'Cat on Ink', symbol: 'CAT', address: '0x20C69C12abf2B6F8D8ca33604DD25C700c7e70A5' },
-  { name: 'Purple', symbol: 'PURPLE', address: '0xD642B49d10cc6e1BC1c6945725667c35e0875f22' },
 ];
 
 const GM_CONTRACT_ADDRESS = '0x9F500d075118272B3564ac6Ef2c70a9067Fd2d3F';
@@ -398,6 +355,7 @@ interface NftCollectionHolding {
   name: string;
   address: string;
   logo: string;
+  openseaUrl?: string | null;
   count: number;
 }
 
@@ -418,10 +376,6 @@ interface RealWalletStats {
   ageDays: number;
   nftCollections: NftCollectionHolding[];
   tokenHoldings: RealTokenHolding[];
-  phase1Status?: {
-    isPhase1: boolean;
-    score: number | null;
-  };
 }
 
 // Consolidated dashboard response type from /api/:wallet/dashboard
@@ -433,12 +387,13 @@ interface ConsolidatedDashboardResponse {
   score: WalletScoreResponse | null;
   analytics: { metrics?: Array<{ slug: string; total_value?: string; total_count?: number }> } | null;
   cards: { row3?: DashboardCardData[]; row4?: DashboardCardData[] } | null;
-  marvk: MarvkMetrics | null;
   nado: NadoMetrics | null;
   copink: CopinkMetrics | null;
   cryptoclash: CryptoClashMetrics | null;
   nft2me: Nft2MeResponse | null;
   sweep: SweepMetrics | null;
+  zenithNft: ZenithNftMetrics | null;
+  zenithStaking: ZenithStakingMetrics | null;
   tydro: {
     currentSupplyUsd?: number;
     currentSupplyEth?: number;
@@ -457,21 +412,12 @@ interface ConsolidatedDashboardResponse {
   inkypumpCreatedTokens: { total_count?: number } | null;
   inkypumpBuyVolume: { total_value?: string; total_count?: number } | null;
   inkypumpSellVolume: { total_value?: string; total_count?: number } | null;
-  nftTraded: NftTradingResponse | null;
   zns: ZnsMetricsResponse | null;
   shelliesJoinedRaffles: { total_count?: number } | null;
   shelliesPayToPlay: { total_count?: number } | null;
-  nftStaking: {
-    total_count?: number;
-    sub_aggregates?: Array<{ label: string; value: string }>;
-  } | null;
   openseaBuyCount: { total_count?: number } | null;
   mintCount: { total_count?: number } | null;
   openseaSaleCount: { total_count?: number } | null;
-  inkdcaRunDca: {
-    total_count?: number;
-    sub_aggregates?: Array<{ label: string; value: string }>;
-  } | null;
   templarsNftBalance: { total_count?: number } | null;
   cowswapSwaps: {
     total_count?: number;
@@ -512,6 +458,27 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
       // Silently fail - metrics will be fetched on next dashboard refresh
     }
   }, [walletAddress, isDemo]);
+
+  // Cache policy banner: how long per-wallet metrics are served from cache
+  // (one real upstream scan per wallet per window). Server is the source of
+  // truth; falls back to the documented default.
+  const [cacheTtlMinutes, setCacheTtlMinutes] = useState<number>(60);
+  useEffect(() => {
+    if (isDemo) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/dashboard/config');
+        if (res.ok && !cancelled) {
+          const cfg = await res.json();
+          if (typeof cfg?.walletCacheTtlMinutes === 'number') setCacheTtlMinutes(cfg.walletCacheTtlMinutes);
+        }
+      } catch {
+        // Keep default — banner text stays honest about the default policy.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isDemo]);
 
   const cryptoClashAuth = useCryptoClashAuth(
     isDemo ? undefined : walletAddress,
@@ -568,15 +535,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
   const [bridgeVolume, setBridgeVolume] = useState<BridgeVolumeResponse | null>(null);
   const [inkySwapVolume, setInkySwapVolume] = useState<InkySwapVolumeData | null>(null);
   const [swapVolume, setSwapVolume] = useState<SwapVolumeResponse | null>(null);
-  const [nftTrading, setNftTrading] = useState<NftTradingResponse | null>(null);
   const [walletScore, setWalletScore] = useState<WalletScoreResponse | null>(null);
   const [totalVolume, setTotalVolume] = useState<TotalVolumeResponse | null>(null);
   const [znsMetrics, setZnsMetrics] = useState<ZnsMetricsResponse | null>(null);
   const [nft2meMetrics, setNft2meMetrics] = useState<Nft2MeResponse | null>(null);
-  const [marvkMetrics, setMarvkMetrics] = useState<MarvkMetrics | null>(null);
   const [copinkMetrics, setCopinkMetrics] = useState<CopinkMetrics | null>(null);
   const [nadoMetrics, setNadoMetrics] = useState<NadoMetrics | null>(null);
   const [sweepMetrics, setSweepMetrics] = useState<SweepMetrics | null>(null);
+  const [zenithNftMetrics, setZenithNftMetrics] = useState<ZenithNftMetrics | null>(null);
+  const [zenithStakingMetrics, setZenithStakingMetrics] = useState<ZenithStakingMetrics | null>(null);
   const [cryptoclashMetrics, setCryptoclashMetrics] = useState<CryptoClashMetrics | null>(null);
   const [inkyPumpCreatedTokens, setInkyPumpCreatedTokens] = useState<{ count: number } | null>(null);
   const [inkyPumpBuyVolume, setInkyPumpBuyVolume] = useState<{ total_value: string; total_count: number } | null>(null);
@@ -585,18 +552,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
   // Shellies metrics state
   const [shelliesJoinedRaffles, setShelliesJoinedRaffles] = useState<{ total_count: number } | null>(null);
   const [shelliesPayToPlay, setShelliesPayToPlay] = useState<{ total_count: number } | null>(null);
-
-  // NFT Staking metrics state
-  const [nftStaking, setNftStaking] = useState<{
-    total_count: number;
-    sub_aggregates?: Array<{ label: string; value: string }>;
-  } | null>(null);
-
-  // InkDCA metrics state
-  const [inkdcaRunDca, setInkdcaRunDca] = useState<{
-    total_count: number;
-    sub_aggregates?: Array<{ label: string; value: string }>;
-  } | null>(null);
 
   // Templars NFT metrics state
   const [templarsNftBalance, setTemplarsNftBalance] = useState<{ total_count: number } | null>(null);
@@ -651,7 +606,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
           balance: Number(t.balance) || 0,
           usdValue: Number(t.usdValue) || 0,
         })),
-        phase1Status: response.stats.phase1Status,
       });
     }
 
@@ -712,15 +666,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
       setDynamicCardsRow4(response.cards.row4 || []);
     }
 
-    // Process Marvk metrics
-    if (response.marvk) {
-      setMarvkMetrics({
-        lockTokenCount: response.marvk.lockTokenCount || 0,
-        vestTokenCount: response.marvk.vestTokenCount || 0,
-        totalTransactions: response.marvk.totalTransactions || 0,
-      });
-    }
-
     // Process Copink metrics
     if (response.copink) {
       setCopinkMetrics({
@@ -749,6 +694,21 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
         totalCollections: sweepData.totalCollections ?? sweepData.total_count ?? 0,
         sweepBadgeBalance: sweepData.sweepBadgeBalance ?? (badgeAggregate ? parseInt(badgeAggregate.value, 10) : 0),
         totalStreak: sweepData.totalStreak ?? (streakAggregate ? parseInt(streakAggregate.value, 10) : 0),
+      });
+    }
+
+    // Process InkScore Zenith metrics
+    if (response.zenithNft) {
+      setZenithNftMetrics({
+        total_count: response.zenithNft.total_count || 0,
+      });
+    }
+    if (response.zenithStaking) {
+      setZenithStakingMetrics({
+        total_staked: response.zenithStaking.total_staked || 0,
+        one_month_count: response.zenithStaking.one_month_count || 0,
+        one_week_count: response.zenithStaking.one_week_count || 0,
+        one_day_count: response.zenithStaking.one_day_count || 0,
       });
     }
 
@@ -827,14 +787,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
       });
     }
 
-    // Process NFT trading
-    if (response.nftTraded) {
-      setNftTrading({
-        total_count: response.nftTraded.total_count || 0,
-        by_contract: response.nftTraded.by_contract || [],
-      });
-    }
-
     // Process ZNS metrics
     if (response.zns) {
       setZnsMetrics({
@@ -851,23 +803,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
     }
     if (response.shelliesPayToPlay) {
       setShelliesPayToPlay({ total_count: response.shelliesPayToPlay.total_count || 0 });
-    }
-
-    // Process NFT Staking metrics
-    if (response.nftStaking) {
-      setNftStaking({
-        total_count: response.nftStaking.total_count || 0,
-        sub_aggregates: response.nftStaking.sub_aggregates || []
-      });
-    }
-
-    // Process InkDCA metrics
-    if (response.inkdcaRunDca) {
-      const inkdcaData = response.inkdcaRunDca as any;
-      setInkdcaRunDca({
-        total_count: inkdcaData.total_count || 0,
-        sub_aggregates: inkdcaData.sub_aggregates || []
-      });
     }
 
     // Process Templars NFT balance
@@ -907,7 +842,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
               balance: Number(t.balance) || 0,
               usdValue: Number(t.usdValue) || 0,
             })),
-            phase1Status: data.phase1Status,
           });
           break;
         case 'bridge':
@@ -939,9 +873,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
         case 'openseaSaleCount':
           setRealOpenSeaSales({ count: data.total_count || 0 });
           break;
-        case 'marvk':
-          setMarvkMetrics(data);
-          break;
         case 'copink':
           setCopinkMetrics(data);
           break;
@@ -961,6 +892,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
             });
           }
           break;
+        case 'zenithNft':
+          setZenithNftMetrics({ total_count: data.total_count || 0 });
+          break;
+        case 'zenithStaking':
+          setZenithStakingMetrics({
+            total_staked: data.total_staked || 0,
+            one_month_count: data.one_month_count || 0,
+            one_week_count: data.one_week_count || 0,
+            one_day_count: data.one_day_count || 0,
+          });
+          break;
         case 'cryptoclash':
           setCryptoclashMetrics(data);
           break;
@@ -976,9 +918,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
         case 'inkypumpSellVolume':
           setInkyPumpSellVolume(data);
           break;
-        case 'nftTraded':
-          setNftTrading(data);
-          break;
         case 'zns':
           setZnsMetrics(data);
           break;
@@ -987,18 +926,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
           break;
         case 'shelliesPayToPlay':
           setShelliesPayToPlay({ total_count: data.total_count || 0 });
-          break;
-        case 'nftStaking':
-          setNftStaking({
-            total_count: data.total_count || 0,
-            sub_aggregates: data.sub_aggregates || []
-          });
-          break;
-        case 'inkdcaRunDca':
-          setInkdcaRunDca({
-            total_count: data.total_count || 0,
-            sub_aggregates: data.sub_aggregates || []
-          });
           break;
         case 'templarsNftBalance':
           setTemplarsNftBalance({ total_count: data.total_count || 0 });
@@ -1051,12 +978,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
     setBridgeVolume(null);
     setInkySwapVolume(null);
     setSwapVolume(null);
-    setNftTrading(null);
     setWalletScore(null);
     setTotalVolume(null);
     setZnsMetrics(null);
     setNft2meMetrics(null);
-    setMarvkMetrics(null);
     setCopinkMetrics(null);
     setNadoMetrics(null);
     setCryptoclashMetrics(null);
@@ -1065,16 +990,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
     setInkyPumpSellVolume(null);
     setShelliesJoinedRaffles(null);
     setShelliesPayToPlay(null);
-    setNftStaking(null);
-    setInkdcaRunDca(null);
     setTemplarsNftBalance(null);
     setCowswapSwaps(null);
     setDynamicCardsRow3([]);
     setDynamicCardsRow4([]);
 
     try {
-      // Single consolidated API call
-      const res = await fetch(`/api/${walletAddress}/dashboard`);
+      // Single consolidated API call — ?refresh=true opens a short bypass
+      // window server-side so cached wallet metrics older than the default
+      // are recomputed live (bounded by the frontend refresh cooldown).
+      const res = await fetch(`/api/${walletAddress}/dashboard?refresh=true`);
       if (res.ok) {
         const response: ConsolidatedDashboardResponse = await res.json();
         processConsolidatedResponse(response);
@@ -1090,8 +1015,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
   }, [walletAddress, isDemo, isRefreshing, cooldownRemaining, processConsolidatedResponse]);
 
   // Format time ago for last updated
-  const formatLastUpdated = (date: Date | null): string => {
-    if (!date) return '';
+  const formatLastUpdated = (date: Date | null): string => {    if (!date) return '';
     const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
     if (seconds < 60) return 'Just now';
     const minutes = Math.floor(seconds / 60);
@@ -1307,6 +1231,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
             )}
             {isDemo && <div className="px-4 py-2 bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 rounded-lg text-sm font-medium animate-pulse">Demo Mode</div>}
           </div>
+        </div>
+
+        {/* Cache policy notice — one real scan per wallet per TTL window */}
+        <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-slate-800/40 border border-slate-700/40 text-[11px] text-slate-400">
+          <span aria-hidden="true">🗄️</span>
+          <span>
+            Platform metrics are cached per wallet for <span className="text-slate-300 font-medium">{cacheTtlMinutes >= 60 ? `${cacheTtlMinutes / 60} hour${cacheTtlMinutes > 60 ? 's' : ''}` : `${cacheTtlMinutes} min`}</span>
+            {' '}after the first scan. Refreshing within that window reuses the cached scan (faster for you, less load on the explorers) — use the Refresh button to pull a live scan.
+          </span>
         </div>
 
         {/* Top Stats Grid */}
@@ -2084,8 +2017,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
           <DynamicCardsCarouselRow3 cards={dynamicCardsRow3} />
         )}
 
-        {/* Row 4: Templars + OpenSea + Otomate + InkScore Phase 1 */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* Row 4: Templars + OpenSea + Otomate */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
            {/* Templars of the Storm NFT Card */}
           <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-purple-500/20 bg-gradient-to-br from-purple-500/12 to-purple-900/5 h-[300px] flex flex-col" style={{ animationDelay: '1.1s' }}>
             <div className="flex items-center justify-between mb-4">
@@ -2359,110 +2292,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
               </>
             )}
           </div>
-          {/* InkScore Phase 1 Card */}
-          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-purple-500/20 bg-purple-500/5 h-[300px] flex flex-col" style={{ animationDelay: '1.0s' }}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                <img
-                  src="/favicon.ico"
-                  alt="InkScore"
-                  className="w-6 h-6 rounded-full object-cover"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=IS&background=a855f7&color=fff&size=24';
-                  }}
-                />
-                InkScore Phase 1
-              </h3>
-            </div>
-
-            {!isDemo ? (
-              realWalletStats?.phase1Status ? (
-                <>
-                  <div className="mb-3">
-                    <div className={`text-2xl font-bold font-display ${realWalletStats.phase1Status.isPhase1 ? 'text-emerald-400' : 'text-slate-400'}`}>
-                      {realWalletStats.phase1Status.isPhase1 ? 'Eligible' : 'Not Eligible'}
-                    </div>
-                    <div className="text-xs text-slate-500">
-                      {realWalletStats.phase1Status.isPhase1 && realWalletStats.phase1Status.score
-                        ? `Score: ${realWalletStats.phase1Status.score.toLocaleString()}`
-                        : 'Phase 1 Eligibility Status'
-                      }
-                    </div>
-                  </div>
-
-                  <div className="flex-1 pt-3 border-t border-slate-700/50">
-                    <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">Details</span>
-                    <div className="space-y-2">
-                      {realWalletStats.phase1Status.isPhase1 && realWalletStats.phase1Status.score ? (
-                        <>
-                          <div className="flex justify-between items-center text-[11px]">
-                            <span className="text-slate-400">Your Score</span>
-                            <span className="font-mono text-white">{realWalletStats.phase1Status.score.toLocaleString()}</span>
-                          </div>
-                          <div className="flex justify-between items-center text-[11px]">
-                            <span className="text-slate-400">Status</span>
-                            <span className="font-mono text-emerald-400">✓ Qualified</span>
-                          </div>
-                        </>
-                      ) : (
-                        <div className="flex justify-between items-center text-[11px]">
-                          <span className="text-slate-400">Status</span>
-                          <span className="font-mono text-slate-400">Not in Phase 1</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {realWalletStats.phase1Status.isPhase1 && (
-                    <div className="mt-2 text-xs text-emerald-400 opacity-80 flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                      Phase 1 Participant
-                    </div>
-                  )}
-                </>
-              ) : (
-                <>
-                  <div className="mb-3">
-                    <div className="text-2xl font-bold font-display text-slate-400">
-                      <div className="animate-pulse bg-slate-700 h-8 w-24 rounded"></div>
-                    </div>
-                    <div className="text-xs text-slate-500">Loading...</div>
-                  </div>
-
-                  <div className="flex-1 pt-3 border-t border-slate-700/50">
-                    <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">Details</span>
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center text-[11px]">
-                        <span className="text-slate-400">Your Score</span>
-                        <div className="animate-pulse bg-slate-700 h-3 w-12 rounded"></div>
-                      </div>
-                      <div className="flex justify-between items-center text-[11px]">
-                        <span className="text-slate-400">Status</span>
-                        <div className="animate-pulse bg-slate-700 h-3 w-16 rounded"></div>
-                      </div>
-                    </div>
-                  </div>
-                </>
-              )
-            ) : (
-              <>
-                <div className="mb-3">
-                  <div className="text-2xl font-bold font-display text-slate-400">Not Eligible</div>
-                  <div className="text-xs text-slate-500">Phase 1 Eligibility Status</div>
-                </div>
-
-                <div className="flex-1 pt-3 border-t border-slate-700/50">
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">Details</span>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-slate-400">Status</span>
-                      <span className="font-mono text-slate-400">Not in Phase 1</span>
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
         </div>
 
         {/* Dynamic Cards Row 4 - Admin added single platform cards */}
@@ -2470,8 +2299,208 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
           <DynamicCardsCarouselRow4 cards={dynamicCardsRow4} />
         )}
 
-        {/* Row 5: Sweep + InkDCA + NFT Staking + ZNS */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* Row 4b: InkScore Zenith + Staking + Sweep + ZNS (single row) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+          {/* InkScore Zenith NFT Card */}
+          <div className="glass-card relative overflow-hidden p-6 rounded-2xl animate-fade-in-up border border-fuchsia-500/25 bg-gradient-to-br from-fuchsia-500/15 via-fuchsia-900/10 to-fuchsia-900/5 h-[300px] flex flex-col" style={{ animationDelay: '0.68s' }}>
+            {/* Decorative glow + shine */}
+            <div className="absolute -top-12 -right-12 w-36 h-36 bg-fuchsia-500/20 rounded-full blur-3xl pointer-events-none"></div>
+            <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-fuchsia-400/70 to-transparent"></div>
+
+            <div className="relative flex items-center justify-between mb-4 gap-2">
+              <h3 className="text-base font-semibold text-white flex items-center gap-2 min-w-0">
+                <a
+                  href={PLATFORM_URLS.zenithOpensea}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="shrink-0 ring-2 ring-fuchsia-500/30 hover:ring-fuchsia-400/60 rounded-full transition-all cursor-pointer"
+                  title="View InkScore Zenith on OpenSea"
+                >
+                  <img
+                    src="https://i2c.seadn.io/collection/inkscore-zenith/image_type_logo/831152ff66038d827191d68d3d66b9/2f831152ff66038d827191d68d3d66b9.png?h=250&w=250"
+                    alt="InkScore Zenith"
+                    className="w-7 h-7 rounded-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=Z&background=d946ef&color=fff&size=24';
+                    }}
+                  />
+                </a>
+                <span className="truncate">InkScore Zenith</span>
+              </h3>
+              <span className="shrink-0 text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full bg-fuchsia-500/20 text-fuchsia-300 border border-fuchsia-400/30">
+                New
+              </span>
+            </div>
+
+            {!isDemo ? (
+              (isMetricLoading('zenithNft') || !zenithNftMetrics) ? (
+                <div className="flex-1 flex flex-col justify-center items-center">
+                  <div className="h-16 w-24 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+                  <div className="h-4 w-32 bg-slate-700/30 rounded animate-pulse"></div>
+                </div>
+              ) : (
+                <>
+                  <div className="relative mb-3">
+                    <div className="text-3xl font-extrabold font-display bg-gradient-to-r from-fuchsia-200 via-fuchsia-400 to-fuchsia-600 bg-clip-text text-transparent">
+                      {zenithNftMetrics.total_count.toLocaleString()}
+                    </div>
+                    <div className="text-xs text-slate-500">
+                      NFTs Held
+                    </div>
+                  </div>
+
+                  <div className="relative flex-1 pt-3 border-t border-fuchsia-500/15">
+                    <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">Collection Details</span>
+                    <div className="space-y-2">
+                      <a
+                        href={PLATFORM_URLS.zenithNft}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex justify-between items-center text-[11px] hover:text-fuchsia-300 transition-colors cursor-pointer"
+                        title="View InkScore Zenith on Explorer"
+                      >
+                        <span className="text-slate-400">Contract</span>
+                        <span className="font-mono text-white hover:text-fuchsia-300 transition-colors">0xd028...8c78 ↗</span>
+                      </a>
+                    </div>
+                  </div>
+
+                  {zenithNftMetrics.total_count > 0 && (
+                    <div className="mt-2 text-xs text-fuchsia-400 opacity-80 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-fuchsia-400 animate-pulse"></span>
+                      Zenith Holder
+                    </div>
+                  )}
+                </>
+              )
+            ) : (
+              <>
+                <div className="relative mb-3">
+                  <div className="text-3xl font-extrabold font-display bg-gradient-to-r from-fuchsia-200 via-fuchsia-400 to-fuchsia-600 bg-clip-text text-transparent">0</div>
+                  <div className="text-[11px] text-slate-500 uppercase tracking-wider">NFTs Held</div>
+                </div>
+
+                <div className="relative flex-1 pt-3 border-t border-fuchsia-500/15">
+                  <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">Collection Details</span>
+                  <div className="space-y-2">
+                    <a
+                      href={PLATFORM_URLS.zenithNft}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex justify-between items-center text-[11px] hover:text-fuchsia-300 transition-colors cursor-pointer"
+                      title="View InkScore Zenith on Explorer"
+                    >
+                      <span className="text-slate-400">Contract</span>
+                      <span className="font-mono text-white hover:text-fuchsia-300 transition-colors">0xd028...8c78 ↗</span>
+                    </a>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* InkScore Zenith Staking Card */}
+          <div className="glass-card relative overflow-hidden p-6 rounded-2xl animate-fade-in-up border border-indigo-500/25 bg-gradient-to-br from-indigo-500/15 via-violet-900/10 to-indigo-900/5 h-[300px] flex flex-col" style={{ animationDelay: '0.65s' }}>
+            {/* Decorative glow + shine */}
+            <div className="absolute -top-12 -right-12 w-36 h-36 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none"></div>
+            <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-indigo-400/70 to-transparent"></div>
+
+            <div className="relative flex items-center justify-between mb-4 gap-2">
+              <h3 className="text-base font-semibold text-white flex items-center gap-2 min-w-0">
+                <a
+                  href={PLATFORM_URLS.zenithStaking}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="shrink-0 ring-2 ring-indigo-500/30 hover:ring-indigo-400/60 rounded-full transition-all cursor-pointer"
+                  title="View InkScore Zenith Staking"
+                >
+                  <img
+                    src="/inkscore_logo.png"
+                    alt="InkScore"
+                    className="w-7 h-7 rounded-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=IS&background=6366f1&color=fff&size=24';
+                    }}
+                  />
+                </a>
+                <span className="truncate">InkScore Zenith Staking</span>
+              </h3>
+              <span className="shrink-0 text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-400/30">
+                New
+              </span>
+            </div>
+
+            {!isDemo ? (
+              (isMetricLoading('zenithStaking') || !zenithStakingMetrics) ? (
+                <div className="flex-1 flex flex-col justify-center items-center">
+                  <div className="h-16 w-24 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+                  <div className="h-4 w-32 bg-slate-700/30 rounded animate-pulse"></div>
+                </div>
+              ) : (
+                <>
+                  <div className="relative mb-3">
+                    <div className="text-3xl font-extrabold font-display bg-gradient-to-r from-indigo-200 via-indigo-400 to-violet-600 bg-clip-text text-transparent">
+                      {zenithStakingMetrics.total_staked.toLocaleString()}
+                    </div>
+                    <div className="text-xs text-slate-500">
+                      NFTs Staked
+                    </div>
+                  </div>
+
+                  <div className="relative flex-1 pt-3 border-t border-indigo-500/15">
+                    <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">By Lock Period</span>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center text-[11px]">
+                        <span className="text-slate-400">1 Month</span>
+                        <span className="font-mono text-white">{zenithStakingMetrics.one_month_count.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-[11px]">
+                        <span className="text-slate-400">1 Week</span>
+                        <span className="font-mono text-white">{zenithStakingMetrics.one_week_count.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-[11px]">
+                        <span className="text-slate-400">1 Day</span>
+                        <span className="font-mono text-white">{zenithStakingMetrics.one_day_count.toLocaleString()}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {zenithStakingMetrics.total_staked > 0 && (
+                    <div className="mt-2 text-xs text-indigo-400 opacity-80 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse"></span>
+                      Active Staker
+                    </div>
+                  )}
+                </>
+              )
+            ) : (
+              <>
+                <div className="relative mb-3">
+                  <div className="text-3xl font-extrabold font-display bg-gradient-to-r from-indigo-200 via-indigo-400 to-violet-600 bg-clip-text text-transparent">0</div>
+                  <div className="text-[11px] text-slate-500 uppercase tracking-wider">NFTs Staked</div>
+                </div>
+
+                <div className="relative flex-1 pt-3 border-t border-indigo-500/15">
+                  <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">By Lock Period</span>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">1 Month</span>
+                      <span className="font-mono text-white">0</span>
+                    </div>
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">1 Week</span>
+                      <span className="font-mono text-white">0</span>
+                    </div>
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">1 Day</span>
+                      <span className="font-mono text-white">0</span>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
           {/* Sweep Card */}
           <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-yellow-500/20 bg-gradient-to-br from-yellow-500/12 to-yellow-900/5 h-[300px] flex flex-col" style={{ animationDelay: '0.93s' }}>
             <div className="flex items-center justify-between mb-4">
@@ -2535,221 +2564,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
               </>
             )}
           </div>
-          {/* InkDCA Card */}
-          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-emerald-500/20 bg-gradient-to-br from-emerald-500/12 to-emerald-900/5 h-[300px] flex flex-col" style={{ animationDelay: '1.05s' }}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                <a
-                  href="https://inkdca.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:ring-2 hover:ring-emerald-500/50 rounded-full transition-all cursor-pointer"
-                  title="Visit InkDCA"
-                >
-                  <img
-                    src={getProxiedImageUrl('https://inkdca.com/ink_dca_logo.png')}
-                    alt="InkDCA"
-                    className="w-6 h-6 rounded-full object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=DCA&background=10b981&color=fff&size=24';
-                    }}
-                  />
-                </a>
-                InkDCA
-              </h3>
-            </div>
-
-            {!isDemo ? (
-              (isMetricLoading('inkdcaRunDca') || !inkdcaRunDca) ? (
-                <div className="flex-1 flex flex-col justify-center">
-                  <div className="h-8 w-16 bg-slate-700/50 rounded animate-pulse mb-2"></div>
-                  <div className="h-3 w-24 bg-slate-700/30 rounded animate-pulse mb-4"></div>
-                  <div className="space-y-2">
-                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
-                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <div className="mb-3">
-                    <div className="text-2xl font-bold font-display text-emerald-400">
-                      {inkdcaRunDca.total_count.toLocaleString()}
-                    </div>
-                    <div className="text-xs text-slate-500">
-                      Total Registered DCA{inkdcaRunDca.total_count !== 1 ? 's' : ''}
-                    </div>
-                  </div>
-
-                  <div className="flex-1 pt-3 border-t border-slate-700/50">
-                    <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">Activity</span>
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center text-[11px]">
-                        <span className="text-slate-400">Total Spent</span>
-                        <span className="font-mono text-emerald-400">
-                          {(() => {
-                            const spentAggregate = inkdcaRunDca.sub_aggregates?.find((s) => s.label === 'Total Spent');
-                            return spentAggregate ? spentAggregate.value : '$0.00';
-                          })()}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {inkdcaRunDca.total_count > 0 && (
-                    <div className="mt-2 text-xs text-emerald-400 opacity-80 flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                      Smart DCA Investor
-                    </div>
-                  )}
-                </>
-              )
-            ) : (
-              <>
-                <div className="mb-3">
-                  <div className="text-2xl font-bold font-display text-emerald-400">0</div>
-                  <div className="text-xs text-slate-500">0 DCA runs</div>
-                </div>
-
-                <div className="flex-1 pt-3 border-t border-slate-700/50">
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">Strategy</span>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-slate-400">Dollar Cost Averaging</span>
-                      <span className="font-mono text-slate-500">Inactive</span>
-                    </div>
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-slate-400">Automated Buys</span>
-                      <span className="font-mono text-white">0</span>
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-           {/* NFT Staking Card */}
-          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-amber-500/20 bg-gradient-to-br from-amber-500/12 to-amber-900/5 h-[300px] flex flex-col" style={{ animationDelay: '1.05s' }}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                <div className="flex items-center -space-x-3">
-                  <a
-                    href="https://twitter.com/ShelliesNFT"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="hover:z-10 hover:ring-2 hover:ring-amber-500/50 rounded-full transition-all cursor-pointer"
-                    style={{ zIndex: 3 }}
-                    title="Shellies"
-                  >
-                    <img
-                      src="https://pbs.twimg.com/profile_images/1948768160733175808/aNFNH1IH_400x400.jpg"
-                      alt="Shellies"
-                      className="w-6 h-6 rounded-full object-cover bg-slate-800"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=S&background=f59e0b&color=fff&size=24';
-                      }}
-                    />
-                  </a>
-                  <a
-                    href="https://twitter.com/InkBunnies"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="hover:z-10 hover:ring-2 hover:ring-amber-500/50 rounded-full transition-all cursor-pointer"
-                    style={{ zIndex: 2 }}
-                    title="INK Bunnies"
-                  >
-                    <img
-                      src="https://pbs.twimg.com/profile_images/2017562853859815425/OmYpLZrN_400x400.jpg"
-                      alt="INK Bunnies"
-                      className="w-6 h-6 rounded-full object-cover bg-slate-800"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=IB&background=f59e0b&color=fff&size=24';
-                      }}
-                    />
-                  </a>
-                  <a
-                    href="https://twitter.com/Boi_Ink"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="hover:z-10 hover:ring-2 hover:ring-amber-500/50 rounded-full transition-all cursor-pointer"
-                    style={{ zIndex: 1 }}
-                    title="Boink"
-                  >
-                    <img
-                      src="https://pbs.twimg.com/profile_images/1972236253119623168/DqTXu2J5_400x400.png"
-                      alt="Boink"
-                      className="w-6 h-6 rounded-full object-cover bg-slate-800"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=B&background=f59e0b&color=fff&size=24';
-                      }}
-                    />
-                  </a>
-                </div>
-                NFT Staking
-              </h3>
-            </div>
-
-            {!isDemo && (isMetricLoading('nftStaking') || !nftStaking) ? (
-              <div className="flex-1 flex flex-col justify-center">
-                <div className="h-8 w-20 bg-slate-700/50 rounded animate-pulse mb-2"></div>
-                <div className="h-3 w-32 bg-slate-700/30 rounded animate-pulse mb-4"></div>
-                <div className="space-y-2">
-                  <div className="h-4 w-full bg-slate-700/30 rounded animate-pulse"></div>
-                  <div className="h-4 w-full bg-slate-700/30 rounded animate-pulse"></div>
-                </div>
-              </div>
-            ) : (
-              <>
-                <div className="mb-3">
-                  <div className="text-2xl font-bold font-display text-amber-400">
-                    {!isDemo && nftStaking ? nftStaking.total_count : 0}
-                  </div>
-                  <div className="text-xs text-slate-500">Total Staked NFTs</div>
-                </div>
-
-                <div className="flex-1 pt-3 border-t border-slate-700/50">
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-1 block">By Collection</span>
-                  <div className="space-y-1">
-                    {!isDemo && nftStaking?.sub_aggregates?.map((item, idx) => {
-                      const collectionInfo = NFT_STAKING_COLLECTIONS[item.label];
-                      return (
-                        <div key={idx} className="flex justify-between items-center text-[11px]">
-                          <span className="text-slate-400 flex items-center gap-1">
-                            {collectionInfo && (
-                              <a
-                                href={collectionInfo.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="hover:ring-2 hover:ring-amber-500/50 rounded transition-all cursor-pointer"
-                                title={`Visit ${collectionInfo.name}`}
-                              >
-                                <img
-                                  src={collectionInfo.logo}
-                                  alt={collectionInfo.name}
-                                  className="w-3 h-3 rounded"
-                                  onError={(e) => {
-                                    (e.target as HTMLImageElement).style.display = 'none';
-                                  }}
-                                />
-                              </a>
-                            )}
-                            {collectionInfo?.name || item.label}
-                          </span>
-                          <span className="font-mono text-white">{item.value}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {!isDemo && nftStaking && nftStaking.total_count > 0 && (
-                  <div className="mt-2 text-xs text-amber-400 opacity-80 flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
-                    Active Staker
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-            {/* ZNS Domain Card */}
+          {/* ZNS Domain Card */}
           <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-lime-500/20 bg-gradient-to-br from-lime-500/12 to-lime-900/5 h-[300px] flex flex-col" style={{ animationDelay: '0.8s' }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
@@ -2828,140 +2643,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
             )}
           </div>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {/* NFT Trading Card */}
-          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-green-500/20 bg-gradient-to-br from-green-500/12 to-green-900/5 h-[300px] flex flex-col" style={{ animationDelay: '0.95s' }}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                <div className="flex items-center -space-x-3">
-                  {Object.values(NFT_PLATFORMS).slice(0, 3).map((platform, i) => (
-                    <a
-                      key={i}
-                      href={platform.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="hover:z-10 hover:ring-2 hover:ring-pink-500/50 rounded-full transition-all cursor-pointer"
-                      style={{ zIndex: 3 - i }}
-                      title={`Visit ${platform.name}`}
-                    >
-                      <img
-                        src={getProxiedImageUrl(platform.logo)}
-                        alt={platform.name}
-                        className="w-6 h-6 rounded-full object-cover bg-slate-800"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${platform.name.charAt(0)}&background=334155&color=94a3b8&size=24`;
-                        }}
-                      />
-                    </a>
-                  ))}
-                </div>
-                NFT Marketplace
-              </h3>
-            </div>
-
-            {!isDemo ? (
-              (isMetricLoading('nftTraded') || !nftTrading) ? (
-                <div className="flex-1 flex flex-col justify-center">
-                  <div className="h-8 w-16 bg-slate-700/50 rounded animate-pulse mb-2"></div>
-                  <div className="h-3 w-24 bg-slate-700/30 rounded animate-pulse mb-4"></div>
-                  <div className="space-y-2">
-                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
-                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
-                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <div className="mb-3">
-                    <div className="text-2xl font-bold font-display text-green-400">
-                      {(nftTrading?.total_count || 0).toLocaleString()}
-                    </div>
-                    <div className="text-xs text-slate-500">Total NFTs Traded</div>
-                  </div>
-
-                  <div className="flex-1 pt-3 border-t border-slate-700/50">
-                    <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-1 block">By Platform</span>
-                    <div className="space-y-1">
-                      {Object.entries(NFT_PLATFORMS).map(([contractAddress, platformInfo], i) => {
-                        const contractData = nftTrading?.by_contract.find(
-                          (c) => c.contract_address.toLowerCase() === contractAddress.toLowerCase()
-                        );
-                        const count = contractData?.count || 0;
-
-                        return (
-                          <div key={i} className="flex justify-between items-center text-[11px]">
-                            <span className="text-slate-400 flex items-center gap-1">
-                              <a
-                                href={platformInfo.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="hover:ring-2 hover:ring-pink-500/50 rounded transition-all cursor-pointer"
-                                title={`Visit ${platformInfo.name}`}
-                              >
-                                <img
-                                  src={getProxiedImageUrl(platformInfo.logo)}
-                                  alt={platformInfo.name}
-                                  className="w-3 h-3 rounded"
-                                  onError={(e) => {
-                                    (e.target as HTMLImageElement).style.display = 'none';
-                                  }}
-                                />
-                              </a>
-                              {platformInfo.name}
-                            </span>
-                            <span className="font-mono text-white">{count}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {(nftTrading?.total_count || 0) > 0 && (
-                    <div className="mt-2 text-xs text-pink-400 opacity-80 flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-pink-400 animate-pulse"></span>
-                      Active NFT Trader
-                    </div>
-                  )}
-                </>
-              )
-            ) : (
-              <>
-                <div className="mb-3">
-                  <div className="text-2xl font-bold font-display text-pink-400">24</div>
-                  <div className="text-xs text-slate-500">Demo NFT Trades</div>
-                </div>
-                <div className="flex-1 pt-3 border-t border-slate-700/50">
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-1 block">By Platform</span>
-                  <div className="space-y-1">
-                    {Object.entries(NFT_PLATFORMS).map(([, platformInfo], i) => (
-                      <div key={i} className="flex justify-between items-center text-[11px]">
-                        <span className="text-slate-400 flex items-center gap-1">
-                          <a
-                            href={platformInfo.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="hover:ring-2 hover:ring-pink-500/50 rounded transition-all cursor-pointer"
-                            title={`Visit ${platformInfo.name}`}
-                          >
-                            <img
-                              src={getProxiedImageUrl(platformInfo.logo)}
-                              alt={platformInfo.name}
-                              className="w-3 h-3 rounded"
-                              onError={(e) => {
-                                (e.target as HTMLImageElement).style.display = 'none';
-                              }}
-                            />
-                          </a>
-                          {platformInfo.name}
-                        </span>
-                        <span className="font-mono text-white">{Math.floor(Math.random() * 10)}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </>
-            )}
-          </div> 
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {/* InkyPump Card */}
           <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-pink-500/20 bg-gradient-to-br from-pink-500/12 to-pink-900/5 h-[300px] flex flex-col" style={{ animationDelay: '0.7s' }}>
             <div className="flex items-center justify-between mb-4">
@@ -3199,98 +2881,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
             )}
           </div>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {/* Marvk Card */}
-          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-violet-500/20 bg-gradient-to-br from-violet-500/12 to-violet-900/5 h-[300px] flex flex-col" style={{ animationDelay: '0.85s' }}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                <a
-                  href={PLATFORM_URLS.marvk}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:ring-2 hover:ring-orange-500/50 rounded-full transition-all cursor-pointer"
-                  title="Visit Marvk"
-                >
-                  <img
-                    src="https://pbs.twimg.com/profile_images/1969128458635689984/DRv5vIT2_400x400.jpg"
-                    alt="Marvk"
-                    className="w-6 h-6 rounded-full object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=M&background=f97316&color=fff&size=24';
-                    }}
-                  />
-                </a>
-                Marvk
-              </h3>
-            </div>
-
-            {!isDemo ? (
-              (isMetricLoading('marvk') || !marvkMetrics) ? (
-                <div className="flex-1 flex flex-col justify-center">
-                  <div className="h-8 w-16 bg-slate-700/50 rounded animate-pulse mb-2"></div>
-                  <div className="h-3 w-24 bg-slate-700/30 rounded animate-pulse mb-4"></div>
-                  <div className="space-y-2">
-                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
-                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <div className="mb-3">
-                    <div className="text-2xl font-bold font-display text-violet-400">
-                      {marvkMetrics.totalTransactions.toLocaleString()}
-                    </div>
-                    <div className="text-xs text-slate-500">
-                      {marvkMetrics.totalTransactions} transaction{marvkMetrics.totalTransactions !== 1 ? 's' : ''}
-                    </div>
-                  </div>
-
-                  <div className="flex-1 pt-3 border-t border-slate-700/50">
-                    <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">By Action</span>
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center text-[11px]">
-                        <span className="text-slate-400">Lock Token</span>
-                        <span className="font-mono text-white">{marvkMetrics.lockTokenCount}</span>
-                      </div>
-                      <div className="flex justify-between items-center text-[11px]">
-                        <span className="text-slate-400">Vest Token</span>
-                        <span className="font-mono text-white">{marvkMetrics.vestTokenCount}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {marvkMetrics.totalTransactions > 0 && (
-                    <div className="mt-2 text-xs text-orange-400 opacity-80 flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse"></span>
-                      Active Marvk User
-                    </div>
-                  )}
-                </>
-              )
-            ) : (
-              <>
-                <div className="mb-3">
-                  <div className="text-2xl font-bold font-display text-violet-400">0</div>
-                  <div className="text-xs text-slate-500">0 transactions</div>
-                </div>
-
-                <div className="flex-1 pt-3 border-t border-slate-700/50">
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">By Action</span>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-slate-400">Lock Token</span>
-                      <span className="font-mono text-white">0</span>
-                    </div>
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-slate-400">Vest Token</span>
-                      <span className="font-mono text-white">0</span>
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
         {/* Holdings Section - Tokens & NFTs */}
         {!isDemo && realWalletStats && (
           <HoldingsSection
@@ -3311,7 +2901,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
           errors={streamingState.errors}
           totalDuration={streamingState.totalDuration}
           timedOut={streamingState.timedOut}
-          totalMetrics={27}
+          totalMetrics={24}
         />
       )}
     </div>

@@ -1,0 +1,144 @@
+// Background refresh worker — completes truncated fills and refreshes stale
+// Blockscout caches without blocking interactive traffic.
+//
+// Runs inside the api-server process (no new service to deploy on the 4GB
+// VPS): a 60s interval loop draining `bs_refresh_queue` at low concurrency.
+// Disable with REFRESH_WORKER=off.
+
+import { query } from '../db';
+import {
+  TxDirection,
+  getProtocolCount,
+  getTokenHoldingsRaw,
+  getWalletStats,
+} from './blockscout-service';
+
+const WORKER_INTERVAL_MS = 60_000;
+const WORKER_BATCH = 20;
+const WORKER_CONCURRENCY = 2;
+
+// System/junk wallets that must never be walked: the burn address has 55M
+// txs — every Blockscout query for it times out and poisons the shared
+// request budget for real users.
+const JUNK_WALLETS = new Set([
+  '0xdeaddeaddeaddeaddeaddeaddeaddeaddead0001',
+]);
+
+let started = false;
+const active = new Set<string>();
+
+interface QueueRow {
+  wallet_address: string;
+  protocol: string;
+  to_address: string;
+  methods: string;
+  method_names: string;
+  direction: string;
+  attempts: number;
+}
+
+async function drainOnce(): Promise<void> {
+  let rows: QueueRow[] = [];
+  try {
+    rows = await query<QueueRow>(
+      `SELECT wallet_address, protocol, to_address, methods, method_names, direction, attempts
+       FROM bs_refresh_queue
+       WHERE next_run <= now()
+       ORDER BY priority DESC, next_run ASC
+       LIMIT $1`,
+      [WORKER_BATCH] as never[]
+    );
+  } catch (err: any) {
+    // Tables may not exist yet on first boot; ensureTables runs on demand.
+    console.warn('[RefreshWorker] queue read failed:', err.message || err);
+    return;
+  }
+  if (rows.length === 0) return;
+
+  console.log(`[RefreshWorker] draining ${rows.length} jobs`);
+  for (let i = 0; i < rows.length; i += WORKER_CONCURRENCY) {
+    const batch = rows.slice(i, i + WORKER_CONCURRENCY);
+    await Promise.all(batch.map((row) => runJob(row)));
+  }
+}
+
+async function runJob(row: QueueRow): Promise<void> {
+  const key = `${row.wallet_address}:${row.protocol}`;
+  if (active.has(key)) return;
+  active.add(key);
+  try {
+    if (row.protocol) {
+      const methods = row.methods ? row.methods.split(',').filter(Boolean) : [];
+      const methodNames = row.method_names ? row.method_names.split(',').filter(Boolean) : [];
+      const direction = (row.direction === 'in' || row.direction === 'either' ? row.direction : 'out') as TxDirection;
+      await getProtocolCount(row.wallet_address, row.protocol, row.to_address, methods.length > 0 ? methods : null, methodNames, direction);
+    } else {
+      // Wallet-level refresh: stats + holdings.
+      await getWalletStats(row.wallet_address);
+      await getTokenHoldingsRaw(row.wallet_address);
+    }
+    await query('DELETE FROM bs_refresh_queue WHERE wallet_address = $1 AND protocol = $2', [
+      row.wallet_address,
+      row.protocol,
+    ] as never[]);
+  } catch (err: any) {
+    console.warn(`[RefreshWorker] job failed for ${row.wallet_address.slice(0, 10)} (${row.protocol || 'wallet'}):`, err.message || err);
+    const backoffMin = Math.min(60, 5 * (row.attempts + 1));
+    await query(
+      'UPDATE bs_refresh_queue SET attempts = attempts + 1, next_run = now() + ($1 || \' minutes\')::interval WHERE wallet_address = $2 AND protocol = $3',
+      [String(backoffMin), row.wallet_address, row.protocol] as never[]
+    ).catch(() => undefined);
+  } finally {
+    active.delete(key);
+  }
+}
+
+export function startRefreshWorker(): void {
+  if (started) return;
+  started = true;
+  if (process.env.REFRESH_WORKER === 'off') {
+    console.log('[RefreshWorker] disabled via REFRESH_WORKER=off');
+    return;
+  }
+  console.log('[RefreshWorker] started (60s interval, low concurrency)');
+  // Warm-on-idle: keep the top active wallets' domain caches fresh so their
+  // next dashboard load is instant even after a server restart. Their stats/
+  // holdings services are TTL-cached in Postgres, so re-queues that find
+  // fresh data cost a DB read, not a Blockscout walk.
+  // - Junk wallets (burn address etc.) are skipped — a 55M-tx wallet makes
+  //   every walk time out and poisons the shared Blockscout budget.
+  // - ON CONFLICT DO NOTHING: never clobber a failing job's backoff
+  //   (queueRefresh's upsert resets next_run, which would retry-storm a
+  //   wallet whose upstream is down).
+  const warmActiveWallets = async (): Promise<void> => {
+    try {
+      const rows = await query<{ wallet_address: string }>(
+        `SELECT entry->>'wallet_address' AS wallet_address
+           FROM cached_leaderboard, jsonb_array_elements(leaderboard_data) AS entry
+          WHERE id = 1
+          ORDER BY (entry->>'score')::numeric DESC
+          LIMIT 10`
+      );
+      let enqueued = 0;
+      for (const r of rows) {
+        const w = (r.wallet_address || '').toLowerCase();
+        if (!w || JUNK_WALLETS.has(w)) continue;
+        await query(
+          `INSERT INTO bs_refresh_queue (wallet_address, protocol, to_address, methods, method_names, direction, priority, next_run, attempts)
+           VALUES ($1, '', '', '', '', 'out', 1, now(), 0)
+           ON CONFLICT (wallet_address, protocol) DO NOTHING`,
+          [w] as never[]
+        );
+        enqueued++;
+      }
+      if (enqueued > 0) console.log(`[RefreshWorker] warm sweep: enqueued ${enqueued} active wallets`);
+    } catch (err: any) {
+      console.warn('[RefreshWorker] warm sweep failed:', err.message || err);
+    }
+  };
+  setTimeout(warmActiveWallets, 60_000);
+  setInterval(warmActiveWallets, 15 * 60_000);
+  setInterval(() => {
+    drainOnce().catch((err) => console.error('[RefreshWorker] drain failed:', err.message || err));
+  }, WORKER_INTERVAL_MS);
+}

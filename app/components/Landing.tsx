@@ -1,13 +1,9 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Zap, Activity, Layers, Lock, BarChart3, ChevronRight, Award } from './Icons';
+import { Activity, Layers, Lock, BarChart3, Award } from './Icons';
 import { Logo } from './Logo';
-
-interface LandingProps {
-  onConnect: () => void;
-  onDemo: () => void;
-}
+import { ConnectWalletButton } from './ConnectWalletButton';
 
 const FeatureCard = ({ icon: Icon, title, desc, delay }: { icon: React.ElementType, title: string, desc: string, delay: string }) => (
   <div
@@ -34,7 +30,7 @@ const StepCard = ({ number, title, desc }: { number: string, title: string, desc
   </div>
 );
 
-export const Landing: React.FC<LandingProps> = ({ onConnect, onDemo }) => {
+export const Landing: React.FC = () => {
   const [count, setCount] = useState(0);
 
   useEffect(() => {
@@ -67,15 +63,7 @@ export const Landing: React.FC<LandingProps> = ({ onConnect, onDemo }) => {
 
         <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-12 items-center">
           <div className="text-center lg:text-left space-y-8 animate-fade-in-up">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900/50 border border-slate-700/50 backdrop-blur-sm text-xs font-medium text-ink-accent shadow-lg shadow-purple-900/20 hover:border-ink-purple/50 transition-colors cursor-default">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-ink-purple opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-ink-purple"></span>
-              </span>
-              Live on InkChain Mainnet
-            </div>
-
-            <h1 className="text-5xl lg:text-7xl font-display font-bold leading-[1.1] tracking-tight">
+            <h1 className="text-5xl lg:text-6xl font-display font-bold leading-[1.05] tracking-[-0.02em]">
               Your Reputation on <br />
               <span className="text-gradient">InkChain, Scored.</span>
             </h1>
@@ -85,26 +73,19 @@ export const Landing: React.FC<LandingProps> = ({ onConnect, onDemo }) => {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start pt-4">
-              <button
-                onClick={onConnect}
-                className="group relative px-8 py-4 bg-ink-blue hover:bg-blue-600 text-white font-semibold rounded-xl transition-all shadow-[0_0_20px_rgba(37,99,235,0.3)] hover:shadow-[0_0_30px_rgba(37,99,235,0.5)] flex items-center justify-center gap-2 overflow-hidden"
+              <ConnectWalletButton size="lg" />
+              <a
+                href="/staking"
+                className="group inline-flex items-center justify-center gap-2.5 rounded-full border border-white/25 bg-white/5 px-8 py-3.5 text-base font-medium text-white transition-all duration-200 hover:border-white/40 hover:bg-white/10 active:scale-[0.97]"
               >
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-12 translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-1000"></div>
-                <Zap size={20} className="group-hover:rotate-12 transition-transform" />
-                Connect Wallet
-              </button>
-              <button
-                onClick={onDemo}
-                className="px-8 py-4 bg-slate-900/50 hover:bg-slate-800 text-white font-semibold rounded-xl border border-slate-700 hover:border-slate-500 transition-all flex items-center justify-center gap-2 backdrop-blur-md"
-              >
-                View Demo Score
-                <ChevronRight size={20} className="group-hover:translate-x-1 transition-transform" />
-              </button>
+                InkScore Staking
+                <span className="shine-tag"><span className="shine-tag-text">New</span></span>
+              </a>
             </div>
           </div>
 
           <div className="relative perspective-1000">
-            <div className="glass-card p-8 rounded-3xl relative z-10 max-w-md mx-auto transform rotate-y-12 hover:rotate-y-0 transition-transform duration-700 shadow-2xl shadow-ink-purple/10 border border-white/10">
+            <div className="glass-card p-8 rounded-3xl relative z-10 max-w-md mx-auto shadow-2xl shadow-ink-purple/10 border border-white/10">
               <div className="flex justify-between items-start mb-10">
                 <Logo size="sm" showText={false} />
                 <div className="flex flex-col items-end">

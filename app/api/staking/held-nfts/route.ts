@@ -1,91 +1,115 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { INK_RPC_URL, ZENITH_NFT_ADDRESS } from '@/lib/staking-contract';
+import { EXPLORER_API_BASE, ZENITH_NFT_ADDRESS } from '@/lib/staking-contract';
 
 /**
- * Held-Zenith discovery straight from the chain — replaces the explorer
- * holder-index + transfer-history pipeline that took 7-30s for large
- * wallets (Blockscout was ~6.7s per page, serial pagination for history).
+ * Held-Zenith discovery via the Blockscout instances endpoint:
+ * /tokens/{collection}/instances?holder_address_hash={wallet}
  *
- * The collection is a fixed 888 supply; ids 1..888 (burned ids revert on
- * ownerOf and simply cannot be owned). One batched ownerOf pass resolves
- * every owner. The result is cached module-level and shared across ALL
- * visitors, so the ~3s scan runs at most every SCAN_TTL_MS regardless of
- * traffic; per-wallet lookups against a warm cache are instant.
+ * One request per wallet for typical holdings (paginated for whales),
+ * no per-IP RPC budget to blow through — the public Ink RPC rate-limits
+ * the shared serverless egress IPs, which is what killed the batched
+ * ownerOf scan approach.
  *
- * Response is CDN-cacheable per wallet (s-maxage + stale-while-revalidate).
+ * Results are cached per wallet module-level (single-flighted, stale-serve
+ * on failure) and on the CDN (s-maxage + stale-while-revalidate).
+ * `?refresh=1` bypasses the cache TTL so stake/unstake flows can force a
+ * post-tx read.
  */
 
-const OWNER_OF_SELECTOR = '0x6352211e'; // ownerOf(uint256)
-const MAX_TOKEN_ID = 888;
-const BATCH_SIZE = 100;
-const RPC_TIMEOUT = 10_000;
-const SCAN_TTL_MS = 20_000;
+const REQUEST_TIMEOUT = 10_000;
+// 45s sits above the client's 30s poll cadence, so every other poll is a
+// cache hit (~2 explorer requests/min per active wallet instead of 4).
+// Tx flows bypass this via ?refresh=1, so staleness only affects viewers.
+const CACHE_TTL_MS = 45_000;
+const MAX_PAGES = 20;
+const MAX_CACHED_WALLETS = 5_000;
 
-let ownerCache: Map<string, string> | null = null;
-let ownerCacheAt = 0;
-let scanInFlight: Promise<Map<string, string>> | null = null;
-
-async function rpcBatchOwnerOf(ids: number[]): Promise<Array<string | null>> {
-  const body = ids.map((id, i) => ({
-    jsonrpc: '2.0',
-    id: i,
-    method: 'eth_call',
-    params: [
-      { to: ZENITH_NFT_ADDRESS, data: OWNER_OF_SELECTOR + BigInt(id).toString(16).padStart(64, '0') },
-      'latest',
-    ],
-  }));
-  const res = await fetch(INK_RPC_URL, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(RPC_TIMEOUT),
-  });
-  if (!res.ok) throw new Error(`RPC responded ${res.status}`);
-  const results = (await res.json()) as Array<{ id: number; result?: string }>;
-  const out: Array<string | null> = new Array(ids.length).fill(null);
-  for (const entry of results) {
-    // entry.id is the batch index; a reverted ownerOf (burned / nonexistent
-    // token) stays null — it cannot be owned.
-    const idx = entry.id;
-    if (idx < 0 || idx >= ids.length) continue;
-    const result = entry.result;
-    if (typeof result === 'string' && result.length >= 40) {
-      out[idx] = `0x${result.slice(-40).toLowerCase()}`;
-    }
-  }
-  return out;
+interface CacheEntry {
+  ids: string[];
+  at: number;
 }
 
-async function scanAllOwners(): Promise<Map<string, string>> {
-  const map = new Map<string, string>();
-  for (let start = 1; start <= MAX_TOKEN_ID; start += BATCH_SIZE) {
-    const end = Math.min(start + BATCH_SIZE - 1, MAX_TOKEN_ID);
-    const ids = Array.from({ length: end - start + 1 }, (_, i) => start + i);
-    const owners = await rpcBatchOwnerOf(ids);
-    for (let i = 0; i < ids.length; i++) {
-      const owner = owners[i];
-      if (owner) map.set(String(ids[i]), owner);
-    }
-  }
-  return map;
+const walletCache = new Map<string, CacheEntry>();
+const inflight = new Map<string, Promise<CacheEntry>>();
+
+function pageUrl(query: string): string {
+  return `${EXPLORER_API_BASE}/tokens/${ZENITH_NFT_ADDRESS}/instances?${query}`;
 }
 
-/** Fresh-enough owner map, shared across requests; concurrent scans dedupe. */
-async function getOwners(): Promise<Map<string, string>> {
-  if (ownerCache && Date.now() - ownerCacheAt < SCAN_TTL_MS) return ownerCache;
-  if (!scanInFlight) {
-    scanInFlight = scanAllOwners()
-      .then((map) => {
-        ownerCache = map;
-        ownerCacheAt = Date.now();
-        return map;
-      })
-      .finally(() => {
-        scanInFlight = null;
-      });
+async function fetchHeldFromExplorer(wallet: string): Promise<string[]> {
+  const ids: string[] = [];
+  let url = pageUrl(`holder_address_hash=${wallet}`);
+  for (let page = 0; page < MAX_PAGES && url; page++) {
+    const res = await fetch(url, {
+      headers: { accept: 'application/json' },
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT),
+    });
+    if (!res.ok) throw new Error(`Explorer responded ${res.status}`);
+    const data = (await res.json()) as {
+      items?: Array<{ id?: unknown }>;
+      next_page_params?: Record<string, unknown> | null;
+    };
+    if (!data || !Array.isArray(data.items)) {
+      throw new Error('Explorer returned unexpected payload');
+    }
+    for (const item of data.items) {
+      if (item && typeof item.id === 'string' && /^\d+$/.test(item.id)) ids.push(item.id);
+    }
+    const next = data.next_page_params;
+    if (!next || typeof next !== 'object') break;
+    const qs = new URLSearchParams();
+    for (const [key, value] of Object.entries(next)) qs.set(key, String(value));
+    url = pageUrl(qs.toString());
   }
-  return scanInFlight;
+  ids.sort((a, b) => Number(a) - Number(b));
+  return ids;
+}
+
+function evictIfNeeded(): void {
+  if (walletCache.size <= MAX_CACHED_WALLETS) return;
+  let evicted = 0;
+  for (const key of walletCache.keys()) {
+    walletCache.delete(key);
+    if (++evicted >= MAX_CACHED_WALLETS / 2) break;
+  }
+}
+
+/** Cached per-wallet lookup — single-flighted, stale-serve on failure. */
+async function getHeldIds(wallet: string, forced: boolean): Promise<CacheEntry> {
+  const now = Date.now();
+  const cached = walletCache.get(wallet) ?? null;
+  // Forced requests bypass the TTL — the caller just confirmed a tx and
+  // needs the post-tx owner set, which a cache written before the tx lacks.
+  if (!forced && cached && now - cached.at < CACHE_TTL_MS) return cached;
+
+  const existing = inflight.get(wallet);
+  if (existing) {
+    if (cached && !forced) return cached;
+    return existing;
+  }
+
+  const pending = fetchHeldFromExplorer(wallet)
+    .then((ids) => {
+      const entry: CacheEntry = { ids, at: Date.now() };
+      walletCache.set(wallet, entry);
+      evictIfNeeded();
+      return entry;
+    })
+    .finally(() => {
+      inflight.delete(wallet);
+    });
+  inflight.set(wallet, pending);
+
+  if (cached && !forced) {
+    void pending.catch(() => {}); // background refresh; stale data already served
+    return cached;
+  }
+  try {
+    return await pending;
+  } catch (err) {
+    if (cached) return cached; // last-known-good beats an error
+    throw err;
+  }
 }
 
 export const runtime = 'nodejs';
@@ -97,22 +121,19 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid wallet' }, { status: 400 });
   }
   const wallet = walletParam.toLowerCase();
+  const forced = request.nextUrl.searchParams.get('refresh') === '1';
 
-  let owners: Map<string, string>;
+  let entry: CacheEntry;
   try {
-    owners = await getOwners();
+    entry = await getHeldIds(wallet, forced);
   } catch (err) {
-    console.error('[held-nfts] owner scan failed:', (err as Error).message);
-    return NextResponse.json({ error: 'Ownership scan failed' }, { status: 502 });
+    console.error('[held-nfts] explorer lookup failed:', (err as Error).message);
+    return NextResponse.json({ error: 'Held-NFT lookup failed' }, { status: 502 });
   }
 
-  const ids: string[] = [];
-  for (const [id, owner] of owners) {
-    if (owner === wallet) ids.push(id);
-  }
-  ids.sort((a, b) => Number(a) - Number(b));
-
-  const res = NextResponse.json({ ids, scannedAt: ownerCacheAt || null });
-  res.headers.set('Cache-Control', 'public, s-maxage=15, stale-while-revalidate=60');
+  const res = NextResponse.json({ ids: entry.ids, scannedAt: entry.at });
+  // Long SWR window: if origin or the explorer hiccups, the edge keeps
+  // serving the last-good response instead of surfacing an error.
+  res.headers.set('Cache-Control', 'public, s-maxage=20, stale-while-revalidate=300');
   return res;
 }

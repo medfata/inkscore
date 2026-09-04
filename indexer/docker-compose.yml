@@ -154,6 +154,8 @@ services:
       GOOGLE_PRIVATE_KEY: ${GOOGLE_PRIVATE_KEY}
       GOOGLE_SHEET_COLAB_REQUEST_ID: ${GOOGLE_SHEET_COLAB_REQUEST_ID}
       RPC_URL: ${RPC_URL:-https://rpc-gel.inkonchain.com}
+      # staking page resolves NFT images via OpenSea CDN (server-side key)
+      OPENSEA_API_KEY: ${OPENSEA_API_KEY}
       # points-service-v2 self-fetch base; default resolves inside the container
       NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
     expose:

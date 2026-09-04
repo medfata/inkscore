@@ -92,10 +92,10 @@ export class AssetsService {
   async createAsset(data: CreateAssetRequest): Promise<TrackedAsset> {
     const result = await queryOne<TrackedAsset>(
       `INSERT INTO tracked_assets (
-        asset_type, token_type, name, symbol, address, logo_url, decimals,
+        asset_type, token_type, name, symbol, address, logo_url, opensea_slug, decimals,
         description, website_url, twitter_handle, coingecko_id, 
         dexscreener_pair_address, display_order
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
       RETURNING *`,
       [
         data.asset_type,
@@ -104,6 +104,7 @@ export class AssetsService {
         data.symbol || null,
         data.address.toLowerCase(),
         data.logo_url || null,
+        data.opensea_slug || null,
         data.decimals ?? 18,
         data.description || null,
         data.website_url || null,
@@ -132,6 +133,7 @@ export class AssetsService {
       symbol: 'symbol',
       address: 'address',
       logo_url: 'logo_url',
+      opensea_slug: 'opensea_slug',
       decimals: 'decimals',
       description: 'description',
       website_url: 'website_url',

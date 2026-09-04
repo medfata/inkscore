@@ -3,28 +3,50 @@ import { EthPrice } from '../types/analytics';
 
 const COINGECKO_API = 'https://api.coingecko.com/api/v3';
 
+// Short in-memory cache for the hot getCurrentPrice path (see method).
+let memPrice: { price: number; ts: number } | null = null;
+let memPriceInflight: Promise<number> | null = null;
+const MEM_PRICE_TTL_MS = 60 * 1000;
+
 export class PriceService {
   // Get current ETH price
   async getCurrentPrice(): Promise<number> {
-    // First try to get from cache (last hour)
-    const cached = await queryOne<EthPrice>(`
-      SELECT * FROM eth_prices 
-      WHERE timestamp > NOW() - INTERVAL '1 hour'
-      ORDER BY timestamp DESC 
-      LIMIT 1
-    `);
-
-    if (cached) {
-      return parseFloat(cached.price_usd);
+    // In-memory short TTL: getWalletAnalytics fans out to every metric in
+    // parallel and each calls this (previously N simultaneous identical DB
+    // queries contending the pool on every dashboard load).
+    if (memPrice && Date.now() - memPrice.ts < MEM_PRICE_TTL_MS) {
+      return memPrice.price;
     }
+    if (memPriceInflight) return memPriceInflight;
+    memPriceInflight = (async () => {
+      try {
+        // First try to get from cache (last hour)
+        const cached = await queryOne<EthPrice>(`
+          SELECT * FROM eth_prices 
+          WHERE timestamp > NOW() - INTERVAL '1 hour'
+          ORDER BY timestamp DESC 
+          LIMIT 1
+        `);
 
-    // Fetch from CoinGecko
-    const price = await this.fetchCurrentPrice();
-    
-    // Cache it
-    await this.savePrice(price);
-    
-    return price;
+        if (cached) {
+          const price = parseFloat(cached.price_usd);
+          memPrice = { price, ts: Date.now() };
+          return price;
+        }
+
+        // Fetch from CoinGecko
+        const price = await this.fetchCurrentPrice();
+
+        // Cache it
+        await this.savePrice(price);
+
+        memPrice = { price, ts: Date.now() };
+        return price;
+      } finally {
+        memPriceInflight = null;
+      }
+    })();
+    return memPriceInflight;
   }
 
   // Get price at specific timestamp (hourly granularity)

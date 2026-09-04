@@ -24,10 +24,10 @@ Remove-Item inkscore.tar
 # Box — wipe-and-extract, then restore the env file
 rm -rf /root/inkscore && mkdir -p /root/inkscore
 tar -xf /root/inkscore.tar -C /root/inkscore && rm /root/inkscore.tar
-cp /root/inkscore.env /root/inkscore/indexer/.env   # canonical env lives OUTSIDE the tree (Part 4.4)
+cp /root/inkscore-web.env /root/inkscore/indexer/.env   # canonical env lives OUTSIDE the tree (Part 4.4)
 ```
 
-Wipe-and-extract (instead of overwrite) means deleted files never linger. It is safe **because the env file's canonical copy lives at `/root/inkscore.env`**, outside the wiped directory. Docker volumes (Postgres data) are never touched by this.
+Wipe-and-extract (instead of overwrite) means deleted files never linger. It is safe **because the env file's canonical copy lives at `/root/inkscore-web.env`**, outside the wiped directory. Docker volumes (Postgres data) are never touched by this.
 
 > Compose project name comes from the directory name: `/root/inkscore/indexer` still ends in `indexer`, so it is the **same compose project** as the old `~/indexer` setup — the existing `indexer_postgres_data` volume and network are reused automatically. **Postgres data is untouched.**
 
@@ -110,9 +110,9 @@ tar -xf /root/inkscore.tar -C /root/inkscore && rm /root/inkscore.tar
 Start from the existing stack env, then extend:
 
 ```bash
-cp /root/indexer/.env /root/inkscore.env
-chmod 600 /root/inkscore.env
-nano /root/inkscore.env
+cp /root/indexer/.env /root/inkscore-web.env
+chmod 600 /root/inkscore-web.env
+nano /root/inkscore-web.env
 ```
 
 Append (values from Part 1 and Part 3):
@@ -132,10 +132,10 @@ RPC_URL=https://rpc-gel.inkonchain.com
 
 Rules:
 - `GOOGLE_PRIVATE_KEY` stays on **one line with literal `\n`** — the code unescapes it.
-- `/root/inkscore.env` is the **canonical** copy (survives wipe-and-extract). Copy it into place:
+- `/root/inkscore-web.env` is the **canonical** copy (survives wipe-and-extract). Copy it into place:
 
 ```bash
-cp /root/inkscore.env /root/inkscore/indexer/.env
+cp /root/inkscore-web.env /root/inkscore/indexer/.env
 ```
 
 ## Part 5 — Build and start (~15 min)
@@ -202,7 +202,7 @@ API routes need no rule — Cloudflare honors the `s-maxage` headers already set
    ```bash
    # Box
    cd /root && rm -rf inkscore && mkdir inkscore && tar -xf inkscore.tar -C inkscore && rm inkscore.tar
-   cp /root/inkscore.env /root/inkscore/indexer/.env
+   cp /root/inkscore-web.env /root/inkscore/indexer/.env
    cd /root/inkscore/indexer && docker compose up -d --build web
    ```
 
@@ -230,8 +230,11 @@ Remove-Item inkscore.tar
 ```bash
 # Box
 cd /root && rm -rf inkscore && mkdir inkscore && tar -xf inkscore.tar -C inkscore && rm inkscore.tar
-cp /root/inkscore.env /root/inkscore/indexer/.env
+cp /root/inkscore-web.env /root/inkscore/indexer/.env   # ← canonical env at /root/inkscore-web.env
 cd /root/inkscore/indexer
+
+# ⚠️  READ THE CRITICAL PRE-DEPLOY CHECKLIST ABOVE BEFORE CONTINUING
+# Verify .env has DB_PASSWORD, NEXT_PUBLIC_NFT_CONTRACT_ADDRESS, CF_TUNNEL_TOKEN
 
 docker compose up -d --build web                  # frontend changes
 # docker compose up -d --build api-server         # api-server changes
@@ -242,16 +245,70 @@ docker compose up -d --build web                  # frontend changes
 
 ---
 
+## ⚠️ CRITICAL — Pre-deploy checklist (read before every deploy)
+
+> **Incident 2026-07-14:** A deploy wiped `/root/inkscore/` and extracted fresh code but **never copied the `.env` file back** to `/root/inkscore/indexer/.env`. Docker Compose then built `web` with **empty build args**, baking the wrong NFT contract address (`0xABbdc8...` fallback from `lib/nft-contract.ts`) into the image. The result: every `/api/nft/image/*` and `/api/nft/metadata/*` call returned "NFT not found" for hours. The api-server also crashed (missing `DB_PASSWORD`), and cloudflared never started (missing `CF_TUNNEL_TOKEN`).
+
+> **Incident 2026-08-31:** `docker compose up -d` recreated `cloudflared`, which re-read `.env` — where `CF_TUNNEL_TOKEN` held a **bogus value** (a 126-char `OCI...` string pasted by mistake during the Aug 30 setup, not a Cloudflare JWT). Crash loop → **Cloudflare Error 1033, site down**. The old container had masked it for a day: it was created *before* the bad edit and `restart: always` keeps the original env, so the broken token only surfaced on recreate. Working token was recovered from the old rollback copy `/root/indexer/.env` (tunnel `88497da7...`) and restored into both `.env` files.
+>
+> **Rules:** a non-empty `CF_TUNNEL_TOKEN` is not enough — it must start with `eyJ` (JWT). Any recreate makes cloudflared re-read `.env`, so a stale-but-running container can hide a broken token for days. If the tunnel dies post-deploy, test old env copies (`/root/indexer/.env`, `/root/inkscore-web.env`) with a throwaway `docker run --rm --network indexer_default cloudflare/cloudflared:latest tunnel run --token <t>` before anything else; if none work, re-copy the token from Zero Trust → Tunnels in the dashboard.
+
+**Before running `docker compose up -d --build`, ALWAYS verify:**
+
+```bash
+# 1. The .env file exists and has all required variables
+ls -la /root/inkscore/indexer/.env
+# If missing, copy from the canonical location:
+cp /root/inkscore-web.env /root/inkscore/indexer/.env
+
+# 2. Spot-check critical variables are non-empty
+grep -E 'DB_PASSWORD|NEXT_PUBLIC_NFT_CONTRACT_ADDRESS|CF_TUNNEL_TOKEN' /root/inkscore/indexer/.env
+# All three MUST have values. If any are blank or missing, STOP and fix before building.
+
+# 3. Verify the NFT contract address is correct
+grep NEXT_PUBLIC_NFT_CONTRACT_ADDRESS /root/inkscore/indexer/.env
+# Must be: 0xBE1965cE0D06A79A411FFCD9a1C334638dF77649
+# If empty, the build bakes in the fallback from lib/nft-contract.ts (0xABbdc8...)
+# which is a DIFFERENT contract — all NFT lookups will fail.
+
+# 4. Verify the tunnel token is a real Cloudflare JWT (starts with "eyJ")
+grep '^CF_TUNNEL_TOKEN=' /root/inkscore/indexer/.env | cut -c17-19
+# Must print: eyJ   (a value like "OCI..." or any non-eyJ string is wrong —
+# cloudflared will crash-loop with "Provided Tunnel token is not valid" on the
+# next recreate, taking the site down with Error 1033. See incident 2026-08-31.)
+
+# 5. After build, smoke-test the NFT endpoints BEFORE declaring deploy done
+docker inspect indexer-web-1 --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}'
+# Then:
+curl -s http://<container-ip>:3000/api/nft/metadata/1 | head -c 200
+curl -s -o /dev/null -w '%{http_code}' http://<container-ip>:3000/api/nft/image/1
+# Both must return 200. If metadata returns {"error":"NFT not found"}, the wrong
+# contract address was baked in — rebuild with the correct .env.
+```
+
+**Healthcheck gotcha:** The web container healthcheck uses `wget` against `http://127.0.0.1:3000/`. If it shows `unhealthy` with `Connection refused` on `[::1]:3000`, the healthcheck is hitting IPv6 instead of IPv4. Fix in `docker-compose.yml`:
+
+```yaml
+healthcheck:
+  test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000/"]
+```
+
+**Never** use `localhost` in the healthcheck — Alpine's `wget` resolves it to `::1` (IPv6) first, but the Next.js standalone server binds `0.0.0.0` (IPv4 only).
+
+---
+
 ## Gotchas recap
 
 | # | Gotcha | Where |
 |---|--------|-------|
 | 1 | Never run `docker buildx history` on the box — dockerd panic | Part 4.1 |
 | 2 | Swap required before first `web` build (4 GB RAM) | Part 4.2 |
-| 3 | Canonical env lives at `/root/inkscore.env`, copy after every extract | Part 0 / 4.4 |
+| 3 | Canonical env lives at `/root/inkscore-web.env`, copy after every extract | Part 0 / 4.4 |
 | 4 | `GOOGLE_PRIVATE_KEY` one line, literal `\n` | Part 4.4 |
 | 5 | Same compose project name (`indexer`) → volumes preserved | Part 0 |
 | 6 | Never run compose from `/root/indexer` and `/root/inkscore/indexer` at once | Part 5 |
 | 7 | Indexer rebuilds = all three services, not one | Part 10 |
 | 8 | Image layers land on the 38 GB ROOT disk (containerd store), not the volume | Part 4.1 |
 | 9 | If `web` build still OOMs: stop `indexer-realtime` too, or build locally and `docker save \| ssh ... docker load` | Part 5 |
+| 10 | **Missing `.env` = wrong NFT contract baked in, all NFT endpoints 404** | Critical checklist |
+| 11 | Healthcheck must use `127.0.0.1`, not `localhost` (Alpine IPv6 issue) | Critical checklist |

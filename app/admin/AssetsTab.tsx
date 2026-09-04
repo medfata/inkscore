@@ -365,6 +365,7 @@ function AssetModal({
     name: asset?.name || '',
     symbol: asset?.symbol || '',
     logo_url: asset?.logo_url || '',
+    opensea_slug: asset?.opensea_slug || '',
     decimals: asset?.decimals ?? 18,
     token_type: (asset?.token_type || '') as TokenType | '',
     description: asset?.description || '',
@@ -405,6 +406,7 @@ function AssetModal({
         name: result.name || '',
         symbol: result.symbol || '',
         logo_url: result.logo_url || '',
+        opensea_slug: '',
         decimals: result.decimals ?? 18,
         token_type: assetType === 'meme_coin' ? 'meme' : '',
         description: result.description || '',
@@ -433,6 +435,7 @@ function AssetModal({
         name: formData.name,
         symbol: formData.symbol || undefined,
         logo_url: formData.logo_url || undefined,
+        opensea_slug: formData.opensea_slug || undefined,
         decimals: assetType === 'nft_collection' ? 0 : formData.decimals,
         token_type: formData.token_type || undefined,
         description: formData.description || undefined,
@@ -662,19 +665,37 @@ function AssetModal({
               </div>
 
               {assetType === 'nft_collection' && (
-                <div className="col-span-2">
-                  <label className="block text-xs font-medium text-slate-500 mb-1">Twitter Handle</label>
-                  <div className="flex items-center">
-                    <span className="text-slate-500 mr-1">@</span>
-                    <input
-                      type="text"
-                      value={formData.twitter_handle}
-                      onChange={(e) => setFormData({ ...formData, twitter_handle: e.target.value.replace('@', '') })}
-                      className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm"
-                      placeholder="ShelliesNFT"
-                    />
+                <>
+                  <div className="col-span-2">
+                    <label className="block text-xs font-medium text-slate-500 mb-1">Twitter Handle</label>
+                    <div className="flex items-center">
+                      <span className="text-slate-500 mr-1">@</span>
+                      <input
+                        type="text"
+                        value={formData.twitter_handle}
+                        onChange={(e) => setFormData({ ...formData, twitter_handle: e.target.value.replace('@', '') })}
+                        className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm"
+                        placeholder="ShelliesNFT"
+                      />
+                    </div>
                   </div>
-                </div>
+                  <div className="col-span-2">
+                    <label className="block text-xs font-medium text-slate-500 mb-1">OpenSea Slug</label>
+                    <div className="flex items-center">
+                      <span className="text-slate-500 mr-1">https://opensea.io/collection/</span>
+                      <input
+                        type="text"
+                        value={formData.opensea_slug}
+                        onChange={(e) => setFormData({ ...formData, opensea_slug: e.target.value.trim() })}
+                        className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm"
+                        placeholder="shellies-ink"
+                      />
+                    </div>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Makes the collection icon clickable, linking to its OpenSea page
+                    </p>
+                  </div>
+                </>
               )}
             </div>
 

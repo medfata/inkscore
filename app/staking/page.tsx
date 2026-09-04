@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useAccount, usePublicClient, useReadContract, useReadContracts, useWriteContract } from 'wagmi';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatEther } from 'viem';
 import { Logo } from '../components/Logo';
 import { ConnectWalletButton } from '../components/ConnectWalletButton';
@@ -343,24 +343,36 @@ export default function StakingPage() {
   const [pendingSettle, setPendingSettle] = useState<PendingSettle | null>(null);
   const opRequestRef = useRef(0);
   const { writeContractAsync } = useWriteContract();
+  const queryClient = useQueryClient();
 
   const busyTokenId = activeOp && BUSY_PHASES.has(activeOp.phase) ? activeOp.tokenId : null;
 
+  const refreshHeldIds = useCallback(async () => {
+    // Force a server-side fresh scan after a tx, then write the result
+    // straight into the query cache — the background 30s poll alone would
+    // leave the held list trailing the chain for up to the server TTL.
+    // On failure keep the previous data; the poll settles it later.
+    if (!address) return;
+    try {
+      const ids = await fetchHeldZenithIds(address as HexAddress, { refresh: true });
+      queryClient.setQueryData(['zenith-holdings', address], ids);
+    } catch {
+      // Previous data stays; a failed refresh must never empty the grid.
+    }
+  }, [address, queryClient]);
+
   const refreshAll = useCallback(() => {
-    // NOTE: deliberately does NOT invalidate 'zenith-holdings' / 'zenith-images'.
-    // The held-NFT payload is cached server-side (20s) and on the CDN
-    // (s-maxage=15), so an immediate refetch would return the same pre-tx
-    // data — and when it fails (RPC hiccup → 502) it flipped the whole grid
-    // into the error panel, hiding every owned NFT until the next poll.
-    // Correctness comes from the chain reads below (stakedIds) plus the
-    // stakedMeta bridge; the 30s holdings poll settles the held list itself.
-    // 'zenith-images' keys off unifiedIdsKey, so it refetches on its own.
+    // Held NFTs are refreshed explicitly with refresh=1 (above) so the
+    // server scan reflects the just-confirmed tx; staked ids come from
+    // direct chain reads here. 'zenith-images' keys off unifiedIdsKey,
+    // so it refetches on its own.
     return Promise.all([
       refetchStakedIds(),
       refetchTotalStaked(),
       refetchStakeInfos(),
+      refreshHeldIds(),
     ]);
-  }, [refetchStakedIds, refetchTotalStaked, refetchStakeInfos]);
+  }, [refetchStakedIds, refetchTotalStaked, refetchStakeInfos, refreshHeldIds]);
 
   const runTx = useCallback(
     async (kind: OpKind, tokenId: string, duration?: StakingDuration['index']) => {

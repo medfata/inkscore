@@ -43,7 +43,6 @@ export function useStreamingDashboard(
       'score',
       'analytics',
       'cards',
-      'marvk',
       'nado',
       'copink',
       'nft2me',
@@ -52,17 +51,16 @@ export function useStreamingDashboard(
       'inkypumpCreatedTokens',
       'inkypumpBuyVolume',
       'inkypumpSellVolume',
-      'nftTraded',
       'zns',
       'shelliesJoinedRaffles',
       'shelliesPayToPlay',
-      'shelliesStaking',
       'openseaBuyCount',
       'mintCount',
       'openseaSaleCount',
-      'inkdcaRunDca',
       'templarsNftBalance',
       'cowswapSwaps',
+      'zenithNft',
+      'zenithStaking',
     ]),
     errors: {},
     isComplete: false,
@@ -242,7 +240,6 @@ export function useStreamingDashboard(
       if (data.score) metrics.score = data.score;
       if (data.analytics) metrics.analytics = data.analytics;
       if (data.cards) metrics.cards = data.cards;
-      if (data.marvk) metrics.marvk = data.marvk;
       if (data.nado) metrics.nado = data.nado;
       if (data.copink) metrics.copink = data.copink;
       if (data.nft2me) metrics.nft2me = data.nft2me;
@@ -251,17 +248,16 @@ export function useStreamingDashboard(
       if (data.inkypumpCreatedTokens) metrics.inkypumpCreatedTokens = data.inkypumpCreatedTokens;
       if (data.inkypumpBuyVolume) metrics.inkypumpBuyVolume = data.inkypumpBuyVolume;
       if (data.inkypumpSellVolume) metrics.inkypumpSellVolume = data.inkypumpSellVolume;
-      if (data.nftTraded) metrics.nftTraded = data.nftTraded;
       if (data.zns) metrics.zns = data.zns;
       if (data.shelliesJoinedRaffles) metrics.shelliesJoinedRaffles = data.shelliesJoinedRaffles;
       if (data.shelliesPayToPlay) metrics.shelliesPayToPlay = data.shelliesPayToPlay;
-      if (data.shelliesStaking) metrics.shelliesStaking = data.shelliesStaking;
       if (data.openseaBuyCount) metrics.openseaBuyCount = data.openseaBuyCount;
       if (data.mintCount) metrics.mintCount = data.mintCount;
       if (data.openseaSaleCount) metrics.openseaSaleCount = data.openseaSaleCount;
-      if (data.inkdcaRunDca) metrics.inkdcaRunDca = data.inkdcaRunDca;
       if (data.templarsNftBalance) metrics.templarsNftBalance = data.templarsNftBalance;
       if (data.cowswapSwaps) metrics.cowswapSwaps = data.cowswapSwaps;
+      if (data.zenithNft) metrics.zenithNft = data.zenithNft;
+      if (data.zenithStaking) metrics.zenithStaking = data.zenithStaking;
       
       setState({
         metrics,

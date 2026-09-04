@@ -1,0 +1,144 @@
+===== CAPABILITY 1: COUNT BY FUNCTION =====
+(sample real txs per contract → RPC-decode function_name → does it satisfy the read?)
+
+⚠️ PARTIAL NFT2Me create      7/8 match  | expected(exact): CreateCollectionN2M_000oEFvt
+            RPC sel→decoded: 0x00000000=CreateCollectionN2M_000oEFvt, 0x00000001=null
+            historical DB fn: createCollectionN2M_000oEFvt×7, multicallN2M_001Taw5z×1
+✅ PASS   NFT2Me mint        8/8 match  | expected(exact): Mint
+            RPC sel→decoded: 0xb510391f=Mint
+            historical DB fn: mint×8
+✅ PASS   ZNS deploy         8/8 match  | expected(lower): Deploy | deploy
+            RPC sel→decoded: 0x4c96a389=deploy
+            historical DB fn: deploy×8
+✅ PASS   ZNS sayGM          8/8 match  | expected(lower): SayGM | sayGM
+            RPC sel→decoded: 0xd371cd50=sayGM
+            historical DB fn: sayGM×8
+⚠️ PARTIAL ZNS register       2/8 match  | expected(lower): RegisterDomains | registerDomains
+            RPC sel→decoded: 0x3a99d4eb=registerDomains, 0x23b872dd=null
+            historical DB fn: registerDomains×2, transferFrom×6
+⚠️ PARTIAL Shellies raffle1   7/8 match  | expected(lower): JoinRaffle | joinRaffle
+            RPC sel→decoded: 0x5e611d48=null, 0xa1dcf673=joinRaffle
+            historical DB fn: endRaffle×1, joinRaffle×7
+⚠️ PARTIAL Shellies raffle2   3/8 match  | expected(lower): JoinRaffle | joinRaffle
+            RPC sel→decoded: 0x5e611d48=null, 0xa1dcf673=joinRaffle
+            historical DB fn: EndRaffle×5, JoinRaffle×3
+⚠️ PARTIAL Shellies pay       7/8 match  | expected(lower): PayToPlay | payToPlay
+            RPC sel→decoded: 0x3e5edbd3=payToPlay, 0xbf101190=null
+            historical DB fn: payToPlay×7, payToConvertXP×1
+⚠️ PARTIAL Shellies stake     6/8 match  | expected(lower): StakeBatch | stakeBatch | 0x1e332260
+            RPC sel→decoded: 0xe64a21f3=null, 0x1e332260=stakeBatch
+            historical DB fn: unstakeBatch×2, stakeBatch×6
+⚠️ PARTIAL InkDCA runDCA      6/8 match  | expected(exact): runDCA
+            RPC sel→decoded: 0x56de96db=null, 0x16bfe25c=null, 0xef393b73=runDCA
+            historical DB fn: setState×1, emergencyRefund×1, runDCA×6
+✅ PASS   SeaDrop mint       8/8 match  | expected(lower): mintPublic | 0x161ac21f
+            RPC sel→decoded: 0x161ac21f=mintPublic
+            historical DB fn: mintPublic×8
+❌ FAIL   InkyPump created   0/8 match  | expected(exact): 0xa07849e6
+            RPC sel→decoded: 0x6d97786e=sell, 0x83451838=null
+            historical DB fn: sell×1, 0x83451838×7
+
+===== CAPABILITY 2: AMOUNT BY PLATFORM (bridged-in ETH per wallet) =====
+
+Relay (native ETH bridge-in): 6/8 txs produced operations (the bridged-in source)
+   recipient 0xc9bcec43b9453aed2bac9c496b30b740b6a04073  bridged-in ≈ 0.649926 ETH
+   recipient 0xd12461948a7e2dd2ad3f18861e9f42e53310d8d6  bridged-in ≈ 0.329957 ETH
+   recipient 0x31b3dc3bfe97bc599cd366f0cff8ef604146d03c  bridged-in ≈ 0.249964 ETH
+   recipient 0x82487d11a3f343de0b63401c993739366803fef0  bridged-in ≈ 0.179971 ETH
+   recipient 0xac52052f66145811de602aaa24c347cc405a50ee  bridged-in ≈ 0.004976 ETH
+   recipient 0x6108111e21109e62b5e206130d9409329812e76e  bridged-in ≈ 0.000284 ETH
+   → /bridge sums these (related_wallets→ops.to==user) × live ethPrice = bridgedInUsd. Data present: ✅
+
+Produced rows written to D:\my_projects\inkscore\indexer\rpc-read-validation.txt
+
+⚠️  1 count-read(s) FAILED — decoder gap to fix (see RPC sel→decoded above).
+n_details","row":{"tx_hash":"0xe08eb302cafa0676b6c9ea2afd0da9fe997d68fe9fb6541615c7107c67899969","contract_address":"0x00000000009a1e02f00e280dcfa4c81c55724212","function_name":"Mint","selector":"0xb510391f"}}
+{"table":"transaction_details","row":{"tx_hash":"0xe0474071ea22105a8973279f1a370905a5d0cb91c62c67866d914871962108a1","contract_address":"0x00000000009a1e02f00e280dcfa4c81c55724212","function_name":"Mint","selector":"0xb510391f"}}
+{"table":"transaction_details","row":{"tx_hash":"0x10f9edab2f9e78fec71c2306eeb0b07b96d5b42fb21d1849d559121c3e1e92d1","contract_address":"0x63c489d31a2c3de0638360931f47ff066282473f","function_name":"deploy","selector":"0x4c96a389"}}
+{"table":"transaction_details","row":{"tx_hash":"0xe06eecaf013017dc1a588899cfa8313fe5bdbbbe5d8cf33f845562c5b56dce7d","contract_address":"0x63c489d31a2c3de0638360931f47ff066282473f","function_name":"deploy","selector":"0x4c96a389"}}
+{"table":"transaction_details","row":{"tx_hash":"0x76b0e91ed93451ecc1a3c0ad28a59423eea75e8475fc23537c50d32f098c2dd7","contract_address":"0x63c489d31a2c3de0638360931f47ff066282473f","function_name":"deploy","selector":"0x4c96a389"}}
+{"table":"transaction_details","row":{"tx_hash":"0x60cbbca4004e2f2fa1e930bb38a9a97b10c2c335290522f26d69630c07a3cb25","contract_address":"0x63c489d31a2c3de0638360931f47ff066282473f","function_name":"deploy","selector":"0x4c96a389"}}
+{"table":"transaction_details","row":{"tx_hash":"0x4fce27470195ddbcd21c927ef406d6a95bc5d9699769a232c17b0b34ee423a6a","contract_address":"0x63c489d31a2c3de0638360931f47ff066282473f","function_name":"deploy","selector":"0x4c96a389"}}
+{"table":"transaction_details","row":{"tx_hash":"0x8e5a4a5e4790729b6bfbc496f38ebf794d708edcbc59873a319744f44e1ffea2","contract_address":"0x63c489d31a2c3de0638360931f47ff066282473f","function_name":"deploy","selector":"0x4c96a389"}}
+{"table":"transaction_details","row":{"tx_hash":"0x9db23c56a320cf0851bc2a537df099ac3ab96461523087a62a20d556f88aa397","contract_address":"0x63c489d31a2c3de0638360931f47ff066282473f","function_name":"deploy","selector":"0x4c96a389"}}
+{"table":"transaction_details","row":{"tx_hash":"0x5fe6d8f025f5a3e99a202a1927aa0f7802ca36bb58e0ad69722f26539cfe6dee","contract_address":"0x63c489d31a2c3de0638360931f47ff066282473f","function_name":"deploy","selector":"0x4c96a389"}}
+{"table":"transaction_details","row":{"tx_hash":"0xd36f8dbc14b610f1f2d1ac877be69684f16382165a87253715a43658f7944137","contract_address":"0x3033d7ded400547d6442c55159da5c61f2721633","function_name":"sayGM","selector":"0xd371cd50"}}
+{"table":"transaction_details","row":{"tx_hash":"0x264ca933562b4b14e4a7a983af0866ca94dcd8e9dc457d869c01341949660e02","contract_address":"0x3033d7ded400547d6442c55159da5c61f2721633","function_name":"sayGM","selector":"0xd371cd50"}}
+{"table":"transaction_details","row":{"tx_hash":"0xdc5c0f33b66706ac8d2e6cba747c32e7b6e3af722de1b6b81c04d331c5593227","contract_address":"0x3033d7ded400547d6442c55159da5c61f2721633","function_name":"sayGM","selector":"0xd371cd50"}}
+{"table":"transaction_details","row":{"tx_hash":"0x531aa8a7870375f0161b38ef152dc6ee47a5476397420d611293083bbc2de4b0","contract_address":"0x3033d7ded400547d6442c55159da5c61f2721633","function_name":"sayGM","selector":"0xd371cd50"}}
+{"table":"transaction_details","row":{"tx_hash":"0x8211f6004e24233b58ee665d66ec34a3572c0b3a36fc0ca156d48a04d5ff113b","contract_address":"0x3033d7ded400547d6442c55159da5c61f2721633","function_name":"sayGM","selector":"0xd371cd50"}}
+{"table":"transaction_details","row":{"tx_hash":"0x9866be3cb0d7b5c087d59f5eec553dedd9615c7e336462309a95178adb58986f","contract_address":"0x3033d7ded400547d6442c55159da5c61f2721633","function_name":"sayGM","selector":"0xd371cd50"}}
+{"table":"transaction_details","row":{"tx_hash":"0x54edc7c5e0baba8379e7d4ee6c40a6743aea9b851c11222bbf1e0e1d1b7b1109","contract_address":"0x3033d7ded400547d6442c55159da5c61f2721633","function_name":"sayGM","selector":"0xd371cd50"}}
+{"table":"transaction_details","row":{"tx_hash":"0x5fa29f89a35a6ae9d42bda5be7a0963e2f566b0586a01650c1a09dd7b11a50ca","contract_address":"0x3033d7ded400547d6442c55159da5c61f2721633","function_name":"sayGM","selector":"0xd371cd50"}}
+{"table":"transaction_details","row":{"tx_hash":"0xa0930925cfae3fad0d9784a9b665af95635f5847c7bb9f734721d11796c2b402","contract_address":"0xfb2cd41a8aec89efbb19575c6c48d872ce97a0a5","function_name":"registerDomains","selector":"0x3a99d4eb"}}
+{"table":"transaction_details","row":{"tx_hash":"0x82352ae11d26e0b48ae83bfd85c16ed8c21abb4f653c485077771c0ba58fd32e","contract_address":"0xfb2cd41a8aec89efbb19575c6c48d872ce97a0a5","function_name":"registerDomains","selector":"0x3a99d4eb"}}
+{"table":"transaction_details","row":{"tx_hash":"0x8c6bbc7d3aeee423d43833e6a39e754360ed9cad338f4ac93a66956709b77a02","contract_address":"0xfb2cd41a8aec89efbb19575c6c48d872ce97a0a5","function_name":null,"selector":"0x23b872dd"}}
+{"table":"transaction_details","row":{"tx_hash":"0x3b6a0723e8a42daadf593856010f9894a65fb4b85263b0e6a2e148fb682cc4b2","contract_address":"0xfb2cd41a8aec89efbb19575c6c48d872ce97a0a5","function_name":null,"selector":"0x23b872dd"}}
+{"table":"transaction_details","row":{"tx_hash":"0xcc593ba247544bb327cc7583a0b7ed556b31b4643abcc0ed81044f0551a92833","contract_address":"0xfb2cd41a8aec89efbb19575c6c48d872ce97a0a5","function_name":null,"selector":"0x23b872dd"}}
+{"table":"transaction_details","row":{"tx_hash":"0x131231055982c4c5aa28da6daf9a8abc18f326c35419a6968cf5c15bb9253b24","contract_address":"0xfb2cd41a8aec89efbb19575c6c48d872ce97a0a5","function_name":null,"selector":"0x23b872dd"}}
+{"table":"transaction_details","row":{"tx_hash":"0xd44471c76ed525bbf91dcdb205d6cd470aa3664c16feac92e1590b89e2529ff2","contract_address":"0xfb2cd41a8aec89efbb19575c6c48d872ce97a0a5","function_name":null,"selector":"0x23b872dd"}}
+{"table":"transaction_details","row":{"tx_hash":"0x9e0d1d1cf3b1e7faf1e2fcc8883913e8e60231e63ccdffbeaf35db4e03ddd979","contract_address":"0xfb2cd41a8aec89efbb19575c6c48d872ce97a0a5","function_name":null,"selector":"0x23b872dd"}}
+{"table":"transaction_details","row":{"tx_hash":"0x5ac432c164106a9d1e62dadf2208fda69f131e2faf1ed3d8bbb1b55e4b526022","contract_address":"0x47a27a42525fff2b7264b342f74216e37a831332","function_name":null,"selector":"0x5e611d48"}}
+{"table":"transaction_details","row":{"tx_hash":"0x48292a804eb786aea55ea6b86273f5e5e82690edacd9018ccfdfe37ed3ca5eef","contract_address":"0x47a27a42525fff2b7264b342f74216e37a831332","function_name":"joinRaffle","selector":"0xa1dcf673"}}
+{"table":"transaction_details","row":{"tx_hash":"0xe683132498bf18c18c5ca1428ed72d93fbdbb9e1776c8a0ecba03cc498bd1c51","contract_address":"0x47a27a42525fff2b7264b342f74216e37a831332","function_name":"joinRaffle","selector":"0xa1dcf673"}}
+{"table":"transaction_details","row":{"tx_hash":"0x1f74ecc82c47671fa7146f25b96991bf14daf48a97abe67b5438c54911b307e4","contract_address":"0x47a27a42525fff2b7264b342f74216e37a831332","function_name":"joinRaffle","selector":"0xa1dcf673"}}
+{"table":"transaction_details","row":{"tx_hash":"0xbe46351180fe71eb8150fedfa52da530afef263d408025913b3b144a499be67d","contract_address":"0x47a27a42525fff2b7264b342f74216e37a831332","function_name":"joinRaffle","selector":"0xa1dcf673"}}
+{"table":"transaction_details","row":{"tx_hash":"0xbf5554759f41824ada7b99ab5a9f8d9e1ec4b51e84c74fe0d4e42d73198ac17b","contract_address":"0x47a27a42525fff2b7264b342f74216e37a831332","function_name":"joinRaffle","selector":"0xa1dcf673"}}
+{"table":"transaction_details","row":{"tx_hash":"0xa01247e4710e3e6c678f17202728896ec242134bdf24f8eac99a11bc2e1f0d2a","contract_address":"0x47a27a42525fff2b7264b342f74216e37a831332","function_name":"joinRaffle","selector":"0xa1dcf673"}}
+{"table":"transaction_details","row":{"tx_hash":"0xb098b61df279cf78ec9cbe6dd60f03e3c35482861977850bc2cab0fd0fe872d6","contract_address":"0x47a27a42525fff2b7264b342f74216e37a831332","function_name":"joinRaffle","selector":"0xa1dcf673"}}
+{"table":"transaction_details","row":{"tx_hash":"0x1704bdd9586c6b1c7ee95006a08ef105ce518bbba45e5ea1c17cce82f97db831","contract_address":"0xe757e8aa82b7ad9f1ef8d4fe657d90341885c0de","function_name":null,"selector":"0x5e611d48"}}
+{"table":"transaction_details","row":{"tx_hash":"0xf60ce2fb8efe5a6e07f45ab8d46beacef5de48cae58e4cea8d6feeb7eb1b80b0","contract_address":"0xe757e8aa82b7ad9f1ef8d4fe657d90341885c0de","function_name":null,"selector":"0x5e611d48"}}
+{"table":"transaction_details","row":{"tx_hash":"0x69539c492f7c6dbf9a650143fadb2b3842223df1e27c36ddaea0852f54296221","contract_address":"0xe757e8aa82b7ad9f1ef8d4fe657d90341885c0de","function_name":null,"selector":"0x5e611d48"}}
+{"table":"transaction_details","row":{"tx_hash":"0xa92091fcf9f6a73a4e76ca8f3f38d811de2ec7e594e5b46261be2ff7fb7ec8ef","contract_address":"0xe757e8aa82b7ad9f1ef8d4fe657d90341885c0de","function_name":null,"selector":"0x5e611d48"}}
+{"table":"transaction_details","row":{"tx_hash":"0x0416408f2697f41509cc91ff2050758af25c1f62a59d3b0f324c35fca5dec579","contract_address":"0xe757e8aa82b7ad9f1ef8d4fe657d90341885c0de","function_name":null,"selector":"0x5e611d48"}}
+{"table":"transaction_details","row":{"tx_hash":"0x72ec6e962679b63c00608d4fb759c558c69b572e356ff796cab880e2089a69b1","contract_address":"0xe757e8aa82b7ad9f1ef8d4fe657d90341885c0de","function_name":"joinRaffle","selector":"0xa1dcf673"}}
+{"table":"transaction_details","row":{"tx_hash":"0xb498d84ae7ae552cc2a457d959bb31f13e7fb371d0fe70c60e503311c61a91de","contract_address":"0xe757e8aa82b7ad9f1ef8d4fe657d90341885c0de","function_name":"joinRaffle","selector":"0xa1dcf673"}}
+{"table":"transaction_details","row":{"tx_hash":"0x008cc0970f0cb2c970e0cd5c6cba5ff8178df3e850a5c3c6280c2fc4898ca410","contract_address":"0xe757e8aa82b7ad9f1ef8d4fe657d90341885c0de","function_name":"joinRaffle","selector":"0xa1dcf673"}}
+{"table":"transaction_details","row":{"tx_hash":"0x8a58b0136523400a4d615e7818012e0eb24e8d65b637fb0406ddce6ec30cb265","contract_address":"0x57d287dc46cb0782c4bce1e4e964cc52083bb358","function_name":"payToPlay","selector":"0x3e5edbd3"}}
+{"table":"transaction_details","row":{"tx_hash":"0xe8bf0d662060ed06ad48b7a931ec1cd8504a54b80c4e83d3bce932224b6e3b2f","contract_address":"0x57d287dc46cb0782c4bce1e4e964cc52083bb358","function_name":"payToPlay","selector":"0x3e5edbd3"}}
+{"table":"transaction_details","row":{"tx_hash":"0x884b7f9fc33b2cec794179470b379302f1ca7770d7f4e4cc15ab1ea4e7a43d54","contract_address":"0x57d287dc46cb0782c4bce1e4e964cc52083bb358","function_name":"payToPlay","selector":"0x3e5edbd3"}}
+{"table":"transaction_details","row":{"tx_hash":"0x58bb0c5644cbe81d5319bfdcab85b2278b77e7e6874018e48da9c60c98ded4e1","contract_address":"0x57d287dc46cb0782c4bce1e4e964cc52083bb358","function_name":"payToPlay","selector":"0x3e5edbd3"}}
+{"table":"transaction_details","row":{"tx_hash":"0xe2e393a581e46fcce0b1df302a65c90725d55e85e0ab6420da6655ab80800bca","contract_address":"0x57d287dc46cb0782c4bce1e4e964cc52083bb358","function_name":"payToPlay","selector":"0x3e5edbd3"}}
+{"table":"transaction_details","row":{"tx_hash":"0x0e5b40bf4aeff25019e1440dc77029f93613b969177dc9c22c332b09b5656595","contract_address":"0x57d287dc46cb0782c4bce1e4e964cc52083bb358","function_name":null,"selector":"0xbf101190"}}
+{"table":"transaction_details","row":{"tx_hash":"0xfef89539301ee734ae5090d90d85b2736620785166bf40d7ff325bae8c838a3f","contract_address":"0x57d287dc46cb0782c4bce1e4e964cc52083bb358","function_name":"payToPlay","selector":"0x3e5edbd3"}}
+{"table":"transaction_details","row":{"tx_hash":"0x1e6204e0b06424318209faac39adf87b70ab8cc40b0af4cea81e1e329cd20075","contract_address":"0x57d287dc46cb0782c4bce1e4e964cc52083bb358","function_name":"payToPlay","selector":"0x3e5edbd3"}}
+{"table":"transaction_details","row":{"tx_hash":"0x32feafb28252fb4941b53cdce7ff46033d183ae626e3d7c712ec000efe307fec","contract_address":"0xb39a48d294e1530a271e712b7a19243679d320d0","function_name":null,"selector":"0xe64a21f3"}}
+{"table":"transaction_details","row":{"tx_hash":"0xb0e0f564f92a4c9948b7c8b780043e160618fae8fae5dc9fec7cc4b6732fa978","contract_address":"0xb39a48d294e1530a271e712b7a19243679d320d0","function_name":"stakeBatch","selector":"0x1e332260"}}
+{"table":"transaction_details","row":{"tx_hash":"0x7e0241be01a42e561051a974f1c920a059c378c8c230b945d0237259e0089218","contract_address":"0xb39a48d294e1530a271e712b7a19243679d320d0","function_name":"stakeBatch","selector":"0x1e332260"}}
+{"table":"transaction_details","row":{"tx_hash":"0x49e302df655c6dc07d6948951b899448a85cb1b386cddcd2a3738a7094dacab0","contract_address":"0xb39a48d294e1530a271e712b7a19243679d320d0","function_name":null,"selector":"0xe64a21f3"}}
+{"table":"transaction_details","row":{"tx_hash":"0x80a498ee3b7a71a64090c6f26e2b38d58f482ffb2af62a9599508227ebf4282d","contract_address":"0xb39a48d294e1530a271e712b7a19243679d320d0","function_name":"stakeBatch","selector":"0x1e332260"}}
+{"table":"transaction_details","row":{"tx_hash":"0xe5e30e5f3fdb35d25209da46946638b81ff9300df43d9940a238690f10f52f79","contract_address":"0xb39a48d294e1530a271e712b7a19243679d320d0","function_name":"stakeBatch","selector":"0x1e332260"}}
+{"table":"transaction_details","row":{"tx_hash":"0x6244abe7397cc9babd04065ca09f29ee8ba2f8eb85ca1d040da395d5029d827d","contract_address":"0xb39a48d294e1530a271e712b7a19243679d320d0","function_name":"stakeBatch","selector":"0x1e332260"}}
+{"table":"transaction_details","row":{"tx_hash":"0xa3c5fa194b0d97dff44a0f58410cd29a91b1fa2a4cbacb87e2acf1e909477eef","contract_address":"0xb39a48d294e1530a271e712b7a19243679d320d0","function_name":"stakeBatch","selector":"0x1e332260"}}
+{"table":"transaction_details","row":{"tx_hash":"0xaeabe4087f83a1866c786b0091bcadd1207beb12577ddc4bbe1655dfe6d9dce2","contract_address":"0x4286643d9612515f487c2f3272845bc53ca80705","function_name":null,"selector":"0x56de96db"}}
+{"table":"transaction_details","row":{"tx_hash":"0x7742b9409a5d0aa4b787766ceb504aa671927c0bef6d77cf334e4c1f0d4cc60a","contract_address":"0x4286643d9612515f487c2f3272845bc53ca80705","function_name":null,"selector":"0x16bfe25c"}}
+{"table":"transaction_details","row":{"tx_hash":"0x230cecf0c490795b2632f5c5a3c48378efec9acdcb3fe4463c9641a49f69f04d","contract_address":"0x4286643d9612515f487c2f3272845bc53ca80705","function_name":"runDCA","selector":"0xef393b73"}}
+{"table":"transaction_details","row":{"tx_hash":"0x934a44884927963caecb37899e997f144b4ee4de2e053516207401c45d152d02","contract_address":"0x4286643d9612515f487c2f3272845bc53ca80705","function_name":"runDCA","selector":"0xef393b73"}}
+{"table":"transaction_details","row":{"tx_hash":"0xa80060d6ed475d0a2f1251f94a2dc8612882fbc0c54c785c49d0dc28ea7faf7a","contract_address":"0x4286643d9612515f487c2f3272845bc53ca80705","function_name":"runDCA","selector":"0xef393b73"}}
+{"table":"transaction_details","row":{"tx_hash":"0xa58850fa55a0ca9219fbac8e93f35e173e4851d727b0b08bb5d629f5d50b2a3f","contract_address":"0x4286643d9612515f487c2f3272845bc53ca80705","function_name":"runDCA","selector":"0xef393b73"}}
+{"table":"transaction_details","row":{"tx_hash":"0x0fbd258cc7e727cb2c36914f3c3b038228f1a0ca7b8205779c371dd520d1cad6","contract_address":"0x4286643d9612515f487c2f3272845bc53ca80705","function_name":"runDCA","selector":"0xef393b73"}}
+{"table":"transaction_details","row":{"tx_hash":"0xb4eb4aff0032cf643db6964f0a3408ebab5f58080734afd72b7549e53b2c4b83","contract_address":"0x4286643d9612515f487c2f3272845bc53ca80705","function_name":"runDCA","selector":"0xef393b73"}}
+{"table":"transaction_details","row":{"tx_hash":"0x875ebf976f6f8b28be79f3c2a872ced24bbf9011d35af0342022177b203ef48a","contract_address":"0x00005ea00ac477b1030ce78506496e8c2de24bf5","function_name":"mintPublic","selector":"0x161ac21f"}}
+{"table":"transaction_details","row":{"tx_hash":"0x56ddbe8e70b77c7233027942ac89593086ce61bd13bf8d30cb03000352b9dee1","contract_address":"0x00005ea00ac477b1030ce78506496e8c2de24bf5","function_name":"mintPublic","selector":"0x161ac21f"}}
+{"table":"transaction_details","row":{"tx_hash":"0x21413614216da823f0c049d56b190ce1ad005547e24a2ccdc4eda5cb62b0b68a","contract_address":"0x00005ea00ac477b1030ce78506496e8c2de24bf5","function_name":"mintPublic","selector":"0x161ac21f"}}
+{"table":"transaction_details","row":{"tx_hash":"0xc595c8aaa278b63577d5116f07fa2e9fc64dc8c376fff13b22ec0621359072f3","contract_address":"0x00005ea00ac477b1030ce78506496e8c2de24bf5","function_name":"mintPublic","selector":"0x161ac21f"}}
+{"table":"transaction_details","row":{"tx_hash":"0xb6dfb6dce0415b1bcb5fe05acb774990c84665665c283f70ae3f72060725d821","contract_address":"0x00005ea00ac477b1030ce78506496e8c2de24bf5","function_name":"mintPublic","selector":"0x161ac21f"}}
+{"table":"transaction_details","row":{"tx_hash":"0xb791abc12be5d290d13359012c27fd7aaa297b25305e87973ab7946c202bdc84","contract_address":"0x00005ea00ac477b1030ce78506496e8c2de24bf5","function_name":"mintPublic","selector":"0x161ac21f"}}
+{"table":"transaction_details","row":{"tx_hash":"0xe1cdbae72c81af19bb95ae74face15a93147ae8656688544e9ed8af9c3b55fc7","contract_address":"0x00005ea00ac477b1030ce78506496e8c2de24bf5","function_name":"mintPublic","selector":"0x161ac21f"}}
+{"table":"transaction_details","row":{"tx_hash":"0x0b3896c46a665346a6d9c1cadb3dfc381ded35cfb57e563f0b6cc7fd966c395b","contract_address":"0x00005ea00ac477b1030ce78506496e8c2de24bf5","function_name":"mintPublic","selector":"0x161ac21f"}}
+{"table":"transaction_details","row":{"tx_hash":"0xc33a52647d339a5af9152654345db2b892b5d730f3ce938341e34be2944c4778","contract_address":"0x1d74317d760f2c72a94386f50e8d10f2c902b899","function_name":"sell","selector":"0x6d97786e"}}
+{"table":"transaction_details","row":{"tx_hash":"0x7bff31eb73f2f0ee3f1fb370afb0fcf84038272974556faefac96d7a11d7615c","contract_address":"0x1d74317d760f2c72a94386f50e8d10f2c902b899","function_name":null,"selector":"0x83451838"}}
+{"table":"transaction_details","row":{"tx_hash":"0x7309c6e82b87a600f1e4e483ec9099d906e1aefdb98d194b77a5f9fd9c8420dd","contract_address":"0x1d74317d760f2c72a94386f50e8d10f2c902b899","function_name":null,"selector":"0x83451838"}}
+{"table":"transaction_details","row":{"tx_hash":"0xf34990b2520468bb6f347d3905115cf9a91deb053ba41c5ede606e1913edadb5","contract_address":"0x1d74317d760f2c72a94386f50e8d10f2c902b899","function_name":null,"selector":"0x83451838"}}
+{"table":"transaction_details","row":{"tx_hash":"0x39adad53a9dae1b8517c2b72375b966c572420b09f027a46ace3778cc67ae8c9","contract_address":"0x1d74317d760f2c72a94386f50e8d10f2c902b899","function_name":null,"selector":"0x83451838"}}
+{"table":"transaction_details","row":{"tx_hash":"0x8d789e93aa1ca6854f47ac290b902f726659591870cf463fb8eff5295876d467","contract_address":"0x1d74317d760f2c72a94386f50e8d10f2c902b899","function_name":null,"selector":"0x83451838"}}
+{"table":"transaction_details","row":{"tx_hash":"0x3e832d9f58f9ded76c423854c22f4238919ae841beb915f26cdf7d06cf7cc99d","contract_address":"0x1d74317d760f2c72a94386f50e8d10f2c902b899","function_name":null,"selector":"0x83451838"}}
+{"table":"transaction_details","row":{"tx_hash":"0x7fdab1cfc3e84a829757190ccd89daf560764a4a9e5cf89e61f4225f57ea9831","contract_address":"0x1d74317d760f2c72a94386f50e8d10f2c902b899","function_name":null,"selector":"0x83451838"}}
+{"table":"transaction_enrichment","row":{"tx_hash":"0x1b9bfbf786e3b9122cfba4a57e487df0534bb8be941104a49e7551a923ac3fd7","contract_address":"0xf70da97812cb96acdf810712aa562db8dfa3dbef","operations":[{"to":{"id":"0x6108111e21109e62b5e206130d9409329812e76e"},"from":{"id":"0xf70da97812cb96acdf810712aa562db8dfa3dbef"},"value":"283863755686816","type":"call","status":true}]}}
+{"table":"transaction_enrichment","row":{"tx_hash":"0xea7866e185b48a8ffd07945c7f07ebf384e0a8c4fc88ce57ab79a7376527dd84","contract_address":"0xf70da97812cb96acdf810712aa562db8dfa3dbef","operations":[]}}
+{"table":"transaction_enrichment","row":{"tx_hash":"0xdd221892768f71ca321c92ccfe798df0a43262ded626f26631958f541021601e","contract_address":"0xf70da97812cb96acdf810712aa562db8dfa3dbef","operations":[{"to":{"id":"0xac52052f66145811de602aaa24c347cc405a50ee"},"from":{"id":"0xf70da97812cb96acdf810712aa562db8dfa3dbef"},"value":"4975609517985522","type":"call","status":true}]}}
+{"table":"transaction_enrichment","row":{"tx_hash":"0x6490ed01ff048c23b6fa5a3c79a762d8390c34947ec4fcf188dd6bb304d268cd","contract_address":"0xf70da97812cb96acdf810712aa562db8dfa3dbef","operations":[]}}
+{"table":"transaction_enrichment","row":{"tx_hash":"0x20b29701bc8c03bb72565fd24087a841dd3acfa0f148a5e9ef6dda9a589509b9","contract_address":"0xf70da97812cb96acdf810712aa562db8dfa3dbef","operations":[{"to":{"id":"0x82487d11a3f343de0b63401c993739366803fef0"},"from":{"id":"0xf70da97812cb96acdf810712aa562db8dfa3dbef"},"value":"179971051922631639","type":"call","status":true}]}}
+{"table":"transaction_enrichment","row":{"tx_hash":"0x1c987f0f982efdb3a7573bcad0946d48ea9942eda12794e6811c067fc652ef7e","contract_address":"0xf70da97812cb96acdf810712aa562db8dfa3dbef","operations":[{"to":{"id":"0xd12461948a7e2dd2ad3f18861e9f42e53310d8d6"},"from":{"id":"0xf70da97812cb96acdf810712aa562db8dfa3dbef"},"value":"329956771652679564","type":"call","status":true}]}}
+{"table":"transaction_enrichment","row":{"tx_hash":"0x60cae2d77e7691d9bfe5fd5d3f0ca0156c8b35a3259d3ed600f849f82727cb71","contract_address":"0xf70da97812cb96acdf810712aa562db8dfa3dbef","operations":[{"to":{"id":"0x31b3dc3bfe97bc599cd366f0cff8ef604146d03c"},"from":{"id":"0xf70da97812cb96acdf810712aa562db8dfa3dbef"},"value":"249964371639950180","type":"call","status":true}]}}
+{"table":"transaction_enrichment","row":{"tx_hash":"0xd38e2f636b25f1df95616bfccecda3364f0c7425e51b795bcad0461ba761f9f3","contract_address":"0xf70da97812cb96acdf810712aa562db8dfa3dbef","operations":[{"to":{"id":"0xc9bcec43b9453aed2bac9c496b30b740b6a04073"},"from":{"id":"0xf70da97812cb96acdf810712aa562db8dfa3dbef"},"value":"649926331530468958","type":"call","status":true}]}}

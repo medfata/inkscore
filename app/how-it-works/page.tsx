@@ -5,9 +5,9 @@ import Link from 'next/link';
 import { Logo } from '../components/Logo';
 import {
   ArrowLeft,
-  Wallet,
   ExternalLink
 } from '../components/Icons';
+import { ConnectWalletButton } from '../components/ConnectWalletButton';
 
 interface Rank {
   id: number;
@@ -111,7 +111,6 @@ const PLATFORM_LOGOS: Record<string, string> = {
   tydro: 'https://app.tydro.com/tydro-logo.svg',
   zns: 'https://pbs.twimg.com/profile_images/1813882885406965760/7wkPAsLn_400x400.jpg',
   nft2me: 'https://pbs.twimg.com/profile_images/1626191411384053761/NoRNmw9L_400x400.png',
-  marvk: 'https://pbs.twimg.com/profile_images/1969128458635689984/DRv5vIT2_400x400.jpg',
   shellies: 'https://pbs.twimg.com/profile_images/1948768160733175808/aNFNH1IH_400x400.jpg',
   relay: 'https://relay.link/favicon.ico',
   inkOfficial: 'https://inkonchain.com/favicon.ico',
@@ -121,9 +120,6 @@ const PLATFORM_LOGOS: Record<string, string> = {
   dyorswap: 'https://dyorswap.finance/favicon.ico',
   velodrome: 'https://velodrome.finance/images/VELO/favicon.ico',
   curve: 'https://cdn.jsdelivr.net/gh/curvefi/curve-assets/branding/logo.png',
-  squidMarket: 'https://www.squidmarket.xyz/favicon.ico',
-  netProtocol: 'https://www.netprotocol.app/favicon.ico',
-  mintiq: 'https://i.ibb.co/bMN9ppS7/mmm.png',
 };
 
 interface PlatformRule {
@@ -160,7 +156,7 @@ const nativeMetrics: PlatformRule[] = [
       'Tier 2: $100-$499 = 100 points (🐬 Dolphin)',
       'Tier 3: $500-$999 = 200 points (🦈 Shark)',
       'Tier 4: $1,000+ = 300 points (🐳 Meme Whale)',
-      'Supported: ANITA, CAT, PURPLE, ANDRU, KRAK, BERT',
+      'Supported: ANITA, CAT, KRAK',
     ],
     color: 'from-pink-500 to-purple-500',
   },
@@ -350,37 +346,6 @@ const platformMetrics: PlatformRule[] = [
     url: 'https://nft2me.com',
   },
   {
-    name: 'NFT Trading',
-    logos: [
-      { name: 'Squid Market', logo: PLATFORM_LOGOS.squidMarket, url: 'https://www.squidmarket.xyz' },
-      { name: 'Net Protocol', logo: PLATFORM_LOGOS.netProtocol, url: 'https://www.netprotocol.app' },
-      { name: 'Mintiq', logo: PLATFORM_LOGOS.mintiq, url: 'https://mintiq.market' },
-    ],
-    description: 'Points for trading NFTs on marketplaces',
-    formula: 'Platforms Used (max 100) + Trade Count (max 300) = Max 400pts',
-    details: [
-      'Platforms: Squid = 50, Net Protocol = 35, Mintiq = 15 (max 100 for all 3)',
-      'Trades: 1 NFT = 50, 5 NFTs = 150, 10+ NFTs = 300',
-      'Maximum possible: 400 points',
-    ],
-    color: 'from-fuchsia-500 to-pink-500',
-    url: 'https://www.squidmarket.xyz',
-  },
-  {
-    name: 'Marvk',
-    logo: PLATFORM_LOGOS.marvk,
-    description: 'Points for Marvk token activities',
-    formula: 'Card (max 100) + Lock (max 100) + Vest (max 100) = Max 300pts',
-    details: [
-      'Card: Mint 1 card = 100 (one-time)',
-      'Lock: 1 token = 50, 5+ tokens = 100',
-      'Vest: 1 token = 50, 5+ tokens = 100',
-      'Maximum possible: 300 points',
-    ],
-    color: 'from-orange-500 to-amber-500',
-    url: 'https://marvk.io',
-  },
-  {
     name: 'Nado Finance',
     logo: 'https://pbs.twimg.com/profile_images/2010908038514032641/5E7RkPLF_400x400.jpg',
     description: 'Points for deposits and trading volume on Nado',
@@ -450,19 +415,6 @@ const platformMetrics: PlatformRule[] = [
     url: 'https://swap.cow.fi',
   },
   {
-    name: 'Phase 1 Eligibility',
-    logo: 'https://inkonchain.com/favicon.ico',
-    description: 'Bonus for early InkScore Phase 1 participants',
-    formula: 'One-time bonus: 1,000pts',
-    details: [
-      'Rewards wallets that participated in Phase 1',
-      'One-time bonus: 1,000 points',
-      'Recognizes early adopters and supporters',
-    ],
-    color: 'from-yellow-500 to-amber-500',
-    url: 'https://inkonchain.com',
-  },
-  {
     name: 'Sweep',
     logo: 'https://sweep.haus/sweep.png',
     description: 'Points for Sweep platform activities',
@@ -475,38 +427,6 @@ const platformMetrics: PlatformRule[] = [
     ],
     color: 'from-purple-500 to-pink-500',
     url: 'https://sweep.haus',
-  },
-  {
-    name: 'NFT Staking',
-    logos: [
-      { name: 'Shellies', logo: 'https://pbs.twimg.com/profile_images/1948768160733175808/aNFNH1IH_400x400.jpg', url: 'https://twitter.com/ShelliesNFT' },
-      { name: 'INK Bunnies', logo: 'https://pbs.twimg.com/profile_images/2017562853859815425/OmYpLZrN_400x400.jpg', url: 'https://twitter.com/InkBunnies' },
-      { name: 'Boink', logo: 'https://pbs.twimg.com/profile_images/1972236253119623168/DqTXu2J5_400x400.png', url: 'https://twitter.com/Boi_Ink' },
-    ],
-    description: 'Points for staking NFTs (Shellies, INK Bunnies, Boink)',
-    formula: 'Shellies (max 166) + INK Bunnies (max 167) + Boink (max 167) = Max 500pts',
-    details: [
-      'Each collection: 1 NFT = 50, 2-5 NFTs = 100, 6+ NFTs = 166-167',
-      'Shellies: Max 166 points',
-      'INK Bunnies: Max 167 points',
-      'Boink: Max 167 points',
-      'Maximum possible: 500 points',
-    ],
-    color: 'from-green-500 to-teal-500',
-    url: 'https://shellies.xyz',
-  },
-  {
-    name: 'INKDCA',
-    logo: 'https://inkdca.com/ink_dca_logo.png',
-    description: 'Points for DCA (Dollar Cost Averaging) activities',
-    formula: 'Total Spent (max 400) + Registered DCAs (max 100) = Max 500pts',
-    details: [
-      'Spent: $10-$100 = 100, $101-$500 = 250, $500+ = 400',
-      'DCAs: 1 = 25, 2-5 = 50, 6+ = 100',
-      'Maximum possible: 500 points',
-    ],
-    color: 'from-cyan-500 to-blue-500',
-    url: 'https://inkdca.com',
   },
 ];
 
@@ -825,7 +745,7 @@ export default function HowItWorksPage() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-2xl font-bold text-blue-400">3,000</div>
+                      <div className="text-2xl font-bold text-blue-400">2,700</div>
                       <div className="text-xs text-slate-500">Total Points</div>
                     </div>
                   </div>
@@ -851,10 +771,6 @@ export default function HowItWorksPage() {
                     <span className="text-slate-200">Swap Volume</span>
                     <span className="font-semibold text-blue-400">500 pts</span>
                   </div>
-                  <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
-                    <span className="text-slate-200">Phase 1 Eligibility</span>
-                    <span className="font-semibold text-blue-400">1,000 pts</span>
-                  </div>
                 </div>
               </div>
 
@@ -866,24 +782,16 @@ export default function HowItWorksPage() {
                       <span className="text-2xl">🔥</span>
                       <div>
                         <h3 className="font-bold text-white text-lg">GROUP A</h3>
-                        <p className="text-xs text-slate-400">20% of Total Score • 7 Items × 400-500 pts</p>
+                        <p className="text-xs text-slate-400">20% of Total Score • 6 Items × 400 pts</p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-2xl font-bold text-orange-400">3,200</div>
+                      <div className="text-2xl font-bold text-orange-400">2,400</div>
                       <div className="text-xs text-slate-500">Total Points</div>
                     </div>
                   </div>
                 </div>
                 <div className="p-4 grid sm:grid-cols-2 gap-3">
-                  <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
-                    <span className="text-slate-200">NFT Staking</span>
-                    <span className="font-semibold text-orange-400">500</span>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
-                    <span className="text-slate-200">INKDCA</span>
-                    <span className="font-semibold text-orange-400">500</span>
-                  </div>
                   <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
                     <span className="text-slate-200">Token Holdings</span>
                     <span className="font-semibold text-orange-400">400</span>
@@ -898,10 +806,6 @@ export default function HowItWorksPage() {
                   </div>
                   <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
                     <span className="text-slate-200">InkyPump</span>
-                    <span className="font-semibold text-orange-400">400</span>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
-                    <span className="text-slate-200">NFT Trading</span>
                     <span className="font-semibold text-orange-400">400</span>
                   </div>
                   <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
@@ -923,11 +827,11 @@ export default function HowItWorksPage() {
                       <span className="text-2xl">🛡️</span>
                       <div>
                         <h3 className="font-bold text-white text-lg">GROUP B</h3>
-                        <p className="text-xs text-slate-400">9% of Total Score • 5 Items × 300 pts</p>
+                        <p className="text-xs text-slate-400">9% of Total Score • 4 Items × 300-800 pts</p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-2xl font-bold text-purple-400">1,500</div>
+                      <div className="text-2xl font-bold text-purple-400">1,700</div>
                       <div className="text-xs text-slate-500">Total Points</div>
                     </div>
                   </div>
@@ -943,10 +847,6 @@ export default function HowItWorksPage() {
                   </div>
                   <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
                     <span className="text-slate-200">NFT2Me</span>
-                    <span className="font-semibold text-purple-400">300</span>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
-                    <span className="text-slate-200">Marvk</span>
                     <span className="font-semibold text-purple-400">300</span>
                   </div>
                   <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
@@ -968,7 +868,7 @@ export default function HowItWorksPage() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-4xl font-bold text-gradient">20,000</div>
+                      <div className="text-4xl font-bold text-gradient">18,800</div>
                       <div className="text-sm text-slate-400">Maximum Points</div>
                     </div>
                   </div>
@@ -1215,13 +1115,7 @@ export default function HowItWorksPage() {
             <div className="glass-card p-8 rounded-2xl">
               <h3 className="text-2xl font-display font-bold mb-4">Ready to check your score?</h3>
               <p className="text-slate-400 mb-6">Connect your wallet to see your INKSCORE and start earning points.</p>
-              <Link
-                href="/"
-                className="inline-flex items-center gap-2 px-6 py-3 bg-ink-blue hover:bg-blue-600 text-white font-semibold rounded-xl transition-all"
-              >
-                <Wallet size={20} />
-                Connect Wallet
-              </Link>
+              <ConnectWalletButton size="lg" />
             </div>
           </section>
         </main>

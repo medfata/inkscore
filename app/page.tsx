@@ -1,14 +1,14 @@
 "use client";
 
 import { useState, useEffect, Suspense } from 'react';
-import { useAccount, useDisconnect, useSignMessage } from 'wagmi';
-import { useAppKit } from '@reown/appkit/react';
+import { useAccount, useDisconnect } from 'wagmi';
 import { useSearchParams } from 'next/navigation';
 import { useIsAdmin } from '@/lib/hooks/useIsAdmin';
 import { Landing } from './components/Landing';
 import { Dashboard } from './components/Dashboard';
 import { Menu, X, Plus } from './components/Icons';
 import { Logo } from './components/Logo';
+import { ConnectWalletButton } from './components/ConnectWalletButton';
 import { PlatformRequestModal } from './components/PlatformRequestModal';
 
 enum View {
@@ -22,10 +22,8 @@ function HomeContent() {
   const [isDemo, setIsDemo] = useState(false);
   const [isPlatformRequestModalOpen, setIsPlatformRequestModalOpen] = useState(false);
 
-  const { address, isConnected, isConnecting } = useAccount();
+  const { address, isConnected } = useAccount();
   const { disconnect } = useDisconnect();
-  const { open } = useAppKit();
-  const { signMessageAsync } = useSignMessage();
   const searchParams = useSearchParams();
   
   // Check if admin mode is enabled via query parameter
@@ -50,15 +48,6 @@ function HomeContent() {
       window.history.replaceState({}, '', window.location.pathname);
     }
   }, []);
-
-  const handleConnect = () => {
-    open();
-  };
-
-  const startDemo = () => {
-    setIsDemo(true);
-    setCurrentView(View.DASHBOARD);
-  };
 
   const handleDisconnect = () => {
     disconnect();
@@ -104,8 +93,9 @@ function HomeContent() {
               Leaderboard
               <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-ink-purple group-hover:w-full transition-all duration-300"></span>
             </a>
-<a href="/phase1" className="text-sm font-medium text-slate-400 hover:text-white transition-colors relative group">
-              Phase1
+            <a href="/staking" className="flex items-center gap-1.5 text-sm font-medium text-slate-400 hover:text-white transition-colors relative group">
+              Staking
+              <span className="shine-tag"><span className="shine-tag-text">New</span></span>
               <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-ink-purple group-hover:w-full transition-all duration-300"></span>
             </a>
             <button
@@ -131,16 +121,7 @@ function HomeContent() {
                 </button>
               </div>
             ) : (
-              <button
-                onClick={handleConnect}
-                disabled={isConnecting}
-                className="group relative px-5 py-2.5 rounded-lg text-sm font-medium transition-all overflow-hidden disabled:opacity-50"
-              >
-                <div className="absolute inset-0 bg-white/5 border border-white/10 group-hover:bg-white/10 transition-colors"></div>
-                <span className="relative z-10 text-white">
-                  {isConnecting ? 'Connecting...' : 'Connect Wallet'}
-                </span>
-              </button>
+              <ConnectWalletButton size="sm" />
             )}
           </div>
 
@@ -159,7 +140,10 @@ function HomeContent() {
             <a href="/about" className="block text-slate-300">About</a>
             <a href="/how-it-works" className="block text-slate-300">How it Works</a>
             <a href="/leaderboard" className="block text-slate-300">Leaderboard</a>
-            <a href="/phase1" className="block text-white font-semibold">Phase1</a>
+            <a href="/staking" className="flex items-center gap-2 text-slate-300">
+              Staking
+              <span className="shine-tag"><span className="shine-tag-text">New</span></span>
+            </a>
             <button
               onClick={() => {
                 setIsPlatformRequestModalOpen(true);
@@ -172,7 +156,7 @@ function HomeContent() {
             {(isConnected || isDemo) ? (
               <button onClick={handleDisconnect} className="block w-full text-left text-red-400">Disconnect</button>
             ) : (
-              <button onClick={handleConnect} className="block w-full text-left text-ink-purple font-semibold">Connect Wallet</button>
+              <ConnectWalletButton className="w-full" />
             )}
           </div>
         )}
@@ -180,7 +164,7 @@ function HomeContent() {
 
       <main>
         {currentView === View.LANDING ? (
-          <Landing onConnect={handleConnect} onDemo={startDemo} />
+          <Landing />
         ) : (
           <Dashboard walletAddress={fullAddress} isDemo={isDemo} isAdmin={isAdmin} />
         )}

@@ -1,6 +1,11 @@
 import { Router, Request, Response } from 'express';
-import { query } from '../db';
-import { responseCache } from '../cache';
+import { responseCache, getLongCache, setLongCache, getInflight, withInflight } from '../cache';
+import {
+  getProtocolCount,
+  getProtocolTxHashes,
+  getTxData,
+  partitionTxHashes,
+} from '../services/blockscout-service';
 
 const router = Router();
 
@@ -11,7 +16,8 @@ interface NadoMetrics {
   totalDeposits: number;
   totalTransactions: number;
   nadoVolumeUSD: number; // Calculated volume from Nado API - this is the main volume to display
-  dbTotalVolume?: number; // Database volume (kept for reference/fallback)
+  dbTotalVolume?: number; // Legacy field, always 0 (kept for shape compatibility)
+  partial?: boolean;
   tokenBreakdown?: Array<{
     tokenAddress: string;
     symbol: string;
@@ -22,30 +28,80 @@ interface NadoMetrics {
 }
 
 /**
- * Generate Nado subaccount from wallet address
- * Format: wallet_address + "default" + padding
+ * Generate Nado subaccounts for a wallet address.
+ * Nado subaccount format: wallet_address (20 bytes) + subaccount name
+ * (e.g. "default", "default_1") + zero padding to 32 bytes.
+ * Wallets can trade on several subaccounts, so we probe "default" plus
+ * "default_1".."default_5" and aggregate volume across all of them.
  */
-function generateNadoSubaccount(walletAddress: string): string {
+function generateNadoSubaccounts(walletAddress: string): string[] {
   // Remove 0x prefix if present
   const cleanAddress = walletAddress.replace(/^0x/, '');
 
-  // Convert "default" to hex: 64656661756c74
-  const defaultHex = '64656661756c74';
+  // "default" in hex: 64656661756c74
+  const base = cleanAddress + '64656661756c74';
 
-  // Add padding zeros to make total 64 characters (32 bytes)
-  const padding = '0000000000';
+  const subs = [base + '0000000000']; // "default"
+  for (let i = 1; i <= 5; i++) {
+    // "_1".."5" in hex: 5f31..5f35, then zero padding to 32 bytes
+    subs.push(`${base}5f3${i}000000`);
+  }
 
-  const subaccount = cleanAddress + defaultHex + padding;
-
-  return subaccount;
+  return subs;
 }
 
 /**
- * Fetch wallet volume from Nado API
+ * Live ETH/BTC spot prices (CoinGecko) with a short in-memory cache.
+ * Falls back to the previous hardcoded values if the fetch fails so the
+ * endpoint never breaks when CoinGecko is unreachable/rate-limited.
  */
-async function getWalletVolume(subaccount: string) {
-  try {
-    const currentTimestamp = Math.floor(Date.now() / 1000);
+let priceCache: { ts: number; eth: number; btc: number } | null = null;
+let priceInflight: Promise<{ eth: number; btc: number }> | null = null;
+const PRICE_TTL_MS = 5 * 60 * 1000;
+const FALLBACK_PRICES = { eth: 3500, btc: 95000 };
+
+async function getLivePrices(): Promise<{ eth: number; btc: number }> {
+  if (priceCache && Date.now() - priceCache.ts < PRICE_TTL_MS) {
+    return priceCache;
+  }
+  if (priceInflight) {
+    return priceInflight;
+  }
+  priceInflight = (async () => {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      const response = await fetch(
+        'https://api.coingecko.com/api/v3/simple/price?ids=ethereum,bitcoin&vs_currencies=usd',
+        { signal: controller.signal }
+      );
+      clearTimeout(timeoutId);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      const data = await response.json() as { ethereum?: { usd?: number }; bitcoin?: { usd?: number } };
+      const eth = Number(data.ethereum?.usd) || FALLBACK_PRICES.eth;
+      const btc = Number(data.bitcoin?.usd) || FALLBACK_PRICES.btc;
+      priceCache = { ts: Date.now(), eth, btc };
+      return priceCache;
+    } catch (error: any) {
+      console.warn('[Nado] live price fetch failed, using fallback prices:', error.message || error);
+      return FALLBACK_PRICES;
+    } finally {
+      priceInflight = null;
+    }
+  })();
+  return priceInflight;
+}
+
+/**
+ * Fetch wallet volume from Nado API for all of the wallet's subaccounts.
+ * Sums the per-product `quote_volume_cumulative` counters (each entry is the
+ * latest action per product and carries that product's cumulative traded
+ * quote volume since the beginning of time).
+ */
+async function getWalletVolume(subaccounts: string[]) {
+  const doFetch = async (subs: string[]) => {
     const response = await fetch("https://archive.prod.nado.xyz/v1", {
       method: "POST",
       headers: {
@@ -54,35 +110,49 @@ async function getWalletVolume(subaccount: string) {
       },
       body: JSON.stringify({
         account_snapshots: {
-          subaccounts: [subaccount],
-          timestamps: [currentTimestamp]
+          subaccounts: subs,
+          timestamps: [Math.floor(Date.now() / 1000)]
         }
       }),
+      // Bound the call: the multi-subaccount query can stall server-side.
+      signal: AbortSignal.timeout(15000),
     });
-
     if (!response.ok) {
       console.error(`[Nado API] HTTP error! status: ${response.status}`);
       throw new Error(`HTTP error! status: ${response.status}`);
     }
+    return response.json() as Promise<any>;
+  };
 
-    const data: any = await response.json();
+  try {
+    let data: any;
+    try {
+      data = await doFetch(subaccounts);
+    } catch (multiErr) {
+      // Fall back to the default subaccount only (old behavior, lightest query).
+      console.warn('[Nado API] multi-subaccount fetch failed, retrying default only:', (multiErr as Error).message || multiErr);
+      data = await doFetch(subaccounts.slice(0, 1));
+    }
 
-    // Extract volumes from all snapshots
+    // Extract volumes from all snapshots, across every subaccount
     let totalVolume = 0;
 
-    // The API returns subaccounts with 0x prefix, but we generate without it
-    const subaccountWithPrefix = `0x${subaccount}`;
+    if (data.snapshots) {
+      for (const subaccount of subaccounts) {
+        // The API returns subaccounts with 0x prefix, but we generate without it
+        const subaccountWithPrefix = `0x${subaccount}`;
+        if (!data.snapshots[subaccountWithPrefix]) {
+          continue;
+        }
+        const timestamp = Object.keys(data.snapshots[subaccountWithPrefix])[0];
+        const events = data.snapshots[subaccountWithPrefix][timestamp];
 
-    if (data.snapshots && data.snapshots[subaccountWithPrefix]) {
-      const timestamp = Object.keys(data.snapshots[subaccountWithPrefix])[0];
-      const events = data.snapshots[subaccountWithPrefix][timestamp];
-
-
-      if (Array.isArray(events)) {
-        events.forEach((event: any, index: number) => {
-          const volumeCumulative = parseFloat(event.quote_volume_cumulative || 0);
-          totalVolume += volumeCumulative;
-        });
+        if (Array.isArray(events)) {
+          events.forEach((event: any) => {
+            const volumeCumulative = parseFloat(event.quote_volume_cumulative || 0);
+            totalVolume += volumeCumulative;
+          });
+        }
       }
     }
 
@@ -104,12 +174,17 @@ async function getWalletVolume(subaccount: string) {
 }
 
 /**
- * Get Nado volume for a wallet address
+ * Get Nado volume for a wallet address (all of its subaccounts)
  */
 async function getNadoVolumeForWallet(walletAddress: string) {
-  const subaccount = generateNadoSubaccount(walletAddress);
-  return await getWalletVolume(subaccount);
+  const subaccounts = generateNadoSubaccounts(walletAddress);
+  return await getWalletVolume(subaccounts);
 }
+
+// Nado aggregates move slowly: share in-flight work and cache beyond the
+// 30s responseCache so dashboard polls don't redo the Blockscout walks +
+// Nado archive API call on every load.
+const NADO_LONG_CACHE_TTL = 10 * 60 * 1000;
 
 // GET /api/nado/:wallet - Get Nado Finance metrics for a wallet
 router.get('/:wallet', async (req: Request, res: Response) => {
@@ -128,121 +203,85 @@ router.get('/:wallet', async (req: Request, res: Response) => {
     if (cached) {
       return res.json(cached);
     }
-
-    // Get total transactions for the Nado contract
-    const totalResult = await query<{ count: string }>(`
-      SELECT COUNT(*) as count
-      FROM transaction_enrichment
-      WHERE LOWER(contract_address) = LOWER($1)
-        AND LOWER(wallet_address) = LOWER($2)
-    `, [NADO_CONTRACT, walletAddress]);
-
-    const totalTransactions = parseInt(totalResult[0]?.count || '0');
-
-    // Get deposit transactions (depositCollateral function)
-    // Method ID 0x8e5d588c is for depositCollateral
-    // Parse logs to extract token transfer information since tokens_out_raw may be null
-    const depositResult = await query<{
-      logs: string;
-      tx_hash: string;
-    }>(`
-      SELECT 
-        logs,
-        tx_hash
-      FROM transaction_enrichment
-      WHERE LOWER(contract_address) = LOWER($1)
-        AND LOWER(wallet_address) = LOWER($2)
-        AND method_id = '0x8e5d588c'
-        AND logs IS NOT NULL
-    `, [NADO_CONTRACT, walletAddress]);
-
-    // Parse logs to extract token transfer information and calculate USD values
-    let totalDeposits = 0;
-    const tokenDeposits = new Map<string, { amount: number; symbol: string; name: string; rawAmount: number }>();
-
-    for (const row of depositResult) {
-      if (row.logs) {
-        try {
-          const logs = typeof row.logs === 'string' ? JSON.parse(row.logs) : row.logs;
-
-          if (Array.isArray(logs)) {
-            for (let i = 0; i < logs.length; i++) {
-              const log = logs[i];
-
-              // Look for Transfer events that indicate token deposits
-              if (log.event && log.event.includes('Transfer') &&
-                log.address && log.address.id &&
-                log.topics && log.topics.length >= 3 &&
-                log.data) {
-
-                const tokenAddress = log.address.id.toLowerCase();
-                const tokenSymbol = log.address.alias || log.address.name || 'Unknown';
-                const tokenName = log.address.name || tokenSymbol;
-
-                // Check if this is a transfer FROM the wallet TO the Nado contract
-                // topics[1] is _from, topics[2] is _to
-                const fromAddress = log.topics[1];
-                const toAddress = log.topics[2];
-
-                if (fromAddress && toAddress &&
-                  fromAddress.toLowerCase().includes(walletAddress.slice(2)) &&
-                  toAddress.toLowerCase().includes(NADO_CONTRACT.slice(2).toLowerCase())) {
-
-                  // Extract amount from log.data (hex string)
-                  const rawAmount = BigInt(log.data);
-                  const amount = Number(rawAmount);
-
-                  if (amount > 0) {
-                    // Get token decimals (default to 18 if not available)
-                    const decimals = getTokenDecimals(tokenAddress);
-                    const decimalAmount = amount / Math.pow(10, decimals);
-
-                    // Calculate USD value
-                    const usdValue = await calculateTokenUsdValue(tokenAddress, decimalAmount);
-
-                    totalDeposits += usdValue;
-
-                    // Track by token
-                    if (!tokenDeposits.has(tokenAddress)) {
-                      tokenDeposits.set(tokenAddress, {
-                        amount: 0,
-                        symbol: tokenSymbol,
-                        name: tokenName,
-                        rawAmount: 0
-                      });
-                    }
-
-                    const existing = tokenDeposits.get(tokenAddress)!;
-                    existing.amount += usdValue;
-                    existing.rawAmount += decimalAmount;
-                    break; // Only count once per transaction
-                  }
-                }
-              }
-            }
-          }
-        } catch (e) {
-          // Silent error handling
-        }
+    const nadoLcKey = `long:${cacheKey}`;
+    const nadoLc = getLongCache<NadoMetrics>(nadoLcKey, NADO_LONG_CACHE_TTL);
+    if (nadoLc && !nadoLc.partial) {
+      responseCache.set(cacheKey, nadoLc);
+      return res.json(nadoLc);
+    }
+    const nadoInf = getInflight<NadoMetrics>(nadoLcKey);
+    if (nadoInf) {
+      try {
+        return res.json(await nadoInf);
+      } catch {
+        // Fall through and compute fresh if the shared run failed.
       }
     }
 
-    // Helper function to get token decimals
-    function getTokenDecimals(tokenAddress: string): number {
-      const addr = tokenAddress.toLowerCase();
-      const knownDecimals: Record<string, number> = {
-        '0x0200c29006150606b650577bbe7b6248f58470c1': 6,  // USDT0
-        '0x2d270e6886d130d724215a266106e6832161eaed': 6,  // USDC
-        '0xeb466342c4d449bc9f53a865d5cb90586f405215': 6,  // axlUSDC
-        '0xe343167631d89b6ffc58b88d6b7fb0228795491d': 18, // USDGLO
-        '0x4200000000000000000000000000000000000006': 18, // WETH
-        '0x73e0c0d45e048d25fc26fa3159b0aa04bfa4db98': 8,  // KBtc
-      };
-      return knownDecimals[addr] || 18; // Default to 18 decimals
+    return res.json(await withInflight<NadoMetrics>(nadoLcKey, async (): Promise<NadoMetrics> => {
+    // Total Nado interactions + deposit txs via Blockscout (replaces the
+    // dead Routescan/enrichment reads; also picks up deposits the indexer
+    // never captured). The Nado archive API call and live prices are
+    // independent of the Blockscout walks — run all three concurrently
+    // instead of serially (was: walks → prices → 15s-timeout API).
+    const nadoVolumePromise = getNadoVolumeForWallet(walletAddress);
+    const livePricesPromise = getLivePrices();
+    const [allTx, depositHashes] = await Promise.all([
+      getProtocolCount(walletAddress, 'nado-all', NADO_CONTRACT, null),
+      getProtocolTxHashes(walletAddress, NADO_CONTRACT, ['0x8e5d588c']),
+    ]);
+    const totalTransactions = allTx.count;
+
+    // Deposit USD from transfer legs (first wallet->Nado leg per tx, as before).
+    // Live volatile-asset prices (single fetch per request, cached 5 minutes).
+    const [livePrices, { cached: cachedHashes, uncached: uncachedHashes }] = await Promise.all([
+      livePricesPromise,
+      partitionTxHashes(depositHashes.hashes),
+    ]);
+    const priced = [...cachedHashes, ...uncachedHashes.slice(0, 300)];
+    const partial = cachedHashes.length + Math.min(uncachedHashes.length, 100) < depositHashes.hashes.length;
+    const txData = await getTxData(priced);
+
+    let totalDeposits = 0;
+    const tokenDeposits = new Map<string, { amount: number; symbol: string; name: string; rawAmount: number }>();
+
+    for (const h of priced) {
+      const legs = txData.get(h)?.legs || [];
+      for (const leg of legs) {
+        // First non-receipt transfer FROM the wallet per tx. Destination is
+        // deliberately unconstrained: router flows may pass through
+        // intermediate contracts (proven on Tydro gateway flows).
+        if (leg.fromAddress !== walletAddress) {
+          continue;
+        }
+        if (/^(aInk|variableDebt|stableDebt)/i.test(leg.symbol || '')) {
+          continue;
+        }
+        if (leg.amount <= 0) continue;
+
+        const tokenAddress = leg.tokenAddress;
+        const usdValue = calculateTokenUsdValue(tokenAddress, leg.amount, livePrices);
+        totalDeposits += usdValue;
+
+        if (!tokenDeposits.has(tokenAddress)) {
+          tokenDeposits.set(tokenAddress, { amount: 0, symbol: leg.symbol || 'Unknown', name: leg.symbol || 'Unknown', rawAmount: 0 });
+        }
+        const existing = tokenDeposits.get(tokenAddress)!;
+        existing.amount += usdValue;
+        existing.rawAmount += leg.amount;
+        break; // Only count once per transaction
+      }
     }
 
-    // Helper function to calculate USD value for a token
-    async function calculateTokenUsdValue(tokenAddress: string, decimalAmount: number): Promise<number> {
+    // Helper function to calculate USD value for a token.
+    // Volatile collateral (WETH/kBTC) uses live prices; stablecoins are $1.
+    // Unknown tokens are explicitly skipped ($0) with a warning so missing
+    // prices are visible in logs instead of silently dropping deposits.
+    function calculateTokenUsdValue(
+      tokenAddress: string,
+      decimalAmount: number,
+      prices: { eth: number; btc: number }
+    ): number {
       const addr = tokenAddress.toLowerCase();
 
       // Known token prices
@@ -252,33 +291,25 @@ router.get('/:wallet', async (req: Request, res: Response) => {
         '0x2d270e6886d130d724215a266106e6832161eaed': 1.0, // USDC
         '0xeb466342c4d449bc9f53a865d5cb90586f405215': 1.0, // axlUSDC
         '0xe343167631d89b6ffc58b88d6b7fb0228795491d': 1.0, // USDGLO
-        // WETH - use ETH price (approximate)
-        '0x4200000000000000000000000000000000000006': 3500.0, // WETH ≈ $3500
-        // KBtc - use BTC price (approximate)
-        '0x73e0c0d45e048d25fc26fa3159b0aa04bfa4db98': 95000.0, // KBtc ≈ $95000
+        // WETH - live ETH price (fallback: approximate)
+        '0x4200000000000000000000000000000000000006': prices.eth, // WETH
+        // KBtc - live BTC price (fallback: approximate)
+        '0x73e0c0d45e048d25fc26fa3159b0aa04bfa4db98': prices.btc, // KBtc
       };
 
-      const price = knownPrices[addr] || 0;
+      const price = knownPrices[addr];
+      if (price === undefined) {
+        console.warn(`[Nado] unknown deposit token ${addr}, amount ${decimalAmount} — priced at $0`);
+        return 0;
+      }
       return decimalAmount * price;
     }
 
-    // Get total volume (all USD activity)
-    const volumeResult = await query<{
-      total_volume: string;
-    }>(`
-      SELECT 
-        COALESCE(SUM(COALESCE(total_usd_volume, 0)), 0) as total_volume
-      FROM transaction_enrichment
-      WHERE LOWER(contract_address) = LOWER($1)
-        AND LOWER(wallet_address) = LOWER($2)
-        AND COALESCE(total_usd_volume, 0) > 0
-    `, [NADO_CONTRACT, walletAddress]);
+    const finalTotalDeposits = totalDeposits;
 
-    const finalTotalDeposits = totalDeposits; // Use the calculated totalDeposits from token parsing
-    const totalVolume = parseFloat(volumeResult[0]?.total_volume || '0');
-
-    // Get calculated volume from Nado API
-    const nadoVolumeData = await getNadoVolumeForWallet(walletAddress);
+    // Get calculated volume from Nado API (started alongside the
+    // Blockscout walks above, awaited here).
+    const nadoVolumeData = await nadoVolumePromise;
 
     // Convert token deposits map to array
     const tokenBreakdown = Array.from(tokenDeposits.entries()).map(([address, data]) => ({
@@ -293,13 +324,18 @@ router.get('/:wallet', async (req: Request, res: Response) => {
       totalDeposits: Math.round(finalTotalDeposits * 100) / 100,
       totalTransactions,
       nadoVolumeUSD: nadoVolumeData.totalVolumeUSD, // Main volume from Nado API
-      dbTotalVolume: Math.round(totalVolume * 100) / 100, // Database volume (fallback)
+      dbTotalVolume: 0, // Legacy field (enrichment volume never populated)
+      partial,
       tokenBreakdown: tokenBreakdown.length > 0 ? tokenBreakdown : undefined,
     };
 
     // Cache for 5 minutes
     responseCache.set(cacheKey, metrics);
-    return res.json(metrics);
+    if (!partial) {
+      setLongCache(nadoLcKey, metrics);
+    }
+    return metrics;
+    }));
 
   } catch (error) {
     console.error('Failed to fetch Nado metrics:', error);

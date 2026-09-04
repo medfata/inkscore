@@ -9,6 +9,11 @@ const API_SERVER_URL = process.env.API_SERVER_URL || 'http://localhost:4000';
 const EXPRESS_TIMEOUT_MS = 15000;
 const SCORE_TIMEOUT_MS = 30000;
 const STREAM_TIMEOUT_MS = 45000;
+// Cold bridge discovery walks 3 Blockscout histories + prices unlisted
+// tokens via DeFi Llama — measured >20s on a fresh server. The 15s default
+// aborts it while the handler is still computing (its result gets cached for
+// the refresh instead), so the bridge card comes up empty on first load.
+const BRIDGE_TIMEOUT_MS = 30000;
 
 interface FetchResult<T> {
   data: T | null;
@@ -43,8 +48,34 @@ async function fetchFromExpress<T>(endpoint: string, timeoutMs = EXPRESS_TIMEOUT
   }
 }
 
+// Slow routes (bridge discovery, 30-page outflow walks, first-ever swap/
+// tydro/nft2me walks) can exceed a single fetch budget on a cold server.
+// Aborting our fetch does NOT cancel the Express handler — it keeps
+// computing and caches its result (responseCache / long caches / permanent
+// per-tx caches), so a short-delay retry usually returns the warmed data
+// instead of an empty card on first load.
+const WARM_RETRY_DELAY_MS = 1500;
+async function fetchWithWarmRetry<T>(
+  endpoint: string,
+  timeoutMs: number,
+  budgetMs: number
+): Promise<FetchResult<T>> {
+  const start = Date.now();
+  let result = await fetchFromExpress<T>(endpoint, timeoutMs);
+  while (
+    result.error &&
+    !result.error.startsWith('HTTP') &&
+    Date.now() - start < budgetMs - WARM_RETRY_DELAY_MS
+  ) {
+    await new Promise((resolve) => setTimeout(resolve, WARM_RETRY_DELAY_MS));
+    const remaining = budgetMs - (Date.now() - start);
+    result = await fetchFromExpress<T>(endpoint, Math.max(2000, Math.min(timeoutMs, remaining)));
+  }
+  return result;
+}
+
 // Streaming implementation for progressive dashboard loading
-async function getStreamingDashboard(walletAddress: string) {
+async function getStreamingDashboard(walletAddress: string, forceRefresh = false) {
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
@@ -57,39 +88,48 @@ async function getStreamingDashboard(walletAddress: string) {
       // Send immediate heartbeat to bypass Vercel proxy buffering
       controller.enqueue(encoder.encode(': ok\n\n'));
 
+      // Endpoint fetcher bound to this request: propagates ?refresh=true to
+      // Express (opens the cache-bypass window server-side) and applies the
+      // warm-retry budget so slow cold computes still land. The retry budget
+      // defaults to the per-call timeout; pass a wider budget for slow routes.
+      const ef = (endpoint: string, timeoutMs = EXPRESS_TIMEOUT_MS, budgetMs = timeoutMs) =>
+        fetchWithWarmRetry(
+          forceRefresh ? `${endpoint}${endpoint.includes('?') ? '&' : '?'}refresh=true` : endpoint,
+          timeoutMs,
+          budgetMs
+        );
+
       // Define all metrics with IDs and endpoints.
       // OpenSea counts are served by Express from the official v2 API behind
       // memory + Postgres caches, so they're plain Express fetches like the rest.
       const metrics = [
-        { id: 'stats', fetch: () => fetchFromExpress(`/api/wallet/${walletAddress}/stats`) },
-        { id: 'bridge', fetch: () => fetchFromExpress(`/api/wallet/${walletAddress}/bridge`) },
-        { id: 'swap', fetch: () => fetchFromExpress(`/api/wallet/${walletAddress}/swap`) },
-        { id: 'volume', fetch: () => fetchFromExpress(`/api/wallet/${walletAddress}/volume`) },
-        { id: 'score', fetch: () => fetchFromExpress(`/api/wallet/${walletAddress}/score`, SCORE_TIMEOUT_MS) },
-        { id: 'analytics', fetch: () => fetchFromExpress(`/api/analytics/${walletAddress}`) },
-        { id: 'cards', fetch: () => fetchFromExpress(`/api/dashboard/cards/${walletAddress}`) },
-        { id: 'marvk', fetch: () => fetchFromExpress(`/api/marvk/${walletAddress}`) },
-        { id: 'nado', fetch: () => fetchFromExpress(`/api/nado/${walletAddress}`) },
-        { id: 'copink', fetch: () => fetchFromExpress(`/api/copink/${walletAddress}`) },
-        { id: 'cryptoclash', fetch: () => fetchFromExpress(`/api/cryptoclash/${walletAddress}`) },
-        { id: 'nft2me', fetch: () => fetchFromExpress(`/api/wallet/${walletAddress}/nft2me`) },
-        { id: 'tydro', fetch: () => fetchFromExpress(`/api/wallet/${walletAddress}/tydro`) },
-        { id: 'gmCount', fetch: () => fetchFromExpress(`/api/analytics/${walletAddress}/gm_count`) },
-        { id: 'inkypumpCreatedTokens', fetch: () => fetchFromExpress(`/api/analytics/${walletAddress}/inkypump_created_tokens`) },
-        { id: 'inkypumpBuyVolume', fetch: () => fetchFromExpress(`/api/analytics/${walletAddress}/inkypump_buy_volume`) },
-        { id: 'inkypumpSellVolume', fetch: () => fetchFromExpress(`/api/analytics/${walletAddress}/inkypump_sell_volume`) },
-        { id: 'nftTraded', fetch: () => fetchFromExpress(`/api/analytics/${walletAddress}/nft_traded`) },
-        { id: 'zns', fetch: () => fetchFromExpress(`/api/analytics/${walletAddress}/zns`) },
-        { id: 'shelliesJoinedRaffles', fetch: () => fetchFromExpress(`/api/analytics/${walletAddress}/shellies_joined_raffles`) },
-        { id: 'shelliesPayToPlay', fetch: () => fetchFromExpress(`/api/analytics/${walletAddress}/shellies_pay_to_play`) },
-        { id: 'nftStaking', fetch: () => fetchFromExpress(`/api/analytics/${walletAddress}/nft_staking`) },
-        { id: 'openseaBuyCount', fetch: () => fetchFromExpress(`/api/analytics/${walletAddress}/opensea_buy_count`) },
-        { id: 'mintCount', fetch: () => fetchFromExpress(`/api/analytics/${walletAddress}/mint_count`) },
-        { id: 'openseaSaleCount', fetch: () => fetchFromExpress(`/api/analytics/${walletAddress}/opensea_sale_count`) },
-        { id: 'inkdcaRunDca', fetch: () => fetchFromExpress(`/api/analytics/${walletAddress}/inkdca_run_dca`) },
-        { id: 'templarsNftBalance', fetch: () => fetchFromExpress(`/api/analytics/${walletAddress}/templars_nft_balance`) },
-        { id: 'cowswapSwaps', fetch: () => fetchFromExpress(`/api/analytics/${walletAddress}/cowswap_swaps`) },
-        { id: 'sweep', fetch: () => fetchFromExpress(`/api/analytics/${walletAddress}/sweep`) },
+        { id: 'stats', fetch: () => ef(`/api/wallet/${walletAddress}/stats`) },
+        { id: 'bridge', fetch: () => ef(`/api/wallet/${walletAddress}/bridge`, BRIDGE_TIMEOUT_MS, 42000) },
+        { id: 'swap', fetch: () => ef(`/api/wallet/${walletAddress}/swap`, EXPRESS_TIMEOUT_MS, 30000) },
+        { id: 'volume', fetch: () => ef(`/api/wallet/${walletAddress}/volume`, EXPRESS_TIMEOUT_MS, 42000) },
+        { id: 'score', fetch: () => ef(`/api/wallet/${walletAddress}/score`, SCORE_TIMEOUT_MS) },
+        { id: 'analytics', fetch: () => ef(`/api/analytics/${walletAddress}`) },
+        { id: 'cards', fetch: () => ef(`/api/dashboard/cards/${walletAddress}`) },
+        { id: 'nado', fetch: () => ef(`/api/nado/${walletAddress}`) },
+        { id: 'copink', fetch: () => ef(`/api/copink/${walletAddress}`) },
+        { id: 'cryptoclash', fetch: () => ef(`/api/cryptoclash/${walletAddress}`) },
+        { id: 'nft2me', fetch: () => ef(`/api/wallet/${walletAddress}/nft2me`, EXPRESS_TIMEOUT_MS, 30000) },
+        { id: 'tydro', fetch: () => ef(`/api/wallet/${walletAddress}/tydro`, EXPRESS_TIMEOUT_MS, 30000) },
+        { id: 'gmCount', fetch: () => ef(`/api/analytics/${walletAddress}/gm_count`) },
+        { id: 'inkypumpCreatedTokens', fetch: () => ef(`/api/analytics/${walletAddress}/inkypump_created_tokens`) },
+        { id: 'inkypumpBuyVolume', fetch: () => ef(`/api/analytics/${walletAddress}/inkypump_buy_volume`) },
+        { id: 'inkypumpSellVolume', fetch: () => ef(`/api/analytics/${walletAddress}/inkypump_sell_volume`) },
+        { id: 'zns', fetch: () => ef(`/api/analytics/${walletAddress}/zns`) },
+        { id: 'shelliesJoinedRaffles', fetch: () => ef(`/api/analytics/${walletAddress}/shellies_joined_raffles`) },
+        { id: 'shelliesPayToPlay', fetch: () => ef(`/api/analytics/${walletAddress}/shellies_pay_to_play`) },
+        { id: 'openseaBuyCount', fetch: () => ef(`/api/analytics/${walletAddress}/opensea_buy_count`) },
+        { id: 'mintCount', fetch: () => ef(`/api/analytics/${walletAddress}/mint_count`) },
+        { id: 'openseaSaleCount', fetch: () => ef(`/api/analytics/${walletAddress}/opensea_sale_count`) },
+        { id: 'templarsNftBalance', fetch: () => ef(`/api/analytics/${walletAddress}/templars_nft_balance`) },
+        { id: 'cowswapSwaps', fetch: () => ef(`/api/analytics/${walletAddress}/cowswap_swaps`) },
+        { id: 'sweep', fetch: () => ef(`/api/analytics/${walletAddress}/sweep`) },
+        { id: 'zenithNft', fetch: () => ef(`/api/analytics/${walletAddress}/zenith_nft_balance`) },
+        { id: 'zenithStaking', fetch: () => ef(`/api/analytics/${walletAddress}/zenith_staking`) },
       ];
 
       console.log(`[STREAM] Started for wallet: ${walletAddress}`);
@@ -212,11 +252,21 @@ export async function GET(
     // Check if streaming is requested
     const { searchParams } = new URL(request.url);
     const enableStreaming = searchParams.get('stream') === 'true';
+    const forceRefresh = searchParams.get('refresh') === 'true';
 
     // Route to streaming implementation if requested
     if (enableStreaming) {
-      return getStreamingDashboard(walletAddress);
+      return getStreamingDashboard(walletAddress, forceRefresh);
     }
+
+    // Endpoint fetcher mirroring the streaming one: propagates ?refresh=true
+    // and applies the warm-retry budget.
+    const ef = (endpoint: string, timeoutMs = EXPRESS_TIMEOUT_MS, budgetMs = timeoutMs) =>
+      fetchWithWarmRetry(
+        forceRefresh ? `${endpoint}${endpoint.includes('?') ? '&' : '?'}refresh=true` : endpoint,
+        timeoutMs,
+        budgetMs
+      );
 
     // Non-streaming implementation: fetch everything from Express in parallel
     const [
@@ -227,58 +277,54 @@ export async function GET(
       scoreResult,
       analyticsResult,
       cardsResult,
-      marvkResult,
       nadoResult,
       copinkResult,
       nft2meResult,
       tydroResult,
       sweepResult,
+      zenithNftResult,
+      zenithStakingResult,
       // Specific analytics metrics
       gmCountResult,
       inkypumpCreatedTokensResult,
       inkypumpBuyVolumeResult,
       inkypumpSellVolumeResult,
-      nftTradedResult,
       znsResult,
       shelliesJoinedRafflesResult,
       shelliesPayToPlayResult,
-      nftStakingResult,
       openseaBuyCountResult,
       mintCountResult,
       openseaSaleCountResult,
-      inkdcaRunDcaResult,
       templarsNftBalanceResult,
       cowswapSwapsResult,
     ] = await Promise.all([
-      fetchFromExpress(`/api/wallet/${walletAddress}/stats`),
-      fetchFromExpress(`/api/wallet/${walletAddress}/bridge`),
-      fetchFromExpress(`/api/wallet/${walletAddress}/swap`),
-      fetchFromExpress(`/api/wallet/${walletAddress}/volume`),
-      fetchFromExpress(`/api/wallet/${walletAddress}/score`, SCORE_TIMEOUT_MS),
-      fetchFromExpress(`/api/analytics/${walletAddress}`),
-      fetchFromExpress(`/api/dashboard/cards/${walletAddress}`),
-      fetchFromExpress(`/api/marvk/${walletAddress}`),
-      fetchFromExpress(`/api/nado/${walletAddress}`),
-      fetchFromExpress(`/api/copink/${walletAddress}`),
-      fetchFromExpress(`/api/wallet/${walletAddress}/nft2me`),
-      fetchFromExpress(`/api/wallet/${walletAddress}/tydro`),
-      fetchFromExpress(`/api/sweep/${walletAddress}`),
+      ef(`/api/wallet/${walletAddress}/stats`),
+      ef(`/api/wallet/${walletAddress}/bridge`, BRIDGE_TIMEOUT_MS, 42000),
+      ef(`/api/wallet/${walletAddress}/swap`, EXPRESS_TIMEOUT_MS, 30000),
+      ef(`/api/wallet/${walletAddress}/volume`, EXPRESS_TIMEOUT_MS, 42000),
+      ef(`/api/wallet/${walletAddress}/score`, SCORE_TIMEOUT_MS),
+      ef(`/api/analytics/${walletAddress}`),
+      ef(`/api/dashboard/cards/${walletAddress}`),
+      ef(`/api/nado/${walletAddress}`),
+      ef(`/api/copink/${walletAddress}`),
+      ef(`/api/wallet/${walletAddress}/nft2me`, EXPRESS_TIMEOUT_MS, 30000),
+      ef(`/api/wallet/${walletAddress}/tydro`, EXPRESS_TIMEOUT_MS, 30000),
+      ef(`/api/sweep/${walletAddress}`),
+      ef(`/api/analytics/${walletAddress}/zenith_nft_balance`),
+      ef(`/api/analytics/${walletAddress}/zenith_staking`),
       // Specific analytics metrics
-      fetchFromExpress(`/api/analytics/${walletAddress}/gm_count`),
-      fetchFromExpress(`/api/analytics/${walletAddress}/inkypump_created_tokens`),
-      fetchFromExpress(`/api/analytics/${walletAddress}/inkypump_buy_volume`),
-      fetchFromExpress(`/api/analytics/${walletAddress}/inkypump_sell_volume`),
-      fetchFromExpress(`/api/analytics/${walletAddress}/nft_traded`),
-      fetchFromExpress(`/api/analytics/${walletAddress}/zns`),
-      fetchFromExpress(`/api/analytics/${walletAddress}/shellies_joined_raffles`),
-      fetchFromExpress(`/api/analytics/${walletAddress}/shellies_pay_to_play`),
-      fetchFromExpress(`/api/analytics/${walletAddress}/nft_staking`),
-      fetchFromExpress(`/api/analytics/${walletAddress}/opensea_buy_count`),
-      fetchFromExpress(`/api/analytics/${walletAddress}/mint_count`),
-      fetchFromExpress(`/api/analytics/${walletAddress}/opensea_sale_count`),
-      fetchFromExpress(`/api/analytics/${walletAddress}/inkdca_run_dca`),
-      fetchFromExpress(`/api/analytics/${walletAddress}/templars_nft_balance`),
-      fetchFromExpress(`/api/analytics/${walletAddress}/cowswap_swaps`),
+      ef(`/api/analytics/${walletAddress}/gm_count`),
+      ef(`/api/analytics/${walletAddress}/inkypump_created_tokens`),
+      ef(`/api/analytics/${walletAddress}/inkypump_buy_volume`),
+      ef(`/api/analytics/${walletAddress}/inkypump_sell_volume`),
+      ef(`/api/analytics/${walletAddress}/zns`),
+      ef(`/api/analytics/${walletAddress}/shellies_joined_raffles`),
+      ef(`/api/analytics/${walletAddress}/shellies_pay_to_play`),
+      ef(`/api/analytics/${walletAddress}/opensea_buy_count`),
+      ef(`/api/analytics/${walletAddress}/mint_count`),
+      ef(`/api/analytics/${walletAddress}/opensea_sale_count`),
+      ef(`/api/analytics/${walletAddress}/templars_nft_balance`),
+      ef(`/api/analytics/${walletAddress}/cowswap_swaps`),
     ]);
 
     // Collect any errors (only log critical ones)
@@ -290,7 +336,6 @@ export async function GET(
     if (scoreResult.error) errors.push(`score: ${scoreResult.error}`);
     if (analyticsResult.error) errors.push(`analytics: ${analyticsResult.error}`);
     if (cardsResult.error) errors.push(`cards: ${cardsResult.error}`);
-    if (marvkResult.error) errors.push(`marvk: ${marvkResult.error}`);
     if (nadoResult.error) errors.push(`nado: ${nadoResult.error}`);
     if (copinkResult.error) errors.push(`copink: ${copinkResult.error}`);
     if (nft2meResult.error) errors.push(`nft2me: ${nft2meResult.error}`);
@@ -308,26 +353,24 @@ export async function GET(
       score: scoreResult.data,
       analytics: analyticsResult.data,
       cards: cardsResult.data,
-      marvk: marvkResult.data,
       nado: nadoResult.data,
       copink: copinkResult.data,
       nft2me: nft2meResult.data,
       tydro: tydroResult.data,
       sweep: sweepResult.data,
+      zenithNft: zenithNftResult.data,
+      zenithStaking: zenithStakingResult.data,
       // Specific analytics metrics
       gmCount: gmCountResult.data,
       inkypumpCreatedTokens: inkypumpCreatedTokensResult.data,
       inkypumpBuyVolume: inkypumpBuyVolumeResult.data,
       inkypumpSellVolume: inkypumpSellVolumeResult.data,
-      nftTraded: nftTradedResult.data,
       zns: znsResult.data,
       shelliesJoinedRaffles: shelliesJoinedRafflesResult.data,
       shelliesPayToPlay: shelliesPayToPlayResult.data,
-      nftStaking: nftStakingResult.data,
       openseaBuyCount: openseaBuyCountResult.data,
       mintCount: mintCountResult.data,
       openseaSaleCount: openseaSaleCountResult.data,
-      inkdcaRunDca: inkdcaRunDcaResult.data,
       templarsNftBalance: templarsNftBalanceResult.data,
       cowswapSwaps: cowswapSwapsResult.data,
       ...(errors.length > 0 && { errors }),

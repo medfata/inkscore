@@ -1,9 +1,20 @@
 import { Router, Request, Response } from 'express';
-import { responseCache } from '../cache';
+import { responseCache, getLongCache, setLongCache, getInflight, withInflight } from '../cache';
 import { walletStatsService } from '../services/wallet-stats-service';
 import { pointsServiceV2 } from '../services/points-service-v2';
 import { priceService } from '../services/price-service';
-import { query, pool } from '../db';
+import {
+  getNativeOutflow,
+  getProtocolCount,
+  getProtocolTxHashes,
+  getTxData,
+  getTxLogs,
+  partitionTxHashes,
+} from '../services/blockscout-service';
+import { getBridgeVolume } from '../services/bridge-service';
+import type { BridgeVolumeResponse } from '../services/bridge-service';
+import { getTokenInfo } from '../services/token-info-service';
+import { pool } from '../db';
 
 const router = Router();
 
@@ -40,153 +51,13 @@ export default router;
 
 
 // ============================================
-// Bridge Volume Route
+// Bridge Volume Route (thin shell — logic in services/bridge-service.ts)
+// Sprint 1 extraction: "move, don't rewrite". The service owns the in-flight
+// dedup, the 5-min long cache, and the full compute; this route keeps the
+// 30s response layer and its cache keys identical.
 // ============================================
 
-// Relay wallet handles both "Relay" and "Ink Official" based on method selectors (Bridge IN)
-const RELAY_WALLET = '0xf70da97812cb96acdf810712aa562db8dfa3dbef';
-
-// Relay deposit contract for Bridge OUT (depositNative) - shared by Relay and Ink Official
-const RELAY_DEPOSIT_CONTRACT = '0x4cd00e387622c35bddb9b4c962c136462338bc31';
-
-// Method selectors for Ink Official bridge IN
-const INK_OFFICIAL_METHODS = ['0x0c6d9703', '0x5819bf3d'];
-
-// OFT Adapter contract address for Native Bridge (USDT0) - Bridge OUT
-const OFT_ADAPTER_ADDRESS = '0x1cb6de532588fca4a21b7209de7c456af8434a65';
-
-// LayerZero Executor contract for Native Bridge (USDT0) - Bridge IN
-const LZ_EXECUTOR_ADDRESS = '0xfebcf17b11376c724ab5a5229803c6e838b6eae5';
-
-// Bungee contracts
-const BUNGEE_SOCKET_GATEWAY = '0x3a23f943181408eac424116af7b7790c94cb97a5';
-const BUNGEE_FULFILLMENT_CONTRACT = '0x26d8da52e56de71194950689ccf74cd309761324';
-const BUNGEE_REQUEST_CONTRACT = '0xe18dfefce7a5d18d39ce6fc925f102286fa96fdc';
-
-// Event signatures
-const OFT_SENT_SIGNATURE = '0x85496b760a4b7f8d66384b9df21b381f5d1b1e79f229a47aaf4c232edc2fe59a';
-const OFT_RECEIVED_SIGNATURE = '0xefed6d3500546b29533b128a29e3a94d70788727f0507505ac12eaf2e578fd9c';
-const SOCKET_BRIDGE_SIGNATURE = '0x74594da9e31ee4068e17809037db37db496702bf7d8d63afe6f97949277d1609';
-const SOCKET_SWAP_TOKENS_SIGNATURE = '0xb346a959ba6c0f1c7ba5426b10fd84fe4064e392a0dfcf6609e9640a0dd260d3';
-
-const USDT0_DECIMALS = 6;
-
-// All bridge platforms configuration
-const ALL_BRIDGE_PLATFORMS: Record<string, { logo: string; url: string }> = {
-    'Native Bridge (USDT0)': {
-        logo: 'https://pbs.twimg.com/profile_images/1879546764971188224/SQISVYwX_400x400.jpg',
-        url: 'https://usdt0.to',
-    },
-    'Ink Official': {
-        logo: 'https://inkonchain.com/favicon.ico',
-        url: 'https://inkonchain.com/bridge',
-    },
-    'Relay': {
-        logo: 'https://relay.link/favicon.ico',
-        url: 'https://relay.link',
-    },
-    'Bungee': {
-        logo: 'https://www.bungee.exchange/favicon.ico',
-        url: 'https://www.bungee.exchange',
-    },
-};
-
-export interface BridgeVolumeResponse {
-    totalEth: number;
-    totalUsd: number;
-    txCount: number;
-    bridgedInUsd: number;
-    bridgedInCount: number;
-    bridgedOutUsd: number;
-    bridgedOutCount: number;
-    byPlatform: Array<{
-        platform: string;
-        ethValue: number;
-        usdValue: number;
-        txCount: number;
-        logo: string;
-        url: string;
-        bridgedInUsd?: number;
-        bridgedInCount?: number;
-        bridgedOutUsd?: number;
-        bridgedOutCount?: number;
-    }>;
-}
-
-interface OftEventLog {
-    index: number;
-    address: { id: string };
-    topics: string[];
-    data: string;
-    event?: string;
-}
-
-interface Operation {
-    to: { id: string };
-    from: { id: string };
-    value: string;
-    type: string;
-    status?: boolean;
-}
-
-function parseOftSentAmount(data: string): bigint {
-    try {
-        const cleanData = data.startsWith('0x') ? data.slice(2) : data;
-        const amountHex = cleanData.slice(64, 128);
-        return amountHex ? BigInt('0x' + amountHex) : BigInt(0);
-    } catch {
-        return BigInt(0);
-    }
-}
-
-function parseOftReceivedAmount(data: string): bigint {
-    try {
-        const cleanData = data.startsWith('0x') ? data.slice(2) : data;
-        const amountHex = cleanData.slice(64, 128);
-        return amountHex ? BigInt('0x' + amountHex) : BigInt(0);
-    } catch {
-        return BigInt(0);
-    }
-}
-
-function extractAddressFromTopic(topic: string): string {
-    const cleanTopic = topic.startsWith('0x') ? topic.slice(2) : topic;
-    return '0x' + cleanTopic.slice(-40).toLowerCase();
-}
-
-// Parse SocketBridge event: (uint256 amount, address token, uint256 toChainId, bytes32 bridgeName, address sender, address receiver, bytes32 metadata)
-// Returns null on malformed data so one bad log cannot fail the whole route.
-function parseSocketBridgeEvent(data: string): { amount: bigint; token: string } | null {
-    try {
-        const cleanData = data.startsWith('0x') ? data.slice(2) : data;
-        // SocketBridge: amount is first 32 bytes, token is second 32 bytes
-        const amountHex = cleanData.slice(0, 64);
-        const amount = BigInt('0x' + amountHex);
-        const tokenHex = cleanData.slice(64, 128);
-        const token = '0x' + tokenHex.slice(-40).toLowerCase();
-        return { amount, token };
-    } catch {
-        return null;
-    }
-}
-
-// Parse SocketSwapTokens event: (address fromToken, address toToken, uint256 buyAmount, uint256 sellAmount, bytes32 routeName, address receiver, bytes32 metadata)
-function parseSocketSwapTokensEvent(data: string): { fromToken: string; toToken: string; buyAmount: bigint; sellAmount: bigint } {
-    const cleanData = data.startsWith('0x') ? data.slice(2) : data;
-    // fromToken: bytes 0-64 (address padded to 32 bytes)
-    // toToken: bytes 64-128 (address padded to 32 bytes)
-    // buyAmount: bytes 128-192
-    // sellAmount: bytes 192-256
-    const fromToken = '0x' + cleanData.slice(24, 64).toLowerCase(); // last 40 chars of first 64
-    const toToken = '0x' + cleanData.slice(88, 128).toLowerCase(); // last 40 chars of second 64
-    const buyAmount = BigInt('0x' + cleanData.slice(128, 192));
-    const sellAmount = BigInt('0x' + cleanData.slice(192, 256));
-    return { fromToken, toToken, buyAmount, sellAmount };
-}
-
-// GET /api/wallet/:address/bridge
 router.get('/:address/bridge', async (req: Request, res: Response) => {
-    const requestStart = Date.now();
     try {
         const { address } = req.params;
 
@@ -195,483 +66,14 @@ router.get('/:address/bridge', async (req: Request, res: Response) => {
         }
 
         const walletAddress = address.toLowerCase();
-
         const cacheKey = `wallet:bridge:${walletAddress}`;
         const cached = responseCache.get<BridgeVolumeResponse>(cacheKey);
         if (cached) {
             return res.json(cached);
         }
 
-        const platformData: Record<string, {
-            ethValue: number;
-            usdValue: number;
-            txCount: number;
-            bridgedInUsd?: number;
-            bridgedInCount?: number;
-            bridgedOutUsd?: number;
-            bridgedOutCount?: number;
-        }> = {
-            'Native Bridge (USDT0)': { ethValue: 0, usdValue: 0, txCount: 0 },
-            'Ink Official': { ethValue: 0, usdValue: 0, txCount: 0 },
-            'Relay': { ethValue: 0, usdValue: 0, txCount: 0 },
-            'Bungee': { ethValue: 0, usdValue: 0, txCount: 0 },
-        };
-
-        let totalEth = 0;
-        let totalTxCount = 0;
-        let bridgedInUsd = 0;
-        let bridgedInCount = 0;
-        let bridgedOutUsd = 0;
-        let bridgedOutCount = 0;
-
-        // Get ETH price
-        let ethPrice = 3500;
-        try {
-            const priceResult = await pool.query(
-                `SELECT price_usd FROM eth_prices ORDER BY timestamp DESC LIMIT 1`
-            );
-            ethPrice = priceResult.rows[0]?.price_usd || 3500;
-        } catch {
-            // Use fallback price
-        }
-
-        // Run all bridge queries in parallel instead of sequentially.
-        // Each query falls back to empty rows on failure so one bad query
-        // cannot fail the whole route (same behavior as the old per-section catch).
-        const dbStart = Date.now();
-        const emptyRows = { rows: [] as any[] };
-        const [
-            relayResult,
-            relayOutResult,
-            nativeBridgeInResult,
-            bridgeOutResult,
-            bungeeInResult,
-            bungeeOutResult,
-            bungeeGatewayResult,
-        ] = await Promise.all([
-            pool.query(
-                `SELECT
-           tx_hash, method_id, operations, value,
-           COALESCE(eth_value_decimal, 0) as eth_value_decimal,
-           COALESCE(eth_price_usd, $2) as eth_price_usd
-         FROM transaction_enrichment
-         WHERE LOWER(contract_address) = LOWER($1)
-           AND related_wallets @> ARRAY[$3]::text[]`,
-                [RELAY_WALLET, ethPrice, walletAddress]
-            ).catch(e => { console.error('Error querying Relay/Ink Official:', e instanceof Error ? e.message : e); return emptyRows; }),
-            pool.query(
-                `SELECT tx_hash, value, method_id,
-           COALESCE(eth_value_decimal, 0) as eth_value_decimal,
-           COALESCE(eth_price_usd, $2) as eth_price_usd
-         FROM transaction_enrichment
-         WHERE LOWER(contract_address) = LOWER($1)
-           AND LOWER(wallet_address) = LOWER($3)`,
-                [RELAY_DEPOSIT_CONTRACT, ethPrice, walletAddress]
-            ).catch(e => { console.error('Error querying Relay/Ink Official OUT:', e instanceof Error ? e.message : e); return emptyRows; }),
-            pool.query(
-                `SELECT tx_hash, logs
-         FROM transaction_enrichment
-         WHERE LOWER(contract_address) = LOWER($1)
-           AND related_wallets @> ARRAY[$2]::text[]`,
-                [LZ_EXECUTOR_ADDRESS, walletAddress]
-            ).catch(e => { console.error('Error querying Native Bridge IN:', e instanceof Error ? e.message : e); return emptyRows; }),
-            pool.query(
-                `SELECT tx_hash, logs
-         FROM transaction_enrichment
-         WHERE LOWER(contract_address) = LOWER($1)
-           AND LOWER(wallet_address) = LOWER($2)
-           AND logs IS NOT NULL`,
-                [OFT_ADAPTER_ADDRESS, walletAddress]
-            ).catch(e => { console.error('Error querying Native Bridge OUT:', e instanceof Error ? e.message : e); return emptyRows; }),
-            pool.query(
-                `SELECT tx_hash, operations, logs, value,
-           COALESCE(eth_value_decimal, 0) as eth_value_decimal,
-           COALESCE(eth_price_usd, $2) as eth_price_usd
-         FROM transaction_enrichment
-         WHERE LOWER(contract_address) = LOWER($1)
-           AND related_wallets @> ARRAY[$3]::text[]`,
-                [BUNGEE_FULFILLMENT_CONTRACT, ethPrice, walletAddress]
-            ).catch(e => { console.error('Error querying Bungee IN:', e instanceof Error ? e.message : e); return emptyRows; }),
-            pool.query(
-                `SELECT tx_hash, value,
-           COALESCE(eth_value_decimal, 0) as eth_value_decimal,
-           COALESCE(eth_price_usd, $2) as eth_price_usd
-         FROM transaction_enrichment
-         WHERE LOWER(contract_address) = LOWER($1)
-           AND LOWER(wallet_address) = LOWER($3)`,
-                [BUNGEE_REQUEST_CONTRACT, ethPrice, walletAddress]
-            ).catch(e => { console.error('Error querying Bungee OUT:', e instanceof Error ? e.message : e); return emptyRows; }),
-            pool.query(
-                `SELECT tx_hash, logs, operations, eth_value_decimal, eth_price_usd, total_usd_volume, value
-         FROM transaction_enrichment
-         WHERE LOWER(contract_address) = LOWER($1)
-           AND LOWER(wallet_address) = LOWER($2)`,
-                [BUNGEE_SOCKET_GATEWAY, walletAddress]
-            ).catch(e => { console.error('Error querying Bungee Gateway:', e instanceof Error ? e.message : e); return emptyRows; }),
-        ]);
-        console.log(`[Bridge ${walletAddress}] all bridge queries completed in ${Date.now() - dbStart}ms`);
-
-        // 1. Process Relay/Ink Official bridge IN transactions
-        try {
-            for (const row of relayResult.rows) {
-                let operations: Operation[] = [];
-                try {
-                    operations = typeof row.operations === 'string' ? JSON.parse(row.operations) : row.operations || [];
-                } catch {
-                    continue;
-                }
-
-                const userTransfer = operations.find(op => op.to?.id?.toLowerCase() === walletAddress);
-                if (!userTransfer) continue;
-
-                let ethValue = 0;
-                if (userTransfer.value) {
-                    ethValue = Number(BigInt(userTransfer.value)) / 1e18;
-                }
-                if (ethValue === 0) ethValue = parseFloat(row.eth_value_decimal || '0');
-                if (ethValue === 0 && row.value) ethValue = Number(BigInt(row.value)) / 1e18;
-
-                const txEthPrice = parseFloat(row.eth_price_usd || String(ethPrice));
-                const usdValue = ethValue * txEthPrice;
-
-                const methodId = row.method_id?.toLowerCase();
-                const platform = INK_OFFICIAL_METHODS.includes(methodId) ? 'Ink Official' : 'Relay';
-
-                platformData[platform].ethValue += ethValue;
-                platformData[platform].usdValue += usdValue;
-                platformData[platform].txCount += 1;
-                platformData[platform].bridgedInUsd = (platformData[platform].bridgedInUsd || 0) + usdValue;
-                platformData[platform].bridgedInCount = (platformData[platform].bridgedInCount || 0) + 1;
-
-                totalEth += ethValue;
-                totalTxCount += 1;
-                bridgedInUsd += usdValue;
-                bridgedInCount += 1;
-            }
-        } catch (dbError: unknown) {
-            console.error('Error querying Relay/Ink Official:', dbError instanceof Error ? dbError.message : dbError);
-        }
-
-
-        // 1b. Process Relay/Ink Official bridge OUT transactions (depositNative)
-        try {
-            let sharedBridgeOutEth = 0;
-            let sharedBridgeOutUsd = 0;
-            let sharedBridgeOutCount = 0;
-
-            for (const row of relayOutResult.rows) {
-                let ethValue = parseFloat(row.eth_value_decimal || '0');
-                if (ethValue === 0 && row.value) {
-                    ethValue = Number(BigInt(row.value)) / 1e18;
-                }
-
-                const txEthPrice = parseFloat(row.eth_price_usd || String(ethPrice));
-                const usdValue = ethValue * txEthPrice;
-
-                sharedBridgeOutEth += ethValue;
-                sharedBridgeOutUsd += usdValue;
-                sharedBridgeOutCount += 1;
-            }
-
-            if (sharedBridgeOutCount > 0) {
-                platformData['Ink Official'].ethValue += sharedBridgeOutEth;
-                platformData['Ink Official'].usdValue += sharedBridgeOutUsd;
-                platformData['Ink Official'].txCount += sharedBridgeOutCount;
-                platformData['Ink Official'].bridgedOutUsd = (platformData['Ink Official'].bridgedOutUsd || 0) + sharedBridgeOutUsd;
-                platformData['Ink Official'].bridgedOutCount = (platformData['Ink Official'].bridgedOutCount || 0) + sharedBridgeOutCount;
-
-                platformData['Relay'].bridgedOutUsd = (platformData['Relay'].bridgedOutUsd || 0) + sharedBridgeOutUsd;
-                platformData['Relay'].bridgedOutCount = (platformData['Relay'].bridgedOutCount || 0) + sharedBridgeOutCount;
-
-                totalEth += sharedBridgeOutEth;
-                totalTxCount += sharedBridgeOutCount;
-                bridgedOutUsd += sharedBridgeOutUsd;
-                bridgedOutCount += sharedBridgeOutCount;
-            }
-        } catch (dbError: unknown) {
-            console.error('Error querying Relay/Ink Official OUT:', dbError instanceof Error ? dbError.message : dbError);
-        }
-
-        // 2a. Process Native Bridge (USDT0) IN transactions
-        try {
-            for (const row of nativeBridgeInResult.rows) {
-                const logs: OftEventLog[] = typeof row.logs === 'string' ? JSON.parse(row.logs) : row.logs;
-                if (!Array.isArray(logs)) continue;
-
-                for (const log of logs) {
-                    const logAddress = (log.address?.id || '').toLowerCase();
-                    const topic0 = log.topics?.[0]?.toLowerCase();
-                    const topic2 = log.topics?.[2];
-
-                    if (logAddress !== OFT_ADAPTER_ADDRESS.toLowerCase()) continue;
-                    if (topic0 !== OFT_RECEIVED_SIGNATURE.toLowerCase()) continue;
-                    if (!topic2) continue;
-
-                    const eventWallet = extractAddressFromTopic(topic2);
-                    if (eventWallet !== walletAddress) continue;
-
-                    const amountRaw = parseOftReceivedAmount(log.data);
-                    const amountUsd = Number(amountRaw) / Math.pow(10, USDT0_DECIMALS);
-
-                    platformData['Native Bridge (USDT0)'].usdValue += amountUsd;
-                    platformData['Native Bridge (USDT0)'].txCount += 1;
-                    platformData['Native Bridge (USDT0)'].bridgedInUsd = (platformData['Native Bridge (USDT0)'].bridgedInUsd || 0) + amountUsd;
-                    platformData['Native Bridge (USDT0)'].bridgedInCount = (platformData['Native Bridge (USDT0)'].bridgedInCount || 0) + 1;
-
-                    totalTxCount += 1;
-                    bridgedInUsd += amountUsd;
-                    bridgedInCount += 1;
-                }
-            }
-        } catch (dbError: unknown) {
-            console.error('Error querying Native Bridge IN:', dbError instanceof Error ? dbError.message : dbError);
-        }
-
-        // 2b. Process Native Bridge (USDT0) OUT transactions
-        try {
-            for (const row of bridgeOutResult.rows) {
-                const logs: OftEventLog[] = typeof row.logs === 'string' ? JSON.parse(row.logs) : row.logs;
-                if (!Array.isArray(logs)) continue;
-
-                for (const log of logs) {
-                    const logAddress = (log.address?.id || '').toLowerCase();
-                    const topic0 = log.topics?.[0]?.toLowerCase();
-                    const topic2 = log.topics?.[2];
-
-                    if (logAddress !== OFT_ADAPTER_ADDRESS.toLowerCase()) continue;
-                    if (topic0 !== OFT_SENT_SIGNATURE.toLowerCase()) continue;
-                    if (!topic2) continue;
-
-                    const eventWallet = extractAddressFromTopic(topic2);
-                    if (eventWallet !== walletAddress) continue;
-
-                    const amountRaw = parseOftSentAmount(log.data);
-                    const amountUsd = Number(amountRaw) / Math.pow(10, USDT0_DECIMALS);
-
-                    platformData['Native Bridge (USDT0)'].usdValue += amountUsd;
-                    platformData['Native Bridge (USDT0)'].txCount += 1;
-                    platformData['Native Bridge (USDT0)'].bridgedOutUsd = (platformData['Native Bridge (USDT0)'].bridgedOutUsd || 0) + amountUsd;
-                    platformData['Native Bridge (USDT0)'].bridgedOutCount = (platformData['Native Bridge (USDT0)'].bridgedOutCount || 0) + 1;
-
-                    totalTxCount += 1;
-                    bridgedOutUsd += amountUsd;
-                    bridgedOutCount += 1;
-                }
-            }
-        } catch (dbError: unknown) {
-            console.error('Error querying Native Bridge OUT:', dbError instanceof Error ? dbError.message : dbError);
-        }
-
-
-        // 3. Process Bungee bridge transactions
-        try {
-            // 3a. Bungee Bridge IN (PerformFulfilment)
-            for (const row of bungeeInResult.rows) {
-                let operations: Operation[] = [];
-                try {
-                    operations = typeof row.operations === 'string' ? JSON.parse(row.operations) : row.operations || [];
-                } catch {
-                    continue;
-                }
-
-                const userTransfer = operations.find(op => op.to?.id?.toLowerCase() === walletAddress);
-                if (!userTransfer) continue;
-
-                // Calculate value assuming ETH (18 decimals)
-                let ethValue = 0;
-                if (userTransfer.value) {
-                    const rawValue = BigInt(userTransfer.value);
-                    ethValue = Number(rawValue) / 1e18;
-                }
-                if (ethValue === 0) {
-                    ethValue = parseFloat(row.eth_value_decimal || '0');
-                }
-
-                const txEthPrice = parseFloat(row.eth_price_usd || String(ethPrice));
-                const usdValue = ethValue * txEthPrice;
-
-                // Skip huge values
-                if (usdValue > 1_000_000) {
-                    continue;
-                }
-
-                platformData['Bungee'].ethValue += ethValue;
-                platformData['Bungee'].usdValue += usdValue;
-                platformData['Bungee'].txCount += 1;
-                platformData['Bungee'].bridgedInUsd = (platformData['Bungee'].bridgedInUsd || 0) + usdValue;
-                platformData['Bungee'].bridgedInCount = (platformData['Bungee'].bridgedInCount || 0) + 1;
-
-                totalEth += ethValue;
-                totalTxCount += 1;
-                bridgedInUsd += usdValue;
-                bridgedInCount += 1;
-            }
-
-            // 3b. Bungee Bridge OUT (CreateRequest)
-            for (const row of bungeeOutResult.rows) {
-                let ethValue = parseFloat(row.eth_value_decimal || '0');
-                if (ethValue === 0 && row.value) {
-                    ethValue = Number(BigInt(row.value)) / 1e18;
-                }
-
-                const txEthPrice = parseFloat(row.eth_price_usd || String(ethPrice));
-                const usdValue = ethValue * txEthPrice;
-
-                platformData['Bungee'].ethValue += ethValue;
-                platformData['Bungee'].usdValue += usdValue;
-                platformData['Bungee'].txCount += 1;
-                platformData['Bungee'].bridgedOutUsd = (platformData['Bungee'].bridgedOutUsd || 0) + usdValue;
-                platformData['Bungee'].bridgedOutCount = (platformData['Bungee'].bridgedOutCount || 0) + 1;
-
-                totalEth += ethValue;
-                totalTxCount += 1;
-                bridgedOutUsd += usdValue;
-                bridgedOutCount += 1;
-            }
-
-            // 3c. Legacy Socket Gateway transactions - MUST check for SocketBridge event to distinguish from swaps
-            for (const row of bungeeGatewayResult.rows) {
-                // Parse logs to check for bridge vs swap
-                let logs: OftEventLog[] = [];
-                try {
-                    logs = typeof row.logs === 'string' ? JSON.parse(row.logs) : row.logs || [];
-                } catch {
-                    logs = [];
-                }
-
-                // Parse operations
-                let operations: Operation[] = [];
-                try {
-                    operations = typeof row.operations === 'string' ? JSON.parse(row.operations) : row.operations || [];
-                } catch {
-                    operations = [];
-                }
-
-                // Check for failed transactions
-                if (operations.length > 0 && operations[0]?.status === false) {
-                    continue;
-                }
-
-                // CRITICAL: Classify transaction as bridge or swap based on event signatures
-                let hasSocketBridge = false;
-                let hasSocketSwapTokens = false;
-                let socketBridgeData: { amount: bigint; token: string } | null = null;
-
-                for (const log of logs) {
-                    const topic0 = log.topics?.[0]?.toLowerCase();
-
-                    if (topic0 === SOCKET_BRIDGE_SIGNATURE.toLowerCase()) {
-                        hasSocketBridge = true;
-                        // Parse the SocketBridge event to get accurate amount and token
-                        if (log.data) {
-                            socketBridgeData = parseSocketBridgeEvent(log.data);
-                        }
-                    }
-                    if (topic0 === SOCKET_SWAP_TOKENS_SIGNATURE.toLowerCase()) {
-                        hasSocketSwapTokens = true;
-                    }
-                }
-
-                // Skip if this is a swap (SocketSwapTokens without SocketBridge)
-                if (hasSocketSwapTokens && !hasSocketBridge) {
-                    continue;
-                }
-
-                // Skip if no bridge event found
-                if (!hasSocketBridge) {
-                    continue;
-                }
-
-                // This is a confirmed bridge transaction - calculate USD value
-                let txUsdValue = 0;
-                let txEthValue = 0;
-                const txEthPrice = parseFloat(row.eth_price_usd || String(ethPrice));
-
-                // Use SocketBridge event data for accurate volume calculation
-                if (socketBridgeData) {
-                    const { amount, token } = socketBridgeData;
-                    const tokenLower = token.toLowerCase();
-
-                    // Native ETH address used in Bungee events
-                    const NATIVE_ETH = '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee';
-                    const WETH = '0x4200000000000000000000000000000000000006';
-
-                    // Get token info using DeFi Llama API
-                    const tokenInfo = await getTokenInfo(token);
-
-                    const tokenAmount = Number(amount) / Math.pow(10, tokenInfo.decimals);
-                    txUsdValue = tokenAmount * tokenInfo.price;
-
-                    if (tokenLower === NATIVE_ETH || tokenLower === WETH) {
-                        txEthValue = tokenAmount;
-                    }
-                } else {
-                    // Fallback: Use pre-calculated values if SocketBridge event couldn't be parsed
-                    if (row.total_usd_volume && parseFloat(row.total_usd_volume) > 0 && parseFloat(row.total_usd_volume) < 1_000_000) {
-                        txUsdValue = parseFloat(row.total_usd_volume);
-                    } else if (row.eth_value_decimal && parseFloat(row.eth_value_decimal) > 0) {
-                        txEthValue = parseFloat(row.eth_value_decimal);
-                        txUsdValue = txEthValue * txEthPrice;
-                    } else if (row.value && parseFloat(row.value) > 0 && parseFloat(row.value) < 1e21) {
-                        txEthValue = parseFloat(row.value) / 1e18;
-                        txUsdValue = txEthValue * txEthPrice;
-                    }
-                }
-
-                // Sanity check and add to totals
-                if (txUsdValue > 0 && txUsdValue < 1_000_000) {
-                    platformData['Bungee'].ethValue += txEthValue;
-                    platformData['Bungee'].usdValue += txUsdValue;
-                    platformData['Bungee'].txCount += 1;
-                    // Gateway transactions are bridge OUT (user initiating bridge from Ink)
-                    platformData['Bungee'].bridgedOutUsd = (platformData['Bungee'].bridgedOutUsd || 0) + txUsdValue;
-                    platformData['Bungee'].bridgedOutCount = (platformData['Bungee'].bridgedOutCount || 0) + 1;
-
-                    totalEth += txEthValue;
-                    totalTxCount += 1;
-                    bridgedOutUsd += txUsdValue;
-                    bridgedOutCount += 1;
-                }
-            }
-        } catch (dbError: unknown) {
-            console.error('Error querying Bungee:', dbError instanceof Error ? dbError.message : dbError);
-        }
-
-        // Build byPlatform array
-        const byPlatform = Object.entries(ALL_BRIDGE_PLATFORMS).map(([platform, config]) => ({
-            platform,
-            ethValue: platformData[platform].ethValue,
-            usdValue: platformData[platform].usdValue,
-            txCount: platformData[platform].txCount,
-            logo: config.logo,
-            url: config.url,
-            ...(platformData[platform].bridgedInUsd !== undefined && {
-                bridgedInUsd: platformData[platform].bridgedInUsd,
-                bridgedInCount: platformData[platform].bridgedInCount,
-            }),
-            ...(platformData[platform].bridgedOutUsd !== undefined && {
-                bridgedOutUsd: platformData[platform].bridgedOutUsd,
-                bridgedOutCount: platformData[platform].bridgedOutCount,
-            }),
-        }));
-
-        byPlatform.sort((a, b) => b.usdValue - a.usdValue);
-
-        const totalUsd = Object.values(platformData).reduce((sum, p) => sum + p.usdValue, 0);
-
-        const response: BridgeVolumeResponse = {
-            totalEth,
-            totalUsd,
-            txCount: totalTxCount,
-            bridgedInUsd,
-            bridgedInCount,
-            bridgedOutUsd,
-            bridgedOutCount,
-            byPlatform,
-        };
-
+        const response = await getBridgeVolume(walletAddress);
         responseCache.set(cacheKey, response);
-
         return res.json(response);
     } catch (error) {
         console.error('Error fetching bridge volume:', error);
@@ -688,6 +90,7 @@ export interface SwapVolumeResponse {
     totalEth: number;
     totalUsd: number;
     txCount: number;
+    partial?: boolean;
     byPlatform: Array<{
         platform: string;
         contractAddress: string;
@@ -712,124 +115,8 @@ const SWAP_METHOD_IDS = [
     '0x5c11d795', '0x3593564c', '0xaad348a2',
 ];
 
-// Token info interface from DeFi Llama API
-interface TokenInfo {
-    decimals: number;
-    symbol: string;
-    price: number;
-    timestamp: number;
-    confidence: number;
-}
-
-// Cache for token info (price, decimals, symbol, etc.)
-const tokenInfoCache: Record<string, { data: TokenInfo; cachedAt: number }> = {};
-const TOKEN_INFO_CACHE_TTL = 2 * 60 * 60 * 1000; // 2 hours
-
-// Fallback token info when API doesn't have the token
-const FALLBACK_TOKEN_INFO: TokenInfo = {
-    decimals: 18,
-    symbol: 'UNKNOWN',
-    price: 0.00001,
-    timestamp: 0,
-    confidence: 0
-};
-
-/**
- * Get token info (price, decimals, symbol) from DeFi Llama API
- * Uses 2-hour cache per token
- * Fallback: 18 decimals, $0.0015 price
- */
-async function getTokenInfo(tokenAddress: string): Promise<TokenInfo> {
-    const cacheKey = tokenAddress.toLowerCase();
-
-    // Check cache first
-    const cached = tokenInfoCache[cacheKey];
-    if (cached && Date.now() - cached.cachedAt < TOKEN_INFO_CACHE_TTL) {
-        return cached.data;
-    }
-
-    try {
-        // Use DeFi Llama API for Ink Chain
-        const llamaUrl = `https://coins.llama.fi/prices/current/ink:${tokenAddress}`;
-        const response = await fetch(llamaUrl, { method: 'GET', headers: { 'Accept': 'application/json' }, signal: AbortSignal.timeout(3000) });
-
-        if (response.ok) {
-            const data: any = await response.json();
-            const coinKey = `ink:${tokenAddress}`;
-            if (data && data.coins && data.coins[coinKey]) {
-                const coin = data.coins[coinKey];
-                const tokenInfo: TokenInfo = {
-                    decimals: coin.decimals ?? 18,
-                    symbol: coin.symbol ?? 'UNKNOWN',
-                    price: coin.price ?? 0.0015,
-                    timestamp: coin.timestamp ?? 0,
-                    confidence: coin.confidence ?? 0
-                };
-                tokenInfoCache[cacheKey] = { data: tokenInfo, cachedAt: Date.now() };
-                return tokenInfo;
-            }
-        }
-
-        // Token not found in API - use fallback
-        tokenInfoCache[cacheKey] = { data: FALLBACK_TOKEN_INFO, cachedAt: Date.now() };
-        return FALLBACK_TOKEN_INFO;
-    } catch (error) {
-        console.error(`[Token Info] Error fetching info for ${tokenAddress}:`, error);
-    }
-
-    // Fallback on error
-    return FALLBACK_TOKEN_INFO;
-}
-
-interface SwapLog {
-    event?: string;
-    address?: { id?: string; alias?: string };
-    topics?: string[];
-    data?: string;
-}
-
-/**
- * Parse swap volume from transaction logs
- * Looks for Transfer events to get the token amount being swapped
- */
-async function parseSwapVolumeFromLogs(logs: SwapLog[], ethPriceUsd: number = 3500, txHash?: string, platform?: string): Promise<number> {
-    if (!logs || !Array.isArray(logs)) return 0;
-
-    let maxUsdValue = 0;
-
-    // Look for Transfer events to get the swap amount
-    for (let i = 0; i < logs.length; i++) {
-        const log = logs[i];
-
-        if (log.event?.startsWith('Transfer(') && log.topics?.length && log.topics.length >= 3) {
-            const tokenAddress = log.address?.id?.toLowerCase();
-            const data = log.data;
-
-            if (!tokenAddress || !data) continue;
-
-            try {
-                // Get token info from DeFi Llama API (cached)
-                const tokenInfo = await getTokenInfo(tokenAddress);
-
-                // Parse the amount from the data field
-                const amountHex = data.startsWith('0x') ? data.slice(2, 66) : data.slice(0, 64);
-                const amount = BigInt('0x' + amountHex);
-
-                // Calculate token amount using decimals from API
-                const tokenAmount = Number(amount) / Math.pow(10, tokenInfo.decimals);
-
-                // Calculate USD value using price from API
-                const usdValue = tokenAmount * tokenInfo.price;
-                maxUsdValue = Math.max(maxUsdValue, usdValue);
-            } catch (error) {
-                console.error(`[Swap] Error parsing transfer for token ${tokenAddress}:`, error);
-                continue;
-            }
-        }
-    }
-
-    return maxUsdValue;
-}
+// Swap history is append-only (same rationale as Tydro long cache).
+const SWAP_LONG_CACHE_TTL = 5 * 60 * 1000;
 
 // GET /api/wallet/:address/swap
 router.get('/:address/swap', async (req: Request, res: Response) => {
@@ -847,69 +134,78 @@ router.get('/:address/swap', async (req: Request, res: Response) => {
         if (cached) {
             return res.json(cached);
         }
+        // Swap history is append-only: share in-flight work and cache longer.
+        const swapLcKey = `long:${cacheKey}`;
+        const swapLc = getLongCache<SwapVolumeResponse>(swapLcKey, SWAP_LONG_CACHE_TTL);
+        if (swapLc && !swapLc.partial) {
+            responseCache.set(cacheKey, swapLc);
+            return res.json(swapLc);
+        }
+        const swapInf = getInflight<SwapVolumeResponse>(swapLcKey);
+        if (swapInf) {
+            try {
+                return res.json(await swapInf);
+            } catch {
+                // Fall through and compute fresh if the shared run failed.
+            }
+        }
 
+        return res.json(await withInflight<SwapVolumeResponse>(swapLcKey, async () => {
         const ALLOWED_DEX_CONTRACTS = Object.keys(SWAP_CONTRACTS).map(addr => addr.toLowerCase());
 
-        const result = await pool.query(
-            `SELECT
-         contract_address,
-         tx_hash,
-         value,
-         logs,
-         COALESCE(total_usd_volume, 0) as total_usd_volume,
-         COALESCE(tokens_in_usd_total, 0) as tokens_in_usd_total,
-         COALESCE(tokens_out_usd_total, 0) as tokens_out_usd_total,
-         COALESCE(eth_value_decimal, 0) as eth_value_decimal,
-         COALESCE(eth_price_usd, 3500) as eth_price_usd
-       FROM transaction_enrichment
-       WHERE LOWER(wallet_address) = LOWER($1)
-         AND method_id = ANY($2)
-         AND LOWER(contract_address) = ANY($3)`,
-            [address, SWAP_METHOD_IDS, ALLOWED_DEX_CONTRACTS]
-        );
-
+        // Swap tx hashes per DEX via Blockscout (method selectors enforced
+        // server-side). USD per tx = max transfer leg (same semantics as the
+        // old log parser): DeFi Llama price first (parity), Blockscout
+        // exchange_rate fallback, native ETH value last.
+        const ethPriceSwap = await priceService.getCurrentPrice().catch(() => 3500);
         const platformAggregates = new Map<string, { ethValue: number; usdValue: number; txCount: number }>();
+        let swapPartial = false;
 
-        for (const row of result.rows) {
-            const contractAddr = row.contract_address.toLowerCase();
-            const txHash = row.tx_hash;
+        await Promise.all(ALLOWED_DEX_CONTRACTS.map(async (contractAddr) => {
             const platformName = SWAP_CONTRACTS[contractAddr] || 'Unknown DEX';
+            const { hashes } = await getProtocolTxHashes(walletAddress, contractAddr, SWAP_METHOD_IDS);
+            const { cached, uncached } = await partitionTxHashes(hashes);
+            const priced = [...cached, ...uncached.slice(0, 1000)];
+            if (cached.length + Math.min(uncached.length, 1000) < hashes.length) {
+                swapPartial = true;
+            }
+            const txData = await getTxData(priced);
 
-            let usdValue = parseFloat(row.total_usd_volume || '0');
-
-            if (usdValue === 0) {
-                usdValue = parseFloat(row.tokens_in_usd_total || '0') + parseFloat(row.tokens_out_usd_total || '0');
+            // Batch missing-token price lookups (was: sequential await per
+            // leg, up to 3s DeFi Llama timeout each).
+            const missingTokens = [...new Set(
+                priced.flatMap((h) => txData.get(h)?.legs || [])
+                    .filter((leg) => !(leg.exchangeRate > 0))
+                    .map((leg) => leg.tokenAddress.toLowerCase())
+            )];
+            const legPrices = new Map<string, number>();
+            if (missingTokens.length > 0) {
+                const fetched = await mapWithConcurrency(missingTokens, 10, (t) =>
+                    getTokenInfo(t).then((info) => (info.price > 0.00002 ? info.price : 0)).catch(() => 0)
+                );
+                missingTokens.forEach((t, i) => legPrices.set(t, fetched[i]));
             }
 
-            // Primary method: Parse logs to get the first Transfer event
-            if (usdValue === 0 && row.logs) {
-                try {
-                    const logs = typeof row.logs === 'string' ? JSON.parse(row.logs) : row.logs;
-                    const ethPrice = parseFloat(row.eth_price_usd || '3500');
-                    usdValue = await parseSwapVolumeFromLogs(logs, ethPrice, txHash, platformName);
-                } catch (error) {
-                    console.error(`[Swap ${txHash}] Error parsing logs:`, error);
+            let usdSum = 0;
+            for (const h of priced) {
+                const legs = txData.get(h)?.legs || [];
+                let txUsd = 0;
+                for (const leg of legs) {
+                    // Blockscout exchange_rate first (instant, no extra call);
+                    // DeFi Llama fallback when unlisted (same source as before).
+                    const price = leg.exchangeRate || legPrices.get(leg.tokenAddress.toLowerCase()) || 0;
+                    const v = leg.amount * price;
+                    if (v > txUsd) txUsd = v;
                 }
-            }
-
-            // Fallback: Use ETH value if no token transfers found
-            if (usdValue === 0) {
-                const ethValue = parseFloat(row.eth_value_decimal || '0');
-                const ethPrice = parseFloat(row.eth_price_usd || '3500');
-                if (ethValue > 0) {
-                    usdValue = ethValue * ethPrice;
-                } else if (row.value) {
-                    const rawValue = BigInt(row.value || '0');
-                    const ethFromRaw = Number(rawValue) / 1e18;
-                    usdValue = ethFromRaw * ethPrice;
+                if (txUsd === 0) {
+                    const meta = txData.get(h)?.meta;
+                    txUsd = safeWeiToEth(meta?.value) * ethPriceSwap;
                 }
+                usdSum += txUsd;
             }
 
-            const existing = platformAggregates.get(contractAddr) || { ethValue: 0, usdValue: 0, txCount: 0 };
-            existing.usdValue += usdValue;
-            existing.txCount += 1;
-            platformAggregates.set(contractAddr, existing);
-        }
+            platformAggregates.set(contractAddr, { ethValue: 0, usdValue: usdSum, txCount: hashes.length });
+        }));
 
         let totalEth = 0;
         let totalUsd = 0;
@@ -917,6 +213,7 @@ router.get('/:address/swap', async (req: Request, res: Response) => {
         const byPlatform: SwapVolumeResponse['byPlatform'] = [];
 
         for (const [contractAddr, aggregate] of platformAggregates) {
+            if (aggregate.txCount === 0) continue; // omit empty platforms
             totalEth += aggregate.ethValue;
             totalUsd += aggregate.usdValue;
             totalTxCount += aggregate.txCount;
@@ -950,12 +247,17 @@ router.get('/:address/swap', async (req: Request, res: Response) => {
             totalEth,
             totalUsd,
             txCount: totalTxCount,
+            partial: swapPartial,
             byPlatform,
         };
 
         responseCache.set(cacheKey, response);
+        if (!swapPartial) {
+            setLongCache(swapLcKey, response);
+        }
 
-        return res.json(response);
+        return response;
+        }));
     } catch (error) {
         console.error('Error fetching swap volume:', error);
         res.status(500).json({ error: 'Failed to fetch swap volume' });
@@ -981,6 +283,7 @@ export interface TotalVolumeResponse {
         usd: number;
         count: number;
     };
+    partial?: boolean;
 }
 
 // GET /api/wallet/:address/volume
@@ -999,21 +302,30 @@ router.get('/:address/volume', async (req: Request, res: Response) => {
         if (cached) {
             return res.json(cached);
         }
+        // The 30-page outflow walk is shared, not repeated, when the
+        // frontend + score fire together.
+        const volumeLcKey = `long:${cacheKey}`;
+        const volumeInf = getInflight<TotalVolumeResponse>(volumeLcKey);
+        if (volumeInf) {
+            try {
+                return res.json(await volumeInf);
+            } catch {
+                // Fall through and compute fresh if the shared run failed.
+            }
+        }
 
-        const [ethPriceResult, outgoingResult] = await Promise.all([
-            query<{ price_usd: number }>(`SELECT price_usd FROM eth_prices ORDER BY timestamp DESC LIMIT 1`),
-            query<{ total_eth: string; tx_count: string }>(`
-        SELECT
-          COALESCE(SUM(CAST(eth_value AS NUMERIC) / 1e18), 0) as total_eth,
-          COUNT(*) as tx_count
-        FROM transaction_details
-        WHERE wallet_address = $1 AND status = 1
-      `, [walletAddress])
-        ]);
-
-        const ethPrice = ethPriceResult[0]?.price_usd || 3500;
-        const outgoingEth = parseFloat(outgoingResult[0]?.total_eth || '0');
-        const outgoingCount = parseInt(outgoingResult[0]?.tx_count || '0');
+        return res.json(await withInflight<TotalVolumeResponse>(volumeLcKey, async () => {
+        const ethPrice = await priceService.getCurrentPrice().catch(() => 3500);
+        // Circulated volume = native ETH sent (status ok), via Blockscout
+        // with incremental refresh (see blockscout-service).
+        const { outWei, count: outgoingCount, complete: volumeComplete } =
+            await getNativeOutflow(walletAddress);
+        let outgoingEth = 0;
+        try {
+            outgoingEth = Number(BigInt(outWei || '0')) / 1e18;
+        } catch {
+            outgoingEth = 0;
+        }
 
         const incomingEth = 0;
         const incomingCount = 0;
@@ -1025,6 +337,7 @@ router.get('/:address/volume', async (req: Request, res: Response) => {
             totalEth,
             totalUsd,
             txCount: outgoingCount + incomingCount,
+            partial: !volumeComplete,
             incoming: {
                 eth: incomingEth,
                 usd: incomingEth * ethPrice,
@@ -1039,7 +352,8 @@ router.get('/:address/volume', async (req: Request, res: Response) => {
 
         responseCache.set(cacheKey, response);
 
-        return res.json(response);
+        return response;
+        }));
     } catch (error) {
         console.error('Error fetching total volume:', error);
 
@@ -1108,6 +422,9 @@ const TRACKED_FUNCTIONS = {
     MINT: 'mint',
 };
 
+// NFT2Me counts are append-only (same rationale as Tydro long cache).
+const NFT2ME_LONG_CACHE_TTL = 5 * 60 * 1000;
+
 interface Nft2MeResponse {
     collectionsCreated: number;
     nftsMinted: number;
@@ -1130,32 +447,39 @@ router.get('/:address/nft2me', async (req: Request, res: Response) => {
         if (cached) {
             return res.json(cached);
         }
+        // Counts are append-only: share in-flight work, cache longer.
+        const nft2meLcKey = `long:${cacheKey}`;
+        const nft2meLc = getLongCache<Nft2MeResponse>(nft2meLcKey, NFT2ME_LONG_CACHE_TTL);
+        if (nft2meLc) {
+            responseCache.set(cacheKey, nft2meLc);
+            return res.json(nft2meLc);
+        }
+        const nft2meInf = getInflight<Nft2MeResponse>(nft2meLcKey);
+        if (nft2meInf) {
+            try {
+                return res.json(await nft2meInf);
+            } catch {
+                // Fall through and compute fresh if the shared run failed.
+            }
+        }
 
+        return res.json(await withInflight<Nft2MeResponse>(nft2meLcKey, async () => {
         const factoryLower = NFT2ME_CONTRACTS.FACTORY.toLowerCase();
         const minterLower = NFT2ME_CONTRACTS.MINTER.toLowerCase();
 
-        const result = await query<{
-            collections_created: string;
-            nfts_minted: string;
-        }>(`
-      SELECT
-        COUNT(*) FILTER (WHERE contract_address = $1 AND function_name = $2) as collections_created,
-        COUNT(*) FILTER (WHERE contract_address = $3 AND function_name = $4) as nfts_minted
-      FROM transaction_details
-      WHERE wallet_address = $5
-        AND status = 1
-        AND (
-          (contract_address = $1 AND function_name = $2) OR
-          (contract_address = $3 AND function_name = $4)
-        )
-    `, [
-            factoryLower, TRACKED_FUNCTIONS.CREATE_COLLECTION,
-            minterLower, TRACKED_FUNCTIONS.MINT,
-            walletAddress
+        // Counts via Blockscout (method names resolved per tx; sets are tiny).
+        const [createdRes, mintedRes] = await Promise.all([
+            getProtocolCount(
+                walletAddress, 'nft2me-created', factoryLower, null,
+                [TRACKED_FUNCTIONS.CREATE_COLLECTION]
+            ),
+            getProtocolCount(
+                walletAddress, 'nft2me-minted', minterLower, null,
+                [TRACKED_FUNCTIONS.MINT]
+            ),
         ]);
-
-        const collectionsCreated = parseInt(result[0]?.collections_created || '0', 10);
-        const nftsMinted = parseInt(result[0]?.nfts_minted || '0', 10);
+        const collectionsCreated = createdRes.count;
+        const nftsMinted = mintedRes.count;
 
         const response: Nft2MeResponse = {
             collectionsCreated,
@@ -1164,8 +488,10 @@ router.get('/:address/nft2me', async (req: Request, res: Response) => {
         };
 
         responseCache.set(cacheKey, response);
+        setLongCache(nft2meLcKey, response);
 
-        return res.json(response);
+        return response;
+        }));
     } catch (error) {
         console.error('Error fetching NFT2Me data:', error);
         res.status(500).json({ error: 'Failed to fetch NFT2Me data' });
@@ -1188,12 +514,6 @@ const SUPPLY_METHODS = ['0x474cf53d', '0x617ba037'];
 const WITHDRAW_METHODS = ['0x80500d20', '0x69328dec'];
 const BORROW_METHODS = ['0xe74f7b85', '0xa415bcad'];
 const REPAY_METHODS = ['0xbcc3c255', '0x573ade81'];
-
-// Event signatures (topic[0])
-const SUPPLY_EVENT_TOPIC = '0x2b627736bca15cd5381dcf80b0bf11fd197d01a037c52b927a881a10fb73ba61';
-const WITHDRAW_EVENT_TOPIC = '0x3115d1449a7b732c986cba18244e897a450f61e1bb8d589cd2e69e6c8924f9f7';
-const BORROW_EVENT_TOPIC = '0xb3d084820fb1a9decffb176436bd02558d15fac9b0ddfed8c465bc7359d7dce0';
-const REPAY_EVENT_TOPIC = '0xa534c8dbe71f871f9f3530e97a74601fea17b426cae02e1c5aee42c96c784051';
 
 // Known tokens for price calculation
 const KNOWN_TOKENS: Record<string, { symbol: string; decimals: number; usdPegged?: boolean; ethPegged?: boolean; btcPegged?: boolean }> = {
@@ -1231,20 +551,6 @@ async function getBtcPrice(): Promise<number> {
     return btcPriceCache?.price || 95000;
 }
 
-interface TydroLogEntry {
-    event?: string;
-    data?: string;
-    topics?: string[];
-    address?: { id?: string };
-}
-
-interface TydroEnrichedTx {
-    tx_hash: string;
-    method_id: string;
-    value: string | null;
-    logs: TydroLogEntry[] | null;
-}
-
 interface TydroResponse {
     currentSupplyUsd: number;
     currentSupplyEth: number;
@@ -1262,48 +568,13 @@ interface TydroResponse {
     totalRepaidEth: number;
     borrowCount: number;
     repayCount: number;
+    partial?: boolean;
 }
 
-function parseAmountFromEventData(
-    data: string,
-    reserve: string,
-    eventType: 'supply' | 'withdraw' | 'borrow' | 'repay'
-): { amount: bigint; decimals: number } | null {
-    try {
-        if (!data || data.length < 66) return null;
-
-        const cleanData = data.startsWith('0x') ? data.slice(2) : data;
-        let amountHex: string;
-
-        if (eventType === 'supply') {
-            amountHex = cleanData.length >= 128 ? cleanData.slice(64, 128) : cleanData.slice(-64);
-        } else if (eventType === 'withdraw') {
-            amountHex = cleanData.length >= 192 ? cleanData.slice(128, 192) : cleanData.slice(-64);
-        } else if (eventType === 'borrow') {
-            amountHex = cleanData.length >= 128 ? cleanData.slice(64, 128) : cleanData.slice(-64);
-        } else if (eventType === 'repay') {
-            amountHex = cleanData.length >= 64 ? cleanData.slice(0, 64) : cleanData;
-        } else {
-            amountHex = cleanData.slice(-64);
-        }
-
-        const amount = BigInt('0x' + amountHex);
-        const token = KNOWN_TOKENS[reserve.toLowerCase()];
-        const decimals = token?.decimals || 18;
-
-        return { amount, decimals };
-    } catch {
-        return null;
-    }
-}
-
-function getReserveFromTopics(topics: string[]): string | null {
-    if (topics && topics.length > 1) {
-        const reserveTopic = topics[1];
-        return '0x' + reserveTopic.slice(-40).toLowerCase();
-    }
-    return null;
-}
+// Tydro history is append-only: a 5-min long cache + in-flight dedup stops
+// the frontend-direct + score-self-fetch pair from each running the full
+// multi-hundred-tx pricing pass (the 7.6s stream tail).
+const TYDRO_LONG_CACHE_TTL = 5 * 60 * 1000;
 
 async function getTokenPriceUsd(tokenAddress: string, ethPrice: number): Promise<number> {
     const addr = tokenAddress.toLowerCase();
@@ -1313,98 +584,6 @@ async function getTokenPriceUsd(tokenAddress: string, ethPrice: number): Promise
     if (token?.btcPegged) return await getBtcPrice();
     return ethPrice;
 }
-
-async function parseTydroTransaction(
-    tx: TydroEnrichedTx,
-    ethPrice: number
-): Promise<{ action: 'supply' | 'withdraw' | 'borrow' | 'repay'; amountUsd: number; amountEth: number; reserve: string } | null> {
-    const methodId = tx.method_id?.toLowerCase();
-
-    let action: 'supply' | 'withdraw' | 'borrow' | 'repay';
-    let eventTopic: string;
-
-    if (SUPPLY_METHODS.includes(methodId)) {
-        action = 'supply';
-        eventTopic = SUPPLY_EVENT_TOPIC;
-    } else if (WITHDRAW_METHODS.includes(methodId)) {
-        action = 'withdraw';
-        eventTopic = WITHDRAW_EVENT_TOPIC;
-    } else if (BORROW_METHODS.includes(methodId)) {
-        action = 'borrow';
-        eventTopic = BORROW_EVENT_TOPIC;
-    } else if (REPAY_METHODS.includes(methodId)) {
-        action = 'repay';
-        eventTopic = REPAY_EVENT_TOPIC;
-    } else {
-        return null;
-    }
-
-    // For ETH deposit (depositETH), use tx value directly
-    if (methodId === '0x474cf53d') {
-        const valueWei = BigInt(tx.value || '0');
-        const amountEth = Number(valueWei) / 1e18;
-        const amountUsd = amountEth * ethPrice;
-        return { action, amountUsd, amountEth, reserve: '0x4200000000000000000000000000000000000006' };
-    }
-
-    // For ETH repay (repayETH), use tx value directly
-    if (methodId === '0xbcc3c255') {
-        const valueWei = BigInt(tx.value || '0');
-        const amountEth = Number(valueWei) / 1e18;
-        const amountUsd = amountEth * ethPrice;
-
-        if (amountEth === 0 && tx.logs && Array.isArray(tx.logs)) {
-            for (const log of tx.logs) {
-                const topics = log.topics;
-                if (!topics || topics.length === 0) continue;
-
-                if (topics[0]?.toLowerCase() === REPAY_EVENT_TOPIC.toLowerCase()) {
-                    const reserve = getReserveFromTopics(topics);
-                    if (!reserve) continue;
-
-                    const parsed = parseAmountFromEventData(log.data || '', reserve, 'repay');
-                    if (!parsed) continue;
-
-                    const token = KNOWN_TOKENS[reserve];
-                    const tokenPrice = await getTokenPriceUsd(reserve, ethPrice);
-                    const amount = Number(parsed.amount) / Math.pow(10, parsed.decimals);
-                    const amountUsdFromLog = amount * tokenPrice;
-                    const amountEthFromLog = token?.ethPegged ? amount : 0;
-
-                    return { action, amountUsd: amountUsdFromLog, amountEth: amountEthFromLog, reserve };
-                }
-            }
-        }
-
-        return { action, amountUsd, amountEth, reserve: '0x4200000000000000000000000000000000000006' };
-    }
-
-    if (!tx.logs || !Array.isArray(tx.logs)) return null;
-
-    for (const log of tx.logs) {
-        const topics = log.topics;
-        if (!topics || topics.length === 0) continue;
-
-        if (topics[0]?.toLowerCase() === eventTopic.toLowerCase()) {
-            const reserve = getReserveFromTopics(topics);
-            if (!reserve) continue;
-
-            const parsed = parseAmountFromEventData(log.data || '', reserve, action);
-            if (!parsed) continue;
-
-            const token = KNOWN_TOKENS[reserve];
-            const tokenPrice = await getTokenPriceUsd(reserve, ethPrice);
-            const amount = Number(parsed.amount) / Math.pow(10, parsed.decimals);
-            const amountUsd = amount * tokenPrice;
-            const amountEth = token?.ethPegged ? amount : 0;
-
-            return { action, amountUsd, amountEth, reserve };
-        }
-    }
-
-    return null;
-}
-
 
 // GET /api/wallet/:address/tydro
 router.get('/:address/tydro', async (req: Request, res: Response) => {
@@ -1422,25 +601,43 @@ router.get('/:address/tydro', async (req: Request, res: Response) => {
         if (cached) {
             return res.json(cached);
         }
+        const tydrLcKey = `long:${cacheKey}`;
+        const tydrLc = getLongCache<TydroResponse>(tydrLcKey, TYDRO_LONG_CACHE_TTL);
+        if (tydrLc && !tydrLc.partial) {
+            responseCache.set(cacheKey, tydrLc);
+            return res.json(tydrLc);
+        }
+        const tydrInf = getInflight<TydroResponse>(tydrLcKey);
+        if (tydrInf) {
+            try {
+                return res.json(await tydrInf);
+            } catch {
+                // Fall through and compute fresh if the shared run failed.
+            }
+        }
 
+        return res.json(await withInflight<TydroResponse>(tydrLcKey, async () => {
         const ethPrice = await priceService.getCurrentPrice();
         const allMethods = [...SUPPLY_METHODS, ...WITHDRAW_METHODS, ...BORROW_METHODS, ...REPAY_METHODS];
 
-        const txs = await query<TydroEnrichedTx>(`
-      SELECT
-        tx_hash,
-        method_id,
-        value,
-        logs
-      FROM transaction_enrichment
-      WHERE LOWER(wallet_address) = LOWER($1)
-        AND LOWER(contract_address) = ANY($2)
-        AND method_id = ANY($3)
-      ORDER BY created_at ASC
-    `, [walletAddress, TYDRO_CONTRACTS, allMethods]);
+        // Tx hashes across both Tydro contracts (selectors enforced server-side).
+        // Amounts come from transfer legs: first non-receipt-token leg OUT
+        // of the wallet (supply/repay) or INTO it (withdraw/borrow).
+        // Counterparty is deliberately NOT constrained to the gateway/pool:
+        // gateway-multicall flows route tokens through intermediate contracts
+        // (proven: USDT0 wallet->0x99cbf1... on a supply tx). Direction +
+        // receipt-exclusion identifies the action amount; each tx carries a
+        // single tracked action by method-filter construction.
+        // Native-ETH flows (depositETH/repayETH) use tx value exactly as before.
+        const RECEIPT_TOKEN = /^(aInk|variableDebt|stableDebt)/i;
 
+        const [gwHashes, poolHashes] = await Promise.all([
+            getProtocolTxHashes(walletAddress, TYDRO_CONTRACTS[0], allMethods),
+            getProtocolTxHashes(walletAddress, TYDRO_CONTRACTS[1], allMethods),
+        ]);
+        const allHashes = [...new Set([...gwHashes.hashes, ...poolHashes.hashes])];
 
-        if (txs.length === 0) {
+        if (allHashes.length === 0) {
             const emptyResponse: TydroResponse = {
                 currentSupplyUsd: 0,
                 currentSupplyEth: 0,
@@ -1459,8 +656,17 @@ router.get('/:address/tydro', async (req: Request, res: Response) => {
                 borrowCount: 0,
                 repayCount: 0,
             };
-            return res.json(emptyResponse);
+            responseCache.set(cacheKey, emptyResponse);
+            setLongCache(tydrLcKey, emptyResponse);
+            return emptyResponse;
         }
+
+        const { cached: cachedHashes, uncached: uncachedHashes } = await partitionTxHashes(allHashes);
+        const priced = [...cachedHashes, ...uncachedHashes.slice(0, 500)];
+        const partial = cachedHashes.length + Math.min(uncachedHashes.length, 500) < allHashes.length;
+        const txData = await getTxData(priced);
+        // Oldest-first for the running-balance clamps below.
+        priced.sort((a, b) => String(txData.get(a)?.meta.timestamp || '').localeCompare(String(txData.get(b)?.meta.timestamp || '')));
 
         const supplyBalances: Map<string, number> = new Map();
         const borrowBalances: Map<string, number> = new Map();
@@ -1471,11 +677,129 @@ router.get('/:address/tydro', async (req: Request, res: Response) => {
         let totalRepaidUsd = 0, totalRepaidEth = 0;
         let depositCount = 0, withdrawCount = 0, borrowCount = 0, repayCount = 0;
 
-        for (const tx of txs) {
-            const parsed = await parseTydroTransaction(tx, ethPrice);
-            if (!parsed) continue;
+        const priceReserve = async (reserve: string): Promise<number> => getTokenPriceUsd(reserve, ethPrice);
+        // Withdraw event topic for the logs fallback below (native-ETH
+        // receipts arrive via internal transfers, invisible in token legs).
+        const WITHDRAW_EVENT_TOPIC = '0x3115d1449a7b732c986cba18244e897a450f61e1bb8d589cd2e69e6c8924f9f7';
+        const firstLeg = (
+            legs: Array<{ tokenAddress: string; symbol: string; amount: number; fromAddress: string; toAddress: string }>,
+            fromWallet: boolean
+        ) => legs.find((l) =>
+            !RECEIPT_TOKEN.test(l.symbol || '') &&
+            (fromWallet ? l.fromAddress === walletAddress : l.toAddress === walletAddress)
+        );
 
-            const { action, amountUsd, amountEth, reserve } = parsed;
+        // Pass 1 (sync): classify + resolve legs, collecting the distinct
+        // reserves needing a price and the withdraw txs needing log lookup.
+        // Previously each tx awaited priceReserve (CoinGecko for kBTC, up to
+        // 3s) and getTxLogs serially - N txs x seconds = the 7.6s tail.
+        type TydroParsed = { action: 'supply' | 'withdraw' | 'borrow' | 'repay'; amountUsd: number; amountEth: number; reserve: string };
+        const parsed = new Map<string, TydroParsed>();
+        const legAmountByTx = new Map<string, number>();
+        const reservesNeeded = new Set<string>();
+        const withdrawsNeedingLogs: string[] = [];
+        for (const h of priced) {
+            const data = txData.get(h);
+            if (!data) continue;
+            const selector = (data.meta.selector || '').toLowerCase();
+            let action: 'supply' | 'withdraw' | 'borrow' | 'repay' | null = null;
+            if (SUPPLY_METHODS.includes(selector)) action = 'supply';
+            else if (WITHDRAW_METHODS.includes(selector)) action = 'withdraw';
+            else if (BORROW_METHODS.includes(selector)) action = 'borrow';
+            else if (REPAY_METHODS.includes(selector)) action = 'repay';
+            if (!action) continue;
+
+            if (selector === '0x474cf53d') {
+                // ETH deposit (depositETH): tx value directly, as before.
+                // Counted even when $0 (matches old behavior: reserve was
+                // always set for depositETH).
+                const amountEthV = safeWeiToEth(data.meta.value);
+                parsed.set(h, { action, amountUsd: amountEthV * ethPrice, amountEth: amountEthV, reserve: '0x4200000000000000000000000000000000000006' });
+                continue;
+            }
+            if (selector === '0xbcc3c255') {
+                // ETH repay (repayETH): tx value directly, as before.
+                const amountEthV = safeWeiToEth(data.meta.value);
+                if (amountEthV > 0) {
+                    parsed.set(h, { action, amountUsd: amountEthV * ethPrice, amountEth: amountEthV, reserve: '0x4200000000000000000000000000000000000006' });
+                }
+                continue;
+            }
+            const wantFromWallet = action === 'supply' || action === 'repay';
+            const leg = firstLeg(data.legs, wantFromWallet);
+            if (leg) {
+                reservesNeeded.add(leg.tokenAddress.toLowerCase());
+                parsed.set(h, { action, amountUsd: 0, amountEth: 0, reserve: leg.tokenAddress });
+                // Stash leg amount on the entry via closure map below.
+                legAmountByTx.set(h, leg.amount);
+            } else if (action === 'withdraw') {
+                withdrawsNeedingLogs.push(h);
+                parsed.set(h, { action, amountUsd: 0, amountEth: 0, reserve: '' });
+            }
+            // Txs with neither leg nor withdraw fallback carry no resolvable
+            // amount (matches old behavior: unparseable txs were skipped).
+        }
+
+        // Batch: all reserve prices (concurrency-capped) + all withdraw logs
+        // (single call, internally concurrent) in parallel.
+        const pricedReserves = [...reservesNeeded];
+        const [reservePrices, withdrawLogsMap] = await Promise.all([
+            (async () => {
+                const entries = await mapWithConcurrency(pricedReserves, 10, (r) => priceReserve(r).catch(() => ethPrice));
+                return new Map(pricedReserves.map((r, i) => [r, entries[i]]));
+            })(),
+            withdrawsNeedingLogs.length > 0 ? getTxLogs(withdrawsNeedingLogs) : Promise.resolve(new Map()),
+        ]);
+        for (const [h, amt] of legAmountByTx) {
+            const entry = parsed.get(h);
+            if (!entry || entry.reserve === '') continue;
+            const key = entry.reserve.toLowerCase();
+            const tokenPrice = reservePrices.get(key) ?? ethPrice;
+            const token = KNOWN_TOKENS[key];
+            entry.amountUsd = amt * tokenPrice;
+            entry.amountEth = token?.ethPegged ? amt : 0;
+        }
+        // Withdraw fallback: native-ETH receipts travel via internal
+        // transfers (no token leg). The Withdraw event carries the
+        // reserve + amount regardless of routing.
+        for (const h of withdrawsNeedingLogs) {
+            const entry = parsed.get(h);
+            if (!entry || entry.reserve !== '') continue;
+            for (const log of withdrawLogsMap.get(h) || []) {
+                if ((log.topics?.[0] || '').toLowerCase() !== WITHDRAW_EVENT_TOPIC) continue;
+                const topic1 = log.topics?.[1] || '';
+                if (!topic1 || topic1.length < 42) continue;
+                const reserveAddr = ('0x' + topic1.slice(-40)).toLowerCase();
+                const rawData = log.data || '';
+                const dataHex = rawData.startsWith('0x') ? rawData.slice(2) : rawData;
+                // Withdraw(reserve,user,to,amount): 3 indexed params, so
+                // data is a single uint256 amount (32 bytes). Take the
+                // last word to stay compatible with wider layouts.
+                if (dataHex.length < 64) continue;
+                let amount = 0;
+                try {
+                    amount = Number(BigInt('0x' + dataHex.slice(-64)));
+                } catch {
+                    continue;
+                }
+                const token = KNOWN_TOKENS[reserveAddr];
+                const decimals = token?.decimals || 18;
+                const tokenPrice = reservePrices.get(reserveAddr) ?? await priceReserve(reserveAddr).catch(() => ethPrice);
+                const amt = amount / Math.pow(10, decimals);
+                entry.reserve = reserveAddr;
+                entry.amountUsd = amt * tokenPrice;
+                entry.amountEth = token?.ethPegged ? amt : 0;
+                break;
+            }
+        }
+
+        // Pass 2 (sync): aggregate oldest-first (priced already sorted).
+        for (const h of priced) {
+            const entry = parsed.get(h);
+            // Count only txs with a resolved amount (matches old behavior,
+            // where unparseable txs returned null and were skipped).
+            if (!entry || entry.reserve === '') continue;
+            const { action, amountUsd, amountEth, reserve } = entry;
 
             switch (action) {
                 case 'supply':
@@ -1536,13 +860,46 @@ router.get('/:address/tydro', async (req: Request, res: Response) => {
             totalRepaidEth: Math.round(totalRepaidEth * 10000) / 10000,
             borrowCount,
             repayCount,
+            partial,
         };
 
         responseCache.set(cacheKey, response);
+        if (!partial) {
+            setLongCache(tydrLcKey, response);
+        }
 
-        return res.json(response);
+        return response;
+        }));
     } catch (error) {
         console.error('Error fetching Tydro data:', error);
         res.status(500).json({ error: 'Failed to fetch Tydro data' });
     }
 });
+
+// Safe wei -> ETH: one malformed `value` must not throw and wipe a whole
+// flow's volume (previously `Number(BigInt(v))` threw inside the loop and
+// the catch skipped ALL bridge-OUT txs). Shared by swap + tydro; the bridge
+// service carries its own copy until its extraction completes.
+function safeWeiToEth(value: string | null | undefined): number {
+    if (!value || value === '0') return 0;
+    try {
+        return Number(BigInt(value)) / 1e18;
+    } catch {
+        return 0;
+    }
+}
+
+// Bounded parallel map (concurrency cap so we don't spike DeFi Llama /
+// Blockscout). Preserves input order.
+async function mapWithConcurrency<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+    const results: R[] = new Array(items.length);
+    let next = 0;
+    const workers = new Array(Math.min(limit, items.length)).fill(0).map(async () => {
+        while (next < items.length) {
+            const idx = next++;
+            results[idx] = await fn(items[idx]);
+        }
+    });
+    await Promise.all(workers);
+    return results;
+}

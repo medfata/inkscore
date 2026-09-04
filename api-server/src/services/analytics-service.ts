@@ -18,10 +18,13 @@ const WETH_ADDRESS = '0x4200000000000000000000000000000000000006'.toLowerCase();
 const KNOWN_TOKENS: Record<string, { symbol: string; decimals: number; usdPegged?: boolean; coingeckoId?: string }> = {
   // Stablecoins (1:1 with USD)
   '0x0200c29006150606b650577bbe7b6248f58470c1': { symbol: 'USDT0', decimals: 6, usdPegged: true },
+  '0x2d270e6886d130d724215a266106e6832161eaed': { symbol: 'USDC', decimals: 6, usdPegged: true },
   '0xeb466342c4d449bc9f53a865d5cb90586f405215': { symbol: 'axlUSDC', decimals: 6, usdPegged: true },
   '0xf93d5ae5e9a3b91eb8f2962f74f8930c5d89b2b3': { symbol: 'USDC', decimals: 6, usdPegged: true },
   // WETH (use ETH price)
   [WETH_ADDRESS]: { symbol: 'WETH', decimals: 18, coingeckoId: 'ethereum' },
+  // kBTC (Bitcoin-pegged token, 1:1 backed by BTC in Kraken custody)
+  '0x73e0c0d45e048d25fc26fa3159b0aa04bfa4db98': { symbol: 'kBTC', decimals: 8, coingeckoId: 'bitcoin' },
 };
 
 // Functions where the USD value needs to be extracted from input parameters
@@ -77,13 +80,21 @@ const PRICE_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 const analyticsCache: Map<string, { data: UserAnalyticsResponse; timestamp: number }> = new Map();
 const ANALYTICS_CACHE_TTL = 30 * 1000; // 30 seconds
 
+// ERC20 decimals/symbol are immutable: permanent in-memory cache + dedup.
+const erc20InfoCache = new Map<string, { decimals: number; symbol: string }>();
+const erc20InfoInflight = new Map<string, Promise<{ decimals: number; symbol: string }>>();
+const ERC20_INFO_CACHE_MAX = 5000;
+
 
 export class AnalyticsService {
   private rpcClient = createPublicClient({
     transport: http(RPC_URL),
   });
 
-  // Get token info (decimals, symbol) - fetches from RPC if not known
+  // Get token info (decimals, symbol) - fetches from RPC if not known.
+  // Immutable on-chain data: cached permanently in-memory (unbounded growth
+  // is capped) so the all-metrics fan-out doesn't re-read the same tokens
+  // on every dashboard load.
   private async getTokenInfo(tokenAddress: string): Promise<{ decimals: number; symbol: string }> {
     const addr = tokenAddress.toLowerCase();
 
@@ -92,24 +103,34 @@ export class AnalyticsService {
       return { decimals: KNOWN_TOKENS[addr].decimals, symbol: KNOWN_TOKENS[addr].symbol };
     }
 
-    // Fetch from RPC
-    try {
-      const [decimals, symbol] = await Promise.all([
-        this.rpcClient.readContract({
-          address: tokenAddress as `0x${string}`,
-          abi: erc20Abi,
-          functionName: 'decimals',
-        }),
-        this.rpcClient.readContract({
-          address: tokenAddress as `0x${string}`,
-          abi: erc20Abi,
-          functionName: 'symbol',
-        }),
-      ]);
-      return { decimals: Number(decimals), symbol: symbol as string };
-    } catch {
-      return { decimals: 18, symbol: 'UNKNOWN' };
-    }
+    const cachedInfo = erc20InfoCache.get(addr);
+    if (cachedInfo) return cachedInfo;
+    if (erc20InfoInflight.has(addr)) return erc20InfoInflight.get(addr)!;
+    const p = (async () => {
+      try {
+        const [decimals, symbol] = await Promise.all([
+          this.rpcClient.readContract({
+            address: tokenAddress as `0x${string}`,
+            abi: erc20Abi,
+            functionName: 'decimals',
+          }),
+          this.rpcClient.readContract({
+            address: tokenAddress as `0x${string}`,
+            abi: erc20Abi,
+            functionName: 'symbol',
+          }),
+        ]);
+        const info = { decimals: Number(decimals), symbol: symbol as string };
+        if (erc20InfoCache.size < ERC20_INFO_CACHE_MAX) erc20InfoCache.set(addr, info);
+        return info;
+      } catch {
+        return { decimals: 18, symbol: 'UNKNOWN' };
+      } finally {
+        erc20InfoInflight.delete(addr);
+      }
+    })();
+    erc20InfoInflight.set(addr, p);
+    return p;
   }
 
   // Get token price in USD
@@ -161,7 +182,8 @@ export class AnalyticsService {
   private async fetchCoinGeckoPrice(coingeckoId: string): Promise<number> {
     try {
       const response = await fetch(
-        `https://api.coingecko.com/api/v3/simple/price?ids=${coingeckoId}&vs_currencies=usd`
+        `https://api.coingecko.com/api/v3/simple/price?ids=${coingeckoId}&vs_currencies=usd`,
+        { signal: AbortSignal.timeout(5000) }
       );
       if (!response.ok) return 0;
       const data = await response.json() as Record<string, { usd?: number }>;
@@ -354,43 +376,48 @@ export class AnalyticsService {
     // Map to store USD values from input data
     const inputDataUsdValues = new Map<string, number>();
 
-    // Fetch input data values for special functions
-    for (const funcName of functionsNeedingInputData) {
+    // Fetch input data values for special functions (independent per
+    // function — run concurrently, not serially).
+    await Promise.all(functionsNeedingInputData.map(async (funcName) => {
       const values = await this.getDefiUsdValues(walletAddress, contractAddresses, funcName, ethPrice);
       values.forEach((value, hash) => inputDataUsdValues.set(hash, value));
-    }
+    }));
 
     // Aggregate results
     let totalCount = 0;
     let totalEth = 0;
     const subAggregates: Record<string, SubAggregate> = {};
 
+    // Resolve input-data USD per (contract, function) with ONE query instead
+    // of one tx_hash lookup per aggregate row (was N+1 roundtrips).
+    const inputUsdByContractFn = new Map<string, number>();
+    if (inputDataUsdValues.size > 0) {
+      const txRows = await query<{ tx_hash: string; contract_address: string; function_name: string | null }>(`
+        SELECT tx_hash, contract_address, function_name
+        FROM transaction_details
+        WHERE wallet_address = $1
+          AND contract_address = ANY($2)
+          AND status = 1
+          ${functionNames.length > 0 ? 'AND function_name = ANY($3)' : ''}
+      `, functionNames.length > 0 ? [walletAddress, contractAddresses, functionNames] : [walletAddress, contractAddresses]);
+      for (const txRow of txRows) {
+        const usdValue = inputDataUsdValues.get(txRow.tx_hash.toLowerCase());
+        if (usdValue === undefined) continue;
+        const key = `${txRow.contract_address.toLowerCase()}|${txRow.function_name}`;
+        inputUsdByContractFn.set(key, (inputUsdByContractFn.get(key) || 0) + usdValue);
+      }
+    }
+
     for (const row of rows) {
       const contract = row.contract_address.toLowerCase();
       const count = parseInt(row.tx_count);
       let eth = parseFloat(row.eth_total) || 0;
-      let usdFromInput = 0;
 
       const funcName = row.function_name;
       const needsInputData = funcName && (DEFI_FUNCTIONS[funcName] || ETH_PARAM_FUNCTIONS[funcName]);
 
-      if (needsInputData && inputDataUsdValues.size > 0) {
-        const txValueRows = await query<{ tx_hash: string }>(`
-          SELECT tx_hash 
-          FROM transaction_details
-          WHERE wallet_address = $1
-            AND contract_address = $2
-            AND function_name = $3
-            AND status = 1
-        `, [walletAddress, contract, funcName]);
-
-        for (const txRow of txValueRows) {
-          const usdValue = inputDataUsdValues.get(txRow.tx_hash.toLowerCase());
-          if (usdValue !== undefined) {
-            usdFromInput += usdValue;
-          }
-        }
-
+      if (needsInputData) {
+        const usdFromInput = inputUsdByContractFn.get(`${contract}|${funcName}`) || 0;
         eth = usdFromInput / ethPrice;
       }
 

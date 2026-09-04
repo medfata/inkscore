@@ -20,6 +20,7 @@ interface NftCollectionHolding {
   name: string;
   address: string;
   logo: string;
+  openseaUrl?: string | null;
   count: number;
 }
 
@@ -65,7 +66,7 @@ export const HoldingsSection: React.FC<HoldingsSectionProps> = ({
   const regularTokens = filteredTokens.filter(token => token.tokenType !== 'meme');
 
   // Custom sort order for meme coins: ANITA -> CAT -> PURPLE -> AK47 -> KRAKMASK -> BERT
-  const memeCoinsOrder = ['ANITA', 'CAT', 'PURPLE', 'ANDRU', 'KRAK', 'BERT'];
+  const memeCoinsOrder = ['ANITA', 'CAT', 'PURPLE', 'ANDRU', 'KRAK', 'BERT', 'BEAST'];
   const sortedMemeCoins = [...memeCoins].sort((a, b) => {
     const indexA = memeCoinsOrder.indexOf(a.symbol);
     const indexB = memeCoinsOrder.indexOf(b.symbol);
@@ -235,18 +236,34 @@ export const HoldingsSection: React.FC<HoldingsSectionProps> = ({
         <div className="flex items-center justify-between mb-5">
           <h3 className="text-lg font-semibold text-white flex items-center gap-2">
             <div className="flex items-center -space-x-3">
-              {sortedNftCollections.slice(0, 3).map((collection, i) => (
-                <img
-                  key={i}
-                  src={getProxiedImageUrl(collection.logo)}
-                  alt={collection.name}
-                  className="w-7 h-7 rounded-full object-cover  bg-slate-800"
-                  style={{ zIndex: 3 - i }}
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${collection.name.charAt(0)}&background=334155&color=94a3b8&size=28`;
-                  }}
-                />
-              ))}
+              {sortedNftCollections.slice(0, 3).map((collection, i) => {
+                const headerIcon = (
+                  <img
+                    src={getProxiedImageUrl(collection.logo)}
+                    alt={collection.name}
+                    className="w-7 h-7 rounded-full object-cover  bg-slate-800"
+                    style={{ zIndex: 3 - i }}
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${collection.name.charAt(0)}&background=334155&color=94a3b8&size=28`;
+                    }}
+                  />
+                );
+                return collection.openseaUrl ? (
+                  <a
+                    key={i}
+                    href={collection.openseaUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title={`View ${collection.name} on OpenSea`}
+                    className="transition-opacity hover:opacity-80"
+                    style={{ zIndex: 3 - i }}
+                  >
+                    {headerIcon}
+                  </a>
+                ) : (
+                  <React.Fragment key={i}>{headerIcon}</React.Fragment>
+                );
+              })}
             </div>
             NFT Collections
           </h3>
@@ -255,31 +272,49 @@ export const HoldingsSection: React.FC<HoldingsSectionProps> = ({
           </span>
         </div>
         <div className="space-y-3 max-h-[280px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
-          {sortedNftCollections.map((collection) => (
-            <div
-              key={collection.address}
-              className="flex items-center justify-between p-3 rounded-lg bg-slate-800/30 hover:bg-slate-800/50 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <img
-                  src={getProxiedImageUrl(collection.logo)}
-                  alt={collection.name}
-                  className="w-10 h-10 rounded-lg object-cover"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(collection.name)}&background=334155&color=94a3b8`;
-                  }}
-                />
-                <div className="font-medium text-white">{collection.name}</div>
+          {sortedNftCollections.map((collection) => {
+            const icon = (
+              <img
+                src={getProxiedImageUrl(collection.logo)}
+                alt={collection.name}
+                className="w-10 h-10 rounded-lg object-cover"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(collection.name)}&background=334155&color=94a3b8`;
+                }}
+              />
+            );
+            const iconWithLink = collection.openseaUrl ? (
+              <a
+                href={collection.openseaUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={`View ${collection.name} on OpenSea`}
+                className="rounded-lg transition-opacity hover:opacity-80 hover:ring-2 hover:ring-pink-500/50"
+              >
+                {icon}
+              </a>
+            ) : (
+              icon
+            );
+            return (
+              <div
+                key={collection.address}
+                className="flex items-center justify-between p-3 rounded-lg bg-slate-800/30 hover:bg-slate-800/50 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  {iconWithLink}
+                  <div className="font-medium text-white">{collection.name}</div>
+                </div>
+                <div className={`px-3 py-1 rounded-lg font-bold font-display ${
+                  collection.count > 0
+                    ? 'bg-pink-500/10 text-pink-400'
+                    : 'bg-slate-800 text-slate-500'
+                }`}>
+                  {collection.count}
+                </div>
               </div>
-              <div className={`px-3 py-1 rounded-lg font-bold font-display ${
-                collection.count > 0 
-                  ? 'bg-pink-500/10 text-pink-400' 
-                  : 'bg-slate-800 text-slate-500'
-              }`}>
-                {collection.count}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>

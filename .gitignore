@@ -46,3 +46,10 @@ next-env.d.ts
 /api-server/dist
 /.kiro
 /.vscode
+
+# session artifacts (do not commit)
+.codex-logs/
+api-server/dev-server.log
+/nul
+nul
+scripts/admin-mint.zip

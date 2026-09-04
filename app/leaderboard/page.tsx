@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Logo } from '../components/Logo';
-import { Trophy, Loader2, ExternalLink, Sparkles, RefreshCw, Menu, X } from '../components/Icons';
+import { Trophy, Loader2, ExternalLink, Sparkles, RefreshCw, Menu, X, Search } from '../components/Icons';
 import Link from 'next/link';
 
 const NFT_CONTRACT_ADDRESS = '0xBE1965cE0D06A79A411FFCD9a1C334638dF77649';
@@ -14,6 +14,7 @@ interface LeaderboardEntry {
   nft_image_url: string;
   score: number;
   rank: string;
+  globalRank?: number;
 }
 
 interface LeaderboardResponse {
@@ -24,10 +25,13 @@ interface LeaderboardResponse {
   totalPages: number;
   hasMore: boolean;
   lastUpdated: string | null;
+  isSearch?: boolean;
 }
 
-async function fetchLeaderboard(page: number): Promise<LeaderboardResponse> {
-  const response = await fetch(`/api/nft/leaderboard?page=${page}`);
+async function fetchLeaderboard(page: number, search?: string): Promise<LeaderboardResponse> {
+  const params = new URLSearchParams({ page: String(page) });
+  if (search) params.set('search', search);
+  const response = await fetch(`/api/nft/leaderboard?${params}`);
   if (!response.ok) {
     throw new Error('Failed to fetch leaderboard');
   }
@@ -64,10 +68,21 @@ export default function LeaderboardPage() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
   const [loadingImages, setLoadingImages] = useState(false);
+  const [searchInput, setSearchInput] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchInput.trim());
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
+  const isSearching = debouncedSearch.length > 0;
 
   const { data, isLoading, error, isFetching } = useQuery({
-    queryKey: ['leaderboard', currentPage],
-    queryFn: () => fetchLeaderboard(currentPage),
+    queryKey: ['leaderboard', currentPage, debouncedSearch],
+    queryFn: () => fetchLeaderboard(currentPage, debouncedSearch),
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
     placeholderData: (previousData) => previousData,
@@ -137,6 +152,10 @@ export default function LeaderboardPage() {
               Leaderboard
               <span className="absolute -bottom-1 left-0 w-full h-0.5 bg-ink-purple"></span>
             </Link>
+            <Link href="/staking" className="text-sm font-medium text-slate-400 hover:text-white transition-colors relative group">
+              Staking
+              <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-ink-purple group-hover:w-full transition-all duration-300"></span>
+            </Link>
           </div>
 
           {/* Mobile Menu Toggle */}
@@ -153,6 +172,7 @@ export default function LeaderboardPage() {
           <div className="md:hidden bg-ink-900 border-b border-slate-800 p-6 space-y-4 animate-fade-in-up">
             <Link href="/how-it-works" className="block text-slate-300">How it Works</Link>
             <Link href="/leaderboard" className="block text-white font-semibold">Leaderboard</Link>
+            <Link href="/staking" className="block text-slate-300">Staking</Link>
           </div>
         )}
       </nav>
@@ -217,22 +237,64 @@ export default function LeaderboardPage() {
           {!isLoading && !error && leaderboard.length === 0 && (
             <div className="text-center py-32 animate-fade-in">
               <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-slate-800/50 border border-slate-700 mb-6">
-                <Trophy size={48} className="text-slate-600" />
+                {isSearching ? <Search size={48} className="text-slate-600" /> : <Trophy size={48} className="text-slate-600" />}
               </div>
-              <h2 className="text-2xl font-bold text-slate-300 mb-2">No NFTs Minted Yet</h2>
-              <p className="text-slate-500 mb-8">Be the first to mint your InkScore and claim the top spot!</p>
-              <Link
-                href="/"
-                className="inline-block px-6 py-3 bg-gradient-to-r from-purple-500/20 to-blue-500/20 border border-purple-500/40 rounded-lg text-purple-400 hover:from-purple-500/30 hover:to-blue-500/30 transition-all"
-              >
-                Go to Dashboard
-              </Link>
+              {isSearching ? (
+                <>
+                  <h2 className="text-2xl font-bold text-slate-300 mb-2">No Wallets Found</h2>
+                  <p className="text-slate-500 mb-8">No wallet matches &quot;{debouncedSearch}&quot;. Check the address and try again.</p>
+                  <button
+                    onClick={() => setSearchInput('')}
+                    className="inline-block px-6 py-3 bg-gradient-to-r from-purple-500/20 to-blue-500/20 border border-purple-500/40 rounded-lg text-purple-400 hover:from-purple-500/30 hover:to-blue-500/30 transition-all"
+                  >
+                    Clear Search
+                  </button>
+                </>
+              ) : (
+                <>
+                  <h2 className="text-2xl font-bold text-slate-300 mb-2">No NFTs Minted Yet</h2>
+                  <p className="text-slate-500 mb-8">Be the first to mint your InkScore and claim the top spot!</p>
+                  <Link
+                    href="/"
+                    className="inline-block px-6 py-3 bg-gradient-to-r from-purple-500/20 to-blue-500/20 border border-purple-500/40 rounded-lg text-purple-400 hover:from-purple-500/30 hover:to-blue-500/30 transition-all"
+                  >
+                    Go to Dashboard
+                  </Link>
+                </>
+              )}
             </div>
           )}
 
           {/* Leaderboard Content */}
           {!isLoading && !error && leaderboard.length > 0 && (
             <>
+              {/* Search Bar */}
+              <div className="mb-6 max-w-md mx-auto">
+                <div className="relative">
+                  <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                  <input
+                    type="text"
+                    value={searchInput}
+                    onChange={(e) => setSearchInput(e.target.value)}
+                    placeholder="Search by wallet address..."
+                    className="w-full pl-10 pr-10 py-3 bg-slate-900/50 border border-slate-700 rounded-xl text-slate-200 placeholder-slate-500 focus:outline-none focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/30 transition-all"
+                  />
+                  {searchInput && (
+                    <button
+                      onClick={() => setSearchInput('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+                    >
+                      <X size={16} />
+                    </button>
+                  )}
+                </div>
+                {isSearching && (
+                  <p className="text-xs text-slate-500 mt-2 text-center">
+                    {data?.total === 0 ? 'No wallets found' : `${data?.total} result${data?.total === 1 ? '' : 's'} found`}
+                  </p>
+                )}
+              </div>
+
               {/* Full Leaderboard Table */}
               <div className="bg-slate-900/50 border border-slate-800 rounded-2xl overflow-hidden backdrop-blur-sm animate-fade-in-up">
                 <div className="overflow-x-auto">
@@ -248,7 +310,7 @@ export default function LeaderboardPage() {
                     </thead>
                     <tbody>
                       {leaderboard.map((entry, index) => {
-                        const globalIndex = (currentPage - 1) * 50 + index;
+                        const globalIndex = entry.globalRank ?? ((currentPage - 1) * 50 + index);
                         return (
                           <tr
                             key={entry.token_id}
@@ -258,11 +320,11 @@ export default function LeaderboardPage() {
                             {/* Index */}
                             <td className="px-4 md:px-6 py-4">
                               <div className="flex items-center gap-2">
-                                {globalIndex === 0 && <Trophy size={20} className="text-yellow-400 animate-pulse" />}
-                                {globalIndex === 1 && <Trophy size={20} className="text-slate-300" />}
-                                {globalIndex === 2 && <Trophy size={20} className="text-orange-400" />}
-                                <span className={`font-semibold ${globalIndex < 3 ? 'text-white text-lg' : 'text-slate-400'}`}>
-                                  #{globalIndex + 1}
+                                {globalIndex === 1 && <Trophy size={20} className="text-yellow-400 animate-pulse" />}
+                                {globalIndex === 2 && <Trophy size={20} className="text-slate-300" />}
+                                {globalIndex === 3 && <Trophy size={20} className="text-orange-400" />}
+                                <span className={`font-semibold ${globalIndex <= 3 ? 'text-white text-lg' : 'text-slate-400'}`}>
+                                  #{globalIndex}
                                 </span>
                               </div>
                             </td>
@@ -334,25 +396,27 @@ export default function LeaderboardPage() {
               </div>
 
               {/* Pagination */}
-              <div className="mt-8 flex items-center justify-center gap-4">
-                <button
-                  onClick={handlePrevPage}
-                  disabled={currentPage === 1}
-                  className="px-4 py-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                >
-                  Previous
-                </button>
-                <span className="text-slate-400">
-                  Page {currentPage} of {totalPages}
-                </span>
-                <button
-                  onClick={handleNextPage}
-                  disabled={!hasMore}
-                  className="px-4 py-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                >
-                  Next
-                </button>
-              </div>
+              {!isSearching && (
+                <div className="mt-8 flex items-center justify-center gap-4">
+                  <button
+                    onClick={handlePrevPage}
+                    disabled={currentPage === 1}
+                    className="px-4 py-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  >
+                    Previous
+                  </button>
+                  <span className="text-slate-400">
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  <button
+                    onClick={handleNextPage}
+                    disabled={!hasMore}
+                    className="px-4 py-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
 
 
             </>

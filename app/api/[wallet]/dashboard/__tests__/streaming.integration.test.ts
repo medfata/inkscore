@@ -61,7 +61,7 @@ describe('Dashboard Streaming Integration Tests', () => {
   });
 
   describe('Full Stream Lifecycle', () => {
-    it('should stream all 27 metrics progressively', async () => {
+    it('should stream all 25 metrics progressively', async () => {
       const wallet = '0x1234567890123456789012345678901234567890';
       const request = createMockRequest(wallet, true);
       const params = Promise.resolve({ wallet });
@@ -74,8 +74,8 @@ describe('Dashboard Streaming Integration Tests', () => {
 
       const events = await readSSEStream(response);
 
-      // Should have 27 metric events + 1 done event = 28 total
-      expect(events.length).toBe(28);
+      // Should have 25 metric events + 1 done event = 26 total
+      expect(events.length).toBe(26);
 
       // Check that all expected metrics are present
       const metricIds = events
@@ -89,7 +89,6 @@ describe('Dashboard Streaming Integration Tests', () => {
       expect(metricIds).toContain('score');
       expect(metricIds).toContain('analytics');
       expect(metricIds).toContain('cards');
-      expect(metricIds).toContain('marvk');
       expect(metricIds).toContain('nado');
       expect(metricIds).toContain('copink');
       expect(metricIds).toContain('nft2me');
@@ -98,15 +97,12 @@ describe('Dashboard Streaming Integration Tests', () => {
       expect(metricIds).toContain('inkypumpCreatedTokens');
       expect(metricIds).toContain('inkypumpBuyVolume');
       expect(metricIds).toContain('inkypumpSellVolume');
-      expect(metricIds).toContain('nftTraded');
       expect(metricIds).toContain('zns');
       expect(metricIds).toContain('shelliesJoinedRaffles');
       expect(metricIds).toContain('shelliesPayToPlay');
-      expect(metricIds).toContain('shelliesStaking');
       expect(metricIds).toContain('openseaBuyCount');
       expect(metricIds).toContain('mintCount');
       expect(metricIds).toContain('openseaSaleCount');
-      expect(metricIds).toContain('inkdcaRunDca');
       expect(metricIds).toContain('templarsNftBalance');
       expect(metricIds).toContain('cowswapSwaps');
 
@@ -166,7 +162,7 @@ describe('Dashboard Streaming Integration Tests', () => {
       const events = await readSSEStream(response);
 
       // Should still have all events (some with errors)
-      expect(events.length).toBe(28);
+      expect(events.length).toBe(26);
 
       // Check for error events
       const cowswapEvent = events.find((e) => e.id === 'cowswapSwaps');
@@ -326,7 +322,7 @@ describe('Dashboard Streaming Integration Tests', () => {
 
       // Should not throw errors
       expect(eventsRead).toBeGreaterThan(0);
-      expect(eventsRead).toBeLessThan(28);
+      expect(eventsRead).toBeLessThan(27);
     }, 10000);
   });
 

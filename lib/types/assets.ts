@@ -13,6 +13,7 @@ export interface TrackedAsset {
   symbol: string | null;
   address: string;
   logo_url: string | null;
+  opensea_slug: string | null;
   decimals: number;
   description: string | null;
   website_url: string | null;
@@ -36,6 +37,7 @@ export interface CreateAssetRequest {
   symbol?: string;
   address: string;
   logo_url?: string;
+  opensea_slug?: string;
   decimals?: number;
   description?: string;
   website_url?: string;

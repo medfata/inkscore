@@ -59,4 +59,9 @@ export interface WalletScoreResponse {
   } | null;
   breakdown: WalletPointsBreakdown;
   last_updated: Date;
+  // True when some inputs timed out (e.g. wallet stats under a cold burst).
+  // responseCache clamps partial results to the default 30s TTL so the score
+  // recomputes — and converges — on the next load instead of locking in an
+  // understated score for the wallet-cache window.
+  partial?: boolean;
 }

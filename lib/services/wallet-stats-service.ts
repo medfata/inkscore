@@ -1,6 +1,11 @@
 import { assetsService, setWalletStatsCacheClearer } from './assets-service';
 import { TrackedAsset } from '../types/assets';
 
+// ⚠️ KNOWN DIVERGENCE (Sprint-1 cleanup item): this lib fork still queries the
+// abandoned Routescan API, which delisted Ink Mainnet — every request returns
+// HTTP 400 and the callers fall back to zero stats. The api-server's
+// wallet-stats-service is the Blockscout-based implementation that actually
+// works. Only the admin points-rules preview paths consume this fork.
 const INK_CHAIN_ID = '57073';
 const ROUTESCAN_BASE_URL = 'https://cdn-canary.routescan.io/api';
 const DEXSCREENER_API = 'https://api.dexscreener.com/latest/dex/tokens';
@@ -32,6 +37,7 @@ export interface NftCollectionHolding {
   name: string;
   address: string;
   logo: string;
+  openseaUrl: string | null;
   count: number;
 }
 
@@ -244,6 +250,9 @@ export class WalletStatsService {
         name: collection.name,
         address: collection.address,
         logo: collection.logo_url || '',
+        openseaUrl: collection.opensea_slug
+          ? `https://opensea.io/collection/${collection.opensea_slug}`
+          : null,
         count,
       };
     });
@@ -285,6 +294,7 @@ export class WalletStatsService {
     }
 
     const prices = new Map<string, number>();
+    const priceLiquidity = new Map<string, { priceUsd: number; liquidityUsd: number }>();
 
     if (tokenAddresses.length === 0) {
       return prices;
@@ -304,20 +314,28 @@ export class WalletStatsService {
 
       // DexScreener returns pairs, we need to find the best price for each token
       if (data.pairs && Array.isArray(data.pairs)) {
+        // Keep the price from the HIGHEST-LIQUIDITY pair per token, not the
+        // highest price. Thin pools (e.g. a $0.63-liquidity Velodrome pair
+        // next to a $59k InkySwap pair) can quote a stale/oscillating price;
+        // picking it by value inflated or deflated holdings randomly.
         for (const pair of data.pairs) {
           // Only consider pairs on Ink chain (chainId: ink)
           if (pair.chainId !== 'ink') continue;
 
           const tokenAddress = pair.baseToken?.address?.toLowerCase();
           const priceUsd = parseFloat(pair.priceUsd || '0');
+          const liquidityUsd = pair.liquidity?.usd || 0;
 
           if (tokenAddress && priceUsd > 0) {
             // Keep the highest liquidity pair's price
-            const existingPrice = prices.get(tokenAddress);
-            if (!existingPrice || priceUsd > existingPrice) {
-              prices.set(tokenAddress, priceUsd);
+            const existing = priceLiquidity.get(tokenAddress);
+            if (!existing || liquidityUsd > existing.liquidityUsd) {
+              priceLiquidity.set(tokenAddress, { priceUsd, liquidityUsd });
             }
           }
+        }
+        for (const [tokenAddress, { priceUsd }] of priceLiquidity) {
+          prices.set(tokenAddress, priceUsd);
         }
       }
 

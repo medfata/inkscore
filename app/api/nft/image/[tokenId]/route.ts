@@ -3,6 +3,7 @@ import { createPublicClient, http } from 'viem';
 import { NFT_CONTRACT_ADDRESS, NFT_CONTRACT_ABI } from '@/lib/nft-contract';
 import { generateScoreNFTSvg } from '@/lib/services/nft-image-service';
 import { getLeaderboardScoreFloor } from '@/lib/leaderboard-cache';
+import { queryOne } from '@/lib/db';
 
 export const revalidate = 600;
 
@@ -70,24 +71,41 @@ export async function GET(
       return new NextResponse('NFT not found', { status: 404 });
     }
 
-    // Fetch current score and rank from API server
-    const scoreRes = await fetch(`${API_SERVER_URL}/api/wallet/${walletAddress.toLowerCase()}/score`);
-    if (!scoreRes.ok) {
-      console.error('Failed to fetch wallet score from API server');
-      return new NextResponse('Failed to fetch wallet score', { status: 500 });
-    }
+    let score: number;
+    let rank: string;
+    let rankColor = '#6366f1';
 
-    const scoreData: WalletScoreResponse = await scoreRes.json();
-    let score = scoreData.total_points;
-    const rank = scoreData.rank?.name || 'Unranked';
-    const rankColor = scoreData.rank?.color || '#6366f1';
+    const override = await queryOne<{ score: number; rank: string }>(
+      'SELECT score, rank FROM admin_score_overrides WHERE wallet_address = $1',
+      [walletAddress.toLowerCase()]
+    );
 
-    // TEMPORARY: redundant floor against the cached leaderboard so explorers
-    // never render a degraded score even if the api-server clamp regressed.
-    const floor = await getLeaderboardScoreFloor(walletAddress);
-    if (floor !== null && score < floor) {
-      console.log(`[NFT Image] Clamped ${score} -> ${floor} for ${walletAddress}`);
-      score = floor;
+    if (override) {
+      score = Number(override.score);
+      rank = override.rank;
+      const rankRow = await queryOne<{ color: string }>(
+        'SELECT color FROM ranks WHERE name = $1 AND is_active = true LIMIT 1',
+        [rank]
+      );
+      rankColor = rankRow?.color || '#6366f1';
+      console.log(`[NFT Image] Using admin override for ${walletAddress}: score=${score}, rank=${rank}, color=${rankColor}`);
+    } else {
+      const scoreRes = await fetch(`${API_SERVER_URL}/api/wallet/${walletAddress.toLowerCase()}/score`);
+      if (!scoreRes.ok) {
+        console.error('Failed to fetch wallet score from API server');
+        return new NextResponse('Failed to fetch wallet score', { status: 500 });
+      }
+
+      const scoreData: WalletScoreResponse = await scoreRes.json();
+      score = scoreData.total_points;
+      rank = scoreData.rank?.name || 'Unranked';
+      rankColor = scoreData.rank?.color || '#6366f1';
+
+      const floor = await getLeaderboardScoreFloor(walletAddress);
+      if (floor !== null && score < floor) {
+        console.log(`[NFT Image] Clamped ${score} -> ${floor} for ${walletAddress}`);
+        score = floor;
+      }
     }
 
     console.log(`[NFT Image] Token ${tokenId}, Wallet: ${walletAddress}, Score: ${score}, Rank: ${rank}`);

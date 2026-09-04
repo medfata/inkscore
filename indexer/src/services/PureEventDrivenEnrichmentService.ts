@@ -25,6 +25,31 @@ export const INPUT_REQUIRED_FUNCTIONS = new Set([
   'borrowETH', 'repayETH', 'withdrawETH',
 ]);
 
+/**
+ * Contracts whose `operations` (internal call trace) JSON is actually read by the
+ * scoring/read layer. For every OTHER contract `operations` is never queried, so we
+ * store NULL instead of the full trace to avoid bloat (operations was ~16GB of dead
+ * weight on the VPS).
+ *
+ * Only these are read today (api-server routes wallet.ts / backup_wallet.ts / analytics.ts):
+ *   - Relay hot wallet       0xf70d...dbef  bridge IN (operations)
+ *   - Bungee Fulfillment     0x26d8...1324  bridge IN (operations)
+ *   - Bungee Socket Gateway  0x3a23...97a5  bridge swap (operations)
+ *   - InkySwap router        0xa8c1...6507  inkypump sell volume fallback (operations)
+ * The remaining bridge/router addresses are kept as a SAFE SUPERSET — if a future read
+ * starts consuming operations for any bridge/router, add its (lowercase) address here.
+ */
+export const OPERATIONS_REQUIRED_CONTRACTS = new Set<string>([
+  '0xf70da97812cb96acdf810712aa562db8dfa3dbef', // Relay hot wallet
+  '0x4cd00e387622c35bddb9b4c962c136462338bc31', // Relay deposit contract
+  '0x1cb6de532588fca4a21b7209de7c456af8434a65', // Native bridge OFT adapter
+  '0xfebcf17b11376c724ab5a5229803c6e838b6eae5', // LayerZero executor
+  '0x3a23f943181408eac424116af7b7790c94cb97a5', // Bungee Socket Gateway
+  '0x26d8da52e56de71194950689ccf74cd309761324', // Bungee Fulfillment (bridge IN)
+  '0xe18dfefce7a5d18d39ce6fc925f102286fa96fdc', // Bungee Request (bridge OUT)
+  '0xa8c1c38ff57428e5c3a34e0899be5cb385476507', // InkySwap router (inkypump)
+]);
+
 interface TransactionToEnrich {
   tx_hash: string;
   contract_address: string;
@@ -283,6 +308,9 @@ export class PureEventDrivenEnrichmentService {
   private async insertEnrichmentData(tx: TransactionToEnrich, details: RouterscanTransaction): Promise<void> {
     const fnName = details.method ? details.method.split('(')[0].trim() : '';
     const inputToStore = INPUT_REQUIRED_FUNCTIONS.has(fnName) ? (details.input || null) : null;
+    const opsToStore = OPERATIONS_REQUIRED_CONTRACTS.has(tx.contract_address.toLowerCase())
+      ? (details.operations ? JSON.stringify(details.operations) : null)
+      : null;
 
     await pool.query(`
       INSERT INTO transaction_enrichment (
@@ -317,7 +345,7 @@ export class PureEventDrivenEnrichmentService {
       details.method || null,
       inputToStore,
       details.logs ? JSON.stringify(details.logs) : null,
-      details.operations ? JSON.stringify(details.operations) : null
+      opsToStore
     ]);
   }
 

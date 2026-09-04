@@ -95,13 +95,17 @@ export class OpenSeaService {
    * Fetch all sale + mint events for a wallet on Ink from the official v2 API.
    * Cursor pagination; retries 429/5xx (the v2 API throws intermittent 500s on
    * deep pages — single retry usually recovers); hard overall time budget.
+   *
+   * Returns `ok: false` when no page could be fetched successfully (missing API
+   * key, HTTP errors, timeouts) so callers can avoid caching garbage results.
    */
-  async fetchV2Events(walletAddress: string): Promise<V2AssetEvent[]> {
+  async fetchV2Events(walletAddress: string): Promise<{ events: V2AssetEvent[]; ok: boolean }> {
     const walletLabel = walletAddress.slice(0, 10);
     const events: V2AssetEvent[] = [];
     let next: string | null = null;
     let page = 0;
     let retries = 0;
+    let anySuccess = false;
     const MAX_PAGES = 30; // 30 * 50 = 1500 events max
     const MAX_RETRIES = 4;
     const PER_PAGE_TIMEOUT_MS = 10000;
@@ -110,7 +114,7 @@ export class OpenSeaService {
 
     if (!this.apiKey) {
       console.warn('[OpenSea] OPENSEA_API_KEY not set, skipping fetch');
-      return events;
+      return { events, ok: false };
     }
 
     do {
@@ -163,6 +167,7 @@ export class OpenSeaService {
         const data = await res.json() as V2EventsResponse;
         const items = data.asset_events || [];
         events.push(...items);
+        anySuccess = true;
         next = data.next || null;
         console.log(`[OpenSea] ${walletLabel} page ${page}: ${items.length} events in ${Date.now() - pageStart}ms (total: ${events.length})`);
       } catch (error: any) {
@@ -176,7 +181,7 @@ export class OpenSeaService {
     } while (next);
 
     console.log(`[OpenSea] ${walletLabel} done: ${events.length} events in ${((Date.now() - start) / 1000).toFixed(2)}s`);
-    return events;
+    return { events, ok: anySuccess };
   }
 
   /**
@@ -257,7 +262,12 @@ export class OpenSeaService {
 
     const fetchPromise = (async (): Promise<ActivityCounts> => {
       try {
-        const events = await this.fetchV2Events(wallet);
+        const { events, ok } = await this.fetchV2Events(wallet);
+        if (!ok) {
+          // Never cache a failed fetch — partial/zero results would poison the
+          // memory + DB caches with wrong counts for up to 24h.
+          throw new Error('OpenSea v2 fetch failed (no successful page)');
+        }
         const counts = this.calculateActivityCounts(events, wallet);
         this.countsCache.set(wallet, { counts, timestamp: Date.now() });
         await this.writeDbCounts(wallet, counts).catch((err) =>

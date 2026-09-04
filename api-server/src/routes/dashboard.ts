@@ -1,9 +1,17 @@
 import { Router, Request, Response } from 'express';
 import { query } from '../db';
-import { responseCache } from '../cache';
+import { responseCache, WALLET_CACHE_TTL_MS } from '../cache';
 import { DashboardCardData, DashboardCardsResponse } from '../types';
 
 const router = Router();
+
+// GET /api/dashboard/config - Public runtime config (cache policy shown on
+// the dashboard so the banner always matches the server's actual TTL).
+router.get('/config', (_req: Request, res: Response) => {
+  res.json({
+    walletCacheTtlMinutes: Math.round(WALLET_CACHE_TTL_MS / 60000),
+  });
+});
 
 // GET /api/dashboard/cards/:wallet - Get dashboard cards with metric data for a wallet
 router.get('/cards/:wallet', async (req: Request, res: Response) => {
@@ -23,23 +31,34 @@ router.get('/cards/:wallet', async (req: Request, res: Response) => {
       return res.json(cached);
     }
 
-    // Fetch active cards
-    const cards = await query<{
-      id: number;
-      row: string;
-      card_type: string;
-      title: string;
-      subtitle: string | null;
-      color: string;
-      display_order: number;
-      is_active: boolean;
-      created_at: Date;
-      updated_at: Date;
-    }>(`
+    // Fetch active cards + platform→contract map concurrently (independent).
+    // cardMetrics/userMetrics below depend on these, so they stay sequential.
+    const [cards, platformContracts] = await Promise.all([
+      query<{
+        id: number;
+        row: string;
+        card_type: string;
+        title: string;
+        subtitle: string | null;
+        color: string;
+        display_order: number;
+        is_active: boolean;
+        created_at: Date;
+        updated_at: Date;
+      }>(`
       SELECT * FROM dashboard_cards
       WHERE is_active = true
       ORDER BY row, display_order, id
-    `);
+    `),
+      query<{
+        platform_id: number;
+        contract_address: string;
+      }>(`
+      SELECT pc.platform_id, c.address as contract_address
+      FROM platform_contracts pc
+      JOIN contracts c ON c.id = pc.contract_id
+    `),
+    ]);
 
     if (cards.length === 0) {
       const emptyResponse: DashboardCardsResponse = { row3: [], row4: [] };
@@ -128,17 +147,7 @@ router.get('/cards/:wallet', async (req: Request, res: Response) => {
     // Create a map for quick lookup
     const metricDataMap = new Map(userMetrics.map(m => [m.metric_id, m]));
 
-    // Get platform contracts mapping to calculate per-platform values
-    const platformContracts = await query<{
-      platform_id: number;
-      contract_address: string;
-    }>(`
-      SELECT pc.platform_id, c.address as contract_address
-      FROM platform_contracts pc
-      JOIN contracts c ON c.id = pc.contract_id
-    `);
-
-    // Create platform -> contracts map
+    // Create platform -> contracts map (fetched concurrently with cards above)
     const platformContractsMap = new Map<number, string[]>();
     platformContracts.forEach(pc => {
       const existing = platformContractsMap.get(pc.platform_id) || [];

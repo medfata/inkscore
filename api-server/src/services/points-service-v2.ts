@@ -1,6 +1,5 @@
 import { query } from '../db';
 import { assetsService } from './assets-service';
-import { phase1Service } from './phase1-service';
 import { openSeaService } from './opensea-service';
 import { walletStatsService } from './wallet-stats-service';
 import {
@@ -8,11 +7,19 @@ import {
   WalletPointsBreakdown,
   WalletScoreResponse,
 } from '../types/platforms';
+import { getBridgeVolume } from './bridge-service';
 
 // TEMPORARY: wallets whose stored leaderboard score is known to be stale;
 // skip the floor clamp for them and trust the realtime score.
 const KNOWN_STALE_WALLETS = new Set([
   '0x4c50254dafd191bba2a6e0517c1742caf1426df5',
+]);
+
+// System/junk wallets excluded from scoring entirely (see calculateWalletScore
+// and refresh-worker): walking them times out upstream and poisons the shared
+// Blockscout budget. Extend as new system addresses are identified.
+const JUNK_WALLETS = new Set([
+  '0xdeaddeaddeaddeaddeaddeaddeaddeaddead0001',
 ]);
 
 // Cache for ranks (1 minute TTL)
@@ -59,6 +66,7 @@ export class PointsServiceV2 {
         '0x2a1bce657f919ac3f9ab50b2584cfc77563a02ec', // ANDRU (AK47)
         '0x32bcb803f696c99eb263d60a05cafd8689026575', // KRAK (KRAKMASK)
         '0x62c99fac20b33b5423fdf9226179e973a8353e36', // BERT
+        '0xd95b9a5fa7c2708fd4fe0e07e59bde1ef35b194a', // BEAST (Kraken Mascot)
       ]);
     }
   }
@@ -135,6 +143,22 @@ export class PointsServiceV2 {
     } catch (error) {
       console.error('[PointsServiceV2] Failed to read leaderboard score floor:', error);
       return null;
+    }
+  }
+
+  private async getTop10LeaderboardWallets(): Promise<Set<string>> {
+    try {
+      const rows = await query<{ wallet_address: string }>(
+        `SELECT entry->>'wallet_address' AS wallet_address
+           FROM cached_leaderboard, jsonb_array_elements(leaderboard_data) AS entry
+          WHERE id = 1
+          ORDER BY (entry->>'score')::numeric DESC
+          LIMIT 10`
+      );
+      return new Set(rows.map(r => r.wallet_address.toLowerCase()));
+    } catch (error) {
+      console.error('[PointsServiceV2] Failed to fetch top 10 leaderboard wallets:', error);
+      return new Set();
     }
   }
 
@@ -337,20 +361,6 @@ export class PointsServiceV2 {
     return registerPoints + deployPoints + gmPoints;
   }
 
-  private calculateMarvkPoints(cardMintedCount: number, lockTokenCount: number, vestTokenCount: number): number {
-    // New tiered system for Marvk (Max: 300 points)
-    // 1. Mint Card (Max: 100 points - one-time)
-    const cardPoints = cardMintedCount >= 1 ? 100 : 0;
-    
-    // 2. Lock Token (Max: 100 points)
-    const lockPoints = lockTokenCount >= 5 ? 100 : lockTokenCount >= 1 ? 50 : 0;
-    
-    // 3. Vest Token (Max: 100 points)
-    const vestPoints = vestTokenCount >= 5 ? 100 : vestTokenCount >= 1 ? 50 : 0;
-    
-    return cardPoints + lockPoints + vestPoints;
-  }
-
   private calculateNadoPoints(totalDeposits: number, totalVolume: number): number {
     // New tiered system for Nado (Max: 2,500 points)
     // 1. Deposits (Max: 1,250 points)
@@ -452,12 +462,6 @@ export class PointsServiceV2 {
     return 0; // No activity
   }
 
-  private calculatePhase1Points(isPhase1: boolean): number {
-    // InkScore Phase 1 Eligibility Points (Max: 1,000 points)
-    // Rewards early adopters who participated in Phase 1
-    return isPhase1 ? 1000 : 0;
-  }
-
   private calculateSweepPoints(collectionsCreated: number, badgesMinted: number, dailyStreak: number): number {
     // Sweep Platform Points (Max: 800 points)
     // Tiered system based on activity counts
@@ -509,98 +513,47 @@ export class PointsServiceV2 {
     return collectionPoints + mintPoints;
   }
 
-  // NFT marketplace contract addresses
-  private readonly NFT_CONTRACTS = {
-    squid: '0x9ebf93fdba9f32accab3d6716322dccd617a78f3',
-    netProtocol: '0xd00c96804e9ff35f10c7d2a92239c351ff3f94e5',
-    mintique: '0xbd6a027b85fd5285b1623563bbef6fadbe396afb',
-  };
-
-  private calculateNftTradingPoints(squidCount: number, netProtocolCount: number, mintiqueCount: number): number {
-    // New tiered system for NFT Trading (Max: 400 points)
-    // 1. Platforms Used (Max: 100 points)
-    let platformPoints = 0;
-    if (squidCount > 0) platformPoints += 50;
-    if (netProtocolCount > 0) platformPoints += 35;
-    if (mintiqueCount > 0) platformPoints += 15;
-    
-    // 2. Trade Count (Max: 300 points)
-    const totalTrades = squidCount + netProtocolCount + mintiqueCount;
-    let tradePoints = 0;
-    if (totalTrades >= 10) tradePoints = 300;
-    else if (totalTrades >= 5) tradePoints = 150;
-    else if (totalTrades >= 1) tradePoints = 50;
-    
-    return platformPoints + tradePoints;
-  }
-  private calculateNftStakingPoints(shelliesCount: number, inkBunniesCount: number, boinkCount: number): number {
-    // NFT Staking Points (Max: 500 points)
-    // Tiered system based on staked NFT counts per collection
-
-    // 1. Shellies (Max: 166 points)
-    let shelliesPoints = 0;
-    if (shelliesCount >= 6) {
-      shelliesPoints = 166; // Tier 3: Gold (6+ NFTs)
-    } else if (shelliesCount >= 2) {
-      shelliesPoints = 100; // Tier 2: Silver (2-5 NFTs)
-    } else if (shelliesCount >= 1) {
-      shelliesPoints = 50; // Tier 1: Bronze (1 NFT)
-    }
-
-    // 2. INK Bunnies (Max: 167 points)
-    let inkBunniesPoints = 0;
-    if (inkBunniesCount >= 6) {
-      inkBunniesPoints = 167; // Tier 3: Gold (6+ NFTs)
-    } else if (inkBunniesCount >= 2) {
-      inkBunniesPoints = 100; // Tier 2: Silver (2-5 NFTs)
-    } else if (inkBunniesCount >= 1) {
-      inkBunniesPoints = 50; // Tier 1: Bronze (1 NFT)
-    }
-
-    // 3. Boink (Max: 167 points)
-    let boinkPoints = 0;
-    if (boinkCount >= 6) {
-      boinkPoints = 167; // Tier 3: Gold (6+ NFTs)
-    } else if (boinkCount >= 2) {
-      boinkPoints = 100; // Tier 2: Silver (2-5 NFTs)
-    } else if (boinkCount >= 1) {
-      boinkPoints = 50; // Tier 1: Bronze (1 NFT)
-    }
-
-    return shelliesPoints + inkBunniesPoints + boinkPoints;
-  }
-
-  private calculateInkDcaPoints(totalSpentUsd: number, totalRegisteredDcas: number): number {
-    // INKDCA Points (Max: 500 points)
-    // Tiered system based on total spent and registered DCAs
-    
-    // 1. Total Spent (Max: 400 points)
-    let spentPoints = 0;
-    if (totalSpentUsd >= 500) {
-      spentPoints = 400; // Tier 3: Gold ($500+)
-    } else if (totalSpentUsd >= 101) {
-      spentPoints = 250; // Tier 2: Silver ($101-$500)
-    } else if (totalSpentUsd >= 10) {
-      spentPoints = 100; // Tier 1: Bronze ($10-$100)
-    }
-    
-    // 2. Total Registered DCAs (Max: 100 points)
-    let registeredPoints = 0;
-    if (totalRegisteredDcas >= 6) {
-      registeredPoints = 100; // Tier 3: Gold (6+ DCAs)
-    } else if (totalRegisteredDcas >= 2) {
-      registeredPoints = 50; // Tier 2: Silver (2-5 DCAs)
-    } else if (totalRegisteredDcas >= 1) {
-      registeredPoints = 25; // Tier 1: Bronze (1 DCA)
-    }
-    
-    return spentPoints + registeredPoints;
-  }
-
-
-
   async calculateWalletScore(walletAddress: string): Promise<WalletScoreResponse> {
     const wallet = walletAddress.toLowerCase();
+
+    // System/junk wallets (burn address etc.): every upstream walk times out
+    // and poisons the shared Blockscout budget for real users. Return a
+    // neutral score immediately — the response has no `partial` flag, so the
+    // 1h wallet cache serves repeat hits for free instead of re-running the
+    // disaster every 30s.
+    if (JUNK_WALLETS.has(wallet)) {
+      console.log(`[PointsServiceV2] Wallet ${wallet}: junk/system wallet — returning neutral score without upstream scans`);
+      return {
+        wallet_address: wallet,
+        total_points: 0,
+        rank: null,
+        breakdown: { native: {}, platforms: {} },
+        last_updated: new Date(),
+      };
+    }
+
+    const adminOverride = await query<{ score: number; rank: string }>(
+      'SELECT score, rank FROM admin_score_overrides WHERE wallet_address = $1',
+      [wallet]
+    );
+
+    if (adminOverride.length > 0) {
+      const ranks = await this.getCachedRanks();
+      const overrideScore = Number(adminOverride[0].score);
+      const overrideRank = adminOverride[0].rank;
+      const rank = ranks.find(r => r.name === overrideRank) || this.getRankForPoints(ranks, overrideScore);
+
+      console.log(`[PointsServiceV2] Wallet ${wallet}: using admin override score=${overrideScore}, rank=${overrideRank}`);
+
+      return {
+        wallet_address: wallet,
+        total_points: overrideScore,
+        rank: rank ? { name: rank.name, color: rank.color, logo_url: rank.logo_url } : null,
+        breakdown: { native: {}, platforms: {} },
+        last_updated: new Date(),
+      };
+    }
+
     const breakdown: WalletPointsBreakdown = {
       native: {},
       platforms: {},
@@ -615,19 +568,62 @@ export class PointsServiceV2 {
       // can delay the whole score beyond the ~4 s budget. The body is parsed
       // inside the same timeout window — parsing after Promise.all would let
       // the abort signal kill bodies whose headers arrived in time.
+      // Tydro + Nado are allowed up to 30 s: their first-load fills walk
+      // hundreds of txs, then serve from cache in milliseconds.
+      // Bridge is in the same category: cold loads walk 3 Blockscout
+      // histories + price unlisted tokens via DeFi Llama, easily >3.5 s.
       const FETCH_TIMEOUT = 3500;
+      const BRIDGE_FETCH_TIMEOUT = 15000;
+      // Copink proxies a third-party API measured at ~5s per call — a 3.5s
+      // budget guarantees a timeout (and 0 copink points) on every cold load.
+      const COPINK_FETCH_TIMEOUT = 10000;
+      const SLOW_FETCH_TIMEOUT = 30000;
+      // Cold-start retry: on a fresh server the score's self-fetch races the
+      // dashboard's own ~27-request burst for the same endpoints. Aborting our
+      // fetch does NOT cancel the route handler — it keeps computing and
+      // populates responseCache/longCache when it finishes (bridge/volume also
+      // share the dashboard's in-flight computation). So one backed-off retry
+      // usually lands on a warm cache and returns real data instead of
+      // scoring the metric 0 (the "works only after refresh" bug). Worst case
+      // 3.5s + 2s + 15s ≈ 20.5s (bridge: 15s + 2s + 10s = 27s), still under
+      // the dashboard's 30s score timeout. Endpoints already on 30s budgets
+      // (tydro/nado) skip the retry to stay inside that budget.
+      const RETRY_DELAY_MS = 2000;
+      const RETRY_TIMEOUT_MS = 15000;
+      // Retry timeout for endpoints that already burn ≥15s on attempt 1 —
+      // cap it so attempt1 + delay + attempt2 stays under 30s.
+      const LONG_RETRY_TIMEOUT_MS = 10000;
+      const NO_RETRY_TIMEOUT_MS = SLOW_FETCH_TIMEOUT;
       const fetchJson = async <T>(url: string, timeout = FETCH_TIMEOUT): Promise<T | null> => {
-        try {
-          const response = await fetch(url, { signal: AbortSignal.timeout(timeout) });
-          if (!response.ok) {
-            console.warn(`[Score] ${url} returned HTTP ${response.status}; treating as missing`);
+        for (let attempt = 1; attempt <= 2; attempt++) {
+          const isRetry = attempt === 2;
+          if (isRetry && timeout >= NO_RETRY_TIMEOUT_MS) return null;
+          const attemptTimeout = isRetry
+            ? (timeout >= BRIDGE_FETCH_TIMEOUT ? LONG_RETRY_TIMEOUT_MS : RETRY_TIMEOUT_MS)
+            : timeout;
+          try {
+            const response = await fetch(url, {
+              signal: AbortSignal.timeout(attemptTimeout),
+            });
+            if (!response.ok) {
+              // A handler that completed with an error won't fix itself —
+              // only timeouts are worth retrying (the handler is still
+              // computing and will cache its result).
+              console.warn(`[Score] ${url} returned HTTP ${response.status}; treating as missing`);
+              return null;
+            }
+            return await response.json() as T;
+          } catch (err) {
+            if (!isRetry && timeout < NO_RETRY_TIMEOUT_MS) {
+              console.warn(`[Score] ${url} timed out after ${timeout}ms; retrying once in ${RETRY_DELAY_MS}ms (first attempt warms the route cache)`);
+              await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
+              continue;
+            }
+            console.warn(`[Score] fetch timed out/failed for ${url}:`, err);
             return null;
           }
-          return await response.json() as T;
-        } catch (err) {
-          console.warn(`[Score] fetch timed out/failed for ${url}:`, err);
-          return null;
         }
+        return null;
       };
 
       // Resolve with a fallback if the promise is still pending after ms. The
@@ -648,9 +644,14 @@ export class PointsServiceV2 {
 
       // Wallet stats come straight from the service (no HTTP self-fetch):
       // one hop less, and getAllStats has its own in-memory cache.
+      // 15s budget: under a cold 27-request dashboard burst the shared
+      // Blockscout throttle can delay even cheap calls — and residential-proxy
+      // egress roughly doubles per-request RTT (discovery 1.3s → 2.5s) — so
+      // cold first loads needed more than the old 10s. On a miss the score
+      // still returns (partial, cache-clamped) instead of 500ing.
       const walletStatsPromise = withTimeout<WalletStatsResponse | null>(
         walletStatsService.getAllStats(wallet),
-        3500,
+        15000,
         null,
         'wallet stats',
       );
@@ -699,22 +700,27 @@ export class PointsServiceV2 {
         shelliesStaking,
         znsData,
         nft2meData,
-        nftTradingData,
-        marvkData,
         nadoData,
         copinkData,
         templarsData,
         mintData,
         cowSwapData,
         sweepData,
-        nftStakingData,
-        inkDcaData,
         openSeaCounts
       ] = await Promise.all([
         walletStatsPromise,
-        fetchJson<BridgeResponse>(`${baseUrl}/api/wallet/${wallet}/bridge`),
+        // Sprint 1: direct service call — no loopback HTTP. The service
+        // shares the dashboard's in-flight computation and 5-min long cache.
+        // 25s budget: cold bridge discovery measured ~22s; still under the
+        // dashboard's 30s score timeout.
+        withTimeout(
+          getBridgeVolume(wallet).catch(() => null),
+          25000,
+          null,
+          'bridge'
+        ),
         fetchJson<SwapResponse>(`${baseUrl}/api/wallet/${wallet}/swap`),
-        fetchJson<TydroResponse>(`${baseUrl}/api/wallet/${wallet}/tydro`),
+        fetchJson<TydroResponse>(`${baseUrl}/api/wallet/${wallet}/tydro`, SLOW_FETCH_TIMEOUT),
         fetchJson<CountResponse>(`${baseUrl}/api/analytics/${wallet}/gm_count`),
         fetchJson<CountResponse>(`${baseUrl}/api/analytics/${wallet}/inkypump_created_tokens`),
         fetchJson<CountResponse>(`${baseUrl}/api/analytics/${wallet}/inkypump_buy_volume`),
@@ -724,19 +730,14 @@ export class PointsServiceV2 {
         fetchJson<CountResponse>(`${baseUrl}/api/analytics/${wallet}/shellies_staking`),
         fetchJson<ZnsResponse>(`${baseUrl}/api/analytics/${wallet}/zns`),
         fetchJson<Nft2meResponse>(`${baseUrl}/api/wallet/${wallet}/nft2me`),
-        fetchJson<NftTradingResponse>(`${baseUrl}/api/analytics/${wallet}/nft_traded`),
-        fetchJson<MarvkResponse>(`${baseUrl}/api/marvk/${wallet}`),
-        fetchJson<NadoResponse>(`${baseUrl}/api/nado/${wallet}`),
-        fetchJson<CopinkResponse>(`${baseUrl}/api/copink/${wallet}`),
+        fetchJson<NadoResponse>(`${baseUrl}/api/nado/${wallet}`, SLOW_FETCH_TIMEOUT),
+        fetchJson<CopinkResponse>(`${baseUrl}/api/copink/${wallet}`, COPINK_FETCH_TIMEOUT),
         fetchJson<TemplarsResponse>(`${baseUrl}/api/analytics/${wallet}/templars_nft_balance`),
         fetchJson<OpenSeaResponse>(`${baseUrl}/api/analytics/${wallet}/mint_count`),
         fetchJson<CowSwapResponse>(`${baseUrl}/api/analytics/${wallet}/cowswap_swaps`),
         fetchJson<SweepResponse>(`${baseUrl}/api/sweep/${wallet}`),
-        fetchJson<NftStakingResponse>(`${baseUrl}/api/analytics/${wallet}/nft_staking`),
-        fetchJson<InkDcaResponse>(`${baseUrl}/api/analytics/${wallet}/inkdca_run_dca`),
         openSeaCountsPromise,
-      ]);
-      console.log(`[Score] ${wallet.slice(0, 10)} fetch batch completed in ${Date.now() - batchStart}ms`);
+      ]);      console.log(`[Score] ${wallet.slice(0, 10)} fetch batch completed in ${Date.now() - batchStart}ms`);
 
       // Type definitions for API responses
       interface WalletStatsResponse {
@@ -757,16 +758,6 @@ export class PointsServiceV2 {
         register_domain_count?: number;
       }
       interface Nft2meResponse { collectionsCreated?: number; nftsMinted?: number; totalTransactions?: number; }
-      interface NftTradingResponse {
-        total_count?: number;
-        by_contract?: Array<{ contract_address: string; count: number }>;
-      }
-      interface MarvkResponse {
-        lockTokenCount?: number;
-        vestTokenCount?: number;
-        cardMintedCount?: number;
-        totalTransactions?: number;
-      }
       interface NadoResponse {
         totalDeposits?: number;
         totalTransactions?: number;
@@ -793,27 +784,28 @@ export class PointsServiceV2 {
         sweepBadgeBalance?: number;
         totalStreak?: number;
       }
-      interface NftStakingResponse {
-        total_count?: number;
-        total_value?: string;
-        sub_aggregates?: Array<{ label: string; value: string }>;
-      }
-      interface InkDcaResponse {
-        total_count?: number;
-        total_value?: string;
-        sub_aggregates?: Array<{ label: string; value: string }>;
-      }
 
-      if (!walletStats) throw new Error('Failed to fetch wallet stats');
+      // Wallet stats walked Blockscout and missed the budget (cold burst +
+      // proxy RTT). DON'T throw — all stats fields are already null-safe, so
+      // compute the score with empty native metrics and flag it partial.
+      // The stats walk keeps running in the background (withTimeout only
+      // races it) and its service cache fills, so the NEXT load recomputes a
+      // complete score: partial responses are cache-clamped to 30s.
+      let statsPartial = false;
+      if (!walletStats) {
+        statsPartial = true;
+        console.warn(`[Score] ${wallet.slice(0, 10)}: wallet stats unavailable after budget — scoring with empty native metrics (partial)`);
+      }
+      const stats = walletStats ?? {};
 
       // Calculate points using dashboard data
-      const supportedNftCount = (walletStats!.nftCollections || []).reduce((sum: number, col: { count?: number }) => sum + (col.count || 0), 0);
+      const supportedNftCount = (stats.nftCollections || []).reduce((sum: number, col: { count?: number }) => sum + (col.count || 0), 0);
       const nftPoints = this.calculateNftCollectionsPoints(supportedNftCount);
       breakdown.native['nft_collections'] = { value: supportedNftCount, points: nftPoints };
       totalPoints += nftPoints;
 
-      const tokenHoldings = walletStats!.tokenHoldings || [];
-      const nativeEthUsd = Number(walletStats!.balanceUsd) || 0;
+      const tokenHoldings = stats.tokenHoldings || [];
+      const nativeEthUsd = Number(stats.balanceUsd) || 0;
 
       const allHoldings = [
         ...tokenHoldings,
@@ -831,12 +823,12 @@ export class PointsServiceV2 {
       breakdown.native['meme_coins'] = { value: memeTokenCount, points: memePoints };
       totalPoints += memePoints;
 
-      const agePoints = this.calculateWalletAgePoints(walletStats!.ageDays || 0);
-      breakdown.native['wallet_age'] = { value: walletStats!.ageDays || 0, points: agePoints };
+      const agePoints = this.calculateWalletAgePoints(stats.ageDays || 0);
+      breakdown.native['wallet_age'] = { value: stats.ageDays || 0, points: agePoints };
       totalPoints += agePoints;
 
-      const txPoints = this.calculateTotalTxPoints(walletStats!.totalTxns || 0);
-      breakdown.native['total_tx'] = { value: walletStats!.totalTxns || 0, points: txPoints };
+      const txPoints = this.calculateTotalTxPoints(stats.totalTxns || 0);
+      breakdown.native['total_tx'] = { value: stats.totalTxns || 0, points: txPoints };
       totalPoints += txPoints;
 
       const bridgeInUsd = bridgeData?.bridgedInUsd || 0;
@@ -891,23 +883,6 @@ export class PointsServiceV2 {
       breakdown.platforms['nft2me'] = { tx_count: nft2meData?.totalTransactions || 0, usd_volume: 0, points: nft2mePoints };
       totalPoints += nft2mePoints;
 
-      // Parse NFT trading by contract
-      const byContract = nftTradingData?.by_contract || [];
-      const squidCount = byContract.find(c => c.contract_address === this.NFT_CONTRACTS.squid)?.count || 0;
-      const netProtocolCount = byContract.find(c => c.contract_address === this.NFT_CONTRACTS.netProtocol)?.count || 0;
-      const mintiqueCount = byContract.find(c => c.contract_address === this.NFT_CONTRACTS.mintique)?.count || 0;
-      const nftTradingPoints = this.calculateNftTradingPoints(squidCount, netProtocolCount, mintiqueCount);
-      breakdown.platforms['nft_trading'] = { tx_count: nftTradingData?.total_count || 0, usd_volume: 0, points: nftTradingPoints };
-      totalPoints += nftTradingPoints;
-
-      // Marvk points
-      const marvkCardMinted = marvkData?.cardMintedCount || 0; // Placeholder until API is implemented
-      const marvkLockCount = marvkData?.lockTokenCount || 0;
-      const marvkVestCount = marvkData?.vestTokenCount || 0;
-      const marvkPoints = this.calculateMarvkPoints(marvkCardMinted, marvkLockCount, marvkVestCount);
-      breakdown.platforms['marvk'] = { tx_count: marvkData?.totalTransactions || 0, usd_volume: 0, points: marvkPoints };
-      totalPoints += marvkPoints;
-
       // Nado points
       const nadoTotalDeposits = nadoData?.totalDeposits || 0;
       const nadoTotalVolume = nadoData?.nadoVolumeUSD || 0;
@@ -945,12 +920,6 @@ export class PointsServiceV2 {
       breakdown.platforms['cowswap'] = { tx_count: cowSwapCount, usd_volume: cowSwapVolumeUsd, points: cowSwapPoints };
       totalPoints += cowSwapPoints;
 
-      // Phase 1 Eligibility points
-      const phase1Status = phase1Service.getPhase1Status(wallet);
-      const phase1Points = this.calculatePhase1Points(phase1Status.isPhase1);
-      breakdown.platforms['phase1'] = { tx_count: phase1Status.isPhase1 ? 1 : 0, usd_volume: 0, points: phase1Points };
-      totalPoints += phase1Points;
-
       // Sweep Platform points
       const sweepCollections = sweepData?.totalCollections || 0;
       const sweepBadges = sweepData?.sweepBadgeBalance || 0;
@@ -960,27 +929,15 @@ export class PointsServiceV2 {
       breakdown.platforms['sweep'] = { tx_count: totalSweepActivity, usd_volume: 0, points: sweepPoints };
       totalPoints += sweepPoints;
 
-      // NFT Staking points (Shellies + INK Bunnies + Boink)
-      const nftStakingSubAggregates = nftStakingData?.sub_aggregates || [];
-      const shelliesStaked = parseInt(nftStakingSubAggregates.find(s => s.label === 'Shellies Staked')?.value || '0', 10);
-      const inkBunniesStaked = parseInt(nftStakingSubAggregates.find(s => s.label === 'INK Bunnies Staked')?.value || '0', 10);
-      const boinkStaked = parseInt(nftStakingSubAggregates.find(s => s.label === 'Boink Staked')?.value || '0', 10);
-      const nftStakingPoints = this.calculateNftStakingPoints(shelliesStaked, inkBunniesStaked, boinkStaked);
-      const totalNftStaked = shelliesStaked + inkBunniesStaked + boinkStaked;
-      breakdown.platforms['nft_staking'] = { tx_count: totalNftStaked, usd_volume: 0, points: nftStakingPoints };
-      totalPoints += nftStakingPoints;
-
-      // INKDCA points
-      const inkDcaSubAggregates = inkDcaData?.sub_aggregates || [];
-      const totalSpentStr = inkDcaSubAggregates.find(s => s.label === 'Total Spent')?.value || '$0';
-      const totalSpentUsd = parseFloat(totalSpentStr.replace(/[$,]/g, '')) || 0;
-      const totalRegisteredDcas = inkDcaData?.total_count || 0;
-      const inkDcaPoints = this.calculateInkDcaPoints(totalSpentUsd, totalRegisteredDcas);
-      breakdown.platforms['inkdca'] = { tx_count: totalRegisteredDcas, usd_volume: totalSpentUsd, points: inkDcaPoints };
-      totalPoints += inkDcaPoints;
-
       // Verification logs - check formula correctness
 
+
+      // ADDITIONAL 1000-POINT BONUS — excluded from the top 10 leaderboard wallets
+      const top10 = await this.getTop10LeaderboardWallets();
+      if (!top10.has(wallet)) {
+        totalPoints += 2000;
+        breakdown.platforms['bonus_1000'] = { tx_count: 0, usd_volume: 0, points: 2000 };
+      }
 
       // TEMPORARY: floor total_points to the wallet's stored leaderboard score
       // when the realtime computation comes back lower. Some third-party
@@ -1009,6 +966,7 @@ export class PointsServiceV2 {
         rank: rank ? { name: rank.name, color: rank.color, logo_url: rank.logo_url } : null,
         breakdown,
         last_updated: new Date(),
+        ...(statsPartial ? { partial: true } : {}),
       };
     } catch (error) {
       console.error('Error calculating wallet score:', error);
