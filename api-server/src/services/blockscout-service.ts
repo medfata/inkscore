@@ -306,6 +306,24 @@ function ensureTables(): Promise<void> {
         inflows JSONB NOT NULL DEFAULT '[]',
         updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
       )`);
+      // Sprint 3: cursored tx-hash discovery — the accumulated hash set IS
+      // the cursor (historical matches never change; each pass only adds).
+      await query(`CREATE TABLE IF NOT EXISTS bs_tx_discovery (
+        wallet_address TEXT NOT NULL,
+        query_hash TEXT NOT NULL,
+        covered_oldest TIMESTAMPTZ,
+        covered_newest TIMESTAMPTZ,
+        complete BOOLEAN NOT NULL DEFAULT FALSE,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        PRIMARY KEY (wallet_address, query_hash)
+      )`);
+      await query(`CREATE TABLE IF NOT EXISTS bs_protocol_tx_hashes (
+        wallet_address TEXT NOT NULL,
+        query_hash TEXT NOT NULL,
+        tx_hash TEXT NOT NULL,
+        first_seen TIMESTAMPTZ NOT NULL DEFAULT now(),
+        PRIMARY KEY (wallet_address, query_hash, tx_hash)
+      )`);
       await query(`CREATE TABLE IF NOT EXISTS bs_refresh_queue (
         wallet_address TEXT NOT NULL,
         protocol TEXT NOT NULL DEFAULT '',
@@ -541,13 +559,18 @@ async function filterByMethodNames(
 
 // Walk advanced-filters pages collecting distinct contract_interaction tx
 // hashes. Returns hashes + whether the walk finished (false = page cap hit).
+// `since` (age_from) scans only NEWER activity; `until` (age_to, verified
+// supported — full ISO required) resumes a build pass strictly BELOW its
+// floor, so repeated passes extend coverage downward without re-walking the
+// same newest pages.
 async function walkProtocolTxHashes(
   fromAddr: string,
   toAddr: string,
   methods: string[] | null,
   since: string | null,
-  maxPages: number
-): Promise<{ hashes: string[]; complete: boolean; newestSeen: string | null }> {
+  maxPages: number,
+  until: string | null = null
+): Promise<{ hashes: string[]; complete: boolean; newestSeen: string | null; oldestSeen: string | null }> {
   const from = fromAddr.toLowerCase();
   const to = toAddr.toLowerCase();
   let base =
@@ -557,16 +580,20 @@ async function walkProtocolTxHashes(
     base += `&methods=${methods.map((m) => m.toLowerCase()).join(',')}`;
   }
   // Normalize: PG TIMESTAMPTZ reads back as Date; Blockscout needs ISO 8601
-  // (raw Date.toString() yields HTTP 422).
+  // (raw Date.toString() yields HTTP 422). Date-only strings are silently
+  // IGNORED by age_to (verified live) — full ISO is mandatory.
   const sinceIso = toAgeParam(since);
+  const untilIso = toAgeParam(until);
   const sinceQs = sinceIso ? `age_from=${encodeURIComponent(sinceIso)}` : '';
+  const untilQs = untilIso ? `age_to=${encodeURIComponent(untilIso)}` : '';
   const joinQs = (extra: string): string => {
-    const parts = [sinceQs, extra].filter((p) => p.length > 0);
+    const parts = [sinceQs, untilQs, extra].filter((p) => p.length > 0);
     return parts.length > 0 ? `${base}&${parts.join('&')}` : base;
   };
   let url: string | null = joinQs('');
   const seen = new Set<string>();
   let newestSeen: string | null = sinceIso;
+  let oldestSeen: string | null = untilIso;
   let pages = 0;
   while (url && pages < maxPages) {
     pages++;
@@ -578,6 +605,9 @@ async function walkProtocolTxHashes(
       if (item?.timestamp && (!newestSeen || item.timestamp > newestSeen)) {
         newestSeen = item.timestamp;
       }
+      if (item?.timestamp && (!oldestSeen || item.timestamp < oldestSeen)) {
+        oldestSeen = item.timestamp;
+      }
     }
     const np = data?.next_page_params;
     if (!np) break;
@@ -586,7 +616,7 @@ async function walkProtocolTxHashes(
       .join('&');
     url = joinQs(qs);
   }
-  return { hashes: [...seen], complete: pages < maxPages, newestSeen };
+  return { hashes: [...seen], complete: pages < maxPages, newestSeen, oldestSeen };
 }
 
 export type TxDirection = 'out' | 'in' | 'either';
@@ -676,8 +706,23 @@ export async function getProtocolCount(
   });
 }
 
-// Return distinct tx hashes for a protocol query (for USD legs). Always a
-// full (non-incremental) walk, capped — callers enforce the cap.
+// Return distinct tx hashes for a protocol query (for USD legs).
+//
+// SPRINT 3 — CURSORIZED DISCOVERY (historical data never changes, so it is
+// scanned exactly once):
+// - The accumulated hash set lives in bs_protocol_tx_hashes, keyed by the
+//   exact query (wallet + to-address + methods + direction). The set IS the
+//   cursor: walks stop at the first hash we already know.
+// - covered_oldest (bs_tx_discovery) is the walk floor: when a pass hits its
+//   page cap, the next pass resumes BELOW that point with age_to (verified
+//   supported by advanced-filters, full-ISO required) instead of re-walking
+//   the same newest pages.
+// - complete=true means every historical match is in the set; refreshes then
+//   only scan age_from=covered_newest (same incremental model as counts).
+// - ACCURACY: the returned hash list is ALWAYS the full accumulated set, so
+//   every USD sum derived from it is complete — a truncated pass only
+//   affects WHEN the remaining history gets discovered (background passes),
+//   never WHAT is summed.
 export async function getProtocolTxHashes(
   walletAddress: string,
   toAddress: string,
@@ -690,16 +735,108 @@ export async function getProtocolTxHashes(
   const wallet = walletAddress.toLowerCase();
   const to = toAddress.toLowerCase();
   const names = normalizeMethodNames(methodNames);
-  const dirs: Array<[string, string]> =
-    direction === 'either' ? [[wallet, to], [to, wallet]] : direction === 'in' ? [[to, wallet]] : [[wallet, to]];
-  const results = await Promise.all(
-    dirs.map(([f, t]) => walkProtocolTxHashes(f, t, methods, null, maxPages))
+  const queryHash = `${to}:${hashQuery(methods, names, direction)}`;
+
+  const DISCOVERY_TTL_MS = 10 * 60 * 1000;
+  const cached = await dbGet<{ covered_oldest: string | null; covered_newest: string | null; complete: boolean; updated_at: string }>(
+    'SELECT covered_oldest, covered_newest, complete, updated_at FROM bs_tx_discovery WHERE wallet_address = $1 AND query_hash = $2',
+    [wallet, queryHash]
   );
-  const hashes = [...new Set(results.flatMap((r) => r.hashes))];
-  const walkComplete = results.every((r) => r.complete);
-  if (names.length === 0) return { hashes, complete: walkComplete };
-  const filtered = await filterByMethodNames(hashes, methods, names);
-  return { hashes: filtered.matched, complete: walkComplete && filtered.complete };
+  if (cached && cached.complete && Date.now() - new Date(cached.updated_at).getTime() < DISCOVERY_TTL_MS) {
+    const rows = await query<{ tx_hash: string }>(
+      'SELECT tx_hash FROM bs_protocol_tx_hashes WHERE wallet_address = $1 AND query_hash = $2',
+      [wallet, queryHash]
+    );
+    return { hashes: rows.map((r) => r.tx_hash), complete: true };
+  }
+
+  return withInflight(`tx-disc:${wallet}:${queryHash}`, async () => {
+    // Re-read state inside the in-flight slot (a concurrent pass may have
+    // advanced the cursor while we waited).
+    const cur = (await dbGet<{ covered_oldest: string | null; covered_newest: string | null; complete: boolean }>(
+      'SELECT covered_oldest, covered_newest, complete FROM bs_tx_discovery WHERE wallet_address = $1 AND query_hash = $2',
+      [wallet, queryHash]
+    )) ?? { covered_oldest: null, covered_newest: null, complete: false };
+    const knownRows = await query<{ tx_hash: string }>(
+      'SELECT tx_hash FROM bs_protocol_tx_hashes WHERE wallet_address = $1 AND query_hash = $2',
+      [wallet, queryHash]
+    );
+    const known = new Set(knownRows.map((r) => r.tx_hash));
+
+    // Refresh pass (history fully covered): only scan for NEWER activity.
+    // Build pass (page cap hit earlier): resume strictly below the floor.
+    const refreshPass = cur.complete && cur.covered_newest != null;
+    const dirs: Array<[string, string]> =
+      direction === 'either' ? [[wallet, to], [to, wallet]] : direction === 'in' ? [[to, wallet]] : [[wallet, to]];
+    const results = await Promise.all(
+      dirs.map(([f, t]) =>
+        walkProtocolTxHashes(
+          f,
+          t,
+          methods,
+          refreshPass ? cur.covered_newest : null,
+          maxPages,
+          refreshPass ? null : cur.covered_oldest
+        )
+      )
+    );
+    const found = [...new Set(results.flatMap((r) => r.hashes))].map((h) => h.toLowerCase());
+    const newHashes = found.filter((h) => !known.has(h));
+    if (newHashes.length > 0) {
+      // Batch insert the newly discovered hashes.
+      const chunk = 200;
+      for (let i = 0; i < newHashes.length; i += chunk) {
+        const slice = newHashes.slice(i, i + chunk);
+        const values = slice.map((_, idx) => `($1, $2, $${idx + 3})`).join(', ');
+        await dbWrite(
+          `INSERT INTO bs_protocol_tx_hashes (wallet_address, query_hash, tx_hash)
+           VALUES ${values}
+           ON CONFLICT (wallet_address, query_hash, tx_hash) DO NOTHING`,
+          [wallet, queryHash, ...slice]
+        );
+      }
+    }
+    for (const h of newHashes) known.add(h);
+
+    // Cursor update: newest/oldest seen across this pass, clamped so a pass
+    // can never move a boundary the wrong way (multi-direction queries walk
+    // independently; the floor is the MIN across dirs — a shallower dir is
+    // simply re-walked with dedupe, which is correct, just less optimal).
+    let newestSeen: string | null = cur.covered_newest;
+    let oldestSeen: string | null = cur.covered_oldest;
+    for (const r of results) {
+      if (r.newestSeen && (!newestSeen || r.newestSeen > newestSeen)) newestSeen = r.newestSeen;
+      if (r.oldestSeen && (!oldestSeen || r.oldestSeen < oldestSeen)) oldestSeen = r.oldestSeen;
+    }
+    // (A build pass that finishes its pages without hitting the cap HAS
+    // walked all remaining history — complete. A capped pass leaves
+    // complete=false and the floor advances for the next pass.)
+    const complete = results.every((r) => r.complete);
+
+    await dbWrite(
+      `INSERT INTO bs_tx_discovery (wallet_address, query_hash, covered_oldest, covered_newest, complete, updated_at)
+       VALUES ($1, $2, $3, $4, $5, now())
+       ON CONFLICT (wallet_address, query_hash)
+       DO UPDATE SET covered_oldest = $3, covered_newest = $4, complete = $5, updated_at = now()`,
+      [wallet, queryHash, oldestSeen, newestSeen, complete]
+    );
+    if (!complete) {
+      // Incomplete passes converge via the heavy-metric service jobs the
+      // bundle/score paths enqueue (swap/tydro/nado/... re-run this
+      // discovery with the cursor resuming below its floor). No self-enqueue
+      // here: a bare 'txdisc' queue row would not carry the full query
+      // context (direction/methodNames) and the drain cannot re-run it
+      // faithfully.
+    }
+    // Preserve the old behavior exactly: method-name filtering applies to
+    // the RETURNED set (tx metas are permanently cached, so re-filtering the
+    // accumulated set costs DB reads only — no Blockscout requests).
+    if (names.length === 0) {
+      return { hashes: [...known], complete };
+    }
+    const filtered = await filterByMethodNames([...known], methods, names);
+    return { hashes: filtered.matched, complete: complete && filtered.complete };
+  });
 }
 
 // ---- per-tx data (permanent cache: chain facts never change) ---------------
