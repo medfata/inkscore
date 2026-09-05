@@ -12,6 +12,14 @@ import {
   getTokenHoldingsRaw,
   getWalletStats,
 } from './blockscout-service';
+import { pointsServiceV2 } from './points-service-v2';
+import { getSnapshotAgeMs, saveScoreSnapshot, SNAPSHOT_MAX_AGE_MS } from './metrics-snapshot-service';
+
+// Score-snapshot refresh: only bother when a snapshot is older than 45 min,
+// comfortably under SNAPSHOT_MAX_AGE_MS (60 min) — no point re-gathering
+// inputs the serve path would still use, and never letting a top wallet's
+// snapshot cross the staleness threshold in the first place.
+const SNAPSHOT_REFRESH_MIN_AGE_MS = 45 * 60_000;
 
 const WORKER_INTERVAL_MS = 60_000;
 const WORKER_BATCH = 20;
@@ -138,6 +146,50 @@ export function startRefreshWorker(): void {
   };
   setTimeout(warmActiveWallets, 60_000);
   setInterval(warmActiveWallets, 15 * 60_000);
+
+  // Sprint 2: keep the top leaderboard wallets' score snapshots fresh so a
+  // cold restart serves their score instantly from wallet_metrics_snapshots
+  // (proven identical to a live computation by check-snapshot-parity.mjs).
+  // - Strictly SEQUENTIAL: a gather is capped by the same per-service
+  //   budgets the score uses, but it still walks shared upstreams — never
+  //   compete with itself or flood the Blockscout budget.
+  // - Skipped when the existing snapshot is younger than 45 min (traffic
+  //   already refreshed it — every live score computation persists its
+  //   inputs on the way out).
+  // - Junk wallets excluded (the gather would time out everything anyway).
+  // - REFRESH_WORKER=off or SCORE_SNAPSHOT_WORKER=off disables it.
+  const refreshScoreSnapshots = async (): Promise<void> => {
+    if (process.env.SCORE_SNAPSHOT_WORKER === 'off') return;
+    try {
+      const rows = await query<{ wallet_address: string }>(
+        `SELECT entry->>'wallet_address' AS wallet_address
+           FROM cached_leaderboard, jsonb_array_elements(leaderboard_data) AS entry
+          WHERE id = 1
+          ORDER BY (entry->>'score')::numeric DESC
+          LIMIT 10`
+      );
+      let refreshed = 0;
+      for (const r of rows) {
+        const w = (r.wallet_address || '').toLowerCase();
+        if (!w || JUNK_WALLETS.has(w)) continue;
+        const age = await getSnapshotAgeMs(w).catch(() => null);
+        if (age !== null && age < SNAPSHOT_REFRESH_MIN_AGE_MS) continue;
+        try {
+          const inputs = await pointsServiceV2.gatherScoreInputs(w);
+          await saveScoreSnapshot(w, inputs, inputs.walletStats === null);
+          refreshed++;
+        } catch (err: any) {
+          console.warn(`[RefreshWorker] snapshot gather failed for ${w.slice(0, 10)}:`, err.message || err);
+        }
+      }
+      if (refreshed > 0) console.log(`[RefreshWorker] score snapshots refreshed: ${refreshed}`);
+    } catch (err: any) {
+      console.warn('[RefreshWorker] score snapshot sweep failed:', err.message || err);
+    }
+  };
+  setTimeout(refreshScoreSnapshots, 90_000);
+  setInterval(refreshScoreSnapshots, 15 * 60_000);
+
   setInterval(() => {
     drainOnce().catch((err) => console.error('[RefreshWorker] drain failed:', err.message || err));
   }, WORKER_INTERVAL_MS);
