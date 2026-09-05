@@ -38,6 +38,88 @@ const KNOWN_STALE_WALLETS = new Set([
   '0x4c50254dafd191bba2a6e0517c1742caf1426df5',
 ]);
 
+// Sprint 2: the raw metric inputs the score consumes, hoisted verbatim from
+// the old function-scoped interfaces (they were declared inside
+// calculateWalletScore after the fetch batch). These define the shape of
+// wallet_metrics_snapshots.inputs — the snapshot stores EXACTLY this object,
+// and computeScoreFromInputs() consumes either the live gather or the
+// deserialized snapshot with zero code differences.
+export interface ScoreWalletStats {
+  nftCollections?: Array<{ count?: number }>;
+  tokenHoldings?: Array<{ address: string; symbol?: string; usdValue: number }>;
+  balanceUsd?: number;
+  ageDays?: number;
+  totalTxns?: number;
+}
+export interface BridgeResponse { bridgedInUsd?: number; bridgedInCount?: number; bridgedOutUsd?: number; bridgedOutCount?: number; }
+export interface SwapResponse { totalUsd?: number; txCount?: number; }
+export interface TydroResponse { currentSupplyUsd?: number; currentBorrowUsd?: number; depositCount?: number; borrowCount?: number; }
+export interface CountResponse { total_count?: number; total_value?: string; }
+export interface ZnsResponse {
+  total_count?: number;
+  deploy_count?: number;
+  say_gm_count?: number;
+  register_domain_count?: number;
+}
+export interface Nft2meResponse { collectionsCreated?: number; nftsMinted?: number; totalTransactions?: number; }
+export interface NadoResponse {
+  totalDeposits?: number;
+  totalTransactions?: number;
+  nadoVolumeUSD?: number;
+}
+export interface CopinkResponse {
+  totalVolume?: number;
+  subaccountsFound?: number;
+}
+export interface TemplarsResponse {
+  total_count?: number;
+  value?: number;
+}
+export interface OpenSeaResponse {
+  total_count?: number;
+  value?: number;
+}
+export interface CowSwapResponse {
+  total_count?: number;
+  total_value?: string;
+}
+export interface SweepResponse {
+  totalCollections?: number;
+  sweepBadgeBalance?: number;
+  totalStreak?: number;
+}
+export interface OpenSeaCounts {
+  buys: number;
+  sales: number;
+  mints: number;
+  buyTransactions: unknown[];
+  saleTransactions: unknown[];
+  mintTransactions: unknown[];
+}
+
+export interface ScoreInputs {
+  walletStats: ScoreWalletStats | null;
+  bridgeData: BridgeResponse | null;
+  swapData: SwapResponse | null;
+  tydroData: TydroResponse | null;
+  gmData: CountResponse | null;
+  inkyPumpCreated: CountResponse | null;
+  inkyPumpBuy: CountResponse | null;
+  inkyPumpSell: CountResponse | null;
+  shelliesRaffles: CountResponse | null;
+  shelliesPayToPlay: CountResponse | null;
+  shelliesStaking: CountResponse | null;
+  znsData: ZnsResponse | null;
+  nft2meData: Nft2meResponse | null;
+  nadoData: NadoResponse | null;
+  copinkData: CopinkResponse | null;
+  templarsData: TemplarsResponse | null;
+  mintData: OpenSeaResponse | null;
+  cowSwapData: CowSwapResponse | null;
+  sweepData: SweepResponse | null;
+  openSeaCounts: OpenSeaCounts;
+}
+
 // System/junk wallets excluded from scoring entirely (see calculateWalletScore
 // and refresh-worker): walking them times out upstream and poisons the shared
 // Blockscout budget. Extend as new system addresses are identified.
@@ -577,77 +659,31 @@ export class PointsServiceV2 {
       };
     }
 
-    const breakdown: WalletPointsBreakdown = {
-      native: {},
-      platforms: {},
-    };
-    let totalPoints = 900;
+    // Sprint 2: the score is now a pure function of its metric inputs.
+    // gatherScoreInputs() is the EXACT batch the score always fetched
+    // (same services, budgets, fallbacks); computeScoreFromInputs() is the
+    // EXACT point math, verbatim. This split changes nothing by itself —
+    // it is what lets a metrics snapshot feed the identical computation
+    // later, so a snapshot can never alter a score, only source its inputs.
+    const inputs = await this.gatherScoreInputs(wallet);
+    return this.computeScoreFromInputs(wallet, inputs);
+  }
 
-    try {
-      // Use the same endpoints as the dashboard
-      const baseUrl = process.env.API_BASE_URL || 'http://localhost:4000';
+  /**
+   * Gather the raw metric inputs the score consumes. Verbatim move of the
+   * old fetch batch: same services, same budgets, same null fallbacks.
+   */
+  async gatherScoreInputs(wallet: string): Promise<ScoreInputs> {
 
-      // Aggressive per-endpoint timeout (3.5 s) so no single slow upstream
-      // can delay the whole score beyond the ~4 s budget. The body is parsed
-      // inside the same timeout window — parsing after Promise.all would let
-      // the abort signal kill bodies whose headers arrived in time.
-      // Tydro + Nado are allowed up to 30 s: their first-load fills walk
-      // hundreds of txs, then serve from cache in milliseconds.
-      // Bridge is in the same category: cold loads walk 3 Blockscout
-      // histories + price unlisted tokens via DeFi Llama, easily >3.5 s.
-      const FETCH_TIMEOUT = 3500;
-      const BRIDGE_FETCH_TIMEOUT = 15000;
+      // Sprint 2 note: the old per-endpoint 3.5s fetch/retry ladder
+      // (fetchJson + RETRY_* + BRIDGE_FETCH_TIMEOUT) was removed here — the
+      // score has zero loopback HTTP since the Sprint-1 direct-call wiring,
+      // so nothing referenced it anymore. The two budgets still used by the
+      // batch below are kept verbatim:
       // Copink proxies a third-party API measured at ~5s per call — a 3.5s
       // budget guarantees a timeout (and 0 copink points) on every cold load.
       const COPINK_FETCH_TIMEOUT = 10000;
       const SLOW_FETCH_TIMEOUT = 30000;
-      // Cold-start retry: on a fresh server the score's self-fetch races the
-      // dashboard's own ~27-request burst for the same endpoints. Aborting our
-      // fetch does NOT cancel the route handler — it keeps computing and
-      // populates responseCache/longCache when it finishes (bridge/volume also
-      // share the dashboard's in-flight computation). So one backed-off retry
-      // usually lands on a warm cache and returns real data instead of
-      // scoring the metric 0 (the "works only after refresh" bug). Worst case
-      // 3.5s + 2s + 15s ≈ 20.5s (bridge: 15s + 2s + 10s = 27s), still under
-      // the dashboard's 30s score timeout. Endpoints already on 30s budgets
-      // (tydro/nado) skip the retry to stay inside that budget.
-      const RETRY_DELAY_MS = 2000;
-      const RETRY_TIMEOUT_MS = 15000;
-      // Retry timeout for endpoints that already burn ≥15s on attempt 1 —
-      // cap it so attempt1 + delay + attempt2 stays under 30s.
-      const LONG_RETRY_TIMEOUT_MS = 10000;
-      const NO_RETRY_TIMEOUT_MS = SLOW_FETCH_TIMEOUT;
-      const fetchJson = async <T>(url: string, timeout = FETCH_TIMEOUT): Promise<T | null> => {
-        for (let attempt = 1; attempt <= 2; attempt++) {
-          const isRetry = attempt === 2;
-          if (isRetry && timeout >= NO_RETRY_TIMEOUT_MS) return null;
-          const attemptTimeout = isRetry
-            ? (timeout >= BRIDGE_FETCH_TIMEOUT ? LONG_RETRY_TIMEOUT_MS : RETRY_TIMEOUT_MS)
-            : timeout;
-          try {
-            const response = await fetch(url, {
-              signal: AbortSignal.timeout(attemptTimeout),
-            });
-            if (!response.ok) {
-              // A handler that completed with an error won't fix itself —
-              // only timeouts are worth retrying (the handler is still
-              // computing and will cache its result).
-              console.warn(`[Score] ${url} returned HTTP ${response.status}; treating as missing`);
-              return null;
-            }
-            return await response.json() as T;
-          } catch (err) {
-            if (!isRetry && timeout < NO_RETRY_TIMEOUT_MS) {
-              console.warn(`[Score] ${url} timed out after ${timeout}ms; retrying once in ${RETRY_DELAY_MS}ms (first attempt warms the route cache)`);
-              await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
-              continue;
-            }
-            console.warn(`[Score] fetch timed out/failed for ${url}:`, err);
-            return null;
-          }
-        }
-        return null;
-      };
 
       // Resolve with a fallback if the promise is still pending after ms. The
       // original promise keeps running in the background, so service-level
@@ -672,7 +708,7 @@ export class PointsServiceV2 {
       // egress roughly doubles per-request RTT (discovery 1.3s → 2.5s) — so
       // cold first loads needed more than the old 10s. On a miss the score
       // still returns (partial, cache-clamped) instead of 500ing.
-      const walletStatsPromise = withTimeout<WalletStatsResponse | null>(
+      const walletStatsPromise = withTimeout<ScoreWalletStats | null>(
         walletStatsService.getAllStats(wallet),
         15000,
         null,
@@ -698,13 +734,6 @@ export class PointsServiceV2 {
         EMPTY_OPENSEA_COUNTS,
         'OpenSea counts',
       );
-
-      // Start the cheap DB lookups now so they overlap with the fetch batch
-      // instead of running serially after it.
-      const ranksPromise = this.getCachedRanks();
-      const leaderboardFloorPromise = KNOWN_STALE_WALLETS.has(wallet)
-        ? Promise.resolve(null)
-        : this.getLeaderboardScoreFloor(wallet);
 
       // Every entry below is individually capped at 3.5 s, so the whole
       // batch resolves within the budget; missing endpoints score 0 points.
@@ -795,53 +824,79 @@ export class PointsServiceV2 {
         // — same sweepService both HTTP wrappers use.
         withTimeout(sweepService.getDeployedCollections(wallet).catch(() => null), 20000, null, 'sweep'),
         openSeaCountsPromise,
-      ]);      console.log(`[Score] ${wallet.slice(0, 10)} fetch batch completed in ${Date.now() - batchStart}ms`);
+      ]);
 
-      // Type definitions for API responses
-      interface WalletStatsResponse {
-        nftCollections?: Array<{ count?: number }>;
-        tokenHoldings?: Array<{ address: string; symbol?: string; usdValue: number }>;
-        balanceUsd?: number;
-        ageDays?: number;
-        totalTxns?: number;
-      }
-      interface BridgeResponse { bridgedInUsd?: number; bridgedInCount?: number; bridgedOutUsd?: number; bridgedOutCount?: number; }
-      interface SwapResponse { totalUsd?: number; txCount?: number; }
-      interface TydroResponse { currentSupplyUsd?: number; currentBorrowUsd?: number; depositCount?: number; borrowCount?: number; }
-      interface CountResponse { total_count?: number; total_value?: string; }
-      interface ZnsResponse {
-        total_count?: number;
-        deploy_count?: number;
-        say_gm_count?: number;
-        register_domain_count?: number;
-      }
-      interface Nft2meResponse { collectionsCreated?: number; nftsMinted?: number; totalTransactions?: number; }
-      interface NadoResponse {
-        totalDeposits?: number;
-        totalTransactions?: number;
-        nadoVolumeUSD?: number;
-      }
-      interface CopinkResponse {
-        totalVolume?: number;
-        subaccountsFound?: number;
-      }
-      interface TemplarsResponse {
-        total_count?: number;
-        value?: number;
-      }
-      interface OpenSeaResponse {
-        total_count?: number;
-        value?: number;
-      }
-      interface CowSwapResponse {
-        total_count?: number;
-        total_value?: string;
-      }
-      interface SweepResponse {
-        totalCollections?: number;
-        sweepBadgeBalance?: number;
-        totalStreak?: number;
-      }
+      console.log(`[Score] ${wallet.slice(0, 10)} fetch batch completed in ${Date.now() - batchStart}ms`);
+
+      return {
+        walletStats,
+        bridgeData,
+        swapData,
+        tydroData,
+        gmData,
+        inkyPumpCreated,
+        inkyPumpBuy,
+        inkyPumpSell,
+        shelliesRaffles,
+        shelliesPayToPlay,
+        shelliesStaking,
+        znsData,
+        nft2meData,
+        nadoData,
+        copinkData,
+        templarsData,
+        mintData,
+        cowSwapData,
+        sweepData,
+        openSeaCounts,
+      };
+  }
+
+  /**
+   * Compute the score from gathered inputs — the exact point math, verbatim.
+   * Pure with respect to its inputs: the only additional reads are scoring
+   * reference data (ranks, leaderboard floor, top-10 set, meme-token list),
+   * identical whether the inputs came from a live gather or a metrics
+   * snapshot. This is the function Sprint 2's snapshot path reuses.
+   */
+  async computeScoreFromInputs(wallet: string, inputs: ScoreInputs): Promise<WalletScoreResponse> {
+    const {
+      walletStats,
+      bridgeData,
+      swapData,
+      tydroData,
+      gmData,
+      inkyPumpCreated,
+      inkyPumpBuy,
+      inkyPumpSell,
+      shelliesRaffles,
+      shelliesPayToPlay,
+      shelliesStaking,
+      znsData,
+      nft2meData,
+      nadoData,
+      copinkData,
+      templarsData,
+      mintData,
+      cowSwapData,
+      sweepData,
+      openSeaCounts
+    } = inputs;
+
+    const breakdown: WalletPointsBreakdown = {
+      native: {},
+      platforms: {},
+    };
+    let totalPoints = 900;
+
+    // Scoring reference data (DB reads, not wallet metrics): start them
+    // immediately so they overlap with each other.
+    const ranksPromise = this.getCachedRanks();
+    const leaderboardFloorPromise = KNOWN_STALE_WALLETS.has(wallet)
+      ? Promise.resolve(null)
+      : this.getLeaderboardScoreFloor(wallet);
+
+    try {
 
       // Wallet stats walked Blockscout and missed the budget (cold burst +
       // proxy RTT). DON'T throw — all stats fields are already null-safe, so
