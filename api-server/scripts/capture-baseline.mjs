@@ -53,6 +53,26 @@ const ENDPOINTS = [
 const dir = join(OUT, WALLET);
 mkdirSync(dir, { recursive: true });
 
+// Record the ETH spot price context for this capture: USD values across the
+// API are priced at fetch time, so cross-run diffs must be normalized by the
+// price ratio (the price source intermittently writes a 3500.00 fallback —
+// exclude those rows when picking the reference price).
+let ethPrice = null;
+try {
+  const { Client } = await import('pg');
+  const c = new Client({ connectionString: process.env.DATABASE_URL });
+  await c.connect();
+  const r = await c.query(
+    "SELECT price_usd FROM eth_prices WHERE price_usd IS DISTINCT FROM 3500 ORDER BY timestamp DESC LIMIT 1"
+  );
+  ethPrice = r.rows[0] ? Number(r.rows[0].price_usd) : null;
+  await c.end();
+} catch (e) {
+  console.log(`  (no price context: ${e.message})`);
+}
+writeFileSync(join(dir, '_meta.json'), JSON.stringify({ wallet: WALLET, ethPrice, captured_at: new Date().toISOString() }, null, 2));
+console.log(`  price context: ETH $${ethPrice ?? 'unknown'}`);
+
 let ok = 0, failed = 0;
 for (const ep of ENDPOINTS) {
   const t0 = Date.now();

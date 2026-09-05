@@ -53,3 +53,8 @@ api-server/dev-server.log
 /nul
 nul
 scripts/admin-mint.zip
+
+# generated gif demos (do not commit)
+/excalidraw_gif/
+/output_gif/
+excalidraw_gif/node_modules/

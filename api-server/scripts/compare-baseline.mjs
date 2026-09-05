@@ -56,16 +56,27 @@ function numStr(x) {
   return Number.isFinite(n) && !Number.isInteger(n) ? n : null;
 }
 
-function diff(a, b, path, report) {
+function diff(a, b, path, report, usdScale = 1) {
+  // Floats in these payloads are price-derived (USD values, token values) and
+  // repriced at fetch time. When captures ran at different ETH prices, a float
+  // passes if it matches EITHER the plain tolerance OR the price-scaled
+  // expectation (5% band — blended values mix $1-pegged stables with
+  // ETH-pegged legs, so the blended ratio isn't exactly the price ratio).
+  // Integer counts compare EXACTLY — no tolerance.
+  const scale = usdScale;
   const na = numStr(a), nb = numStr(b);
   if (na !== null && nb !== null) {
-    if (Math.abs(na - nb) > Math.max(FLOAT_TOL_ABS, Math.abs(na) * FLOAT_TOL_REL)) {
+    const plainOk = Math.abs(nb - na) <= Math.max(FLOAT_TOL_ABS, Math.abs(na) * FLOAT_TOL_REL);
+    const scaledOk = scale !== 1 && Math.abs(nb - na * scale) <= Math.max(FLOAT_TOL_ABS, Math.abs(na * scale) * 0.05);
+    if (!plainOk && !scaledOk) {
       report.push(`${path}: "${a}" != "${b}" (beyond tolerance)`);
     }
     return;
   }
   if (isNum(a) && isNum(b)) {
-    if (Math.abs(a - b) > Math.max(FLOAT_TOL_ABS, Math.abs(a) * FLOAT_TOL_REL)) {
+    const plainOk = Math.abs(b - a) <= Math.max(FLOAT_TOL_ABS, Math.abs(a) * FLOAT_TOL_REL);
+    const scaledOk = scale !== 1 && Math.abs(b - a * scale) <= Math.max(FLOAT_TOL_ABS, Math.abs(a * scale) * 0.05);
+    if (!plainOk && !scaledOk) {
       report.push(`${path}: ${a} != ${b} (beyond tolerance)`);
     }
     return;
@@ -77,7 +88,7 @@ function diff(a, b, path, report) {
   if (Array.isArray(a) && Array.isArray(b)) {
     if (a.length !== b.length) report.push(`${path}: array length ${a} vs ${b}`);
     const n = Math.min(a.length, b.length);
-    for (let i = 0; i < n; i++) diff(a[i], b[i], `${path}[${i}]`, report);
+    for (let i = 0; i < n; i++) diff(a[i], b[i], `${path}[${i}]`, report, usdScale);
     return;
   }
   if (a && b && typeof a === 'object' && typeof b === 'object') {
@@ -85,7 +96,7 @@ function diff(a, b, path, report) {
     for (const k of keys) {
       if (!(k in a)) report.push(`${path}.${k}: missing in A`);
       else if (!(k in b)) report.push(`${path}.${k}: missing in B`);
-      else diff(a[k], b[k], `${path}.${k}`, report);
+      else diff(a[k], b[k], `${path}.${k}`, report, usdScale);
     }
     return;
   }
@@ -93,20 +104,38 @@ function diff(a, b, path, report) {
 }
 
 let totalFiles = 0, totalDiffs = 0;
+// USD normalization: values are priced at fetch time, so when the two
+// captures ran at different ETH spot prices, USD diffs must be judged
+// against the price ratio, not a fixed tolerance.
+function readPrice(dir, wallet) {
+  try {
+    const m = JSON.parse(readFileSync(join(dir, wallet, '_meta.json'), 'utf8'));
+    return typeof m.ethPrice === 'number' && m.ethPrice > 0 ? m.ethPrice : null;
+  } catch { return null; }
+}
+
 for (const wallet of readdirSync(A)) {
   const dirA = join(A, wallet);
   if (!statSync(dirA).isDirectory()) continue;
   const dirB = join(B, wallet);
   if (!existsSync(dirB)) { console.log(`wallet ${wallet}: MISSING in B`); totalDiffs++; continue; }
+  const pa = readPrice(A, wallet), pb = readPrice(B, wallet);
+  // Only normalize within sane bounds; 1 = no normalization needed.
+  let usdScale = 1;
+  if (pa && pb && pa !== pb) {
+    const ratio = pb / pa;
+    if (ratio > 0.2 && ratio < 5) usdScale = ratio;
+  }
+  if (usdScale !== 1) console.log(`(${wallet}: normalizing USD by price ratio ${usdScale.toFixed(4)} — A@$${pa} B@$${pb})`);
   for (const f of readdirSync(dirA)) {
-    if (!f.endsWith('.json')) continue;
+    if (!f.endsWith('.json') || f.startsWith('_')) continue;
     totalFiles++;
     const a = normalize(JSON.parse(readFileSync(join(dirA, f), 'utf8')));
     const bf = join(dirB, f);
     if (!existsSync(bf)) { console.log(`✗ ${wallet}/${f}: missing in B`); totalDiffs++; continue; }
     const b = normalize(JSON.parse(readFileSync(bf, 'utf8')));
     const report = [];
-    diff(a, b, f.replace('.json', ''), report);
+    diff(a, b, f.replace('.json', ''), report, usdScale);
     if (report.length === 0) {
       console.log(`✓ ${wallet}/${f}`);
     } else {

@@ -9,6 +9,8 @@ import {
 } from '../types/platforms';
 import { getBridgeVolume } from './bridge-service';
 import { getSwapVolume } from './swap-service';
+import { getTydroData } from './tydro-service';
+import { getNft2meData } from './nft2me-service';
 
 // TEMPORARY: wallets whose stored leaderboard score is known to be stale;
 // skip the floor clamp for them and trust the realtime score.
@@ -730,7 +732,16 @@ export class PointsServiceV2 {
           null,
           'swap'
         ),
-        fetchJson<TydroResponse>(`${baseUrl}/api/wallet/${wallet}/tydro`, SLOW_FETCH_TIMEOUT),
+        // Sprint 1: direct service call — no loopback HTTP. The service
+        // shares the dashboard's in-flight computation and 5-min long cache.
+        // 30s budget (matches the old SLOW_FETCH_TIMEOUT; multi-hundred-tx
+        // pricing passes need it).
+        withTimeout(
+          getTydroData(wallet).catch(() => null),
+          30000,
+          null,
+          'tydro'
+        ),
         fetchJson<CountResponse>(`${baseUrl}/api/analytics/${wallet}/gm_count`),
         fetchJson<CountResponse>(`${baseUrl}/api/analytics/${wallet}/inkypump_created_tokens`),
         fetchJson<CountResponse>(`${baseUrl}/api/analytics/${wallet}/inkypump_buy_volume`),
@@ -739,7 +750,15 @@ export class PointsServiceV2 {
         fetchJson<CountResponse>(`${baseUrl}/api/analytics/${wallet}/shellies_pay_to_play`),
         fetchJson<CountResponse>(`${baseUrl}/api/analytics/${wallet}/shellies_staking`),
         fetchJson<ZnsResponse>(`${baseUrl}/api/analytics/${wallet}/zns`),
-        fetchJson<Nft2meResponse>(`${baseUrl}/api/wallet/${wallet}/nft2me`),
+        // Sprint 1: direct service call (counts via getProtocolCount, deduped
+        // inside the count service itself). 20s budget like the old 3.5s +
+        // retry ladder worst case.
+        withTimeout(
+          getNft2meData(wallet).catch(() => null),
+          20000,
+          null,
+          'nft2me'
+        ),
         fetchJson<NadoResponse>(`${baseUrl}/api/nado/${wallet}`, SLOW_FETCH_TIMEOUT),
         fetchJson<CopinkResponse>(`${baseUrl}/api/copink/${wallet}`, COPINK_FETCH_TIMEOUT),
         fetchJson<TemplarsResponse>(`${baseUrl}/api/analytics/${wallet}/templars_nft_balance`),

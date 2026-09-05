@@ -9,6 +9,15 @@ import {
   partitionTxHashes,
 } from '../services/blockscout-service';
 import { getTokenInfo } from '../services/token-info-service';
+import {
+  getZnsMetrics,
+  getShelliesJoinedRaffles,
+  getShelliesPayToPlay,
+  getShelliesStaking,
+  getTemplarsBalance,
+  getZenithNft,
+  getZenithStaking,
+} from '../services/analytics-counts-service';
 import { query } from '../db';
 import { createPublicClient, http } from 'viem';
 import { defineChain } from 'viem';
@@ -65,11 +74,6 @@ const INKYPUMP_CREATE_TOKEN_FUNCTION = '0xa07849e6';
 const INKYSWAP_ROUTER_ADDRESS = '0xa8c1c38ff57428e5c3a34e0899be5cb385476507';
 
 // Shellies contract addresses and methods
-const SHELLIES_RAFFLE_CONTRACTS = [
-  '0x47a27a42525fff2b7264b342f74216e37a831332',
-  '0xe757e8aa82b7ad9f1ef8d4fe657d90341885c0de'
-];
-const SHELLIES_PAY_TO_PLAY_CONTRACT = '0x57d287dc46cb0782c4bce1e4e964cc52083bb358';
 const SHELLIES_STAKING_CONTRACT = '0xb39a48d294e1530a271e712b7a19243679d320d0';
 const INK_BUNNIES_STAKING_CONTRACT = '0x058413de8D9c4B76df94CCefC6617ACc5BFE7C57';
 const INK_BUNNIES_STAKING_METHOD = '0x6f8d80f5';
@@ -82,9 +86,6 @@ const NFT_CONTRACTS = [
   '0xbd6a027b85fd5285b1623563bbef6fadbe396afb', // Mintiq
   '0x9ebf93fdba9f32accab3d6716322dccd617a78f3', // Squid Market
 ];
-
-// Templars of the Storm NFT contract address
-const TEMPLARS_NFT_CONTRACT_ADDRESS = '0x46625E7de9894D83fca49E79cB53B5C25550cE99';
 
 // Cow Swap configuration
 const COW_SWAP_CONFIG = {
@@ -128,13 +129,6 @@ const COW_SWAP_CONFIG = {
   }
 };
 
-// ZNS tracking config
-const ZNS_CONFIG = {
-  deploy: { contract: '0x63c489d31a2c3de0638360931f47ff066282473f', functions: ['Deploy', 'deploy'] },
-  sayGm: { contract: '0x3033d7ded400547d6442c55159da5c61f2721633', functions: ['SayGM', 'sayGM'] },
-  register: { contract: '0xfb2cd41a8aec89efbb19575c6c48d872ce97a0a5', functions: ['RegisterDomains', 'registerDomains'] },
-};
-
 // ============================================
 // Token Info Helper (for InkyPump volume calculation)
 // Sprint 1 dedup: the DeFi Llama token-info cache lives in ONE place now —
@@ -173,7 +167,6 @@ async function batchLegPrices(
 // dashboard polls don't re-hit gm.ink / Cow / RPC on every load.
 const GM_LONG_CACHE_TTL = 10 * 60 * 1000;
 const COWSWAP_LONG_CACHE_TTL = 10 * 60 * 1000;
-const TEMPLARS_LONG_CACHE_TTL = 5 * 60 * 1000;
 
 interface GmCountResult {
   slug: string;
@@ -195,73 +188,6 @@ interface CowSwapResult {
   total_count: number;
   total_value: string;
   sub_aggregates: Array<{ token: string; usd_value: string; count: number }>;
-  last_updated: Date;
-}
-
-interface TemplarsResult {
-  slug: string;
-  name: string;
-  icon: string;
-  currency: string;
-  value: number;
-  total_count: number;
-  total_value: string;
-  sub_aggregates: unknown[];
-  last_updated: Date;
-}
-
-// InkScore Zenith NFT collection contract address
-const ZENITH_NFT_CONTRACT_ADDRESS = '0xd0282f4Cb5c6FE4e3F2fecacFcb9477F42ce8c78';
-// InkScore Zenith staking contract address
-const ZENITH_STAKING_CONTRACT_ADDRESS = '0xa6c707fcbeead8f1410b6f83c44d03e65e2e89b6';
-const ZENITH_LONG_CACHE_TTL = 5 * 60 * 1000;
-// Hard cap on per-token stakeInfo reads for the staking breakdown
-const ZENITH_MAX_STAKED_TOKENS = 100;
-
-// InkScore Zenith staking view functions
-const ZENITH_STAKING_ABI = [
-  {
-    inputs: [{ name: 'user', type: 'address' }],
-    name: 'stakedTokensOf',
-    outputs: [{ name: '', type: 'uint256[]' }],
-    stateMutability: 'view',
-    type: 'function',
-  },
-  {
-    inputs: [{ name: 'tokenId', type: 'uint256' }],
-    name: 'stakeInfo',
-    outputs: [
-      { name: 'depositor', type: 'address' },
-      { name: 'stakedAt', type: 'uint256' },
-      { name: 'unlockTimestamp', type: 'uint256' },
-    ],
-    stateMutability: 'view',
-    type: 'function',
-  },
-] as const;
-
-interface ZenithNftBalanceResult {
-  slug: string;
-  name: string;
-  icon: string;
-  currency: string;
-  total_count: number;
-  total_value: string;
-  sub_aggregates: unknown[];
-  last_updated: Date;
-}
-
-interface ZenithStakingResult {
-  slug: string;
-  name: string;
-  icon: string;
-  currency: string;
-  total_count: number;
-  total_staked: number;
-  one_month_count: number;
-  one_week_count: number;
-  one_day_count: number;
-  sub_aggregates: Array<{ label: string; value: string }>;
   last_updated: Date;
 }
 
@@ -313,26 +239,7 @@ router.get('/:wallet/zns', async (req: Request, res: Response) => {
 
     // Counts via Blockscout (single batched query per action, no method
     // selectors needed — resolved by decoded method name).
-    const [deployRes, sayGmRes, registerRes] = await Promise.all([
-      getProtocolCount(walletLower, 'zns-deploy', ZNS_CONFIG.deploy.contract, null, ZNS_CONFIG.deploy.functions),
-      getProtocolCount(walletLower, 'zns-saygm', ZNS_CONFIG.sayGm.contract, null, ZNS_CONFIG.sayGm.functions),
-      getProtocolCount(walletLower, 'zns-register', ZNS_CONFIG.register.contract, null, ZNS_CONFIG.register.functions),
-    ]);
-
-    const deployCount = deployRes.count;
-    const sayGmCount = sayGmRes.count;
-    const registerCount = registerRes.count;
-
-    const result = {
-      slug: 'zns',
-      name: 'ZNS Connect',
-      currency: 'COUNT',
-      total_count: deployCount + sayGmCount + registerCount,
-      deploy_count: deployCount,
-      say_gm_count: sayGmCount,
-      register_domain_count: registerCount,
-      last_updated: new Date(),
-    };
+    const result = await getZnsMetrics(walletLower);
 
     responseCache.set(cacheKey, result);
     res.json(result);
@@ -773,22 +680,7 @@ router.get('/:wallet/:metric', async (req: Request, res: Response) => {
 
     // Special handling for shellies_joined_raffles (counts via Blockscout)
     if (metric === 'shellies_joined_raffles') {
-      const [r1, r2] = await Promise.all([
-        getProtocolCount(walletLower, 'shellies-raffle-1', SHELLIES_RAFFLE_CONTRACTS[0], null, ['JoinRaffle', 'joinRaffle']),
-        getProtocolCount(walletLower, 'shellies-raffle-2', SHELLIES_RAFFLE_CONTRACTS[1], null, ['JoinRaffle', 'joinRaffle']),
-      ]);
-      const count = r1.count + r2.count;
-
-      const result = {
-        slug: 'shellies_joined_raffles',
-        name: 'Joined Raffles',
-        icon: '🎟️',
-        currency: 'COUNT',
-        total_count: count,
-        total_value: count.toString(),
-        sub_aggregates: [],
-        last_updated: new Date(),
-      };
+      const result = await getShelliesJoinedRaffles(walletLower);
 
       responseCache.set(cacheKey, result);
       return res.json(result);
@@ -796,19 +688,7 @@ router.get('/:wallet/:metric', async (req: Request, res: Response) => {
 
     // Special handling for shellies_pay_to_play (counts via Blockscout)
     if (metric === 'shellies_pay_to_play') {
-      const pc = await getProtocolCount(walletLower, 'shellies-pay', SHELLIES_PAY_TO_PLAY_CONTRACT, null, ['PayToPlay', 'payToPlay']);
-      const count = pc.count;
-
-      const result = {
-        slug: 'shellies_pay_to_play',
-        name: 'Pay to Play',
-        icon: '🎮',
-        currency: 'COUNT',
-        total_count: count,
-        total_value: count.toString(),
-        sub_aggregates: [],
-        last_updated: new Date(),
-      };
+      const result = await getShelliesPayToPlay(walletLower);
 
       responseCache.set(cacheKey, result);
       return res.json(result);
@@ -882,20 +762,7 @@ router.get('/:wallet/:metric', async (req: Request, res: Response) => {
     // Special handling for shellies_staking (counts via Blockscout; the
     // legacy 0x1e332260 selector resolves to its decoded name on-chain)
     if (metric === 'shellies_staking') {
-      // Fallback to transaction count (contract read not available in Express server)
-      const pc = await getProtocolCount(walletLower, 'shellies-staking', SHELLIES_STAKING_CONTRACT, ['0x1e332260'], ['StakeBatch', 'stakeBatch']);
-      const count = pc.count;
-
-      const result = {
-        slug: 'shellies_staking',
-        name: 'Staking',
-        icon: '🔒',
-        currency: 'COUNT',
-        total_count: count,
-        total_value: count.toString(),
-        sub_aggregates: [],
-        last_updated: new Date(),
-      };
+      const result = await getShelliesStaking(walletLower);
 
       responseCache.set(cacheKey, result);
       return res.json(result);
@@ -1099,228 +966,29 @@ router.get('/:wallet/:metric', async (req: Request, res: Response) => {
 
     // Special handling for templars_nft_balance - blockchain read operation
     if (metric === 'templars_nft_balance') {
-      // Single RPC call (~0.9s) and a slow-moving balance: dedup + 5-min cache.
-      const templarsLcKey = `long:${cacheKey}`;
-      const templarsLc = getLongCache<TemplarsResult>(templarsLcKey, TEMPLARS_LONG_CACHE_TTL);
-      if (templarsLc) {
-        responseCache.set(cacheKey, templarsLc);
-        return res.json(templarsLc);
-      }
-      return res.json(await withInflight<TemplarsResult>(templarsLcKey, async (): Promise<TemplarsResult> => {
-      try {
-        // First, try ERC721 balanceOf
-        let balance: bigint;
-        try {
-          balance = await publicClient.readContract({
-            address: TEMPLARS_NFT_CONTRACT_ADDRESS as `0x${string}`,
-            abi: ERC721_BALANCE_OF_ABI,
-            functionName: 'balanceOf',
-            args: [walletLower as `0x${string}`],
-          });
-        } catch (erc721Error) {
-          // If ERC721 fails, try ERC1155 balanceOf (requires token ID)
-          // For now, we'll just return 0 and log the error
-          console.error('Error reading ERC721 balanceOf for Templars NFT:', erc721Error);
-          
-          // Check if contract exists by trying to get code
-          const code = await publicClient.getBytecode({
-            address: TEMPLARS_NFT_CONTRACT_ADDRESS as `0x${string}`,
-          });
-          
-          if (!code || code === '0x') {
-            console.error(`Contract does not exist at ${TEMPLARS_NFT_CONTRACT_ADDRESS} on Ink mainnet`);
-          }
-          
-          // Return 0 balance
-          balance = BigInt(0);
-        }
+      const result = await getTemplarsBalance(walletLower);
 
-        const count = Number(balance);
-
-        const result = {
-          slug: 'templars_nft_balance',
-          name: 'Templars of the Storm',
-          icon: '⚔️',
-          currency: 'COUNT',
-          value: count,
-          total_count: count,
-          total_value: count.toString(),
-          sub_aggregates: [],
-          last_updated: new Date(),
-        };
-
-        responseCache.set(cacheKey, result);
-        setLongCache(templarsLcKey, result);
-        return result;
-      } catch (error) {
-        console.error('Error fetching Templars NFT balance:', error);
-        // Return 0 balance on error instead of failing
-        const result = {
-          slug: 'templars_nft_balance',
-          name: 'Templars of the Storm',
-          icon: '⚔️',
-          currency: 'COUNT',
-          value: 0,
-          total_count: 0,
-          total_value: '0',
-          sub_aggregates: [],
-          last_updated: new Date(),
-        };
-        responseCache.set(cacheKey, result);
-        return result;
-      }
-      }));
+      responseCache.set(cacheKey, result);
+      return res.json(result);
     }
 
     // Special handling for zenith_nft_balance - blockchain read operation
     // (InkScore Zenith ERC721 holdings for the wallet). No points for now.
     if (metric === 'zenith_nft_balance') {
-      const zenithLcKey = `long:${cacheKey}`;
-      const zenithLc = getLongCache<ZenithNftBalanceResult>(zenithLcKey, ZENITH_LONG_CACHE_TTL);
-      if (zenithLc) {
-        responseCache.set(cacheKey, zenithLc);
-        return res.json(zenithLc);
-      }
-      return res.json(await withInflight<ZenithNftBalanceResult>(zenithLcKey, async (): Promise<ZenithNftBalanceResult> => {
-        try {
-          const balance = await publicClient.readContract({
-            address: ZENITH_NFT_CONTRACT_ADDRESS as `0x${string}`,
-            abi: ERC721_BALANCE_OF_ABI,
-            functionName: 'balanceOf',
-            args: [walletLower as `0x${string}`],
-          });
+      const result = await getZenithNft(walletLower);
 
-          const count = Number(balance);
-
-          const result: ZenithNftBalanceResult = {
-            slug: 'zenith_nft_balance',
-            name: 'InkScore Zenith',
-            icon: 'https://i2c.seadn.io/collection/inkscore-zenith/image_type_logo/831152ff66038d827191d68d3d66b9/2f831152ff66038d827191d68d3d66b9.png?h=250&w=250',
-            currency: 'COUNT',
-            total_count: count,
-            total_value: count.toString(),
-            sub_aggregates: [],
-            last_updated: new Date(),
-          };
-
-          responseCache.set(cacheKey, result);
-          setLongCache(zenithLcKey, result);
-          return result;
-        } catch (error) {
-          console.error('Error fetching InkScore Zenith NFT balance:', error);
-          const result: ZenithNftBalanceResult = {
-            slug: 'zenith_nft_balance',
-            name: 'InkScore Zenith',
-            icon: 'https://i2c.seadn.io/collection/inkscore-zenith/image_type_logo/831152ff66038d827191d68d3d66b9/2f831152ff66038d827191d68d3d66b9.png?h=250&w=250',
-            currency: 'COUNT',
-            total_count: 0,
-            total_value: '0',
-            sub_aggregates: [],
-            last_updated: new Date(),
-          };
-          responseCache.set(cacheKey, result);
-          return result;
-        }
-      }));
+      responseCache.set(cacheKey, result);
+      return res.json(result);
     }
 
     // Special handling for zenith_staking - blockchain read operation
     // (InkScore Zenith NFTs staked in the InkScoreStaking contract, broken
     //  down by lock period: 1 month / 1 week / 1 day). No points for now.
     if (metric === 'zenith_staking') {
-      const zenithStakingLcKey = `long:${cacheKey}`;
-      const zenithStakingLc = getLongCache<ZenithStakingResult>(zenithStakingLcKey, ZENITH_LONG_CACHE_TTL);
-      if (zenithStakingLc) {
-        responseCache.set(cacheKey, zenithStakingLc);
-        return res.json(zenithStakingLc);
-      }
-      return res.json(await withInflight<ZenithStakingResult>(zenithStakingLcKey, async (): Promise<ZenithStakingResult> => {
-        const emptyResult = (): ZenithStakingResult => ({
-          slug: 'zenith_staking',
-          name: 'InkScore Zenith Staking',
-          icon: '/inkscore_logo.png',
-          currency: 'COUNT',
-          total_count: 0,
-          total_staked: 0,
-          one_month_count: 0,
-          one_week_count: 0,
-          one_day_count: 0,
-          sub_aggregates: [
-            { label: '1 Month Lock', value: '0' },
-            { label: '1 Week Lock', value: '0' },
-            { label: '1 Day Lock', value: '0' },
-          ],
-          last_updated: new Date(),
-        });
+      const result = await getZenithStaking(walletLower);
 
-        try {
-          const tokenIds = await publicClient.readContract({
-            address: ZENITH_STAKING_CONTRACT_ADDRESS as `0x${string}`,
-            abi: ZENITH_STAKING_ABI,
-            functionName: 'stakedTokensOf',
-            args: [walletLower as `0x${string}`],
-          });
-
-          const totalStaked = tokenIds.length;          if (totalStaked === 0) {
-            const result = emptyResult();
-            responseCache.set(cacheKey, result);
-            setLongCache(zenithStakingLcKey, result);
-            return result;
-          }
-
-          // Read each staked token's stake info to classify by lock period.
-          // LockPeriod durations: Day = 1 day (86400s), Week = 7 days
-          // (604800s), Month = 30 days (2592000s).
-          const cappedTokenIds = tokenIds.slice(0, ZENITH_MAX_STAKED_TOKENS);
-          const stakeInfos = await Promise.all(
-            cappedTokenIds.map((tokenId) =>
-              publicClient.readContract({
-                address: ZENITH_STAKING_CONTRACT_ADDRESS as `0x${string}`,
-                abi: ZENITH_STAKING_ABI,
-                functionName: 'stakeInfo',
-                args: [tokenId],
-              })
-            )
-          );
-
-          let oneMonthCount = 0;
-          let oneWeekCount = 0;
-          let oneDayCount = 0;
-          for (const [, stakedAt, unlockTimestamp] of stakeInfos) {
-            const lockDuration = Number(unlockTimestamp) - Number(stakedAt);
-            if (lockDuration >= 2592000) oneMonthCount++;
-            else if (lockDuration >= 604800) oneWeekCount++;
-            else oneDayCount++;
-          }
-
-          const result: ZenithStakingResult = {
-            slug: 'zenith_staking',
-            name: 'InkScore Zenith Staking',
-            icon: '/inkscore_logo.png',
-            currency: 'COUNT',
-            total_count: totalStaked,
-            total_staked: totalStaked,
-            one_month_count: oneMonthCount,
-            one_week_count: oneWeekCount,
-            one_day_count: oneDayCount,
-            sub_aggregates: [
-              { label: '1 Month Lock', value: oneMonthCount.toString() },
-              { label: '1 Week Lock', value: oneWeekCount.toString() },
-              { label: '1 Day Lock', value: oneDayCount.toString() },
-            ],
-            last_updated: new Date(),
-          };
-
-          responseCache.set(cacheKey, result);
-          setLongCache(zenithStakingLcKey, result);
-          return result;
-        } catch (error) {
-          console.error('Error fetching InkScore Zenith staking metrics:', error);
-          const result = emptyResult();
-          responseCache.set(cacheKey, result);
-          return result;
-        }
-      }));
+      responseCache.set(cacheKey, result);
+      return res.json(result);
     }
 
     // For other metrics, use the existing analytics service
