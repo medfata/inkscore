@@ -88,15 +88,20 @@ function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T, label: str
 // Per-metric cache read-through with the SAME key the individual endpoint
 // shell uses, so the bundle and the legacy fan-out share one cache layer.
 // A null result is NOT cached (the old shells never cached an errored
-// endpoint — the next load retries it).
+// endpoint — the next load retries it). With `fresh` (refresh=true), the
+// read is skipped but the result is still written — refresh recomputes AND
+// re-caches, exactly like the old shells.
 async function viaCache<T>(
   key: string,
   label: string,
   timeoutMs: number,
-  compute: () => Promise<T | null>
+  compute: () => Promise<T | null>,
+  fresh = false
 ): Promise<T | null> {
-  const cached = responseCache.get<T>(key);
-  if (cached) return cached;
+  if (!fresh) {
+    const cached = responseCache.get<T>(key);
+    if (cached) return cached;
+  }
   const result = await withTimeout(compute().catch(() => null), timeoutMs, null, label);
   if (result != null) responseCache.set(key, result);
   return result;
@@ -112,7 +117,14 @@ const EMPTY_OPENSEA_COUNTS = { buys: 0, sales: 0, mints: 0, buyTransactions: [],
  * on miss (the same "missing = null, never zero" rule the individual
  * endpoints follow).
  */
-export async function gatherDashboardBundle(wallet: string): Promise<DashboardBundle> {
+export async function gatherDashboardBundle(
+  wallet: string,
+  opts?: { fresh?: boolean }
+): Promise<DashboardBundle> {
+  const fresh = opts?.fresh === true;
+  // Bound read-through helper: threads the refresh flag into every metric.
+  const vc = <T>(key: string, label: string, timeoutMs: number, compute: () => Promise<T | null>) =>
+    viaCache(key, label, timeoutMs, compute, fresh);
   // Raw OpenSea counts for the score input (the service layers its own
   // memory + Postgres caches; no endpoint shell wraps this shape).
   const openSeaCounts = await withTimeout(
@@ -155,33 +167,33 @@ export async function gatherDashboardBundle(wallet: string): Promise<DashboardBu
     openseaBuy,
     openseaSale,
   ] = await Promise.all([
-    viaCache(`wallet:stats:${wallet}`, 'stats', 15000, () => walletStatsService.getAllStats(wallet)),
-    viaCache(`wallet:bridge:${wallet}`, 'bridge', 30000, () => getBridgeVolume(wallet)),
-    viaCache(`wallet:swap:${wallet}`, 'swap', 20000, () => getSwapVolume(wallet)),
-    viaCache(`wallet:tydro:${wallet}`, 'tydro', 30000, () => getTydroData(wallet)),
-    viaCache(`wallet:nft2me:${wallet}`, 'nft2me', 20000, () => getNft2meData(wallet)),
-    viaCache(`nado:${wallet}`, 'nado', 30000, () => getNadoMetrics(wallet)),
-    viaCache(`wallet:volume:${wallet}`, 'volume', 30000, () => getTotalVolumeData(wallet)),
-    viaCache(`analytics:gm_count:${wallet}`, 'gm', 20000, () => getGmCount(wallet)),
-    viaCache(`analytics:inkypump_created_tokens:${wallet}`, 'inkypump-created', 30000, () => getInkypumpCreatedTokens(wallet)),
-    viaCache(`analytics:inkypump_buy_volume:${wallet}`, 'inkypump-buy', 30000, () => getInkypumpBuyVolume(wallet)),
-    viaCache(`analytics:inkypump_sell_volume:${wallet}`, 'inkypump-sell', 30000, () => getInkypumpSellVolume(wallet)),
-    viaCache(`analytics:zns:${wallet}`, 'zns', 20000, () => getZnsMetrics(wallet)),
-    viaCache(`analytics:shellies_joined_raffles:${wallet}`, 'shellies-raffles', 20000, () => getShelliesJoinedRaffles(wallet)),
-    viaCache(`analytics:shellies_pay_to_play:${wallet}`, 'shellies-pay', 20000, () => getShelliesPayToPlay(wallet)),
-    viaCache(`analytics:shellies_staking:${wallet}`, 'shellies-staking', 20000, () => getShelliesStaking(wallet)),
-    viaCache(`analytics:templars_nft_balance:${wallet}`, 'templars', 20000, () => getTemplarsBalance(wallet)),
-    viaCache(`analytics:mint_count:${wallet}`, 'mint', 20000, () => getMintCount(wallet)),
-    viaCache(`analytics:cowswap_swaps:${wallet}`, 'cowswap', 20000, () => getCowswapSwaps(wallet)),
-    viaCache(`analytics:sweep:${wallet}`, 'sweep', 20000, () => getSweep(wallet)),
-    viaCache(`analytics:zenith_nft_balance:${wallet}`, 'zenith-nft', 20000, () => getZenithNft(wallet)),
-    viaCache(`analytics:zenith_staking:${wallet}`, 'zenith-staking', 20000, () => getZenithStaking(wallet)),
-    viaCache(`analytics:${wallet}`, 'analytics', 30000, () => analyticsService.getWalletAnalytics(wallet)),
-    viaCache(`dashboard:cards:${wallet}`, 'cards', 15000, () => getDashboardCards(wallet)),
+    vc(`wallet:stats:${wallet}`, 'stats', 15000, () => walletStatsService.getAllStats(wallet)),
+    vc(`wallet:bridge:${wallet}`, 'bridge', 30000, () => getBridgeVolume(wallet)),
+    vc(`wallet:swap:${wallet}`, 'swap', 20000, () => getSwapVolume(wallet)),
+    vc(`wallet:tydro:${wallet}`, 'tydro', 30000, () => getTydroData(wallet)),
+    vc(`wallet:nft2me:${wallet}`, 'nft2me', 20000, () => getNft2meData(wallet)),
+    vc(`nado:${wallet}`, 'nado', 30000, () => getNadoMetrics(wallet)),
+    vc(`wallet:volume:${wallet}`, 'volume', 30000, () => getTotalVolumeData(wallet)),
+    vc(`analytics:gm_count:${wallet}`, 'gm', 20000, () => getGmCount(wallet)),
+    vc(`analytics:inkypump_created_tokens:${wallet}`, 'inkypump-created', 30000, () => getInkypumpCreatedTokens(wallet)),
+    vc(`analytics:inkypump_buy_volume:${wallet}`, 'inkypump-buy', 30000, () => getInkypumpBuyVolume(wallet)),
+    vc(`analytics:inkypump_sell_volume:${wallet}`, 'inkypump-sell', 30000, () => getInkypumpSellVolume(wallet)),
+    vc(`analytics:zns:${wallet}`, 'zns', 20000, () => getZnsMetrics(wallet)),
+    vc(`analytics:shellies_joined_raffles:${wallet}`, 'shellies-raffles', 20000, () => getShelliesJoinedRaffles(wallet)),
+    vc(`analytics:shellies_pay_to_play:${wallet}`, 'shellies-pay', 20000, () => getShelliesPayToPlay(wallet)),
+    vc(`analytics:shellies_staking:${wallet}`, 'shellies-staking', 20000, () => getShelliesStaking(wallet)),
+    vc(`analytics:templars_nft_balance:${wallet}`, 'templars', 20000, () => getTemplarsBalance(wallet)),
+    vc(`analytics:mint_count:${wallet}`, 'mint', 20000, () => getMintCount(wallet)),
+    vc(`analytics:cowswap_swaps:${wallet}`, 'cowswap', 20000, () => getCowswapSwaps(wallet)),
+    vc(`analytics:sweep:${wallet}`, 'sweep', 20000, () => getSweep(wallet)),
+    vc(`analytics:zenith_nft_balance:${wallet}`, 'zenith-nft', 20000, () => getZenithNft(wallet)),
+    vc(`analytics:zenith_staking:${wallet}`, 'zenith-staking', 20000, () => getZenithStaking(wallet)),
+    vc(`analytics:${wallet}`, 'analytics', 30000, () => analyticsService.getWalletAnalytics(wallet)),
+    vc(`dashboard:cards:${wallet}`, 'cards', 15000, () => getDashboardCards(wallet)),
     // Copink manages its own responseCache + stale-serve internally.
     getCopinkSafe(wallet),
-    viaCache(`analytics:opensea_buy_count:${wallet}`, 'opensea-buy', 20000, () => getOpenseaBuyCount(wallet)),
-    viaCache(`analytics:opensea_sale_count:${wallet}`, 'opensea-sale', 20000, () => getOpenseaSaleCount(wallet)),
+    vc(`analytics:opensea_buy_count:${wallet}`, 'opensea-buy', 20000, () => getOpenseaBuyCount(wallet)),
+    vc(`analytics:opensea_sale_count:${wallet}`, 'opensea-sale', 20000, () => getOpenseaSaleCount(wallet)),
   ]);
 
   // Raw sweep shape for the score input (the score reads
@@ -220,7 +232,7 @@ export async function gatherDashboardBundle(wallet: string): Promise<DashboardBu
   // The score: the proven pure function over the same per-metric inputs,
   // cached under the /score shell's own key (so /score and the bundle agree
   // and share one computation).
-  const score = await viaCache(`wallet:score:${wallet}`, 'score', 35000, () =>
+  const score = await vc(`wallet:score:${wallet}`, 'score', 35000, () =>
     pointsServiceV2.computeScoreFromInputs(wallet, inputs)
   );
 

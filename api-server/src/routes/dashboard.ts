@@ -61,7 +61,7 @@ router.get('/bundle/:wallet', async (req: Request, res: Response) => {
     }
 
     const started = Date.now();
-    const bundle = await gatherDashboardBundle(walletAddress);
+    const bundle = await gatherDashboardBundle(walletAddress, { fresh: forceRefresh });
     console.log(`[Bundle] ${walletAddress.slice(0, 10)}: live gather completed in ${Date.now() - started}ms (partial=${bundle.partial})`);
 
     // Sprint 2 perf convergence: hand any HEAVY misses to the background
