@@ -20,9 +20,13 @@ interface FetchResult<T> {
   error: string | null;
 }
 
+// Verbose per-fetch logging: off by default (~60 lines per dashboard load,
+// log I/O on warm invocations, drowns real warnings). Enable with DASHBOARD_DEBUG=true.
+const DEBUG_LOGS = process.env.DASHBOARD_DEBUG === 'true';
+
 async function fetchFromExpress<T>(endpoint: string, timeoutMs = EXPRESS_TIMEOUT_MS): Promise<FetchResult<T>> {
   try {
-    console.log(`[FETCH] Requesting: ${API_SERVER_URL}${endpoint}`);
+    if (DEBUG_LOGS) console.log(`[FETCH] Requesting: ${API_SERVER_URL}${endpoint}`);
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
     const response = await fetch(`${API_SERVER_URL}${endpoint}`, {
@@ -33,14 +37,14 @@ async function fetchFromExpress<T>(endpoint: string, timeoutMs = EXPRESS_TIMEOUT
       signal: controller.signal,
     });
     clearTimeout(timeout);
-    console.log(`[FETCH] Response status: ${response.status} for ${endpoint}`);
+    if (DEBUG_LOGS) console.log(`[FETCH] Response status: ${response.status} for ${endpoint}`);
     if (!response.ok) {
       const errorText = await response.text().catch(() => 'Unable to read error');
       console.error(`[FETCH] Error response: ${errorText}`);
       return { data: null, error: `HTTP ${response.status}` };
     }
     const data = await response.json();
-    console.log(`[FETCH] Response OK for ${endpoint}`);
+    if (DEBUG_LOGS) console.log(`[FETCH] Response OK for ${endpoint}`);
     return { data, error: null };
   } catch (error) {
     console.error(`[FETCH] Exception for ${endpoint}:`, error);
@@ -132,7 +136,7 @@ async function getStreamingDashboard(walletAddress: string, forceRefresh = false
         { id: 'zenithStaking', fetch: () => ef(`/api/analytics/${walletAddress}/zenith_staking`) },
       ];
 
-      console.log(`[STREAM] Started for wallet: ${walletAddress}`);
+      if (DEBUG_LOGS) console.log(`[STREAM] Started for wallet: ${walletAddress}`);
 
       // Set up stream timeout
       const timeoutPromise = new Promise<void>((resolve) => {
@@ -224,7 +228,10 @@ async function getStreamingDashboard(walletAddress: string, forceRefresh = false
   return new Response(stream, {
     headers: {
       'Content-Type': 'text/event-stream',
-      'Cache-Control': 'private, s-maxage=30, stale-while-revalidate=120, no-transform',
+      // An SSE stream is per-connection live data — it must never be cached.
+      // (The previous 'private, s-maxage=30' here contradicted itself: a CDN
+      // would have been allowed to cache/replay a stream.)
+      'Cache-Control': 'no-store, no-transform',
       'Connection': 'keep-alive',
       'X-Accel-Buffering': 'no',
     },
@@ -309,7 +316,10 @@ export async function GET(
       ef(`/api/copink/${walletAddress}`),
       ef(`/api/wallet/${walletAddress}/nft2me`, EXPRESS_TIMEOUT_MS, 30000),
       ef(`/api/wallet/${walletAddress}/tydro`, EXPRESS_TIMEOUT_MS, 30000),
-      ef(`/api/sweep/${walletAddress}`),
+      // Sweep from analytics (same source as the streaming path) so both
+      // dashboard modes always agree; the old `/api/sweep/${w}` here was a
+      // divergent second implementation of the same metric.
+      ef(`/api/analytics/${walletAddress}/sweep`),
       ef(`/api/analytics/${walletAddress}/zenith_nft_balance`),
       ef(`/api/analytics/${walletAddress}/zenith_staking`),
       // Specific analytics metrics
@@ -376,7 +386,15 @@ export async function GET(
       ...(errors.length > 0 && { errors }),
     };
 
-    return NextResponse.json(response);
+    return NextResponse.json(response, {
+      headers: {
+        // Wallet is in the URL (no per-user variance server-side), so a CDN
+        // may absorb repeat loads for the same wallet. 30s staleness is
+        // nothing against Express's 1h per-wallet cache. No-op when no CDN
+        // sits in front (self-hosted direct).
+        'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60',
+      },
+    });
   } catch (error) {
     console.error('Error fetching dashboard data:', error);
     return NextResponse.json(

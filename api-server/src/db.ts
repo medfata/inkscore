@@ -10,6 +10,9 @@ const pool = new Pool({
   min: 5,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 5000,
+  // Insurance: a future slow/hung query releases its connection instead of
+  // pinning one of the 20 slots forever.
+  statement_timeout: 10_000,
 });
 
 pool.on('error', (err) => {

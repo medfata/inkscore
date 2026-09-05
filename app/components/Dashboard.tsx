@@ -351,6 +351,46 @@ const generateMockData = (address: string): { stats: WalletStats, score: ScoreDa
   };
 };
 
+// Zeroed placeholder for REAL users: cards render honest zeros/dashes until
+// the real metric states arrive (each card reads its real state first and
+// falls back to `data.stats.*`). generateMockData's seeded values must never
+// render on a real dashboard — they previously leaked through those fallback
+// paths whenever a real metric state was missing or its fetch failed.
+const generatePlaceholderData = (address: string): { stats: WalletStats, score: ScoreData } => {
+  return {
+    stats: {
+      address,
+      ageDays: 0,
+      transactionCount: 0,
+      nftCount: 0,
+      tokenHoldingsUsd: 0,
+      defiInteractionCount: 0,
+      ecosystemParticipationScore: 0,
+      nftHoldings: [],
+      nftTotalScore: 0,
+      tokenHoldings: [],
+      tokenTotalScore: 0,
+      gmInteractionCount: 0,
+      gmScore: 0,
+      tydroSupplyCount: 0,
+      tydroBorrowCount: 0,
+      tydroScore: 0
+    },
+    score: {
+      totalScore: 0,
+      tier: ScoreTier.NEW_USER,
+      breakdown: {
+        nftPower: 0,
+        tokenWeight: 0,
+        defiUsage: 0,
+        txActivity: 0,
+        longevity: 0,
+        ecosystemLoyalty: 0
+      }
+    }
+  };
+};
+
 interface NftCollectionHolding {
   name: string;
   address: string;
@@ -1033,10 +1073,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      setData(generateMockData(walletAddress));
+      // Demo: seeded mock data IS the product. Real users: zeroed placeholder —
+      // mock values must never render on a real dashboard.
+      if (isDemo) {
+        setData(generateMockData(walletAddress));
+      } else {
+        setData(generatePlaceholderData(walletAddress));
+      }
       setLoading(false);
       if (!isDemo) setLastUpdated(new Date());
-    }, 1500);
+    }, isDemo ? 1500 : 250);
     return () => clearTimeout(timer);
   }, [walletAddress, isDemo]);
 

@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import compression from 'compression';
 import { pool, testConnection } from './db';
 import walletRoutes from './routes/backup_wallet';
 import analyticsRoutes from './routes/analytics';
@@ -19,6 +20,9 @@ const PORT = process.env.PORT || 4000;
 // Middleware
 app.use(cors());
 app.use(express.json());
+// Gzip responses for any non-local hop (bridge byPlatform lists, holdings,
+// cards payloads compress 5-10x). Trivial CPU cost at this scale.
+app.use(compression());
 
 // Explicit refresh (?refresh=true) opens a short bypass window so wallet
 // cache entries older than the default are recomputed live, while concurrent
@@ -59,7 +63,7 @@ async function startServer() {
     process.exit(1);
   }
 
-  app.listen(PORT, () => {
+  const server = app.listen(PORT, () => {
     console.log(`API server running on port ${PORT}`);
     // Residential proxy pool for Blockscout egress (per-IP rate limits).
     logProxyStatus();
@@ -67,6 +71,12 @@ async function startServer() {
     // stale caches without blocking interactive traffic.
     startRefreshWorker();
   });
+  // Node's default keep-alive timeout (5s) is shorter than the idle window
+  // proxies/clients reuse connections over — the classic cause of sporadic
+  // ECONNRESETs and re-handshakes between Next and Express. Keep the socket
+  // alive longer than any intermediary's idle timeout.
+  server.keepAliveTimeout = 65_000;
+  server.headersTimeout = 66_000; // must exceed keepAliveTimeout
 }
 
 startServer();
