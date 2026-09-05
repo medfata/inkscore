@@ -21,6 +21,7 @@ import {
   getZenithNft,
   getZenithStaking,
 } from '../services/analytics-counts-service';
+import { getProtocolCount } from '../services/blockscout-service';
 import { query } from '../db';
 import { createPublicClient, http } from 'viem';
 import { defineChain } from 'viem';
@@ -238,35 +239,22 @@ router.get('/:wallet/:metric', async (req: Request, res: Response) => {
     }
 
     // Special handling for nft_traded
+    // Sprint 3: Blockscout-backed (cursored) counts instead of the frozen
+    // indexer table — same three marketplaces, live values.
     if (metric === 'nft_traded') {
-      const totalRows = await query<{ count: string }>(`
-        SELECT COUNT(*) as count 
-        FROM transaction_details 
-        WHERE contract_address = ANY($1) 
-          AND wallet_address = lower($2)
-          AND status = 1
-      `, [NFT_CONTRACTS, wallet]);
+      const [net, mintiq, squid] = await Promise.all([
+        getProtocolCount(walletLower, 'nft-traded-net', NFT_CONTRACTS[0], null),
+        getProtocolCount(walletLower, 'nft-traded-mintiq', NFT_CONTRACTS[1], null),
+        getProtocolCount(walletLower, 'nft-traded-squid', NFT_CONTRACTS[2], null),
+      ]);
 
-      const totalCount = parseInt(totalRows[0]?.count || '0', 10);
+      const totalCount = (net.count || 0) + (mintiq.count || 0) + (squid.count || 0);
 
-      const contractRows = await query<{
-        contract_address: string;
-        count: string;
-      }>(`
-        SELECT 
-          contract_address,
-          COUNT(*) as count 
-        FROM transaction_details 
-        WHERE contract_address = ANY($1) 
-          AND wallet_address = lower($2)
-          AND status = 1
-        GROUP BY contract_address
-      `, [NFT_CONTRACTS, wallet]);
-
-      const byContract = contractRows.map(row => ({
-        contract_address: row.contract_address.toLowerCase(),
-        count: parseInt(row.count, 10),
-      }));
+      const byContract = [
+        { contract_address: NFT_CONTRACTS[0], count: net.count || 0 },
+        { contract_address: NFT_CONTRACTS[1], count: mintiq.count || 0 },
+        { contract_address: NFT_CONTRACTS[2], count: squid.count || 0 },
+      ].filter((c) => c.count > 0);
 
       const result = {
         slug: 'nft_traded',
@@ -301,18 +289,12 @@ router.get('/:wallet/:metric', async (req: Request, res: Response) => {
     }
 
     // Special handling for nft_staking (Shellies + INK Bunnies + Boink)
+    // Sprint 3: Shellies count is Blockscout-backed now (cursored counts
+    // service — getShelliesStaking) instead of the frozen indexer table.
     if (metric === 'nft_staking') {
-      // Get Shellies staked count from transactions
-      const shelliesRows = await query<{ count: string }>(`
-        SELECT COUNT(*) as count 
-        FROM transaction_details 
-        WHERE contract_address = lower($1) 
-          AND wallet_address = lower($2)
-          AND function_name IN ('StakeBatch', 'stakeBatch', '0x1e332260')
-          AND status = 1
-      `, [SHELLIES_STAKING_CONTRACT, wallet]);
-
-      const shelliesCount = parseInt(shelliesRows[0]?.count || '0', 10);
+      // Get Shellies staked count via Blockscout (live, incremental).
+      const shelliesStaking = await getShelliesStaking(walletLower);
+      const shelliesCount = shelliesStaking.total_count ?? 0;
 
       // Get INK Bunnies staked count via contract call
       let inkBunniesCount = 0;

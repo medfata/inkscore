@@ -1,267 +1,80 @@
 import { query } from '../db';
-import { metricsService } from './metrics-service';
-import { priceService } from './price-service';
 import {
-  MetricWithRelations,
   SubAggregate,
   UserAnalyticsResponse,
 } from '../types/analytics';
-import { createPublicClient, http, decodeFunctionData, parseAbi, erc20Abi } from 'viem';
-
-// RPC endpoint for fetching transaction input data
-const RPC_URL = process.env.RPC_URL || 'https://rpc-gel.inkonchain.com';
-
-// WETH address on Ink chain (for ETH-equivalent tokens)
-const WETH_ADDRESS = '0x4200000000000000000000000000000000000006'.toLowerCase();
-
-// Known token configurations on Ink chain (lowercase addresses)
-const KNOWN_TOKENS: Record<string, { symbol: string; decimals: number; usdPegged?: boolean; coingeckoId?: string }> = {
-  // Stablecoins (1:1 with USD)
-  '0x0200c29006150606b650577bbe7b6248f58470c1': { symbol: 'USDT0', decimals: 6, usdPegged: true },
-  '0x2d270e6886d130d724215a266106e6832161eaed': { symbol: 'USDC', decimals: 6, usdPegged: true },
-  '0xeb466342c4d449bc9f53a865d5cb90586f405215': { symbol: 'axlUSDC', decimals: 6, usdPegged: true },
-  '0xf93d5ae5e9a3b91eb8f2962f74f8930c5d89b2b3': { symbol: 'USDC', decimals: 6, usdPegged: true },
-  // WETH (use ETH price)
-  [WETH_ADDRESS]: { symbol: 'WETH', decimals: 18, coingeckoId: 'ethereum' },
-  // kBTC (Bitcoin-pegged token, 1:1 backed by BTC in Kraken custody)
-  '0x73e0c0d45e048d25fc26fa3159b0aa04bfa4db98': { symbol: 'kBTC', decimals: 8, coingeckoId: 'bitcoin' },
-};
-
-// Functions where the USD value needs to be extracted from input parameters
-const DEFI_FUNCTIONS: Record<string, { assetIndex: number; amountIndex: number; abi: string }> = {
-  'borrow': {
-    assetIndex: 0,
-    amountIndex: 1,
-    abi: 'function borrow(address asset, uint256 amount, uint256 interestRateMode, uint16 referralCode, address onBehalfOf)'
-  },
-  'supply': {
-    assetIndex: 0,
-    amountIndex: 1,
-    abi: 'function supply(address asset, uint256 amount, address onBehalfOf, uint16 referralCode)'
-  },
-  'deposit': {
-    assetIndex: 0,
-    amountIndex: 1,
-    abi: 'function deposit(address asset, uint256 amount, address onBehalfOf, uint16 referralCode)'
-  },
-  'repay': {
-    assetIndex: 0,
-    amountIndex: 1,
-    abi: 'function repay(address asset, uint256 amount, uint256 interestRateMode, address onBehalfOf)'
-  },
-  'withdraw': {
-    assetIndex: 0,
-    amountIndex: 1,
-    abi: 'function withdraw(address asset, uint256 amount, address to)'
-  },
-};
-
-// Functions where the value is ETH in input parameters (not tx.value)
-const ETH_PARAM_FUNCTIONS: Record<string, { amountIndex: number; abi: string }> = {
-  'borrowETH': {
-    amountIndex: 1,
-    abi: 'function borrowETH(address, uint256 amount, uint16 referralCode)'
-  },
-  'repayETH': {
-    amountIndex: 1,
-    abi: 'function repayETH(address, uint256 amount, address onBehalfOf)'
-  },
-  'withdrawETH': {
-    amountIndex: 1,
-    abi: 'function withdrawETH(address, uint256 amount, address to)'
-  },
-};
-
-// Simple in-memory cache for token prices (5 minute TTL)
-const tokenPriceCache: Map<string, { price: number; timestamp: number }> = new Map();
-const PRICE_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+import { getGmCount, getInkypumpBuyVolume, getInkypumpSellVolume } from './analytics-metrics-service';
+import { getSwapVolume } from './swap-service';
+import { getTydroData } from './tydro-service';
+import { getShelliesJoinedRaffles } from './analytics-counts-service';
+import { getProtocolCount } from './blockscout-service';
 
 // Response cache for wallet analytics (30 second TTL)
 const analyticsCache: Map<string, { data: UserAnalyticsResponse; timestamp: number }> = new Map();
 const ANALYTICS_CACHE_TTL = 30 * 1000; // 30 seconds
 
-// ERC20 decimals/symbol are immutable: permanent in-memory cache + dedup.
-const erc20InfoCache = new Map<string, { decimals: number; symbol: string }>();
-const erc20InfoInflight = new Map<string, Promise<{ decimals: number; symbol: string }>>();
-const ERC20_INFO_CACHE_MAX = 5000;
-
-
 export class AnalyticsService {
-  private rpcClient = createPublicClient({
-    transport: http(RPC_URL),
-  });
+  // ---- Sprint 3: LIVE aggregate -------------------------------------------
+  //
+  // The indexer-era version aggregated transaction_details — which FROZE the
+  // moment the indexers stopped (gm_count stuck at 7 while the live count is
+  // 317) — and decoded tx inputs from transaction_enrichment (the 67 GB
+  // legacy table). Every metric is now computed from the SAME live,
+  // cursored, Blockscout-backed services the score and dashboard cards use:
+  // one data path, one source of truth. Values are HIGHER and CURRENT versus
+  // the frozen indexer numbers — that is a correction, not a regression.
+  //
+  // With this rewrite the API has ZERO reads of transaction_details /
+  // transaction_enrichment. Slugs, names, icons and currencies mirror the
+  // analytics_metrics config rows exactly so the response shape is stable.
 
-  // Get token info (decimals, symbol) - fetches from RPC if not known.
-  // Immutable on-chain data: cached permanently in-memory (unbounded growth
-  // is capped) so the all-metrics fan-out doesn't re-read the same tokens
-  // on every dashboard load.
-  private async getTokenInfo(tokenAddress: string): Promise<{ decimals: number; symbol: string }> {
-    const addr = tokenAddress.toLowerCase();
+  private static readonly METRIC_META: Record<string, { name: string; icon: string | null; currency: string }> = {
+    gm_count: { name: 'GM Activity', icon: 'gm', currency: 'COUNT' },
+    InkySwap_usd_volume: { name: 'InkySwap Volume (USD)', icon: null, currency: 'USD' },
+    tydro_usd_supply: { name: 'Tydro Supply Volume (USD)', icon: '', currency: 'USD' },
+    Tydro_usd_borrow: { name: 'Tydro Borrow Volume (USD)', icon: '', currency: 'USD' },
+    swap_volume: { name: 'Swap Volume (USD)', icon: '', currency: 'USD' },
+    nft_traded: { name: 'Nft Traded', icon: '', currency: 'COUNT' },
+    total_raffles_joined: { name: 'Total Raffles Joined', icon: null, currency: 'COUNT' },
+    joinraffle: { name: 'joinRaffle', icon: null, currency: 'COUNT' },
+    total_inkypump_buy_volume_usd: { name: 'Total Inkypump Buy Volume USD', icon: null, currency: 'USD' },
+    total_inkypump_sell_volume_usd: { name: 'Total InkyPump Sell volume usd', icon: null, currency: 'USD' },
+  };
 
-    // Check known tokens first
-    if (KNOWN_TOKENS[addr]) {
-      return { decimals: KNOWN_TOKENS[addr].decimals, symbol: KNOWN_TOKENS[addr].symbol };
-    }
+  // Swap routers (mirrors swap-service's platform table): InkySwap has its
+  // own configured metric; the other three routers form `swap_volume`.
+  private static readonly INKYSWAP_ROUTER = '0x551134e92e537ceaa217c2ef63210af3ce96a065';
+  private static readonly OTHER_SWAP_ROUTERS = [
+    '0xd7e72f3615aa65b92a4dbdc211e296a35512988b', // Curve
+    '0x9b17690de96fcfa80a3acaefe11d936629cd7a77', // DyorSwap
+    '0x01d40099fcd87c018969b0e8d4ab1633fb34763', // Velodrome
+  ];
+  private static readonly NFT_MARKET_CONTRACTS = [
+    '0xd00c96804e9ff35f10c7d2a92239c351ff3f94e5', // Net Protocol
+    '0xbd6a027b85fd5285b1623563bbef6fadbe396afb', // Mintiq
+    '0x9ebf93fdba9f32accab3d6716322dccd617a78f3', // Squid Market
+  ];
 
-    const cachedInfo = erc20InfoCache.get(addr);
-    if (cachedInfo) return cachedInfo;
-    if (erc20InfoInflight.has(addr)) return erc20InfoInflight.get(addr)!;
-    const p = (async () => {
-      try {
-        const [decimals, symbol] = await Promise.all([
-          this.rpcClient.readContract({
-            address: tokenAddress as `0x${string}`,
-            abi: erc20Abi,
-            functionName: 'decimals',
-          }),
-          this.rpcClient.readContract({
-            address: tokenAddress as `0x${string}`,
-            abi: erc20Abi,
-            functionName: 'symbol',
-          }),
-        ]);
-        const info = { decimals: Number(decimals), symbol: symbol as string };
-        if (erc20InfoCache.size < ERC20_INFO_CACHE_MAX) erc20InfoCache.set(addr, info);
-        return info;
-      } catch {
-        return { decimals: 18, symbol: 'UNKNOWN' };
-      } finally {
-        erc20InfoInflight.delete(addr);
-      }
-    })();
-    erc20InfoInflight.set(addr, p);
-    return p;
+  private metricResult(
+    slug: string,
+    count: number,
+    usdValue: number,
+    subAggregates: SubAggregate[] = []
+  ): UserAnalyticsResponse['metrics'][0] {
+    const meta = AnalyticsService.METRIC_META[slug] || { name: slug, icon: null as string | null, currency: 'COUNT' };
+    const isUsd = meta.currency === 'USD';
+    return {
+      slug,
+      name: meta.name,
+      icon: meta.icon,
+      currency: meta.currency,
+      total_count: count,
+      total_value: isUsd ? usdValue.toFixed(2) : String(count),
+      sub_aggregates: subAggregates,
+      last_updated: new Date(),
+    };
   }
 
-  // Get token price in USD
-  private async getTokenPriceUsd(tokenAddress: string, ethPrice: number): Promise<number> {
-    const addr = tokenAddress.toLowerCase();
-
-    // Check cache first
-    const cached = tokenPriceCache.get(addr);
-    if (cached && Date.now() - cached.timestamp < PRICE_CACHE_TTL) {
-      return cached.price;
-    }
-
-    let price = 0;
-
-    // Check known tokens
-    const knownToken = KNOWN_TOKENS[addr];
-    if (knownToken) {
-      if (knownToken.usdPegged) {
-        price = 1;
-      } else if (knownToken.coingeckoId === 'ethereum' || addr === WETH_ADDRESS) {
-        price = ethPrice;
-      } else if (knownToken.coingeckoId) {
-        price = await this.fetchCoinGeckoPrice(knownToken.coingeckoId);
-      }
-    }
-
-    // If still no price, try to detect token type
-    if (price === 0) {
-      const tokenInfo = await this.getTokenInfo(addr);
-      const symbol = tokenInfo.symbol.toUpperCase();
-
-      if (symbol.includes('USD') || symbol.includes('DAI') || symbol.includes('FRAX')) {
-        price = 1;
-      } else if (symbol === 'WETH' || symbol === 'ETH') {
-        price = ethPrice;
-      } else {
-        console.warn(`Unknown token price for ${symbol} (${addr}), using 0`);
-        price = 0;
-      }
-    }
-
-    // Cache the price
-    tokenPriceCache.set(addr, { price, timestamp: Date.now() });
-
-    return price;
-  }
-
-  // Fetch price from CoinGecko by ID
-  private async fetchCoinGeckoPrice(coingeckoId: string): Promise<number> {
-    try {
-      const response = await fetch(
-        `https://api.coingecko.com/api/v3/simple/price?ids=${coingeckoId}&vs_currencies=usd`,
-        { signal: AbortSignal.timeout(5000) }
-      );
-      if (!response.ok) return 0;
-      const data = await response.json() as Record<string, { usd?: number }>;
-      return data[coingeckoId]?.usd || 0;
-    } catch {
-      return 0;
-    }
-  }
-
-
-  // Fetch USD value from DeFi transactions (borrow, supply, etc.)
-  private async getDefiUsdValues(
-    walletAddress: string,
-    contractAddresses: string[],
-    functionName: string,
-    ethPrice: number
-  ): Promise<Map<string, number>> {
-    const valueMap = new Map<string, number>();
-
-    const defiConfig = DEFI_FUNCTIONS[functionName];
-    const ethParamConfig = ETH_PARAM_FUNCTIONS[functionName];
-
-    if (!defiConfig && !ethParamConfig) return valueMap;
-
-    try {
-      const abi = parseAbi([defiConfig?.abi || ethParamConfig?.abi || '']);
-
-      const txRows = await query<{ tx_hash: string; input: string }>(`
-        SELECT te.tx_hash, te.input 
-        FROM transaction_enrichment te
-        JOIN transaction_details td ON te.tx_hash = td.tx_hash
-        WHERE td.wallet_address = $1
-          AND td.contract_address = ANY($2)
-          AND td.function_name = $3
-          AND td.status = 1
-          AND te.input IS NOT NULL
-      `, [walletAddress, contractAddresses, functionName]);
-
-      for (const row of txRows) {
-        try {
-          if (row.input && row.input.length > 10) {
-            const decoded = decodeFunctionData({
-              abi,
-              data: row.input as `0x${string}`,
-            });
-
-            if (defiConfig) {
-              const asset = decoded.args?.[defiConfig.assetIndex] as string;
-              const amount = decoded.args?.[defiConfig.amountIndex] as bigint;
-
-              if (asset && typeof amount === 'bigint') {
-                const tokenInfo = await this.getTokenInfo(asset);
-                const tokenPrice = await this.getTokenPriceUsd(asset, ethPrice);
-                const tokenAmount = Number(amount) / Math.pow(10, tokenInfo.decimals);
-                const usdValue = tokenAmount * tokenPrice;
-                valueMap.set(row.tx_hash.toLowerCase(), usdValue);
-              }
-            } else if (ethParamConfig) {
-              const amount = decoded.args?.[ethParamConfig.amountIndex] as bigint;
-              if (typeof amount === 'bigint') {
-                const ethAmount = Number(amount) / 1e18;
-                const usdValue = ethAmount * ethPrice;
-                valueMap.set(row.tx_hash.toLowerCase(), usdValue);
-              }
-            }
-          }
-        } catch (err) {
-          console.error(`Failed to decode tx ${row.tx_hash}:`, err);
-        }
-      }
-    } catch (err) {
-      console.error(`Error processing input data for ${functionName}:`, err);
-    }
-
-    return valueMap;
-  }
-
-  // Get all analytics for a wallet (with response caching)
   async getWalletAnalytics(walletAddress: string): Promise<UserAnalyticsResponse> {
     const wallet = walletAddress.toLowerCase();
 
@@ -271,15 +84,63 @@ export class AnalyticsService {
       return cached.data;
     }
 
-    const metrics = await metricsService.getAllMetrics(true);
+    const [gm, swap, tydro, inkyBuy, inkySell, raffles, netTraded, mintiqTraded, squidTraded] = await Promise.all([
+      getGmCount(wallet).catch(() => null),
+      getSwapVolume(wallet).catch(() => null),
+      getTydroData(wallet).catch(() => null),
+      getInkypumpBuyVolume(wallet).catch(() => null),
+      getInkypumpSellVolume(wallet).catch(() => null),
+      getShelliesJoinedRaffles(wallet).catch(() => null),
+      getProtocolCount(wallet, 'nft-traded-net', AnalyticsService.NFT_MARKET_CONTRACTS[0], null).catch(() => null),
+      getProtocolCount(wallet, 'nft-traded-mintiq', AnalyticsService.NFT_MARKET_CONTRACTS[1], null).catch(() => null),
+      getProtocolCount(wallet, 'nft-traded-squid', AnalyticsService.NFT_MARKET_CONTRACTS[2], null).catch(() => null),
+    ]);
 
-    // Process all metrics in parallel for better performance
-    const metricPromises = metrics.map(metric => this.queryMetricForWallet(wallet, metric));
-    const metricsData = await Promise.all(metricPromises);
+    // Per-router swap slices from the swap service's byPlatform breakdown.
+    const byRouter = new Map<string, { usd: number; count: number }>();
+    for (const p of swap?.byPlatform || []) {
+      const addr = (p.contractAddress || '').toLowerCase();
+      if (!addr) continue;
+      const e = byRouter.get(addr) || { usd: 0, count: 0 };
+      e.usd += Number(p.usdValue) || 0;
+      e.count += Number(p.txCount) || 0;
+      byRouter.set(addr, e);
+    }
+    const inky = byRouter.get(AnalyticsService.INKYSWAP_ROUTER) || { usd: 0, count: 0 };
+    let otherSwaps = { usd: 0, count: 0 };
+    const swapSubs: SubAggregate[] = [];
+    for (const addr of AnalyticsService.OTHER_SWAP_ROUTERS) {
+      const e = byRouter.get(addr) || { usd: 0, count: 0 };
+      otherSwaps.usd += e.usd;
+      otherSwaps.count += e.count;
+      if (e.count > 0) {
+        swapSubs.push({ contract_address: addr, count: e.count, eth_value: '0', usd_value: e.usd.toFixed(2) });
+      }
+    }
+
+    const tradedTotal = (netTraded?.count ?? 0) + (mintiqTraded?.count ?? 0) + (squidTraded?.count ?? 0);
+    const tradedSubs: SubAggregate[] = [
+      { contract_address: AnalyticsService.NFT_MARKET_CONTRACTS[0], count: netTraded?.count ?? 0, eth_value: '0', usd_value: '0' },
+      { contract_address: AnalyticsService.NFT_MARKET_CONTRACTS[1], count: mintiqTraded?.count ?? 0, eth_value: '0', usd_value: '0' },
+      { contract_address: AnalyticsService.NFT_MARKET_CONTRACTS[2], count: squidTraded?.count ?? 0, eth_value: '0', usd_value: '0' },
+    ];
+
+    const metrics: UserAnalyticsResponse['metrics'] = [
+      this.metricResult('gm_count', gm?.total_count ?? 0, 0),
+      this.metricResult('InkySwap_usd_volume', inky.count, inky.usd),
+      this.metricResult('tydro_usd_supply', tydro?.depositCount ?? 0, tydro?.totalDepositedUsd ?? 0),
+      this.metricResult('Tydro_usd_borrow', tydro?.borrowCount ?? 0, tydro?.totalBorrowedUsd ?? 0),
+      this.metricResult('swap_volume', otherSwaps.count, otherSwaps.usd, swapSubs),
+      this.metricResult('nft_traded', tradedTotal, 0, tradedSubs),
+      this.metricResult('total_raffles_joined', raffles?.total_count ?? 0, 0),
+      this.metricResult('joinraffle', raffles?.total_count ?? 0, 0),
+      this.metricResult('total_inkypump_buy_volume_usd', inkyBuy?.total_count ?? 0, parseFloat(inkyBuy?.total_value || '0')),
+      this.metricResult('total_inkypump_sell_volume_usd', inkySell?.total_count ?? 0, parseFloat(inkySell?.total_value || '0')),
+    ];
 
     const result: UserAnalyticsResponse = {
       wallet_address: wallet,
-      metrics: metricsData,
+      metrics,
     };
 
     // Cache the result
@@ -288,207 +149,12 @@ export class AnalyticsService {
     return result;
   }
 
-  // Get specific metric for a wallet (direct query)
+  // Single-slug variant for the /api/analytics/:wallet/:metric fallback:
+  // computed from the same live services (a full compute is shared-cached —
+  // the per-metric services each cache independently, so this is cheap).
   async getWalletMetric(walletAddress: string, metricSlug: string): Promise<UserAnalyticsResponse['metrics'][0] | null> {
-    const wallet = walletAddress.toLowerCase();
-    const metric = await metricsService.getMetric(metricSlug);
-
-    if (!metric) return null;
-
-    return this.queryMetricForWallet(wallet, metric);
-  }
-
-
-  // Direct query for a metric
-  private async queryMetricForWallet(
-    walletAddress: string,
-    metric: MetricWithRelations
-  ): Promise<UserAnalyticsResponse['metrics'][0]> {
-    const contractAddresses = metric.contracts
-      .filter(c => c.include_mode === 'include')
-      .map(c => c.contract_address);
-
-    if (contractAddresses.length === 0) {
-      return this.emptyMetricResult(metric);
-    }
-
-    const functionNames = metric.functions
-      .filter(f => f.include_mode === 'include')
-      .map(f => f.function_name);
-
-    // Build query params
-    const params: unknown[] = [walletAddress, contractAddresses];
-    let functionFilter = '';
-
-    if (functionNames.length > 0) {
-      functionFilter = 'AND function_name = ANY($3)';
-      params.push(functionNames);
-    }
-
-    // Query based on aggregation type
-    let rows: {
-      contract_address: string;
-      function_name: string | null;
-      tx_count: string;
-      eth_total: string;
-    }[];
-
-    if (metric.aggregation_type === 'sum_eth_value') {
-      rows = await query(`
-        SELECT 
-          contract_address,
-          function_name,
-          COUNT(*) as tx_count,
-          COALESCE(SUM(CAST(eth_value AS NUMERIC) / 1e18), 0) as eth_total
-        FROM transaction_details
-        WHERE wallet_address = $1
-          AND contract_address = ANY($2)
-          AND status = 1
-          ${functionFilter}
-        GROUP BY contract_address, function_name
-      `, params);
-    } else {
-      rows = await query(`
-        SELECT 
-          contract_address,
-          function_name,
-          COUNT(*) as tx_count,
-          0 as eth_total
-        FROM transaction_details
-        WHERE wallet_address = $1
-          AND contract_address = ANY($2)
-          AND status = 1
-          ${functionFilter}
-        GROUP BY contract_address, function_name
-      `, params);
-    }
-
-    if (rows.length === 0) {
-      return this.emptyMetricResult(metric);
-    }
-
-    // Get ETH price for USD conversion
-    const ethPrice = await priceService.getCurrentPrice();
-
-    // Check if any functions need value extraction from input data
-    const functionsNeedingInputData = functionNames.filter(fn => DEFI_FUNCTIONS[fn] || ETH_PARAM_FUNCTIONS[fn]);
-
-    // Map to store USD values from input data
-    const inputDataUsdValues = new Map<string, number>();
-
-    // Fetch input data values for special functions (independent per
-    // function — run concurrently, not serially).
-    await Promise.all(functionsNeedingInputData.map(async (funcName) => {
-      const values = await this.getDefiUsdValues(walletAddress, contractAddresses, funcName, ethPrice);
-      values.forEach((value, hash) => inputDataUsdValues.set(hash, value));
-    }));
-
-    // Aggregate results
-    let totalCount = 0;
-    let totalEth = 0;
-    const subAggregates: Record<string, SubAggregate> = {};
-
-    // Resolve input-data USD per (contract, function) with ONE query instead
-    // of one tx_hash lookup per aggregate row (was N+1 roundtrips).
-    const inputUsdByContractFn = new Map<string, number>();
-    if (inputDataUsdValues.size > 0) {
-      const txRows = await query<{ tx_hash: string; contract_address: string; function_name: string | null }>(`
-        SELECT tx_hash, contract_address, function_name
-        FROM transaction_details
-        WHERE wallet_address = $1
-          AND contract_address = ANY($2)
-          AND status = 1
-          ${functionNames.length > 0 ? 'AND function_name = ANY($3)' : ''}
-      `, functionNames.length > 0 ? [walletAddress, contractAddresses, functionNames] : [walletAddress, contractAddresses]);
-      for (const txRow of txRows) {
-        const usdValue = inputDataUsdValues.get(txRow.tx_hash.toLowerCase());
-        if (usdValue === undefined) continue;
-        const key = `${txRow.contract_address.toLowerCase()}|${txRow.function_name}`;
-        inputUsdByContractFn.set(key, (inputUsdByContractFn.get(key) || 0) + usdValue);
-      }
-    }
-
-    for (const row of rows) {
-      const contract = row.contract_address.toLowerCase();
-      const count = parseInt(row.tx_count);
-      let eth = parseFloat(row.eth_total) || 0;
-
-      const funcName = row.function_name;
-      const needsInputData = funcName && (DEFI_FUNCTIONS[funcName] || ETH_PARAM_FUNCTIONS[funcName]);
-
-      if (needsInputData) {
-        const usdFromInput = inputUsdByContractFn.get(`${contract}|${funcName}`) || 0;
-        eth = usdFromInput / ethPrice;
-      }
-
-      totalCount += count;
-      totalEth += eth;
-
-      // Sub-aggregate by contract
-      if (!subAggregates[contract]) {
-        subAggregates[contract] = {
-          contract_address: contract,
-          count: 0,
-          eth_value: '0',
-          usd_value: '0',
-          by_function: {},
-        };
-      }
-
-      subAggregates[contract].count += count;
-      const currentEth = parseFloat(subAggregates[contract].eth_value);
-      subAggregates[contract].eth_value = (currentEth + eth).toString();
-      subAggregates[contract].usd_value = ((currentEth + eth) * ethPrice).toFixed(2);
-
-      // Sub-aggregate by function
-      if (row.function_name) {
-        if (!subAggregates[contract].by_function) {
-          subAggregates[contract].by_function = {};
-        }
-        if (!subAggregates[contract].by_function![row.function_name]) {
-          subAggregates[contract].by_function![row.function_name] = {
-            count: 0,
-            eth_value: '0',
-            usd_value: '0',
-          };
-        }
-        subAggregates[contract].by_function![row.function_name].count += count;
-        const funcEth = parseFloat(subAggregates[contract].by_function![row.function_name].eth_value);
-        subAggregates[contract].by_function![row.function_name].eth_value = (funcEth + eth).toString();
-        subAggregates[contract].by_function![row.function_name].usd_value = ((funcEth + eth) * ethPrice).toFixed(2);
-      }
-    }
-
-    const totalUsd = (totalEth * ethPrice).toFixed(2);
-
-    return {
-      slug: metric.slug,
-      name: metric.name,
-      icon: metric.icon,
-      currency: metric.currency,
-      total_count: totalCount,
-      total_value: metric.currency === 'USD'
-        ? totalUsd
-        : metric.currency === 'ETH'
-          ? totalEth.toString()
-          : totalCount.toString(),
-      sub_aggregates: Object.values(subAggregates),
-      last_updated: new Date(),
-    };
-  }
-
-  // Return empty result for a metric
-  private emptyMetricResult(metric: MetricWithRelations): UserAnalyticsResponse['metrics'][0] {
-    return {
-      slug: metric.slug,
-      name: metric.name,
-      icon: metric.icon,
-      currency: metric.currency,
-      total_count: 0,
-      total_value: '0',
-      sub_aggregates: [],
-      last_updated: new Date(),
-    };
+    const full = await this.getWalletAnalytics(walletAddress);
+    return full.metrics.find((m) => m.slug === metricSlug) || null;
   }
 }
 
