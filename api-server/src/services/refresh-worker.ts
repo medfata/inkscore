@@ -27,7 +27,7 @@ import {
   saveBundleSnapshot,
   SNAPSHOT_MAX_AGE_MS,
 } from './metrics-snapshot-service';
-import { getRecentBlockscoutUsagePerMin } from './blockscout-service';
+import { getRecentBlockscoutUsagePerMin, getBlockscoutRateLimit } from './blockscout-service';
 
 // Score-snapshot refresh: only bother when a snapshot is older than 45 min,
 // comfortably under SNAPSHOT_MAX_AGE_MS (60 min) — no point re-gathering
@@ -35,13 +35,14 @@ import { getRecentBlockscoutUsagePerMin } from './blockscout-service';
 // snapshot cross the staleness threshold in the first place.
 const SNAPSHOT_REFRESH_MIN_AGE_MS = 45 * 60_000;
 
-// USER-PRIORITY BACKOFF: the Blockscout throttle (~150 req/min through the
-// residential proxy) is shared between interactive dashboard loads and this
-// worker. When interactive traffic has the throttle saturated, the worker
-// SKIPS its cycle — a user's cold load must never compete with background
-// warmth (observed: a worker drain during a heavy wallet's first load
-// starved every metric past its timeout). 120/min leaves 30 for users.
-const THROTTLE_YIELD_PER_MIN = 120;
+// USER-PRIORITY BACKOFF: the Blockscout throttle (BLOCKSCOUT_RATE_LIMIT
+// req/min through the residential proxy) is shared between interactive
+// dashboard loads and this worker. When interactive traffic has the throttle
+// near-saturated (80% of the configured limit), the worker SKIPS its cycle —
+// a user's cold load must never compete with background warmth (observed: a
+// worker drain during a heavy wallet's first load starved every metric past
+// its timeout).
+const THROTTLE_YIELD_PER_MIN = Math.floor(getBlockscoutRateLimit() * 0.8);
 function throttleSaturated(): boolean {
   return getRecentBlockscoutUsagePerMin() >= THROTTLE_YIELD_PER_MIN;
 }

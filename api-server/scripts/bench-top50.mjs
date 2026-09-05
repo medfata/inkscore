@@ -39,8 +39,12 @@ const pct = (arr, p) => {
       LIMIT 50`
   );
   await c.end();
-  const wallets = r.rows.map((x) => (x.wallet || '').toLowerCase()).filter((w) => /^0x[0-9a-f]{40}$/.test(w));
-  console.log(`benchmarking ${wallets.length} wallets (no-cache, sequential)\n`);
+  const all = r.rows.map((x) => (x.wallet || '').toLowerCase()).filter((w) => /^0x[0-9a-f]{40}$/.test(w));
+  // Optional range: node scripts/bench-top50.mjs 14 25  (ranks are 1-based)
+  const from = Math.max(1, parseInt(process.argv[2] || '1', 10));
+  const to = Math.min(all.length, parseInt(process.argv[3] || String(all.length), 10));
+  const wallets = all.slice(from - 1, to);
+  console.log(`benchmarking ranks ${from}-${to} (${wallets.length} wallets, no-cache, sequential)\n`);
   console.log('rank | wallet                              | time   | partial | missing');
   console.log('-----+-------------------------------------+--------+---------+--------');
 
@@ -49,8 +53,9 @@ const pct = (arr, p) => {
   let failed = 0;
   for (let i = 0; i < wallets.length; i++) {
     const w = wallets[i];
+    const rank = from + i;
     const t0 = Date.now();
-    let rec = { rank: i + 1, wallet: w, ms: null, partial: null, missing: [], error: null };
+    let rec = { rank, wallet: w, ms: null, partial: null, missing: [], error: null };
     try {
       const res = await fetch(`${BASE}/api/dashboard/bundle/${w}?refresh=true`, {
         signal: AbortSignal.timeout(150000),
@@ -73,7 +78,7 @@ const pct = (arr, p) => {
     failed += rec.error ? 1 : 0;
     const miss = rec.missing.length > 0 ? rec.missing.join(',') : (rec.error ? rec.error : '-');
     console.log(
-      `${String(i + 1).padStart(4)} | ${w} | ${fmt(rec.ms).padStart(6)} | ${String(rec.partial).padStart(7)} | ${miss}`
+      `${String(rank).padStart(4)} | ${w} | ${fmt(rec.ms).padStart(6)} | ${String(rec.partial).padStart(7)} | ${miss}`
     );
     fs.appendFileSync(OUT_FILE, JSON.stringify(rec) + '\n');
   }

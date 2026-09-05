@@ -25,6 +25,12 @@ const INK_CHAIN_ID = 57073;
 // budget no longer accumulates, so BLOCKSCOUT_RATE_LIMIT can be raised above
 // the direct-egress-safe 150 if cold walks feel slow (watch the usage logger).
 const RATE_LIMIT_PER_MIN = parseInt(process.env.BLOCKSCOUT_RATE_LIMIT || '150', 10);
+// Read by the refresh worker: it yields to user traffic at 80% of whatever
+// the throttle is configured for, so raising the limit scales the backoff
+// threshold automatically.
+export function getBlockscoutRateLimit(): number {
+  return RATE_LIMIT_PER_MIN;
+}
 const MAX_CONCURRENT = parseInt(process.env.BLOCKSCOUT_MAX_CONCURRENT || '10', 10);
 const REQUEST_TIMEOUT_MS = 10_000;
 
