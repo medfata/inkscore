@@ -275,6 +275,87 @@ export async function GET(
         budgetMs
       );
 
+    // Sprint 2 fast path: ONE Express call returns the whole dashboard
+    // (responseCache -> dashboard snapshot -> live gather server-side).
+    // Every entry is the exact payload the individual endpoint serves
+    // (proven per-metric by api-server/scripts/check-bundle-parity.mjs).
+    // The single response replaces ~26 fan-out fetches: one round trip,
+    // no per-endpoint timeout roulette on the Next side.
+    // On ANY bundle failure we fall through to the original fan-out below
+    // (verbatim) — the fast path is an optimization, never a dependency.
+    try {
+      const bundleTimeoutMs = 45000; // bundle's internal caps bound it to ~30-45s cold; snapshot hits are instant
+      const bundleResult = await fetchFromExpress<{
+        captured_at: string;
+        partial: boolean;
+        from_snapshot: boolean;
+        metrics: Record<string, unknown>;
+      }>(
+        `/api/dashboard/bundle/${walletAddress}${forceRefresh ? '?refresh=true' : ''}`,
+        bundleTimeoutMs
+      );
+      if (bundleResult.data?.metrics) {
+        const m = bundleResult.data.metrics;
+        const start = Date.now();
+        // Mirror the old fan-out's error reporting: a null entry is what an
+        // errored per-endpoint fetch would have produced anyway.
+        const errors: string[] = [];
+        const trackedIds = ['stats', 'bridge', 'swap', 'volume', 'score', 'analytics', 'cards', 'nado', 'copink', 'nft2me', 'tydro', 'sweep', 'openseaBuyCount', 'mintCount', 'openseaSaleCount'] as const;
+        for (const id of trackedIds) {
+          if (m[id] == null) errors.push(`${id}: missing from bundle`);
+        }
+        if (DEBUG_LOGS) console.log(`[BUNDLE] fast path served from_snapshot=${bundleResult.data.from_snapshot} in ${Date.now() - start}ms`);
+        return NextResponse.json(
+          {
+            stats: m.stats ?? null,
+            bridge: m.bridge ?? null,
+            swap: m.swap ?? null,
+            volume: m.volume ?? null,
+            score: m.score ?? null,
+            analytics: m.analytics ?? null,
+            cards: m.cards ?? null,
+            nado: m.nado ?? null,
+            copink: m.copink ?? null,
+            nft2me: m.nft2me ?? null,
+            tydro: m.tydro ?? null,
+            sweep: m.sweep ?? null,
+            zenithNft: m.zenithNft ?? null,
+            zenithStaking: m.zenithStaking ?? null,
+            gmCount: m.gmCount ?? null,
+            inkypumpCreatedTokens: m.inkypumpCreatedTokens ?? null,
+            inkypumpBuyVolume: m.inkypumpBuyVolume ?? null,
+            inkypumpSellVolume: m.inkypumpSellVolume ?? null,
+            zns: m.zns ?? null,
+            shelliesJoinedRaffles: m.shelliesJoinedRaffles ?? null,
+            shelliesPayToPlay: m.shelliesPayToPlay ?? null,
+            shelliesStaking: m.shelliesStaking ?? null,
+            openseaBuyCount: m.openseaBuyCount ?? null,
+            mintCount: m.mintCount ?? null,
+            openseaSaleCount: m.openseaSaleCount ?? null,
+            templarsNftBalance: m.templarsNftBalance ?? null,
+            cowswapSwaps: m.cowswapSwaps ?? null,
+            // The old non-streaming fan-out never filled cryptoclash (the
+            // UI fetched it separately). The bundle has it — filling the
+            // typed field is strictly closer to the declared contract.
+            cryptoclash: m.cryptoclash ?? null,
+            // Freshness metadata (optional, additive — old clients ignore it)
+            from_snapshot: bundleResult.data.from_snapshot,
+            captured_at: bundleResult.data.captured_at,
+            ...(errors.length > 0 && { errors }),
+          },
+          {
+            headers: {
+              // Same policy as the fallback path below (30s CDN absorb).
+              'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60',
+            },
+          }
+        );
+      }
+      console.warn('[BUNDLE] fast path unavailable (empty/failed), falling back to per-endpoint fan-out');
+    } catch (bundleErr) {
+      console.warn('[BUNDLE] fast path failed, falling back to per-endpoint fan-out:', bundleErr instanceof Error ? bundleErr.message : bundleErr);
+    }
+
     // Non-streaming implementation: fetch everything from Express in parallel
     const [
       statsResult,

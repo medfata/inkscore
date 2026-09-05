@@ -418,7 +418,6 @@ interface RealWalletStats {
   tokenHoldings: RealTokenHolding[];
 }
 
-// Consolidated dashboard response type from /api/:wallet/dashboard
 interface ConsolidatedDashboardResponse {
   stats: RealWalletStats | null;
   bridge: BridgeVolumeResponse | null;
@@ -469,6 +468,11 @@ interface ConsolidatedDashboardResponse {
     }>;
   } | null;
   errors?: string[];
+  // Sprint 2 freshness metadata (optional, from the bundle fast path):
+  // whether this payload was served from the server's dashboard snapshot
+  // and when that snapshot was captured. Displayed honestly in the banner.
+  from_snapshot?: boolean;
+  captured_at?: string;
 }
 
 const REFRESH_COOLDOWN_MS = 30000; // 30 seconds
@@ -503,6 +507,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
   // (one real upstream scan per wallet per window). Server is the source of
   // truth; falls back to the documented default.
   const [cacheTtlMinutes, setCacheTtlMinutes] = useState<number>(60);
+
+  // Sprint 2 freshness: was the latest payload served from the server's
+  // dashboard snapshot, and when was that snapshot captured? Rendered
+  // honestly in the cache banner — a user should never have to guess how
+  // fresh their numbers are.
+  const [snapshotInfo, setSnapshotInfo] = useState<{ from: boolean; capturedAt: string | null }>({ from: false, capturedAt: null });
   useEffect(() => {
     if (isDemo) return;
     let cancelled = false;
@@ -632,6 +642,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
 
   // Helper function to process consolidated dashboard response and update all state
   const processConsolidatedResponse = useCallback((response: ConsolidatedDashboardResponse) => {
+    // Freshness metadata from the bundle fast path (undefined on the legacy
+    // fan-out path): was this payload served from the server snapshot?
+    setSnapshotInfo({
+      from: response.from_snapshot === true,
+      capturedAt: response.captured_at || null,
+    });
     // Process wallet stats
     if (response.stats) {
       setRealWalletStats({
@@ -1063,6 +1079,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
     return `${minutes} mins ago`;
   };
 
+  // Sprint 2: age of the snapshot the current payload came from (ISO string
+  // from the server). Re-renders on the minute tick above.
+  const formatSnapshotAge = (iso: string): string => {
+    const ts = Date.parse(iso);
+    if (!Number.isFinite(ts)) return 'recently';
+    const seconds = Math.floor((Date.now() - ts) / 1000);
+    if (seconds < 90) return 'just now';
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes} min ago`;
+    const hours = Math.floor(minutes / 60);
+    return `${hours} hr${hours > 1 ? 's' : ''} ago`;
+  };
+
   // Update "time ago" display every minute
   const [, setTimeUpdate] = useState(0);
   useEffect(() => {
@@ -1285,6 +1314,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
           <span>
             Platform metrics are cached per wallet for <span className="text-slate-300 font-medium">{cacheTtlMinutes >= 60 ? `${cacheTtlMinutes / 60} hour${cacheTtlMinutes > 60 ? 's' : ''}` : `${cacheTtlMinutes} min`}</span>
             {' '}after the first scan. Refreshing within that window reuses the cached scan (faster for you, less load on the explorers) — use the Refresh button to pull a live scan.
+            {snapshotInfo.from && snapshotInfo.capturedAt && (
+              <>{' '}This view was served from a <span className="text-slate-300 font-medium">cached snapshot</span> scanned{' '}
+                <time dateTime={snapshotInfo.capturedAt} title={new Date(snapshotInfo.capturedAt).toLocaleString()}>
+                  {formatSnapshotAge(snapshotInfo.capturedAt)}
+                </time>.
+              </>
+            )}
           </span>
         </div>
 
