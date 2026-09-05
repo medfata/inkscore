@@ -11,6 +11,24 @@ import { getBridgeVolume } from './bridge-service';
 import { getSwapVolume } from './swap-service';
 import { getTydroData } from './tydro-service';
 import { getNft2meData } from './nft2me-service';
+import {
+  getZnsMetrics,
+  getShelliesJoinedRaffles,
+  getShelliesPayToPlay,
+  getShelliesStaking,
+  getTemplarsBalance,
+} from './analytics-counts-service';
+import {
+  getGmCount,
+  getInkypumpCreatedTokens,
+  getInkypumpBuyVolume,
+  getInkypumpSellVolume,
+  getCowswapSwaps,
+  getMintCount,
+  getOpenseaBuyCount,
+  getOpenseaSaleCount,
+} from './analytics-metrics-service';
+import { sweepService } from './sweep-service';
 
 // TEMPORARY: wallets whose stored leaderboard score is known to be stale;
 // skip the floor clamp for them and trust the realtime score.
@@ -742,14 +760,18 @@ export class PointsServiceV2 {
           null,
           'tydro'
         ),
-        fetchJson<CountResponse>(`${baseUrl}/api/analytics/${wallet}/gm_count`),
-        fetchJson<CountResponse>(`${baseUrl}/api/analytics/${wallet}/inkypump_created_tokens`),
-        fetchJson<CountResponse>(`${baseUrl}/api/analytics/${wallet}/inkypump_buy_volume`),
-        fetchJson<CountResponse>(`${baseUrl}/api/analytics/${wallet}/inkypump_sell_volume`),
-        fetchJson<CountResponse>(`${baseUrl}/api/analytics/${wallet}/shellies_joined_raffles`),
-        fetchJson<CountResponse>(`${baseUrl}/api/analytics/${wallet}/shellies_pay_to_play`),
-        fetchJson<CountResponse>(`${baseUrl}/api/analytics/${wallet}/shellies_staking`),
-        fetchJson<ZnsResponse>(`${baseUrl}/api/analytics/${wallet}/zns`),
+        // Sprint 1: direct service calls — the score's last loopback
+        // self-fetches removed. gm/inkypump/cowswap/sweep/opensea counts now
+        // call their services directly (20s budget, matching the old 3.5s +
+        // retry ladder worst case; still under the dashboard's 30s timeout).
+        withTimeout(getGmCount(wallet).catch(() => null), 20000, null, 'gm'),
+        withTimeout(getInkypumpCreatedTokens(wallet).catch(() => null), 20000, null, 'inkypump-created'),
+        withTimeout(getInkypumpBuyVolume(wallet).catch(() => null), 20000, null, 'inkypump-buy'),
+        withTimeout(getInkypumpSellVolume(wallet).catch(() => null), 20000, null, 'inkypump-sell'),
+        withTimeout(getShelliesJoinedRaffles(wallet).catch(() => null), 20000, null, 'shellies-raffles'),
+        withTimeout(getShelliesPayToPlay(wallet).catch(() => null), 20000, null, 'shellies-pay'),
+        withTimeout(getShelliesStaking(wallet).catch(() => null), 20000, null, 'shellies-staking'),
+        withTimeout(getZnsMetrics(wallet).catch(() => null), 20000, null, 'zns'),
         // Sprint 1: direct service call (counts via getProtocolCount, deduped
         // inside the count service itself). 20s budget like the old 3.5s +
         // retry ladder worst case.
@@ -761,10 +783,13 @@ export class PointsServiceV2 {
         ),
         fetchJson<NadoResponse>(`${baseUrl}/api/nado/${wallet}`, SLOW_FETCH_TIMEOUT),
         fetchJson<CopinkResponse>(`${baseUrl}/api/copink/${wallet}`, COPINK_FETCH_TIMEOUT),
-        fetchJson<TemplarsResponse>(`${baseUrl}/api/analytics/${wallet}/templars_nft_balance`),
-        fetchJson<OpenSeaResponse>(`${baseUrl}/api/analytics/${wallet}/mint_count`),
-        fetchJson<CowSwapResponse>(`${baseUrl}/api/analytics/${wallet}/cowswap_swaps`),
-        fetchJson<SweepResponse>(`${baseUrl}/api/sweep/${wallet}`),
+        // Sprint 1: direct service call (viem balanceOf read).
+        withTimeout(getTemplarsBalance(wallet).catch(() => null), 20000, null, 'templars'),
+        withTimeout(getMintCount(wallet).catch(() => null), 20000, null, 'mints'),
+        withTimeout(getCowswapSwaps(wallet).catch(() => null), 20000, null, 'cowswap'),
+        // Sweep: the score reads the RAW shape (totalCollections/badges/streak)
+        // — same sweepService both HTTP wrappers use.
+        withTimeout(sweepService.getDeployedCollections(wallet).catch(() => null), 20000, null, 'sweep'),
         openSeaCountsPromise,
       ]);      console.log(`[Score] ${wallet.slice(0, 10)} fetch batch completed in ${Date.now() - batchStart}ms`);
 

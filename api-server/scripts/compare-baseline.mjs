@@ -29,6 +29,11 @@ function normalize(v) {
       if (VOLATILE_KEYS.has(k)) continue;
       if (typeof val === 'number' && !Number.isInteger(val)) {
         out[k] = Math.round(val * 10000) / 10000; // 4 decimals for floats
+      } else if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(val)) {
+        // ISO timestamps from different pg serialization paths can differ in
+        // fractional-second precision for the same instant (.000Z vs .000000Z)
+        const t = Date.parse(val);
+        out[k] = Number.isFinite(t) ? `ts:${t}` : val;
       } else {
         out[k] = normalize(val);
       }

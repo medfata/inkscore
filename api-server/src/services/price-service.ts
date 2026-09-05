@@ -20,10 +20,13 @@ export class PriceService {
     if (memPriceInflight) return memPriceInflight;
     memPriceInflight = (async () => {
       try {
-        // First try to get from cache (last hour)
+        // First try to get from cache (last hour). Exclude 3500.00 rows: that
+        // value is this service's own fallback and must never be treated as
+        // market data (it polluted history when failures used to persist it).
         const cached = await queryOne<EthPrice>(`
           SELECT * FROM eth_prices 
           WHERE timestamp > NOW() - INTERVAL '1 hour'
+            AND price_usd IS DISTINCT FROM 3500
           ORDER BY timestamp DESC 
           LIMIT 1
         `);
@@ -34,13 +37,29 @@ export class PriceService {
           return price;
         }
 
-        // Fetch from CoinGecko
+        // Fetch from CoinGecko — THROWS on failure (the fallback is handled
+        // below and is never persisted).
         const price = await this.fetchCurrentPrice();
 
         // Cache it
         await this.savePrice(price);
 
         memPrice = { price, ts: Date.now() };
+        return price;
+      } catch (error) {
+        // CoinGecko unavailable: serve the last known REAL price from history
+        // (any age) as an in-memory fallback — NEVER persist it. The old code
+        // wrote a 3500.00 fallback row into eth_prices, polluting history and
+        // mispricing every metric for an hour.
+        const lastKnown = await queryOne<{ price_usd: string }>(`
+          SELECT price_usd FROM eth_prices
+          WHERE price_usd IS DISTINCT FROM 3500
+          ORDER BY timestamp DESC
+          LIMIT 1
+        `).catch(() => null);
+        const price = lastKnown ? parseFloat(lastKnown.price_usd) : 3500;
+        memPrice = { price, ts: Date.now() };
+        console.warn(`[PriceService] CoinGecko unavailable — serving last-known price $${price} from history (not persisted): ${error instanceof Error ? error.message : error}`);
         return price;
       } finally {
         memPriceInflight = null;
@@ -68,24 +87,19 @@ export class PriceService {
     return this.getCurrentPrice();
   }
 
-  // Fetch current price from CoinGecko
+  // Fetch current price from CoinGecko. Throws on failure — the caller
+  // decides the fallback (last-known historical price, never persisted).
   private async fetchCurrentPrice(): Promise<number> {
-    try {
-      const response = await fetch(
-        `${COINGECKO_API}/simple/price?ids=ethereum&vs_currencies=usd`
-      );
-      
-      if (!response.ok) {
-        throw new Error(`CoinGecko API error: ${response.status}`);
-      }
+    const response = await fetch(
+      `${COINGECKO_API}/simple/price?ids=ethereum&vs_currencies=usd`
+    );
 
-      const data = await response.json() as { ethereum: { usd: number } };
-      return data.ethereum.usd;
-    } catch (error) {
-      console.error('Failed to fetch ETH price:', error);
-      // Return a fallback price
-      return 3500;
+    if (!response.ok) {
+      throw new Error(`CoinGecko API error: ${response.status}`);
     }
+
+    const data = await response.json() as { ethereum: { usd: number } };
+    return data.ethereum.usd;
   }
 
 
