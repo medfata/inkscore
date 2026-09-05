@@ -387,9 +387,13 @@ export async function GET(
             // UI fetched it separately). The bundle has it — filling the
             // typed field is strictly closer to the declared contract.
             cryptoclash: m.cryptoclash ?? null,
-            // Freshness metadata (optional, additive — old clients ignore it)
+            // Freshness + completeness metadata (optional, additive — old
+            // clients ignore them). `partial` drives the UI's auto-heal:
+            // a partial response schedules one silent refetch so the page
+            // fills itself in as the background walks complete.
             from_snapshot: bundleResult.data.from_snapshot,
             captured_at: bundleResult.data.captured_at,
+            partial: bundleResult.data.partial === true,
             ...(errors.length > 0 && { errors }),
           },
           {

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   ResponsiveContainer,
   RadarChart,
@@ -473,6 +473,9 @@ interface ConsolidatedDashboardResponse {
   // and when that snapshot was captured. Displayed honestly in the banner.
   from_snapshot?: boolean;
   captured_at?: string;
+  // true = the live gather had missing metrics (they're being completed in
+  // the background); the UI schedules one silent auto-heal refetch.
+  partial?: boolean;
 }
 
 const REFRESH_COOLDOWN_MS = 30000; // 30 seconds
@@ -513,6 +516,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
   // honestly in the cache banner — a user should never have to guess how
   // fresh their numbers are.
   const [snapshotInfo, setSnapshotInfo] = useState<{ from: boolean; capturedAt: string | null }>({ from: false, capturedAt: null });
+
+  // Sprint 2 auto-heal state: when a partial bundle arrives (heavy metrics
+  // still walking in the background), schedule up to 2 silent refetches.
+  const autoHealRef = useRef<{ wallet: string; count: number; timer: ReturnType<typeof setTimeout> | null }>({ wallet: '', count: 0, timer: null });
+  const walletRef = useRef(walletAddress);
+  const processRef = useRef<(r: ConsolidatedDashboardResponse) => void>(() => {});
+  useEffect(() => {
+    walletRef.current = walletAddress;
+    processRef.current = processConsolidatedResponse;
+  });
+  // Cancel any pending auto-heal on unmount.
+  useEffect(() => () => {
+    if (autoHealRef.current.timer) clearTimeout(autoHealRef.current.timer);
+  }, []);
   useEffect(() => {
     if (isDemo) return;
     let cancelled = false;
@@ -648,6 +665,35 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
       from: response.from_snapshot === true,
       capturedAt: response.captured_at || null,
     });
+
+    // Sprint 2 auto-heal: a partial response means some heavy metrics timed
+    // out on their first-ever gather (multi-minute walks) and were handed to
+    // the background worker. The successful metrics are already cached, so a
+    // silent refetch ~60s later usually returns the complete bundle — the
+    // page fills itself in without user action. Guarded to 2 attempts per
+    // wallet so it can never loop.
+    if (response.partial === true && !isDemo && walletAddress) {
+      const state = autoHealRef.current;
+      if (state.wallet !== walletAddress) {
+        state.wallet = walletAddress;
+        state.count = 0;
+      }
+      if (state.count < 2) {
+        state.count += 1;
+        if (state.timer) clearTimeout(state.timer);
+        const healWallet = walletAddress; // the wallet THIS response belongs to
+        state.timer = setTimeout(() => {
+          // User may have navigated to another wallet meanwhile — drop it.
+          if (walletRef.current !== healWallet) return;
+          fetch(`/api/${healWallet}/dashboard`)
+            .then((r) => (r.ok ? r.json() : null))
+            .then((res: ConsolidatedDashboardResponse | null) => {
+              if (res && walletRef.current === healWallet) processRef.current(res);
+            })
+            .catch(() => undefined);
+        }, 60_000);
+      }
+    }
     // Process wallet stats
     if (response.stats) {
       setRealWalletStats({
