@@ -14,6 +14,8 @@ RUN npm ci
 # Copy source code
 COPY tsconfig.json ./
 COPY src/ ./src/
+# Ops + benchmark + backfill scripts (run via docker exec)
+COPY scripts/ ./scripts/
 
 # Build TypeScript to JavaScript
 RUN npm run build
