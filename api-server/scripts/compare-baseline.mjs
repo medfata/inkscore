@@ -46,8 +46,24 @@ function normalize(v) {
 }
 
 function isNum(x) { return typeof x === 'number' && !Number.isInteger(x); }
+// Many endpoints format USD as strings ("453.75") — those must get the same
+// repricing tolerance as numbers, not exact string equality.
+function numStr(x) {
+  if (typeof x !== 'string') return null;
+  const t = x.trim();
+  if (!/^-?\d+(\.\d+)?$/.test(t)) return null;
+  const n = parseFloat(t);
+  return Number.isFinite(n) && !Number.isInteger(n) ? n : null;
+}
 
 function diff(a, b, path, report) {
+  const na = numStr(a), nb = numStr(b);
+  if (na !== null && nb !== null) {
+    if (Math.abs(na - nb) > Math.max(FLOAT_TOL_ABS, Math.abs(na) * FLOAT_TOL_REL)) {
+      report.push(`${path}: "${a}" != "${b}" (beyond tolerance)`);
+    }
+    return;
+  }
   if (isNum(a) && isNum(b)) {
     if (Math.abs(a - b) > Math.max(FLOAT_TOL_ABS, Math.abs(a) * FLOAT_TOL_REL)) {
       report.push(`${path}: ${a} != ${b} (beyond tolerance)`);

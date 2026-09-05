@@ -8,6 +8,7 @@ import {
   WalletScoreResponse,
 } from '../types/platforms';
 import { getBridgeVolume } from './bridge-service';
+import { getSwapVolume } from './swap-service';
 
 // TEMPORARY: wallets whose stored leaderboard score is known to be stale;
 // skip the floor clamp for them and trust the realtime score.
@@ -719,7 +720,16 @@ export class PointsServiceV2 {
           null,
           'bridge'
         ),
-        fetchJson<SwapResponse>(`${baseUrl}/api/wallet/${wallet}/swap`),
+        // Sprint 1: direct service call — no loopback HTTP. The service
+        // shares the dashboard's in-flight computation and 5-min long cache.
+        // 20s budget (matches the old 3.5s + retry ladder worst case); still
+        // under the dashboard's 30s score timeout.
+        withTimeout(
+          getSwapVolume(wallet).catch(() => null),
+          20000,
+          null,
+          'swap'
+        ),
         fetchJson<TydroResponse>(`${baseUrl}/api/wallet/${wallet}/tydro`, SLOW_FETCH_TIMEOUT),
         fetchJson<CountResponse>(`${baseUrl}/api/analytics/${wallet}/gm_count`),
         fetchJson<CountResponse>(`${baseUrl}/api/analytics/${wallet}/inkypump_created_tokens`),
