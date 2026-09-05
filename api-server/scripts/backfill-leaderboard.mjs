@@ -27,11 +27,17 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const { Client } = pg;
 
 const BASE = process.env.API_BASE_URL_TEST || 'http://127.0.0.1:4000';
-const topN = parseInt(process.argv[2] || '50', 10);
-const concurrency = Math.max(1, Math.min(5, parseInt(process.argv[3] || '2', 10)));
+// "all" = every wallet in cached_leaderboard (no LIMIT).
+const topNArg = process.argv[2] || '50';
+const topN = topNArg === 'all' ? 100000 : parseInt(topNArg, 10);
+const concurrency = Math.max(1, Math.min(5, parseInt(process.argv[3] || '3', 10)));
 // Full discovery of heavy wallets takes several passes; each pass is capped
 // by the discovery maxPages, and cursors resume below the previous floor.
-const PASSES_PER_WALLET = parseInt(process.argv[4] || '4', 10);
+const PASSES_PER_WALLET = parseInt(process.argv[4] || '6', 10);
+const PASS_COOLDOWN_MS = parseInt(process.env.BACKFILL_PASS_COOLDOWN_MS || '1500', 10);
+// Wallets ranked <= TIER_BOUNDARY get the full multi-pass treatment; the
+// long tail (thousands of light wallets) gets a light pass each.
+const TIER_BOUNDARY = parseInt(process.argv[5] || '200', 10);
 
 const fmt = (ms) => (ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`);
 
@@ -51,8 +57,12 @@ async function pass(wallet) {
 }
 
 async function backfillWallet(wallet, rank) {
+  // Tiering: the top TIER wallets get full multi-pass treatment (heavy
+  // histories, users actually look at them); the long tail is low-activity —
+  // a single pass usually completes it, and cursors make any rerun cheap.
+  const passes = rank <= TIER_BOUNDARY ? PASSES_PER_WALLET : Math.min(2, PASSES_PER_WALLET);
   const attempts = [];
-  for (let p = 1; p <= PASSES_PER_WALLET; p++) {
+  for (let p = 1; p <= passes; p++) {
     try {
       const r = await pass(wallet);
       attempts.push(r);
@@ -60,10 +70,11 @@ async function backfillWallet(wallet, rank) {
       if (!r.partial) {
         // Warm pass (serves from the just-written caches + persists snapshot
         // server-side is automatic on the refresh path).
+        const wt0 = Date.now();
         const warm = await fetch(`${BASE}/api/dashboard/bundle/${wallet}`);
         if (warm.ok) {
           const wb = await warm.json();
-          console.log(`  [#${rank} warm ] ${fmt(Date.now() - t0)} partial=${wb.partial} from_snapshot=${wb.from_snapshot}`);
+          console.log(`  [#${rank} warm ] ${fmt(Date.now() - wt0)} partial=${wb.partial} from_snapshot=${wb.from_snapshot}`);
         }
         return { rank, wallet, ok: true, passes: p };
       }
@@ -72,7 +83,7 @@ async function backfillWallet(wallet, rank) {
       console.log(`  [#${rank} pass ${p}] ERROR ${String(e.message || e).slice(0, 120)}`);
     }
     // Give the throttle a breath between passes on the same wallet.
-    await new Promise((s) => setTimeout(s, 3000));
+    await new Promise((s) => setTimeout(s, PASS_COOLDOWN_MS));
   }
   return { rank, wallet, ok: false, passes: PASSES_PER_WALLET, lastMissing: attempts[attempts.length - 1]?.missing || [] };
 }
@@ -81,12 +92,17 @@ async function backfillWallet(wallet, rank) {
   const c = new Client({ connectionString: process.env.DATABASE_URL });
   await c.connect();
   const r = await c.query(
-    `SELECT entry->>'wallet_address' AS wallet
-       FROM cached_leaderboard, jsonb_array_elements(leaderboard_data) AS entry
-      WHERE id = 1
-      ORDER BY (entry->>'score')::numeric DESC
-      LIMIT $1`,
-    [topN]
+    topNArg === 'all'
+      ? `SELECT DISTINCT entry->>'wallet_address' AS wallet, (entry->>'score')::numeric AS score
+           FROM cached_leaderboard, jsonb_array_elements(leaderboard_data) AS entry
+          WHERE id = 1
+          ORDER BY (entry->>'score')::numeric DESC`
+      : `SELECT entry->>'wallet_address' AS wallet
+           FROM cached_leaderboard, jsonb_array_elements(leaderboard_data) AS entry
+          WHERE id = 1
+          ORDER BY (entry->>'score')::numeric DESC
+          LIMIT $1`,
+    topNArg === 'all' ? [] : [topN]
   );
   await c.end();
   const wallets = r.rows.map((x) => (x.wallet || '').toLowerCase()).filter((w) => /^0x[0-9a-f]{40}$/.test(w));
