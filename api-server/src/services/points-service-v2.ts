@@ -29,6 +29,8 @@ import {
   getOpenseaSaleCount,
 } from './analytics-metrics-service';
 import { sweepService } from './sweep-service';
+import { getNadoMetrics } from './nado-service';
+import { getCopinkMetrics } from './copink-service';
 
 // TEMPORARY: wallets whose stored leaderboard score is known to be stale;
 // skip the floor clamp for them and trust the realtime score.
@@ -781,8 +783,10 @@ export class PointsServiceV2 {
           null,
           'nft2me'
         ),
-        fetchJson<NadoResponse>(`${baseUrl}/api/nado/${wallet}`, SLOW_FETCH_TIMEOUT),
-        fetchJson<CopinkResponse>(`${baseUrl}/api/copink/${wallet}`, COPINK_FETCH_TIMEOUT),
+        // Sprint 1: direct service calls — the score's LAST loopback
+        // self-fetches are gone. Budgets match the old fetch timeouts.
+        withTimeout(getNadoMetrics(wallet).catch(() => null), SLOW_FETCH_TIMEOUT, null, 'nado'),
+        withTimeout(getCopinkMetrics(wallet).catch(() => null), COPINK_FETCH_TIMEOUT, null, 'copink'),
         // Sprint 1: direct service call (viem balanceOf read).
         withTimeout(getTemplarsBalance(wallet).catch(() => null), 20000, null, 'templars'),
         withTimeout(getMintCount(wallet).catch(() => null), 20000, null, 'mints'),
