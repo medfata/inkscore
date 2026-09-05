@@ -190,3 +190,14 @@ export async function getFreshBundleSnapshot(wallet: string): Promise<BundleSnap
     partial: row.partial,
   };
 }
+
+/** Age of the wallet's latest BUNDLE snapshot in ms, or null if none exists. */
+export async function getBundleSnapshotAgeMs(wallet: string): Promise<number | null> {
+  await ensureBundleTable();
+  const row = await queryOne<{ age_ms: string }>(
+    `SELECT EXTRACT(EPOCH FROM (NOW() - captured_at)) * 1000 AS age_ms
+       FROM wallet_dashboard_snapshots WHERE wallet = $1`,
+    [wallet]
+  );
+  return row ? Number(row.age_ms) : null;
+}

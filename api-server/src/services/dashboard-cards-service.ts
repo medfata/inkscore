@@ -46,17 +46,19 @@ export async function getDashboardCards(walletAddress: string): Promise<Dashboar
 
   const cardIds = cards.map(c => c.id);
 
-  // Fetch metrics for all cards
-  const cardMetrics = await query<{
-    id: number;
-    card_id: number;
-    metric_id: number;
-    display_order: number;
-    metric_slug: string;
-    metric_name: string;
-    metric_currency: string;
-    metric_aggregation_type: string;
-  }>(`
+  // Perf: cardMetrics and cardPlatforms are independent reads — run them
+  // concurrently (only userMetrics below depends on cardMetrics' metricIds).
+  const [cardMetrics, cardPlatforms] = await Promise.all([
+    query<{
+      id: number;
+      card_id: number;
+      metric_id: number;
+      display_order: number;
+      metric_slug: string;
+      metric_name: string;
+      metric_currency: string;
+      metric_aggregation_type: string;
+    }>(`
     SELECT 
       dcm.id,
       dcm.card_id,
@@ -70,19 +72,16 @@ export async function getDashboardCards(walletAddress: string): Promise<Dashboar
     JOIN analytics_metrics am ON am.id = dcm.metric_id
     WHERE dcm.card_id = ANY($1)
     ORDER BY dcm.card_id, dcm.display_order
-  `, [cardIds]);
-
-
-  // Fetch platforms for all cards
-  const cardPlatforms = await query<{
-    id: number;
-    card_id: number;
-    platform_id: number;
-    display_order: number;
-    platform_slug: string;
-    platform_name: string;
-    platform_logo_url: string | null;
-  }>(`
+  `, [cardIds]),
+    query<{
+      id: number;
+      card_id: number;
+      platform_id: number;
+      display_order: number;
+      platform_slug: string;
+      platform_name: string;
+      platform_logo_url: string | null;
+    }>(`
     SELECT 
       dcp.id,
       dcp.card_id,
@@ -95,14 +94,14 @@ export async function getDashboardCards(walletAddress: string): Promise<Dashboar
     JOIN platforms p ON p.id = dcp.platform_id
     WHERE dcp.card_id = ANY($1)
     ORDER BY dcp.card_id, dcp.display_order
-  `, [cardIds]);
+  `, [cardIds]),
+  ]);
 
   // Get all metric IDs we need data for
   const metricIds = [...new Set(cardMetrics.map(m => m.metric_id))];
 
   // Fetch user analytics cache for these metrics
-  const userMetrics = metricIds.length > 0 ? await query<{
-    metric_id: number;
+  const userMetrics = metricIds.length > 0 ? await query<{    metric_id: number;
     total_count: number;
     total_usd_value: string;
     sub_aggregates: Record<string, {

@@ -13,7 +13,14 @@ import {
   getWalletStats,
 } from './blockscout-service';
 import { pointsServiceV2 } from './points-service-v2';
-import { getSnapshotAgeMs, saveScoreSnapshot, SNAPSHOT_MAX_AGE_MS } from './metrics-snapshot-service';
+import { gatherDashboardBundle } from './dashboard-bundle-service';
+import {
+  getSnapshotAgeMs,
+  getBundleSnapshotAgeMs,
+  saveScoreSnapshot,
+  saveBundleSnapshot,
+  SNAPSHOT_MAX_AGE_MS,
+} from './metrics-snapshot-service';
 
 // Score-snapshot refresh: only bother when a snapshot is older than 45 min,
 // comfortably under SNAPSHOT_MAX_AGE_MS (60 min) — no point re-gathering
@@ -187,6 +194,44 @@ export function startRefreshWorker(): void {
       console.warn('[RefreshWorker] score snapshot sweep failed:', err.message || err);
     }
   };
+
+  // Sprint 2: same warm treatment for DASHBOARD BUNDLE snapshots — the
+  // leaderboard's dashboards load instantly from wallet_dashboard_snapshots
+  // even after a restart or cache expiry. Same discipline as the score
+  // sweep: strictly sequential, 45-min age gate (traffic-written bundles
+  // make most sweeps a no-op), junk wallets excluded. Incomplete bundles
+  // are saved with partial=true (never served) and simply retried next sweep.
+  const refreshBundleSnapshots = async (): Promise<void> => {
+    if (process.env.SCORE_SNAPSHOT_WORKER === 'off') return;
+    try {
+      const rows = await query<{ wallet_address: string }>(
+        `SELECT entry->>'wallet_address' AS wallet_address
+           FROM cached_leaderboard, jsonb_array_elements(leaderboard_data) AS entry
+          WHERE id = 1
+          ORDER BY (entry->>'score')::numeric DESC
+          LIMIT 10`
+      );
+      let refreshed = 0;
+      for (const r of rows) {
+        const w = (r.wallet_address || '').toLowerCase();
+        if (!w || JUNK_WALLETS.has(w)) continue;
+        const age = await getBundleSnapshotAgeMs(w).catch(() => null);
+        if (age !== null && age < SNAPSHOT_REFRESH_MIN_AGE_MS) continue;
+        try {
+          const bundle = await gatherDashboardBundle(w);
+          await saveBundleSnapshot(w, bundle as unknown as Record<string, unknown>, bundle.partial);
+          refreshed++;
+        } catch (err: any) {
+          console.warn(`[RefreshWorker] bundle gather failed for ${w.slice(0, 10)}:`, err.message || err);
+        }
+      }
+      if (refreshed > 0) console.log(`[RefreshWorker] bundle snapshots refreshed: ${refreshed}`);
+    } catch (err: any) {
+      console.warn('[RefreshWorker] bundle snapshot sweep failed:', err.message || err);
+    }
+  };
+  setTimeout(refreshBundleSnapshots, 120_000);
+  setInterval(refreshBundleSnapshots, 15 * 60_000);
   setTimeout(refreshScoreSnapshots, 90_000);
   setInterval(refreshScoreSnapshots, 15 * 60_000);
 
