@@ -70,9 +70,13 @@ async function backfillWallet(wallet, rank) {
       if (!r.partial) {
         // Warm pass (serves from the just-written caches + persists snapshot
         // server-side is automatic on the refresh path).
+        // Timeout is MANDATORY: an unbounded fetch here hung the whole
+        // backfill for 24h when one request stalled (observed 2026-09-05).
         const wt0 = Date.now();
-        const warm = await fetch(`${BASE}/api/dashboard/bundle/${wallet}`);
-        if (warm.ok) {
+        const warm = await fetch(`${BASE}/api/dashboard/bundle/${wallet}`, {
+          signal: AbortSignal.timeout(120000),
+        }).catch(() => null);
+        if (warm && warm.ok) {
           const wb = await warm.json();
           console.log(`  [#${rank} warm ] ${fmt(Date.now() - wt0)} partial=${wb.partial} from_snapshot=${wb.from_snapshot}`);
         }
