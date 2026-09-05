@@ -820,13 +820,19 @@ export class PointsServiceV2 {
           'tydro'
         ),
         // Sprint 1: direct service calls — the score's last loopback
-        // self-fetches removed. gm/inkypump/cowswap/sweep/opensea counts now
-        // call their services directly (20s budget, matching the old 3.5s +
-        // retry ladder worst case; still under the dashboard's 30s timeout).
+        // self-fetches removed. gm/cowswap/sweep/opensea counts use a 20s
+        // budget (matching the old 3.5s + retry ladder worst case); still
+        // under the dashboard's 30s timeout.
         withTimeout(getGmCount(wallet).catch(() => null), 20000, null, 'gm'),
         withTimeout(getInkypumpCreatedTokens(wallet).catch(() => null), 20000, null, 'inkypump-created'),
-        withTimeout(getInkypumpBuyVolume(wallet).catch(() => null), 20000, null, 'inkypump-buy'),
-        withTimeout(getInkypumpSellVolume(wallet).catch(() => null), 20000, null, 'inkypump-sell'),
+        // Inkypump buy/sell: 30s budget, matching tydro — these do the same
+        // class of work (tx-hash partitioning + a multi-hundred-tx pricing
+        // pass). At 20s the score could zero inkypump under a cold ~24-request
+        // dashboard burst even though the data existed (observed as a
+        // 50-point flake in the parity harness; the 20s value was a holdover
+        // from the loopback 3.5s+retry era).
+        withTimeout(getInkypumpBuyVolume(wallet).catch(() => null), 30000, null, 'inkypump-buy'),
+        withTimeout(getInkypumpSellVolume(wallet).catch(() => null), 30000, null, 'inkypump-sell'),
         withTimeout(getShelliesJoinedRaffles(wallet).catch(() => null), 20000, null, 'shellies-raffles'),
         withTimeout(getShelliesPayToPlay(wallet).catch(() => null), 20000, null, 'shellies-pay'),
         withTimeout(getShelliesStaking(wallet).catch(() => null), 20000, null, 'shellies-staking'),
