@@ -87,11 +87,6 @@ export async function gatherDashboardBundle(wallet: string): Promise<DashboardBu
   // directly anyway. computeScoreFromInputs here uses the gathered inputs.)
   const score = await pointsServiceV2.computeScoreFromInputs(wallet, inputs);
 
-  const partial = inputs.walletStats === null;
-  if (partial) {
-    console.warn(`[Bundle] ${wallet.slice(0, 10)}: wallet stats unavailable after budget — partial bundle`);
-  }
-
   // IMPORTANT: each key maps to the EXACT payload the individual endpoint
   // serves. Entries sourced from ScoreInputs are the same service outputs
   // those shells return. mintCount reuses inputs.mintData (the same
@@ -126,6 +121,24 @@ export async function gatherDashboardBundle(wallet: string): Promise<DashboardBu
     zenithNft,
     zenithStaking,
   };
+
+  // ACCURACY RULE: a bundle with ANY null metric is incomplete — the old
+  // per-endpoint flow did NOT cache errored metrics (each shell retried on
+  // the next load), so an incomplete bundle must never be responseCache-cached
+  // or snapshot-served either, or one cold-burst timeout would freeze that
+  // metric as missing for the whole TTL (observed live: bridge timed out at
+  // 25s during a cold gather and would have been missing for an hour).
+  // The bundle is still returned live (the UI shows what we have) and
+  // snapshotted with partial=true for audit only.
+  const missing = Object.entries(metrics)
+    .filter(([, v]) => v == null)
+    .map(([k]) => k);
+  const partial = inputs.walletStats === null || missing.length > 0;
+  if (partial) {
+    console.warn(
+      `[Bundle] ${wallet.slice(0, 10)}: incomplete bundle — missing: ${missing.join(', ') || 'wallet stats'} (will not be cached)`
+    );
+  }
 
   return {
     wallet,

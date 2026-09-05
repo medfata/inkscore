@@ -63,7 +63,12 @@ router.get('/bundle/:wallet', async (req: Request, res: Response) => {
     const bundle = await gatherDashboardBundle(walletAddress);
     console.log(`[Bundle] ${walletAddress.slice(0, 10)}: live gather completed in ${Date.now() - started}ms (partial=${bundle.partial})`);
 
-    responseCache.set(cacheKey, bundle);
+    // Cache ONLY complete bundles: an incomplete one (any null metric) must
+    // be recomputed on the next load, exactly like the old per-endpoint
+    // flow that never cached an errored metric.
+    if (!bundle.partial) {
+      responseCache.set(cacheKey, bundle);
+    }
 
     // Fire-and-forget snapshot persist (failure never affects the response).
     void saveBundleSnapshot(walletAddress, bundle as unknown as Record<string, unknown>, bundle.partial).catch(

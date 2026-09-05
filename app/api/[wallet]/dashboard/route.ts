@@ -136,6 +136,55 @@ async function getStreamingDashboard(walletAddress: string, forceRefresh = false
         { id: 'zenithStaking', fetch: () => ef(`/api/analytics/${walletAddress}/zenith_staking`) },
       ];
 
+      // Sprint 2: bundle fast path — try ONE Express call for the whole
+      // dashboard. On success, emit every metric event straight out of the
+      // bundle (identical wire format: {type:'metric', id, data, error}) and
+      // close: the client receives the full dashboard at once, which on a
+      // snapshot is instant and on a live gather is ~5s — both faster than
+      // the progressive per-endpoint fan-out below. On ANY bundle failure we
+      // fall through to the original progressive fan-out, verbatim.
+      const bundleStart = Date.now();
+      try {
+        const bundleResult = await fetchFromExpress<{
+          captured_at: string;
+          partial: boolean;
+          from_snapshot: boolean;
+          metrics: Record<string, unknown>;
+        }>(
+          `/api/dashboard/bundle/${walletAddress}${forceRefresh ? '?refresh=true' : ''}`,
+          45000
+        );
+        if (bundleResult.data?.metrics) {
+          const m = bundleResult.data.metrics;
+          const bundleDuration = Date.now() - bundleStart;
+          for (const metric of metrics) {
+            const data = m[metric.id] ?? null;
+            const message = `data: ${JSON.stringify({
+              type: 'metric',
+              id: metric.id,
+              data,
+              error: data == null ? 'missing from bundle' : null,
+              duration: bundleDuration,
+              timestamp: Date.now(),
+            })}\n\n`;
+            controller.enqueue(encoder.encode(message));
+          }
+          const doneEvent = `data: ${JSON.stringify({
+            type: 'done',
+            totalDuration: bundleDuration,
+            timedOut: false,
+            timestamp: Date.now(),
+          })}\n\n`;
+          controller.enqueue(encoder.encode(doneEvent));
+          console.log(`[STREAM] bundle fast path: all ${metrics.length} metrics in ${bundleDuration}ms (from_snapshot=${bundleResult.data.from_snapshot})`);
+          controller.close();
+          return;
+        }
+        console.warn('[STREAM] bundle fast path unavailable (empty/failed), falling back to progressive fan-out');
+      } catch (bundleErr) {
+        console.warn('[STREAM] bundle fast path failed, falling back to progressive fan-out:', bundleErr instanceof Error ? bundleErr.message : bundleErr);
+      }
+
       if (DEBUG_LOGS) console.log(`[STREAM] Started for wallet: ${walletAddress}`);
 
       // Set up stream timeout
