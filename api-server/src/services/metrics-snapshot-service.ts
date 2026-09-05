@@ -123,3 +123,70 @@ export async function getSnapshotAgeMs(wallet: string): Promise<number | null> {
   );
   return row ? Number(row.age_ms) : null;
 }
+
+// ---------------------------------------------------------------------------
+// Sprint 2: dashboard bundle snapshots — same rules as score snapshots
+// (fresh-only, partial never served, malformed refused). The bundle stores
+// the exact per-endpoint payloads the dashboard consumes; a served bundle is
+// byte-comparable to what the individual endpoints return
+// (scripts/check-bundle-parity.mjs).
+// ---------------------------------------------------------------------------
+
+export interface BundleSnapshot {
+  bundle: Record<string, unknown>;
+  capturedAt: Date;
+  partial: boolean;
+}
+
+let bundleEnsured = false;
+
+async function ensureBundleTable(): Promise<void> {
+  if (bundleEnsured) return;
+  await query(
+    `CREATE TABLE IF NOT EXISTS wallet_dashboard_snapshots (
+      wallet TEXT PRIMARY KEY,
+      bundle JSONB NOT NULL,
+      partial BOOLEAN NOT NULL DEFAULT FALSE,
+      captured_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )`
+  );
+  bundleEnsured = true;
+}
+
+export async function saveBundleSnapshot(
+  wallet: string,
+  bundle: Record<string, unknown>,
+  partial: boolean
+): Promise<void> {
+  await ensureBundleTable();
+  await query(
+    `INSERT INTO wallet_dashboard_snapshots (wallet, bundle, partial, captured_at)
+     VALUES ($1, $2::jsonb, $3, NOW())
+     ON CONFLICT (wallet) DO UPDATE
+       SET bundle = EXCLUDED.bundle,
+           partial = EXCLUDED.partial,
+           captured_at = NOW()`,
+    [wallet, JSON.stringify(bundle), partial]
+  );
+}
+
+export async function getFreshBundleSnapshot(wallet: string): Promise<BundleSnapshot | null> {
+  await ensureBundleTable();
+  const row = await queryOne<{
+    bundle: Record<string, unknown>;
+    partial: boolean;
+    captured_at: string;
+  }>(
+    `SELECT bundle, partial, captured_at
+       FROM wallet_dashboard_snapshots
+      WHERE wallet = $1
+        AND captured_at > NOW() - ($2::bigint * INTERVAL '1 millisecond')`,
+    [wallet, SNAPSHOT_MAX_AGE_MS]
+  );
+  if (!row) return null;
+  return {
+    bundle: row.bundle,
+    capturedAt: new Date(row.captured_at),
+    partial: row.partial,
+  };
+}
