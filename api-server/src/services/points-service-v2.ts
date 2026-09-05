@@ -31,6 +31,7 @@ import {
 import { sweepService } from './sweep-service';
 import { getNadoMetrics } from './nado-service';
 import { getCopinkMetrics } from './copink-service';
+import { getFreshScoreSnapshot, saveScoreSnapshot } from './metrics-snapshot-service';
 
 // TEMPORARY: wallets whose stored leaderboard score is known to be stale;
 // skip the floor clamp for them and trust the realtime score.
@@ -618,7 +619,10 @@ export class PointsServiceV2 {
     return collectionPoints + mintPoints;
   }
 
-  async calculateWalletScore(walletAddress: string): Promise<WalletScoreResponse> {
+  async calculateWalletScore(
+    walletAddress: string,
+    opts?: { skipSnapshot?: boolean }
+  ): Promise<WalletScoreResponse> {
     const wallet = walletAddress.toLowerCase();
 
     // System/junk wallets (burn address etc.): every upstream walk times out
@@ -662,11 +666,35 @@ export class PointsServiceV2 {
     // Sprint 2: the score is now a pure function of its metric inputs.
     // gatherScoreInputs() is the EXACT batch the score always fetched
     // (same services, budgets, fallbacks); computeScoreFromInputs() is the
-    // EXACT point math, verbatim. This split changes nothing by itself —
-    // it is what lets a metrics snapshot feed the identical computation
-    // later, so a snapshot can never alter a score, only source its inputs.
+    // EXACT point math, verbatim. A metrics snapshot can therefore never
+    // alter a score — it can only source the same inputs the live gather
+    // would produce, and only when fresher than SNAPSHOT_MAX_AGE_MS (the
+    // responseCache TTL the score already served under).
+    if (!opts?.skipSnapshot) {
+      const snap = await getFreshScoreSnapshot(wallet).catch((err: unknown) => {
+        console.warn(`[PointsServiceV2] Wallet ${wallet}: snapshot read failed, computing live:`, err);
+        return null;
+      });
+      if (snap && !snap.partial) {
+        console.log(`[PointsServiceV2] Wallet ${wallet.slice(0, 10)}: serving score from metrics snapshot (captured ${snap.capturedAt.toISOString()})`);
+        return this.computeScoreFromInputs(wallet, snap.inputs);
+      }
+    }
+
     const inputs = await this.gatherScoreInputs(wallet);
-    return this.computeScoreFromInputs(wallet, inputs);
+    const result = await this.computeScoreFromInputs(wallet, inputs);
+
+    // Persist the raw inputs for the next load / after a restart
+    // (fire-and-forget: a snapshot failure must never affect the response).
+    // Partials are stored for audit but marked so they are NEVER served —
+    // the live path already clamps partials to a 30s cache and recomputes.
+    void saveScoreSnapshot(wallet, inputs, inputs.walletStats === null).catch(
+      (err: unknown) => {
+        console.warn(`[PointsServiceV2] Wallet ${wallet.slice(0, 10)}: snapshot save failed:`, err);
+      }
+    );
+
+    return result;
   }
 
   /**

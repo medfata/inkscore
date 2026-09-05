@@ -169,7 +169,9 @@ router.get('/:address/score', async (req: Request, res: Response) => {
             }
         }
 
-        const score = await pointsServiceV2.calculateWalletScore(address);
+        // refresh=true must mean REFRESH: skip the responseCache (above) AND
+        // the metrics snapshot — always a live gather + recompute.
+        const score = await pointsServiceV2.calculateWalletScore(address, { skipSnapshot: forceRefresh });
         responseCache.set(cacheKey, score);
 
         return res.json(score);
