@@ -10,6 +10,7 @@ import {
   getFreshBundleSnapshot,
   saveBundleSnapshot,
 } from '../services/metrics-snapshot-service';
+import { queueRefresh } from '../services/blockscout-service';
 
 const router = Router();
 
@@ -63,9 +64,28 @@ router.get('/bundle/:wallet', async (req: Request, res: Response) => {
     const bundle = await gatherDashboardBundle(walletAddress);
     console.log(`[Bundle] ${walletAddress.slice(0, 10)}: live gather completed in ${Date.now() - started}ms (partial=${bundle.partial})`);
 
+    // Sprint 2 perf convergence: hand any HEAVY misses to the background
+    // worker (priority above the warm sweep). A cold bridge discovery for an
+    // active wallet can take MINUTES (observed: 182s inflows walk) — it will
+    // never fit a request budget, but the worker completes it without
+    // timeout pressure, its caches fill, and the NEXT load is warm/complete.
+    if (bundle.partial) {
+      const HEAVY: Array<[string, string]> = [
+        ['stats', ''], ['bridge', 'bridge'], ['volume', 'volume'],
+        ['swap', 'swap'], ['tydro', 'tydro'], ['nado', 'nado'],
+      ];
+      for (const [metricId, protocol] of HEAVY) {
+        if (bundle.metrics[metricId] == null) {
+          void queueRefresh(walletAddress, 5, { protocol, toAddress: '', methods: [] }).catch(() => undefined);
+        }
+      }
+    }
+
     // Cache ONLY complete bundles: an incomplete one (any null metric) must
     // be recomputed on the next load, exactly like the old per-endpoint
-    // flow that never cached an errored metric.
+    // flow that never cached an errored metric. (The per-METRIC caches were
+    // already written by the bundle's read-through gather, so the next load
+    // only retries what actually missed.)
     if (!bundle.partial) {
       responseCache.set(cacheKey, bundle);
     }

@@ -12,8 +12,14 @@ import {
   getTokenHoldingsRaw,
   getWalletStats,
 } from './blockscout-service';
+import { getTotalVolumeData } from './volume-service';
 import { pointsServiceV2 } from './points-service-v2';
 import { gatherDashboardBundle } from './dashboard-bundle-service';
+import { getBridgeVolume } from './bridge-service';
+import { getSwapVolume } from './swap-service';
+import { getTydroData } from './tydro-service';
+import { getNft2meData } from './nft2me-service';
+import { getNadoMetrics } from './nado-service';
 import {
   getSnapshotAgeMs,
   getBundleSnapshotAgeMs,
@@ -21,12 +27,24 @@ import {
   saveBundleSnapshot,
   SNAPSHOT_MAX_AGE_MS,
 } from './metrics-snapshot-service';
+import { getRecentBlockscoutUsagePerMin } from './blockscout-service';
 
 // Score-snapshot refresh: only bother when a snapshot is older than 45 min,
 // comfortably under SNAPSHOT_MAX_AGE_MS (60 min) — no point re-gathering
 // inputs the serve path would still use, and never letting a top wallet's
 // snapshot cross the staleness threshold in the first place.
 const SNAPSHOT_REFRESH_MIN_AGE_MS = 45 * 60_000;
+
+// USER-PRIORITY BACKOFF: the Blockscout throttle (~150 req/min through the
+// residential proxy) is shared between interactive dashboard loads and this
+// worker. When interactive traffic has the throttle saturated, the worker
+// SKIPS its cycle — a user's cold load must never compete with background
+// warmth (observed: a worker drain during a heavy wallet's first load
+// starved every metric past its timeout). 120/min leaves 30 for users.
+const THROTTLE_YIELD_PER_MIN = 120;
+function throttleSaturated(): boolean {
+  return getRecentBlockscoutUsagePerMin() >= THROTTLE_YIELD_PER_MIN;
+}
 
 const WORKER_INTERVAL_MS = 60_000;
 const WORKER_BATCH = 20;
@@ -53,6 +71,12 @@ interface QueueRow {
 }
 
 async function drainOnce(): Promise<void> {
+  // Yield to interactive traffic first: never steal throttle budget from a
+  // live dashboard load (the queue jobs keep their backoff and re-run later).
+  if (throttleSaturated()) {
+    console.log('[RefreshWorker] throttle saturated by user traffic — deferring drain');
+    return;
+  }
   let rows: QueueRow[] = [];
   try {
     rows = await query<QueueRow>(
@@ -78,11 +102,32 @@ async function drainOnce(): Promise<void> {
 }
 
 async function runJob(row: QueueRow): Promise<void> {
+  // Yield to interactive traffic between jobs too (a long bridge walk
+  // occupies a slot for minutes — check before starting each one).
+  if (throttleSaturated()) {
+    // Leave the job in the queue with its backoff; it re-runs next cycle.
+    return;
+  }
   const key = `${row.wallet_address}:${row.protocol}`;
   if (active.has(key)) return;
   active.add(key);
   try {
-    if (row.protocol) {
+    // Heavy-metric completion jobs: enqueue when a dashboard load times out
+    // on bridge/volume/swap/tydro/nado — the walk runs here WITHOUT the
+    // request-path timeout pressure (bridge discovery for an active wallet
+    // can take minutes), its service caches fill, and the NEXT user load
+    // hits warm data.
+    if (row.protocol === 'bridge') {
+      await getBridgeVolume(row.wallet_address);
+    } else if (row.protocol === 'volume') {
+      await getTotalVolumeData(row.wallet_address);
+    } else if (row.protocol === 'swap') {
+      await getSwapVolume(row.wallet_address);
+    } else if (row.protocol === 'tydro') {
+      await getTydroData(row.wallet_address);
+    } else if (row.protocol === 'nado') {
+      await getNadoMetrics(row.wallet_address);
+    } else if (row.protocol) {
       const methods = row.methods ? row.methods.split(',').filter(Boolean) : [];
       const methodNames = row.method_names ? row.method_names.split(',').filter(Boolean) : [];
       const direction = (row.direction === 'in' || row.direction === 'either' ? row.direction : 'out') as TxDirection;
@@ -126,13 +171,14 @@ export function startRefreshWorker(): void {
   //   (queueRefresh's upsert resets next_run, which would retry-storm a
   //   wallet whose upstream is down).
   const warmActiveWallets = async (): Promise<void> => {
+    if (throttleSaturated()) return;
     try {
       const rows = await query<{ wallet_address: string }>(
         `SELECT entry->>'wallet_address' AS wallet_address
            FROM cached_leaderboard, jsonb_array_elements(leaderboard_data) AS entry
           WHERE id = 1
           ORDER BY (entry->>'score')::numeric DESC
-          LIMIT 10`
+          LIMIT 50`
       );
       let enqueued = 0;
       for (const r of rows) {
@@ -167,18 +213,20 @@ export function startRefreshWorker(): void {
   // - REFRESH_WORKER=off or SCORE_SNAPSHOT_WORKER=off disables it.
   const refreshScoreSnapshots = async (): Promise<void> => {
     if (process.env.SCORE_SNAPSHOT_WORKER === 'off') return;
+    if (throttleSaturated()) return;
     try {
       const rows = await query<{ wallet_address: string }>(
         `SELECT entry->>'wallet_address' AS wallet_address
            FROM cached_leaderboard, jsonb_array_elements(leaderboard_data) AS entry
           WHERE id = 1
           ORDER BY (entry->>'score')::numeric DESC
-          LIMIT 10`
+          LIMIT 50`
       );
       let refreshed = 0;
       for (const r of rows) {
         const w = (r.wallet_address || '').toLowerCase();
         if (!w || JUNK_WALLETS.has(w)) continue;
+        if (throttleSaturated()) break; // users first — resume next sweep
         const age = await getSnapshotAgeMs(w).catch(() => null);
         if (age !== null && age < SNAPSHOT_REFRESH_MIN_AGE_MS) continue;
         try {
@@ -203,18 +251,20 @@ export function startRefreshWorker(): void {
   // are saved with partial=true (never served) and simply retried next sweep.
   const refreshBundleSnapshots = async (): Promise<void> => {
     if (process.env.SCORE_SNAPSHOT_WORKER === 'off') return;
+    if (throttleSaturated()) return;
     try {
       const rows = await query<{ wallet_address: string }>(
         `SELECT entry->>'wallet_address' AS wallet_address
            FROM cached_leaderboard, jsonb_array_elements(leaderboard_data) AS entry
           WHERE id = 1
           ORDER BY (entry->>'score')::numeric DESC
-          LIMIT 10`
+          LIMIT 50`
       );
       let refreshed = 0;
       for (const r of rows) {
         const w = (r.wallet_address || '').toLowerCase();
         if (!w || JUNK_WALLETS.has(w)) continue;
+        if (throttleSaturated()) break; // users first — resume next sweep
         const age = await getBundleSnapshotAgeMs(w).catch(() => null);
         if (age !== null && age < SNAPSHOT_REFRESH_MIN_AGE_MS) continue;
         try {

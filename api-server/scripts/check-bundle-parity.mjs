@@ -54,18 +54,16 @@ const ENDPOINTS = {
 // dashboard's own budgets so verify() doesn't manufacture failures.
 const LONG = { bridge: 42000, volume: 42000, swap: 30000, tydro: 30000, nft2me: 30000, score: 35000, analytics: 35000 };
 
-function stripTimestamps(v) {
-  if (Array.isArray(v)) return v.map(stripTimestamps);
-  if (v && typeof v === 'object') {
-    const out = {};
-    for (const [k, val] of Object.entries(v)) {
-      if (k === 'last_updated' || k === 'captured_at') continue;
-      out[k] = stripTimestamps(val);
-    }
-    return out;
+// Canonical stringify: sorted object keys, timestamps stripped. Required
+// for any comparison that crosses a jsonb round-trip (Postgres re-sorts
+// object keys — byte comparison is invalid there).
+const canonical = (v) => JSON.stringify(v, (k, val) => {
+  if (k === 'last_updated' || k === 'captured_at') return undefined;
+  if (val && typeof val === 'object' && !Array.isArray(val)) {
+    return Object.fromEntries(Object.entries(val).sort(([a], [b]) => (a < b ? -1 : 1)));
   }
-  return v;
-}
+  return val;
+});
 
 async function fetchJson(url, timeoutMs) {
   const res = await fetch(`${BASE}${url}`, { signal: AbortSignal.timeout(timeoutMs) });
@@ -90,9 +88,9 @@ if (mode === 'bundle') {
     try {
       const ep = await fetchJson(path, LONG[id] || 20000);
       const bm = bundle.metrics[id];
-      // last_updated/captured_at are computation metadata (each fresh
-      // compute stamps its own); every DATA field must be byte-identical.
-      if (JSON.stringify(stripTimestamps(ep)) === JSON.stringify(stripTimestamps(bm))) {
+      // canonical(): key-sorted, timestamps stripped — data fields must be
+      // exactly equal (jsonb round-trips re-sort keys, byte compare fails).
+      if (canonical(ep) === canonical(bm)) {
         console.log(`  ✓ ${id}`);
       } else {
         fails++;
@@ -114,15 +112,7 @@ if (mode === 'bundle') {
     process.exit(1);
   }
 } else if (mode === 'diff') {
-  // jsonb does NOT preserve object key order (Postgres re-sorts keys), so
-  // compare canonically: deep, order-insensitive, timestamps ignored.
   const { readFileSync } = await import('node:fs');
-  const canonical = (v) => JSON.stringify(stripTimestamps(v), (k, val) => {
-    if (val && typeof val === 'object' && !Array.isArray(val)) {
-      return Object.fromEntries(Object.entries(val).sort(([a], [b]) => (a < b ? -1 : 1)));
-    }
-    return val;
-  });
   const a = JSON.parse(readFileSync(process.argv[3], 'utf8'));
   const b = JSON.parse(readFileSync(process.argv[4], 'utf8'));
   const diffs = Object.keys(a.metrics).filter((k) => canonical(a.metrics[k]) !== canonical(b.metrics[k]));

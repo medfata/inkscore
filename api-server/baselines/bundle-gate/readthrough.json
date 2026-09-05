@@ -1,0 +1,782 @@
+{
+  "wallet": "0x8655df35818f348ea4e371a613e73677d816f589",
+  "metrics": {
+    "zns": {
+      "name": "ZNS Connect",
+      "slug": "zns",
+      "currency": "COUNT",
+      "total_count": 103,
+      "deploy_count": 93,
+      "last_updated": "2026-09-05T15:14:16.150Z",
+      "say_gm_count": 0,
+      "register_domain_count": 10
+    },
+    "nado": {
+      "partial": false,
+      "dbTotalVolume": 0,
+      "nadoVolumeUSD": 1364800.93,
+      "totalDeposits": 1537.14,
+      "tokenBreakdown": [
+        {
+          "name": "WETH",
+          "symbol": "WETH",
+          "rawAmount": 0.45302230068317195,
+          "tokenAddress": "0x4200000000000000000000000000000000000006",
+          "depositAmount": 1113.75
+        },
+        {
+          "name": "USD₮0",
+          "symbol": "USD₮0",
+          "rawAmount": 290.166329,
+          "tokenAddress": "0x0200c29006150606b650577bbe7b6248f58470c1",
+          "depositAmount": 290.17
+        },
+        {
+          "name": "USDC",
+          "symbol": "USDC",
+          "rawAmount": 133.227883,
+          "tokenAddress": "0x2d270e6886d130d724215a266106e6832161eaed",
+          "depositAmount": 133.23
+        }
+      ],
+      "totalTransactions": 15
+    },
+    "swap": {
+      "partial": false,
+      "txCount": 8,
+      "totalEth": 0,
+      "totalUsd": 204.3176734772183,
+      "byPlatform": [
+        {
+          "txCount": 8,
+          "ethValue": 0,
+          "platform": "InkySwap",
+          "usdValue": 204.3176734772183,
+          "contractAddress": "0x551134e92e537ceaa217c2ef63210af3ce96a065"
+        }
+      ]
+    },
+    "cards": {
+      "row3": [],
+      "row4": []
+    },
+    "score": {
+      "rank": {
+        "name": "Ink Drop",
+        "color": "#f59e0b",
+        "logo_url": "https://i.imgflip.com/2/7dl68m.jpg"
+      },
+      "breakdown": {
+        "native": {
+          "total_tx": {
+            "value": 1789,
+            "points": 600
+          },
+          "meme_coins": {
+            "value": 4,
+            "points": 0
+          },
+          "wallet_age": {
+            "value": 268,
+            "points": 400
+          },
+          "erc20_tokens": {
+            "value": 0.834554801232,
+            "points": 0
+          },
+          "nft_collections": {
+            "value": 0,
+            "points": 0
+          }
+        },
+        "platforms": {
+          "gm": {
+            "points": 400,
+            "tx_count": 314,
+            "usd_volume": 0
+          },
+          "zns": {
+            "points": 250,
+            "tx_count": 103,
+            "usd_volume": 0
+          },
+          "nado": {
+            "points": 1400,
+            "tx_count": 15,
+            "usd_volume": 1364800.93
+          },
+          "swap": {
+            "points": 25,
+            "tx_count": 8,
+            "usd_volume": 204.3176734772183
+          },
+          "sweep": {
+            "points": 450,
+            "tx_count": 132,
+            "usd_volume": 0
+          },
+          "tydro": {
+            "points": 0,
+            "tx_count": 24,
+            "usd_volume": 0.97
+          },
+          "copink": {
+            "points": 0,
+            "tx_count": 0,
+            "usd_volume": 0
+          },
+          "nft2me": {
+            "points": 100,
+            "tx_count": 10,
+            "usd_volume": 0
+          },
+          "cowswap": {
+            "points": 1200,
+            "tx_count": 5,
+            "usd_volume": 453.75
+          },
+          "opensea": {
+            "points": 2500,
+            "tx_count": 342,
+            "usd_volume": 0
+          },
+          "inkypump": {
+            "points": 50,
+            "tx_count": 2,
+            "usd_volume": 16.88
+          },
+          "shellies": {
+            "points": 75,
+            "tx_count": 10,
+            "usd_volume": 0
+          },
+          "templars": {
+            "points": 0,
+            "tx_count": 0,
+            "usd_volume": 0
+          },
+          "bridge_in": {
+            "points": 250,
+            "tx_count": 73,
+            "usd_volume": 2117.0184416198376
+          },
+          "bridge_out": {
+            "points": 250,
+            "tx_count": 45,
+            "usd_volume": 1263.5939268662567
+          }
+        }
+      },
+      "last_updated": "2026-09-05T15:14:26.535Z",
+      "total_points": 19171,
+      "wallet_address": "0x8655df35818f348ea4e371a613e73677d816f589"
+    },
+    "stats": {
+      "ageDays": 268,
+      "nftCount": 412,
+      "totalTxns": 1789,
+      "balanceEth": 0.00033847,
+      "balanceUsd": 0.8321081868,
+      "firstTxDate": "2025-12-11T21:39:41.000000Z",
+      "tokenHoldings": [
+        {
+          "logo": "https://imgproxy-mainnet.routescan.io/GNd9olo_OkdBXj2p3DV4SN-zS0yJvjgswMq2UW-oS90/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIva3Jha2Vud3JhcHBlZGJpdGNvaW4uYmMzMzM1OGIyMzZkLnBuZw",
+          "name": "Kraken Wrapped Bitcoin",
+          "symbol": "kBTC",
+          "address": "0x73e0c0d45e048d25fc26fa3159b0aa04bfa4db98",
+          "balance": 0,
+          "usdValue": 0,
+          "tokenType": "stablecoin"
+        },
+        {
+          "logo": "https://s2.coinmarketcap.com/static/img/coins/64x64/38517.png",
+          "name": "USDT0",
+          "symbol": "USDT0",
+          "address": "0x0200c29006150606b650577bbe7b6248f58470c1",
+          "balance": 0.002448,
+          "usdValue": 0.002446614432,
+          "tokenType": "stablecoin"
+        },
+        {
+          "logo": "https://pbs.twimg.com/profile_images/1916937910928211968/CKblfanr_400x400.png",
+          "name": "USDC0",
+          "symbol": "USDC",
+          "address": "0x2d270e6886d130d724215a266106e6832161eaed",
+          "balance": 0,
+          "usdValue": 0,
+          "tokenType": "stablecoin"
+        },
+        {
+          "logo": "https://imgproxy-mainnet.routescan.io/nqT_RCc56W7qQ-VU88ot02PjqHx3nTNkhTtvDycOa5Y/pr:thumb_256/aHR0cHM6Ly9jbXMtY2RuLmF2YXNjYW4uY29tL2NtczIva3Jha21hc2suNTA1YjIwYmEwZDhiLmpwZw",
+          "name": "Krak Mask",
+          "symbol": "KRAKMASK",
+          "address": "0x32bcb803f696c99eb263d60a05cafd8689026575",
+          "balance": 0,
+          "usdValue": 0,
+          "tokenType": "meme"
+        },
+        {
+          "logo": "https://pbs.twimg.com/profile_images/1948708709263089665/sCal-1rw_400x400.jpg",
+          "name": "ANITA",
+          "symbol": "ANITA",
+          "address": "0x0606fc632ee812ba970af72f8489baaa443c4b98",
+          "balance": 0,
+          "usdValue": 0,
+          "tokenType": "meme"
+        },
+        {
+          "logo": "https://storage.inkypump.com/storage/v1/object/public/images/61acee2f19d4d3e90a3e967dc7e7df43cb14c2ef2a7e7c9328f02c98d66376ab.jpeg",
+          "name": "Cat on Ink",
+          "symbol": "CAT",
+          "address": "0x20c69c12abf2b6f8d8ca33604dd25c700c7e70a5",
+          "balance": 0,
+          "usdValue": 0,
+          "tokenType": "meme"
+        },
+        {
+          "logo": "https://storage.inkypump.com/storage/v1/object/public/images/0c4477c934e8d0297026b3f6ce4395c2ee3539b936ed84238f6d40c02abcdd97.jpg",
+          "name": "Kraken Mascot",
+          "symbol": "BEAST",
+          "address": "0xd95b9a5fa7c2708fd4fe0e07e59bde1ef35b194a",
+          "balance": 0,
+          "usdValue": 0,
+          "tokenType": "meme"
+        }
+      ],
+      "nftCollections": [
+        {
+          "logo": "https://pbs.twimg.com/profile_images/1948768160733175808/aNFNH1IH_400x400.jpg",
+          "name": "Shellies",
+          "count": 0,
+          "address": "0x1c9838cdc00fa39d953a54c755b95605ed5ea49c",
+          "openseaUrl": "https://opensea.io/collection/shellies-ink"
+        },
+        {
+          "logo": "https://pbs.twimg.com/profile_images/1953536918282444801/usC4AlFP_400x400.jpg",
+          "name": "InkySquad",
+          "count": 0,
+          "address": "0xe4e5d5170ba5cae36d1876893d4b218e8ed19c91",
+          "openseaUrl": "https://opensea.io/collection/inkysquad"
+        },
+        {
+          "logo": "https://i2c.seadn.io/collection/rekt-ink/image_type_logo/89da470a747b09bd0618de67806af3/4289da470a747b09bd0618de67806af3.jpeg?h=250&w=250",
+          "name": "Rekt Ink",
+          "count": 0,
+          "address": "0x25aa78ab6785a4b0aeff5c170998992fd958d43d",
+          "openseaUrl": "https://opensea.io/collection/rekt-ink"
+        },
+        {
+          "logo": "https://i2c.seadn.io/collection/ink-brokers-94135623/image_type_logo/3b302842784f41c8de5048893c3a2e/423b302842784f41c8de5048893c3a2e.gif",
+          "name": "Ink Brokers",
+          "count": 0,
+          "address": "0x0e4aa738d2cbe8c1f3d4e46a1f1af33611365a5f",
+          "openseaUrl": "https://opensea.io/collection/inkbrokers-nft"
+        },
+        {
+          "logo": "https://i2c.seadn.io/collection/anitaonink/image_type_logo/c39e22d1a0a1913c3e95d6e4f5d75f/95c39e22d1a0a1913c3e95d6e4f5d75f.png",
+          "name": "ANITA",
+          "count": 0,
+          "address": "0x1dc9a006785c7c280da676d3916aa29307b9d9f5",
+          "openseaUrl": "https://opensea.io/collection/anitaonink"
+        },
+        {
+          "logo": "https://i2c.seadn.io/collection/krak-heads-285086705/image_type_logo/b40a00b716a20e83cac99d91c06d47/a3b40a00b716a20e83cac99d91c06d47.png",
+          "name": "KRAK HEADS",
+          "count": 0,
+          "address": "0x96d2640b91dfd42b118ae6b181133b81526907e9",
+          "openseaUrl": "https://opensea.io/collection/krak-heads-285086705"
+        },
+        {
+          "logo": "https://i2c.seadn.io/collection/nobodies-secret-society/image_type_logo/ce6088c24dc6b5958171cde4074865/dece6088c24dc6b5958171cde4074865.png",
+          "name": "Nobodies Secret Society",
+          "count": 0,
+          "address": "0x401eb692882a193aa78e830d8762939b1897c835",
+          "openseaUrl": "https://opensea.io/collection/nobodiesnft"
+        }
+      ]
+    },
+    "sweep": {
+      "icon": "https://sweep.haus/sweep.png",
+      "name": "Sweep",
+      "slug": "sweep",
+      "currency": "COUNT",
+      "total_count": 0,
+      "total_value": "0",
+      "last_updated": "2026-09-05T15:14:17.871Z",
+      "sub_aggregates": [
+        {
+          "label": "Sweep Badges",
+          "value": "3"
+        },
+        {
+          "label": "Total Streak",
+          "value": "129"
+        }
+      ]
+    },
+    "tydro": {
+      "partial": false,
+      "repayCount": 7,
+      "borrowCount": 2,
+      "depositCount": 22,
+      "withdrawCount": 17,
+      "totalRepaidEth": 0.0511,
+      "totalRepaidUsd": 143.89,
+      "currentBorrowEth": 0,
+      "currentBorrowUsd": 0,
+      "currentSupplyEth": 0,
+      "currentSupplyUsd": 0.97,
+      "totalBorrowedEth": 0,
+      "totalBorrowedUsd": 18.33,
+      "totalDepositedEth": 0.2119,
+      "totalDepositedUsd": 535.25,
+      "totalWithdrawnEth": 0.2119,
+      "totalWithdrawnUsd": 534.28
+    },
+    "bridge": {
+      "partial": false,
+      "txCount": 118,
+      "totalEth": 1.3751046877231468,
+      "totalUsd": 3380.612368486094,
+      "byPlatform": [
+        {
+          "url": "https://relay.link",
+          "logo": "https://relay.link/favicon.ico",
+          "txCount": 73,
+          "ethValue": 0.8611226800816114,
+          "platform": "Relay",
+          "usdValue": 2117.0184416198376,
+          "bridgedInUsd": 2117.0184416198376,
+          "bridgedOutUsd": 1263.5939268662567,
+          "bridgedInCount": 73,
+          "bridgedOutCount": 45
+        },
+        {
+          "url": "https://inkonchain.com/bridge",
+          "logo": "https://inkonchain.com/favicon.ico",
+          "txCount": 45,
+          "ethValue": 0.5139820076415353,
+          "platform": "Ink Official",
+          "usdValue": 1263.5939268662567,
+          "bridgedOutUsd": 1263.5939268662567,
+          "bridgedOutCount": 45
+        },
+        {
+          "url": "https://usdt0.to",
+          "logo": "https://pbs.twimg.com/profile_images/1879546764971188224/SQISVYwX_400x400.jpg",
+          "txCount": 0,
+          "ethValue": 0,
+          "platform": "Native Bridge (USDT0)",
+          "usdValue": 0
+        },
+        {
+          "url": "https://www.bungee.exchange",
+          "logo": "https://www.bungee.exchange/favicon.ico",
+          "txCount": 0,
+          "ethValue": 0,
+          "platform": "Bungee",
+          "usdValue": 0
+        }
+      ],
+      "bridgedInUsd": 2117.0184416198376,
+      "bridgedOutUsd": 1263.5939268662567,
+      "bridgedInCount": 73,
+      "bridgedOutCount": 45
+    },
+    "copink": {
+      "totalVolume": 0,
+      "subaccountsFound": 0
+    },
+    "nft2me": {
+      "nftsMinted": 10,
+      "totalTransactions": 10,
+      "collectionsCreated": 0
+    },
+    "volume": {
+      "partial": false,
+      "txCount": 1643,
+      "incoming": {
+        "eth": 0,
+        "usd": 0,
+        "count": 0
+      },
+      "outgoing": {
+        "eth": 2.3494687020943275,
+        "usd": 5776.027835976778,
+        "count": 1643
+      },
+      "totalEth": 2.3494687020943275,
+      "totalUsd": 5776.027835976778
+    },
+    "gmCount": {
+      "icon": "👋",
+      "name": "GM Count",
+      "slug": "gm_count",
+      "source": "gm.ink",
+      "currency": "COUNT",
+      "total_count": 314,
+      "total_value": "314",
+      "last_updated": "2026-09-05T15:14:16.796Z",
+      "sub_aggregates": []
+    },
+    "analytics": {
+      "metrics": [
+        {
+          "icon": "gm",
+          "name": "GM Activity",
+          "slug": "gm_count",
+          "currency": "COUNT",
+          "total_count": 7,
+          "total_value": "7",
+          "last_updated": "2026-09-05T15:14:16.747Z",
+          "sub_aggregates": [
+            {
+              "count": 7,
+              "eth_value": "0",
+              "usd_value": "0.00",
+              "by_function": {
+                "gm": {
+                  "count": 7,
+                  "eth_value": "0",
+                  "usd_value": "0.00"
+                }
+              },
+              "contract_address": "0x9f500d075118272b3564ac6ef2c70a9067fd2d3f"
+            }
+          ]
+        },
+        {
+          "icon": null,
+          "name": "InkySwap Volume (USD)",
+          "slug": "InkySwap_usd_volume",
+          "currency": "USD",
+          "total_count": 8,
+          "total_value": "11.34",
+          "last_updated": "2026-09-05T15:14:16.743Z",
+          "sub_aggregates": [
+            {
+              "count": 8,
+              "eth_value": "0.004614619083117369",
+              "usd_value": "11.34",
+              "by_function": {
+                "execute": {
+                  "count": 8,
+                  "eth_value": "0.004614619083117369",
+                  "usd_value": "11.34"
+                }
+              },
+              "contract_address": "0x551134e92e537ceaa217c2ef63210af3ce96a065"
+            }
+          ]
+        },
+        {
+          "icon": "",
+          "name": "Tydro Supply Volume (USD)",
+          "slug": "tydro_usd_supply",
+          "currency": "USD",
+          "total_count": 15,
+          "total_value": "372.23",
+          "last_updated": "2026-09-05T15:14:16.986Z",
+          "sub_aggregates": [
+            {
+              "count": 2,
+              "eth_value": "0.007012201051393923",
+              "usd_value": "17.24",
+              "by_function": {
+                "supply": {
+                  "count": 2,
+                  "eth_value": "0.007012201051393923",
+                  "usd_value": "17.24"
+                }
+              },
+              "contract_address": "0x2816cf15f6d2a220e789aa011d5ee4eb6c47feba"
+            },
+            {
+              "count": 13,
+              "eth_value": "0.14439715273475262",
+              "usd_value": "354.99",
+              "by_function": {
+                "depositETH": {
+                  "count": 13,
+                  "eth_value": "0.14439715273475262",
+                  "usd_value": "354.99"
+                }
+              },
+              "contract_address": "0xde090efcd6ef4b86792e2d84e55a5fa8d49d25d2"
+            }
+          ]
+        },
+        {
+          "icon": "",
+          "name": "Tydro Borrow Volume (USD)",
+          "slug": "Tydro_usd_borrow",
+          "currency": "USD",
+          "total_count": 2,
+          "total_value": "18.33",
+          "last_updated": "2026-09-05T15:14:16.965Z",
+          "sub_aggregates": [
+            {
+              "count": 2,
+              "eth_value": "0.007455982623126862",
+              "usd_value": "18.33",
+              "by_function": {
+                "borrow": {
+                  "count": 2,
+                  "eth_value": "0.007455982623126862",
+                  "usd_value": "18.33"
+                }
+              },
+              "contract_address": "0x2816cf15f6d2a220e789aa011d5ee4eb6c47feba"
+            }
+          ]
+        },
+        {
+          "icon": "",
+          "name": "Swap Volume (USD)",
+          "slug": "swap_volume",
+          "currency": "USD",
+          "total_count": 0,
+          "total_value": "0",
+          "last_updated": "2026-09-05T15:14:16.739Z",
+          "sub_aggregates": []
+        },
+        {
+          "icon": "",
+          "name": "Nft Traded",
+          "slug": "nft_traded",
+          "currency": "COUNT",
+          "total_count": 0,
+          "total_value": "0",
+          "last_updated": "2026-09-05T15:14:16.728Z",
+          "sub_aggregates": []
+        },
+        {
+          "icon": null,
+          "name": "Total Raffles Joined",
+          "slug": "total_raffles_joined",
+          "currency": "COUNT",
+          "total_count": 0,
+          "total_value": "0",
+          "last_updated": "2026-09-05T15:14:16.711Z",
+          "sub_aggregates": []
+        },
+        {
+          "icon": null,
+          "name": "joinRaffle",
+          "slug": "joinraffle",
+          "currency": "COUNT",
+          "total_count": 0,
+          "total_value": "0",
+          "last_updated": "2026-09-05T15:14:16.714Z",
+          "sub_aggregates": []
+        },
+        {
+          "icon": null,
+          "name": "Total Inkypump Buy Volume USD",
+          "slug": "total_inkypump_buy_volume_usd",
+          "currency": "USD",
+          "total_count": 2,
+          "total_value": "7.04",
+          "last_updated": "2026-09-05T15:14:16.715Z",
+          "sub_aggregates": [
+            {
+              "count": 2,
+              "eth_value": "0.002863",
+              "usd_value": "7.04",
+              "by_function": {
+                "swapExactETHForTokens": {
+                  "count": 2,
+                  "eth_value": "0.002863",
+                  "usd_value": "7.04"
+                }
+              },
+              "contract_address": "0xa8c1c38ff57428e5c3a34e0899be5cb385476507"
+            }
+          ]
+        },
+        {
+          "icon": null,
+          "name": "Total InkyPump Sell volume usd",
+          "slug": "total_inkypump_sell_volume_usd",
+          "currency": "USD",
+          "total_count": 0,
+          "total_value": "0",
+          "last_updated": "2026-09-05T15:14:16.719Z",
+          "sub_aggregates": []
+        }
+      ],
+      "wallet_address": "0x8655df35818f348ea4e371a613e73677d816f589"
+    },
+    "mintCount": {
+      "icon": "🎨",
+      "name": "Mints",
+      "slug": "mint_count",
+      "currency": "COUNT",
+      "total_count": 339,
+      "total_value": "339",
+      "last_updated": "2026-09-05T15:14:16.250Z",
+      "sub_aggregates": []
+    },
+    "zenithNft": {
+      "icon": "https://i2c.seadn.io/collection/inkscore-zenith/image_type_logo/831152ff66038d827191d68d3d66b9/2f831152ff66038d827191d68d3d66b9.png?h=250&w=250",
+      "name": "InkScore Zenith",
+      "slug": "zenith_nft_balance",
+      "currency": "COUNT",
+      "total_count": 0,
+      "total_value": "0",
+      "last_updated": "2026-09-05T15:14:16.620Z",
+      "sub_aggregates": []
+    },
+    "cryptoclash": {
+      "points": 0,
+      "isPatron": false,
+      "lpTickets": 0,
+      "clashTickets": 0,
+      "requiresAuth": true,
+      "totalBattles": 0
+    },
+    "cowswapSwaps": {
+      "icon": "https://swap.cow.fi/favicon-dark-mode.png",
+      "name": "Cow Swap",
+      "slug": "cowswap_swaps",
+      "currency": "USD",
+      "total_count": 5,
+      "total_value": "453.75",
+      "last_updated": "2026-09-05T15:14:16.661Z",
+      "sub_aggregates": [
+        {
+          "count": 4,
+          "token": "WETH",
+          "usd_value": "362.45"
+        },
+        {
+          "count": 1,
+          "token": "USDT0",
+          "usd_value": "91.29"
+        }
+      ]
+    },
+    "zenithStaking": {
+      "icon": "/inkscore_logo.png",
+      "name": "InkScore Zenith Staking",
+      "slug": "zenith_staking",
+      "currency": "COUNT",
+      "total_count": 0,
+      "last_updated": "2026-09-05T15:14:16.561Z",
+      "total_staked": 0,
+      "one_day_count": 0,
+      "one_week_count": 0,
+      "sub_aggregates": [
+        {
+          "label": "1 Month Lock",
+          "value": "0"
+        },
+        {
+          "label": "1 Week Lock",
+          "value": "0"
+        },
+        {
+          "label": "1 Day Lock",
+          "value": "0"
+        }
+      ],
+      "one_month_count": 0
+    },
+    "openseaBuyCount": {
+      "icon": "https://opensea.io/favicon.ico",
+      "name": "OpenSea Buys",
+      "slug": "opensea_buy_count",
+      "currency": "COUNT",
+      "total_count": 2,
+      "total_value": "2",
+      "last_updated": "2026-09-05T15:14:16.249Z",
+      "sub_aggregates": []
+    },
+    "shelliesStaking": {
+      "icon": "🔒",
+      "name": "Staking",
+      "slug": "shellies_staking",
+      "currency": "COUNT",
+      "total_count": 0,
+      "total_value": "0",
+      "last_updated": "2026-09-05T15:14:16.486Z",
+      "sub_aggregates": []
+    },
+    "openseaSaleCount": {
+      "icon": "https://opensea.io/favicon.ico",
+      "name": "OpenSea Sales",
+      "slug": "opensea_sale_count",
+      "currency": "COUNT",
+      "total_count": 1,
+      "total_value": "1",
+      "last_updated": "2026-09-05T15:14:16.267Z",
+      "sub_aggregates": []
+    },
+    "inkypumpBuyVolume": {
+      "icon": "📈",
+      "name": "InkyPump Buy Volume",
+      "slug": "inkypump_buy_volume",
+      "partial": false,
+      "currency": "USD",
+      "total_count": 2,
+      "total_value": "16.88",
+      "last_updated": "2026-09-05T15:14:20.094Z",
+      "sub_aggregates": []
+    },
+    "shelliesPayToPlay": {
+      "icon": "🎮",
+      "name": "Pay to Play",
+      "slug": "shellies_pay_to_play",
+      "currency": "COUNT",
+      "total_count": 10,
+      "total_value": "10",
+      "last_updated": "2026-09-05T15:14:16.586Z",
+      "sub_aggregates": []
+    },
+    "inkypumpSellVolume": {
+      "icon": "📉",
+      "name": "InkyPump Sell Volume",
+      "slug": "inkypump_sell_volume",
+      "partial": false,
+      "currency": "USD",
+      "total_count": 0,
+      "total_value": "0.00",
+      "last_updated": "2026-09-05T15:14:18.190Z",
+      "sub_aggregates": []
+    },
+    "templarsNftBalance": {
+      "icon": "⚔️",
+      "name": "Templars of the Storm",
+      "slug": "templars_nft_balance",
+      "value": 0,
+      "currency": "COUNT",
+      "total_count": 0,
+      "total_value": "0",
+      "last_updated": "2026-09-05T15:14:16.422Z",
+      "sub_aggregates": []
+    },
+    "inkypumpCreatedTokens": {
+      "icon": "🚀",
+      "name": "InkyPump Created Tokens",
+      "slug": "inkypump_created_tokens",
+      "currency": "COUNT",
+      "total_count": 0,
+      "total_value": "0",
+      "last_updated": "2026-09-05T15:14:16.483Z",
+      "sub_aggregates": []
+    },
+    "shelliesJoinedRaffles": {
+      "icon": "🎟️",
+      "name": "Joined Raffles",
+      "slug": "shellies_joined_raffles",
+      "currency": "COUNT",
+      "total_count": 0,
+      "total_value": "0",
+      "last_updated": "2026-09-05T15:14:16.484Z",
+      "sub_aggregates": []
+    }
+  },
+  "partial": false,
+  "captured_at": "2026-09-05T15:14:26.535Z",
+  "from_snapshot": true
+}

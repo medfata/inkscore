@@ -3,29 +3,63 @@
 // One call replaces the dashboard's ~27 per-endpoint fetches. EVERY entry
 // in the returned metrics map is the EXACT object the corresponding
 // individual endpoint serves — because each entry comes from the same
-// service function that endpoint's thin shell calls (verified metric by
-// metric by scripts/check-bundle-parity.mjs). Nothing is recomputed
-// differently and no value is derived: the bundle is a transport
-// optimization, not a data source.
+// service function that endpoint's thin shell calls, THROUGH THE SAME
+// responseCache keys the shells use (verified metric by metric by
+// scripts/check-bundle-parity.mjs). Nothing is recomputed differently and
+// no value is derived: the bundle is a transport optimization, not a data
+// source.
 //
-// Accuracy rules:
-// - Score inputs are gathered ONCE via pointsServiceV2.gatherScoreInputs()
-//   (the exact, parity-gated batch) and reused for both the score
-//   (computeScoreFromInputs — the proven pure function) and the shared
-//   metric payloads. No second upstream walk for the same data.
-// - Every entry is individually budget-capped and null on miss — a missing
-//   metric is a null entry, never a fabricated zero.
-// - `partial: true` (wallet stats timed out) marks the bundle so it is
-//   NEVER served from a snapshot (same rule as score snapshots).
+// ACCURACY RULES:
+// - Per-metric cache read-through with shell-identical keys: a metric that
+//   succeeded once sticks for the wallet TTL (1h) even when OTHER metrics
+//   in the same load time out. The old per-endpoint flow had exactly this
+//   behavior; the bundle preserves it (its first version bypassed the
+//   per-metric cache and re-gathered everything on every incomplete load —
+//   observed as heavy wallets getting SLOWER after Sprint 2).
+// - null metric = not cached (retry on next load) — never a fabricated zero.
+// - Partial results (truncated walks) are clamped to 30s automatically by
+//   responseCache.set.
+// - A bundle with ANY null metric is incomplete: `partial: true` — never
+//   cached as a WHOLE and never served from a snapshot.
+// - The score entry is the proven pure computeScoreFromInputs over the same
+//   per-metric inputs, cached under the /score shell's own key.
 
+import { responseCache } from '../cache';
 import { walletStatsService } from './wallet-stats-service';
 import { analyticsService } from './analytics-service';
 import { pointsServiceV2, ScoreInputs } from './points-service-v2';
 import { getTotalVolumeData } from './volume-service';
 import { getDashboardCards } from './dashboard-cards-service';
 import { getCryptoClashMetrics } from './cryptoclash-service';
-import { getSweep, getOpenseaBuyCount, getOpenseaSaleCount } from './analytics-metrics-service';
-import { getZenithNft, getZenithStaking } from './analytics-counts-service';
+import { getCopinkMetrics } from './copink-service';
+import {
+  getSweep,
+  getOpenseaBuyCount,
+  getOpenseaSaleCount,
+  getGmCount,
+  getInkypumpCreatedTokens,
+  getInkypumpBuyVolume,
+  getInkypumpSellVolume,
+  getMintCount,
+  getCowswapSwaps,
+} from './analytics-metrics-service';
+import {
+  getZnsMetrics,
+  getShelliesJoinedRaffles,
+  getShelliesPayToPlay,
+  getShelliesStaking,
+  getTemplarsBalance,
+  getZenithNft,
+  getZenithStaking,
+} from './analytics-counts-service';
+import { openSeaService } from './opensea-service';
+import { sweepService } from './sweep-service';
+import { getBridgeVolume } from './bridge-service';
+import { getSwapVolume } from './swap-service';
+import { getTydroData } from './tydro-service';
+import { getNft2meData } from './nft2me-service';
+import { getNadoMetrics } from './nado-service';
+import type { CopinkResponse } from './points-service-v2';
 
 export interface DashboardBundle {
   wallet: string;
@@ -51,6 +85,27 @@ function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T, label: str
   ]);
 }
 
+// Per-metric cache read-through with the SAME key the individual endpoint
+// shell uses, so the bundle and the legacy fan-out share one cache layer.
+// A null result is NOT cached (the old shells never cached an errored
+// endpoint — the next load retries it).
+async function viaCache<T>(
+  key: string,
+  label: string,
+  timeoutMs: number,
+  compute: () => Promise<T | null>
+): Promise<T | null> {
+  const cached = responseCache.get<T>(key);
+  if (cached) return cached;
+  const result = await withTimeout(compute().catch(() => null), timeoutMs, null, label);
+  if (result != null) responseCache.set(key, result);
+  return result;
+}
+
+// Score-input fallback when OpenSea counts miss their budget (same shape
+// and semantics as the score's own EMPTY_OPENSEA_COUNTS).
+const EMPTY_OPENSEA_COUNTS = { buys: 0, sales: 0, mints: 0, buyTransactions: [], saleTransactions: [], mintTransactions: [] };
+
 /**
  * Compute the full dashboard bundle for a wallet. Throws only on
  * unexpected failures; every metric entry is individually capped and null
@@ -58,66 +113,144 @@ function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T, label: str
  * endpoints follow).
  */
 export async function gatherDashboardBundle(wallet: string): Promise<DashboardBundle> {
-  // Shared gather: 16 metrics + the score inputs, in one pass with the
-  // score's exact budgets and fallbacks (parity-gated in Sprint 2 step 1).
-  const inputsPromise = pointsServiceV2.gatherScoreInputs(wallet);
+  // Raw OpenSea counts for the score input (the service layers its own
+  // memory + Postgres caches; no endpoint shell wraps this shape).
+  const openSeaCounts = await withTimeout(
+    openSeaService.getAllCounts(wallet).catch((err: unknown) => {
+      console.warn('[Bundle] OpenSea counts failed, treating as 0:', err);
+      return EMPTY_OPENSEA_COUNTS;
+    }),
+    15000,
+    EMPTY_OPENSEA_COUNTS,
+    'OpenSea counts'
+  );
 
-  // The metrics NOT covered by ScoreInputs, fetched concurrently.
-  // Budgets mirror the dashboard's own: volume 30s (cold outflow walks),
-  // analytics aggregate 30s (fans out to many metrics), sweep/opensea/
-  // zenith 20s, cards/cryptoclash 15s (DB/external-API reads).
-  const [inputs, volume, sweep, openseaBuy, openseaSale, zenithNft, zenithStaking, analyticsAgg, cards, cryptoclash] =
-    await Promise.all([
-      inputsPromise,
-      withTimeout(getTotalVolumeData(wallet).catch(() => null), 30000, null, 'volume'),
-      withTimeout(getSweep(wallet).catch(() => null), 20000, null, 'sweep'),
-      withTimeout(getOpenseaBuyCount(wallet).catch(() => null), 20000, null, 'opensea-buy'),
-      withTimeout(getOpenseaSaleCount(wallet).catch(() => null), 20000, null, 'opensea-sale'),
-      withTimeout(getZenithNft(wallet).catch(() => null), 20000, null, 'zenith-nft'),
-      withTimeout(getZenithStaking(wallet).catch(() => null), 20000, null, 'zenith-staking'),
-      withTimeout(analyticsService.getWalletAnalytics(wallet).catch(() => null), 30000, null, 'analytics'),
-      withTimeout(getDashboardCards(wallet).catch(() => null), 15000, null, 'cards'),
-      withTimeout(getCryptoClashMetrics(wallet).catch(() => null), 15000, null, 'cryptoclash'),
-    ]);
+  // Per-metric cached gather — same keys, TTLs and partial-clamp behavior
+  // as the individual endpoint shells. Budgets mirror the dashboard's own.
+  const [
+    stats,
+    bridge,
+    swap,
+    tydro,
+    nft2me,
+    nado,
+    volume,
+    gmData,
+    inkyPumpCreated,
+    inkyPumpBuy,
+    inkyPumpSell,
+    zns,
+    shelliesRaffles,
+    shelliesPayToPlay,
+    shelliesStaking,
+    templars,
+    mintData,
+    cowswap,
+    sweepAnalytics,
+    zenithNft,
+    zenithStaking,
+    analyticsAgg,
+    cards,
+    copink,
+    openseaBuy,
+    openseaSale,
+  ] = await Promise.all([
+    viaCache(`wallet:stats:${wallet}`, 'stats', 15000, () => walletStatsService.getAllStats(wallet)),
+    viaCache(`wallet:bridge:${wallet}`, 'bridge', 30000, () => getBridgeVolume(wallet)),
+    viaCache(`wallet:swap:${wallet}`, 'swap', 20000, () => getSwapVolume(wallet)),
+    viaCache(`wallet:tydro:${wallet}`, 'tydro', 30000, () => getTydroData(wallet)),
+    viaCache(`wallet:nft2me:${wallet}`, 'nft2me', 20000, () => getNft2meData(wallet)),
+    viaCache(`nado:${wallet}`, 'nado', 30000, () => getNadoMetrics(wallet)),
+    viaCache(`wallet:volume:${wallet}`, 'volume', 30000, () => getTotalVolumeData(wallet)),
+    viaCache(`analytics:gm_count:${wallet}`, 'gm', 20000, () => getGmCount(wallet)),
+    viaCache(`analytics:inkypump_created_tokens:${wallet}`, 'inkypump-created', 30000, () => getInkypumpCreatedTokens(wallet)),
+    viaCache(`analytics:inkypump_buy_volume:${wallet}`, 'inkypump-buy', 30000, () => getInkypumpBuyVolume(wallet)),
+    viaCache(`analytics:inkypump_sell_volume:${wallet}`, 'inkypump-sell', 30000, () => getInkypumpSellVolume(wallet)),
+    viaCache(`analytics:zns:${wallet}`, 'zns', 20000, () => getZnsMetrics(wallet)),
+    viaCache(`analytics:shellies_joined_raffles:${wallet}`, 'shellies-raffles', 20000, () => getShelliesJoinedRaffles(wallet)),
+    viaCache(`analytics:shellies_pay_to_play:${wallet}`, 'shellies-pay', 20000, () => getShelliesPayToPlay(wallet)),
+    viaCache(`analytics:shellies_staking:${wallet}`, 'shellies-staking', 20000, () => getShelliesStaking(wallet)),
+    viaCache(`analytics:templars_nft_balance:${wallet}`, 'templars', 20000, () => getTemplarsBalance(wallet)),
+    viaCache(`analytics:mint_count:${wallet}`, 'mint', 20000, () => getMintCount(wallet)),
+    viaCache(`analytics:cowswap_swaps:${wallet}`, 'cowswap', 20000, () => getCowswapSwaps(wallet)),
+    viaCache(`analytics:sweep:${wallet}`, 'sweep', 20000, () => getSweep(wallet)),
+    viaCache(`analytics:zenith_nft_balance:${wallet}`, 'zenith-nft', 20000, () => getZenithNft(wallet)),
+    viaCache(`analytics:zenith_staking:${wallet}`, 'zenith-staking', 20000, () => getZenithStaking(wallet)),
+    viaCache(`analytics:${wallet}`, 'analytics', 30000, () => analyticsService.getWalletAnalytics(wallet)),
+    viaCache(`dashboard:cards:${wallet}`, 'cards', 15000, () => getDashboardCards(wallet)),
+    // Copink manages its own responseCache + stale-serve internally.
+    getCopinkSafe(wallet),
+    viaCache(`analytics:opensea_buy_count:${wallet}`, 'opensea-buy', 20000, () => getOpenseaBuyCount(wallet)),
+    viaCache(`analytics:opensea_sale_count:${wallet}`, 'opensea-sale', 20000, () => getOpenseaSaleCount(wallet)),
+  ]);
 
-  // The score: the proven pure function over the same inputs. (junk-wallet
-  // and admin-override guards live in calculateWalletScore and are checked
-  // by the /score endpoint; a bundle for a junk wallet is a nonsense
-  // request and for an overridden wallet the dashboard fetches /score
-  // directly anyway. computeScoreFromInputs here uses the gathered inputs.)
-  const score = await pointsServiceV2.computeScoreFromInputs(wallet, inputs);
+  // Raw sweep shape for the score input (the score reads
+  // totalCollections/sweepBadgeBalance/totalStreak; the analytics-shaped
+  // `sweep` entry above is what the dashboard card consumes).
+  const sweepRaw = await withTimeout(
+    sweepService.getDeployedCollections(wallet).catch(() => null),
+    20000,
+    null,
+    'sweep-raw'
+  );
 
-  // IMPORTANT: each key maps to the EXACT payload the individual endpoint
-  // serves. Entries sourced from ScoreInputs are the same service outputs
-  // those shells return. mintCount reuses inputs.mintData (the same
-  // getMintCount call the score already made — no duplicate fetch).
+  const inputs: ScoreInputs = {
+    walletStats: stats,
+    bridgeData: bridge,
+    swapData: swap,
+    tydroData: tydro,
+    gmData,
+    inkyPumpCreated,
+    inkyPumpBuy,
+    inkyPumpSell,
+    shelliesRaffles,
+    shelliesPayToPlay,
+    shelliesStaking,
+    znsData: zns,
+    nft2meData: nft2me,
+    nadoData: nado,
+    copinkData: copink,
+    templarsData: templars,
+    mintData,
+    cowSwapData: cowswap,
+    sweepData: sweepRaw,
+    openSeaCounts,
+  };
+
+  // The score: the proven pure function over the same per-metric inputs,
+  // cached under the /score shell's own key (so /score and the bundle agree
+  // and share one computation).
+  const score = await viaCache(`wallet:score:${wallet}`, 'score', 35000, () =>
+    pointsServiceV2.computeScoreFromInputs(wallet, inputs)
+  );
+
   const metrics: Record<string, unknown> = {
-    stats: inputs.walletStats,
-    bridge: inputs.bridgeData,
-    swap: inputs.swapData,
-    tydro: inputs.tydroData,
-    nft2me: inputs.nft2meData,
-    nado: inputs.nadoData,
-    copink: inputs.copinkData,
+    stats,
+    bridge,
+    swap,
+    tydro,
+    nft2me,
+    nado,
+    copink,
     score,
     volume,
     analytics: analyticsAgg,
     cards,
-    cryptoclash,
-    gmCount: inputs.gmData,
-    inkypumpCreatedTokens: inputs.inkyPumpCreated,
-    inkypumpBuyVolume: inputs.inkyPumpBuy,
-    inkypumpSellVolume: inputs.inkyPumpSell,
-    zns: inputs.znsData,
-    shelliesJoinedRaffles: inputs.shelliesRaffles,
-    shelliesPayToPlay: inputs.shelliesPayToPlay,
-    shelliesStaking: inputs.shelliesStaking,
+    cryptoclash: await getCryptoClashSafe(wallet),
+    gmCount: gmData,
+    inkypumpCreatedTokens: inkyPumpCreated,
+    inkypumpBuyVolume: inkyPumpBuy,
+    inkypumpSellVolume: inkyPumpSell,
+    zns,
+    shelliesJoinedRaffles: shelliesRaffles,
+    shelliesPayToPlay,
+    shelliesStaking,
     openseaBuyCount: openseaBuy,
     openseaSaleCount: openseaSale,
-    mintCount: inputs.mintData,
-    templarsNftBalance: inputs.templarsData,
-    cowswapSwaps: inputs.cowSwapData,
-    sweep,
+    mintCount: mintData,
+    templarsNftBalance: templars,
+    cowswapSwaps: cowswap,
+    sweep: sweepAnalytics,
     zenithNft,
     zenithStaking,
   };
@@ -126,10 +259,8 @@ export async function gatherDashboardBundle(wallet: string): Promise<DashboardBu
   // per-endpoint flow did NOT cache errored metrics (each shell retried on
   // the next load), so an incomplete bundle must never be responseCache-cached
   // or snapshot-served either, or one cold-burst timeout would freeze that
-  // metric as missing for the whole TTL (observed live: bridge timed out at
-  // 25s during a cold gather and would have been missing for an hour).
-  // The bundle is still returned live (the UI shows what we have) and
-  // snapshotted with partial=true for audit only.
+  // metric as missing for the whole TTL. The bundle is still returned live
+  // (the UI shows what we have) and snapshotted with partial=true for audit.
   const missing = Object.entries(metrics)
     .filter(([, v]) => v == null)
     .map(([k]) => k);
@@ -146,6 +277,27 @@ export async function gatherDashboardBundle(wallet: string): Promise<DashboardBu
     partial,
     metrics,
   };
+}
+
+// Copink never throws (stale-serve built in); a null here means even the
+// stale path failed — same "missing, not zero" treatment as every metric.
+async function getCopinkSafe(wallet: string): Promise<CopinkResponse | null> {
+  try {
+    return await getCopinkMetrics(wallet);
+  } catch (err) {
+    console.warn(`[Bundle] copink failed for ${wallet.slice(0, 10)}:`, err);
+    return null;
+  }
+}
+
+// CryptoClash never throws (zero/requiresAuth fallbacks built in).
+async function getCryptoClashSafe(wallet: string): Promise<unknown> {
+  try {
+    return await getCryptoClashMetrics(wallet);
+  } catch (err) {
+    console.warn(`[Bundle] cryptoclash failed for ${wallet.slice(0, 10)}:`, err);
+    return null;
+  }
 }
 
 /**

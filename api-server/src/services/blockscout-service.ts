@@ -83,6 +83,15 @@ let totalBytes = 0;
 let totalReqs = 0;
 let windowBytes = 0;
 let windowReqs = 0;
+// Rolling 60s request timestamps — read by the refresh worker to yield to
+// user traffic: when the throttle is saturated by interactive loads, the
+// worker skips its cycle instead of competing for the same budget.
+const recentReqTimes: number[] = [];
+export function getRecentBlockscoutUsagePerMin(): number {
+  const cutoff = Date.now() - 60_000;
+  while (recentReqTimes.length && recentReqTimes[0] < cutoff) recentReqTimes.shift();
+  return recentReqTimes.length;
+}
 function accountUsage(data: unknown): void {
   try {
     const bytes = Buffer.byteLength(JSON.stringify(data));
@@ -90,6 +99,12 @@ function accountUsage(data: unknown): void {
     totalReqs += 1;
     windowBytes += bytes;
     windowReqs += 1;
+    const now = Date.now();
+    recentReqTimes.push(now);
+    if (recentReqTimes.length > 2000) {
+      const cutoff = now - 60_000;
+      while (recentReqTimes.length && recentReqTimes[0] < cutoff) recentReqTimes.shift();
+    }
   } catch {
     // ignore — accounting must never break a scan
   }
