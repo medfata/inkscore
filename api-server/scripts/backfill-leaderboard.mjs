@@ -38,6 +38,13 @@ const PASS_COOLDOWN_MS = parseInt(process.env.BACKFILL_PASS_COOLDOWN_MS || '1500
 // Wallets ranked <= TIER_BOUNDARY get the full multi-pass treatment; the
 // long tail (thousands of light wallets) gets a light pass each.
 const TIER_BOUNDARY = parseInt(process.argv[5] || '200', 10);
+// Optional rank-range partition so multiple machines/processes can split the
+// leaderboard without overlapping work (cursor state lives in the SHARED
+// Postgres, so ranges are the only coordination needed):
+//   argv[6] = startRank (1-based, default 1)
+//   argv[7] = endRank (inclusive, default = last wallet)
+const startRank = Math.max(1, parseInt(process.argv[6] || '1', 10));
+const endRankRaw = parseInt(process.argv[7] || '0', 10);
 
 const fmt = (ms) => (ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`);
 
@@ -110,19 +117,23 @@ async function backfillWallet(wallet, rank) {
   );
   await c.end();
   const wallets = r.rows.map((x) => (x.wallet || '').toLowerCase()).filter((w) => /^0x[0-9a-f]{40}$/.test(w));
+  const endRank = endRankRaw > 0 ? Math.min(endRankRaw, wallets.length) : wallets.length;
+  if (startRank > 1 || endRank < wallets.length) {
+    console.log(`range partition: ranks ${startRank}..${endRank} of ${wallets.length} (this lane)\n`);
+  }
   console.log(`backfill: ${wallets.length} wallets, concurrency=${concurrency}, passes=${PASSES_PER_WALLET}\n`);
 
   const t0 = Date.now();
-  let idx = 0;
+  let idx = startRank - 1;
   let done = 0;
   const results = [];
   const worker = async () => {
-    while (idx < wallets.length) {
+    while (idx < endRank) {
       const i = idx++;
       const res = await backfillWallet(wallets[i], i + 1);
       results.push(res);
       done++;
-      console.log(`[${done}/${wallets.length}] rank ${i + 1}: ${res.ok ? 'COMPLETE' : 'incomplete after passes'}`);
+      console.log(`[${done}/${endRank - startRank + 1}] rank ${i + 1}: ${res.ok ? 'COMPLETE' : 'incomplete after passes'}`);
     }
   };
   await Promise.all(Array.from({ length: concurrency }, worker));
