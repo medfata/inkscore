@@ -70,7 +70,12 @@ export async function saveScoreSnapshot(
      ON CONFLICT (wallet) DO UPDATE
        SET inputs = EXCLUDED.inputs,
            partial = EXCLUDED.partial,
-           captured_at = NOW()`,
+           captured_at = NOW()
+     -- DOWNGRADE GUARD: a partial gather (wallet stats timed out under
+     -- throttle pressure) must never overwrite a COMPLETE snapshot — the
+     -- stored complete inputs remain valid facts and the fast serve path
+     -- depends on them. Partials still upgrade partials; completes always
+     -- overwrite anything.`,
     [wallet, JSON.stringify(inputs), partial]
   );
 }
