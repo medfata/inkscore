@@ -6,8 +6,11 @@ dotenv.config();
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  max: 20,
-  min: 5,
+  // Multi-lane backfill runs several api-server instances against ONE
+  // Postgres; keep per-instance pools small there via env (Postgres
+  // max_connections is shared). Defaults unchanged for the prod instance.
+  max: parseInt(process.env.PG_POOL_MAX || '20', 10),
+  min: parseInt(process.env.PG_POOL_MIN || '5', 10),
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 5000,
   // Insurance: a future slow/hung query releases its connection instead of

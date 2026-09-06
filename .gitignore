@@ -58,3 +58,5 @@ scripts/admin-mint.zip
 /excalidraw_gif/
 /output_gif/
 excalidraw_gif/node_modules/
+
+backfill/*.log
