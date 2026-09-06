@@ -307,10 +307,19 @@ function ensureTables(): Promise<void> {
         updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
       )`);
       // Sprint 3: inflow cursor — only DERIVED per-tx values are stored (the
-      // inflow entries themselves); the newest known tx hash + the floor
-      // timestamp act as the cursor for the next scan.
+      // inflow entries themselves); pagination cursors + covered_newest act
+      // as the cursor for the next scans. Per-stream opaque pagination
+      // tokens resume deep history below previous caps without storing any
+      // raw tx data.
       await query(`ALTER TABLE bs_bridge_inflows ADD COLUMN IF NOT EXISTS floor_ts TIMESTAMPTZ`);
       await query(`ALTER TABLE bs_bridge_inflows ADD COLUMN IF NOT EXISTS complete BOOLEAN NOT NULL DEFAULT TRUE`);
+      await query(`ALTER TABLE bs_bridge_inflows ADD COLUMN IF NOT EXISTS covered_newest TIMESTAMPTZ`);
+      await query(`ALTER TABLE bs_bridge_inflows ADD COLUMN IF NOT EXISTS tt_cursor JSONB`);
+      await query(`ALTER TABLE bs_bridge_inflows ADD COLUMN IF NOT EXISTS it_cursor JSONB`);
+      await query(`ALTER TABLE bs_bridge_inflows ADD COLUMN IF NOT EXISTS tx_cursor JSONB`);
+      await query(`ALTER TABLE bs_bridge_inflows ADD COLUMN IF NOT EXISTS done_tt BOOLEAN NOT NULL DEFAULT FALSE`);
+      await query(`ALTER TABLE bs_bridge_inflows ADD COLUMN IF NOT EXISTS done_it BOOLEAN NOT NULL DEFAULT FALSE`);
+      await query(`ALTER TABLE bs_bridge_inflows ADD COLUMN IF NOT EXISTS done_tx BOOLEAN NOT NULL DEFAULT FALSE`);
       // Sprint 3: cursored tx-hash discovery — the accumulated hash set IS
       // the cursor (historical matches never change; each pass only adds).
       await query(`CREATE TABLE IF NOT EXISTS bs_tx_discovery (
@@ -1081,6 +1090,34 @@ export interface BridgeInflow {
 const BRIDGE_INFLOW_TRANSFER_PAGES = 60;
 const BRIDGE_INFLOWS_TTL_MS = 60 * 60 * 1000;
 
+// Opaque pagination tokens (from Blockscout next_page_params) are stored
+// as JSONB and re-serialized into a query string on resume — no raw data,
+// just the position pointer.
+const cursorToQuery = (cur: unknown): string => {
+  if (!cur || typeof cur !== 'object') return '';
+  return Object.entries(cur as Record<string, unknown>)
+    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v === null || v === undefined ? '' : String(v))}`)
+    .join('&');
+};
+
+// Instant comparison in ms — Postgres returns "…56.000Z" while Blockscout
+// returns "…56.000000Z"; lexicographic order is wrong for equal instants.
+const tsLt = (a: string | null | undefined, b: string | null | undefined): boolean => {
+  if (!a || !b) return false;
+  const ma = Date.parse(a);
+  const mb = Date.parse(b);
+  if (Number.isNaN(ma) || Number.isNaN(mb)) return a < b;
+  return ma < mb;
+};
+const tsGt = (a: string | null | undefined, b: string | null | undefined): boolean => {
+  if (!a) return false;        // null = -infinity: nothing is greater than it
+  if (!b) return true;         // any real instant > the -infinity high-water
+  const ma = Date.parse(a);
+  const mb = Date.parse(b);
+  if (Number.isNaN(ma) || Number.isNaN(mb)) return a > b;
+  return ma > mb;
+};
+
 export async function getBridgeInflows(
   walletAddress: string,
   bridgeContracts: { relayWallet: string; oftAdapter: string; lzExecutor: string; bungeeFulfill: string }
@@ -1096,27 +1133,38 @@ export async function getBridgeInflows(
   const seenTx = new Set<string>();
   let complete = true;
 
-  // SPRINT 3 — CURSORED INFLOW DISCOVERY. Historical txs never change, so
-  // only the DERIVED per-tx values are stored (the inflow entries themselves
-  // — amount/bucket/token — never raw tx data). The cursor is:
-  //   - the stored inflow list's tx hashes (dedupe), and
-  //   - floor_ts = the oldest timestamp PROCESSED so far.
-  // Walks are newest-first: items older than floor_ts are already covered
-  // and skipped; the walk stops once it descends past the floor. A capped
-  // walk lowers the floor and the NEXT pass resumes below it. A complete
-  // walk covers all history, so subsequent refreshes only walk the newest
-  // pages until they hit the floor — seconds instead of 60+ pages.
-  // ACCURACY: the merged list always contains every derived inflow for the
-  // processed region; the complete flag only says whether history has been
-  // fully walked yet. The derived values are computed by the same code path
-  // as before (legs -> native value -> internal movements).
+  // SPRINT 3 — CURSORED INFLOW DISCOVERY (v2: pagination-resumable).
+  // Historical txs never change, so only the DERIVED per-tx values are
+  // stored (the inflow entries themselves — amount/bucket/token — never raw
+  // tx data). Two cursor layers:
+  //   - BACKFILL (history not fully walked): each of the 3 walk-streams
+  //     stores its opaque pagination token and resumes BELOW the previous
+  //     pass's cap — deep history converges pass after pass.
+  //   - REFRESH (history fully walked): walk from the top and stop as soon
+  //     as an item is older than covered_newest (the newest processed tx) —
+  //     1-2 pages instead of 60+. Same-second boundary txs are re-collected
+  //     and deduped by tx hash.
+  // complete = every stream has exhausted its history. The merged inflow
+  // list is always the full derived set for the covered region.
   await ensureTables();
-  const cachedRow = await dbGet<{ inflows: BridgeInflow[]; floor_ts: string | null; complete: boolean; updated_at: string }>(
-    'SELECT inflows, floor_ts, complete, updated_at FROM bs_bridge_inflows WHERE wallet_address = $1',
+  const cachedRow = await dbGet<{
+    inflows: BridgeInflow[]; covered_newest: string | null; complete: boolean;
+    tt_cursor: unknown; it_cursor: unknown; tx_cursor: unknown;
+    done_tt: boolean; done_it: boolean; done_tx: boolean; updated_at: string;
+  }>(
+    'SELECT inflows, covered_newest, complete, tt_cursor, it_cursor, tx_cursor, done_tt, done_it, done_tx, updated_at FROM bs_bridge_inflows WHERE wallet_address = $1',
     [wallet]
   );
   const cachedInflows: BridgeInflow[] = cachedRow?.inflows || [];
-  let floorTs: string | null = cachedRow?.floor_ts || null;
+  let coveredNewest: string | null = cachedRow?.covered_newest || null;
+  const state = {
+    tt_cursor: (cachedRow?.tt_cursor || null) as unknown,
+    it_cursor: (cachedRow?.it_cursor || null) as unknown,
+    tx_cursor: (cachedRow?.tx_cursor || null) as unknown,
+    done_tt: !!cachedRow?.done_tt,
+    done_it: !!cachedRow?.done_it,
+    done_tx: !!cachedRow?.done_tx,
+  };
   const knownTx = new Set(cachedInflows.map((i) => i.txHash.toLowerCase()));
 
   const fresh =
@@ -1130,73 +1178,80 @@ export async function getBridgeInflows(
   inflows.push(...cachedInflows);
   for (const h of knownTx) seenTx.add(h);
 
+  const backfillMode = !(state.done_tt && state.done_it && state.done_tx);
+
   // The 3 history walks are independent (different endpoints/cursors) — run
   // them IN PARALLEL. Serially they cost 3x page latency and were the
   // dominant bridge cold-load stall behind the score's fetch timeout.
-  // Each walk: collect items with timestamp > floorTs (skip the already-
-  // processed region), stop as soon as it descends below the floor. Also
-  // track the oldest timestamp COLLECTED so the floor can extend downward.
-  const makeStopCheck = (walkOldestRef: { ts: string | null }) => (ts: string | null): 'collect' | 'stop' | 'skip' => {
-    if (!ts) return 'collect';
-    if (floorTs && ts <= floorTs) return ts < floorTs ? 'stop' : 'skip';
-    if (!walkOldestRef.ts || ts < walkOldestRef.ts) walkOldestRef.ts = ts;
-    return 'collect';
-  };
+  // Each walk: collect new items; refresh mode stops at the covered_newest
+  // boundary, backfill mode resumes from the stored pagination token.
 
-  const walkInboundTokenTransfers = async (): Promise<{ txs: string[]; pagesHitCap: boolean; pages: number; oldest: string | null }> => {
-    let turl: string | null = `/addresses/${wallet}/token-transfers`;
+  const walkInboundTokenTransfers = async (): Promise<{ txs: string[]; pagesHitCap: boolean; pages: number; newCursor: unknown; exhausted: boolean; newestTs: string | null }> => {
+    // Backfill: resume from the stored pagination token (continues strictly
+    // below the previous pass's cap). Refresh: start from the top and stop
+    // at the covered_newest boundary (same-second items re-collected and
+    // deduped by known tx hash).
+    let turl: string | null = backfillMode && state.tt_cursor
+      ? `/addresses/${wallet}/token-transfers?${cursorToQuery(state.tt_cursor)}`
+      : `/addresses/${wallet}/token-transfers`;
     let tpages = 0;
     const txs: string[] = [];
-    const oldestRef = { ts: null as string | null };
-    const stopCheck = makeStopCheck(oldestRef);
+    let newCursor: unknown = null;
+    let exhausted = false;
+    let newestTs: string | null = null;
     while (turl && tpages < BRIDGE_INFLOW_TRANSFER_PAGES) {
       tpages++;
       const data = await bsFetch(turl);
+      let stopped = false;
       for (const tr of data?.items || []) {
+        if (tsGt(tr.timestamp, newestTs)) newestTs = tr.timestamp;
         const to = tr.to && (tr.to.hash || tr.to);
         if (String(to || '').toLowerCase() !== wallet) continue;
-        if (tr.transaction_hash) {
-          const action = stopCheck(tr.timestamp || null);
-          if (action === 'stop') {
-            turl = null;
-            break;
-          }
-          if (action === 'collect') txs.push(String(tr.transaction_hash).toLowerCase());
+        if (!backfillMode && tsLt(tr.timestamp, coveredNewest)) {
+          // Refresh boundary: everything older was already covered.
+          stopped = true;
+          break;
         }
+        if (tr.transaction_hash) txs.push(String(tr.transaction_hash).toLowerCase());
       }
-      if (!turl) break;
+      if (stopped) return { txs, pagesHitCap: false, pages: tpages, newCursor: null, exhausted: true, newestTs };
       const np = data?.next_page_params;
-      if (!np) break;
+      if (!np) return { txs, pagesHitCap: false, pages: tpages, newCursor: null, exhausted: true, newestTs };
+      newCursor = np;
       const qs = Object.entries(np)
         .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v === null || v === undefined ? '' : String(v))}`)
         .join('&');
       turl = `/addresses/${wallet}/token-transfers?${qs}`;
     }
-    return { txs, pagesHitCap: tpages >= BRIDGE_INFLOW_TRANSFER_PAGES, pages: tpages, oldest: oldestRef.ts };
+    // Page cap hit: newCursor is the resume point for the next pass.
+    return { txs, pagesHitCap: true, pages: tpages, newCursor, exhausted: false, newestTs };
   };
 
   // 2. Internal ETH movements TO the wallet (solver fills pay native via
   // internal calls: invisible in token_transfers AND in from/to queries).
   // Kept when the sender OR the parent tx touches a bridge contract.
-  const walkInternalEth = async (): Promise<{ native: Map<string, { amount: number; froms: Set<string> }>; pagesHitCap: boolean; pages: number; oldest: string | null }> => {
+  const walkInternalEth = async (): Promise<{ native: Map<string, { amount: number; froms: Set<string> }>; pagesHitCap: boolean; pages: number; newCursor: unknown; exhausted: boolean; newestTs: string | null }> => {
     const native = new Map<string, { amount: number; froms: Set<string> }>();
-    let iurl: string | null = `/addresses/${wallet}/internal-transactions`;
+    let iurl: string | null = backfillMode && state.it_cursor
+      ? `/addresses/${wallet}/internal-transactions?${cursorToQuery(state.it_cursor)}`
+      : `/addresses/${wallet}/internal-transactions`;
     let ipages = 0;
-    const oldestRef = { ts: null as string | null };
-    const stopCheck = makeStopCheck(oldestRef);
+    let newCursor: unknown = null;
+    let exhausted = false;
+    let newestTs: string | null = null;
     while (iurl && ipages < BRIDGE_INFLOW_TRANSFER_PAGES) {
       ipages++;
       const data = await bsFetch(iurl);
+      let stopped = false;
       for (const item of data?.items || []) {
+        if (tsGt(item.timestamp, newestTs)) newestTs = item.timestamp;
         const to = item.to && (item.to.hash || item.to);
         if (String(to || '').toLowerCase() !== wallet) continue;
         if (item?.transaction_hash) {
-          const action = stopCheck(item.timestamp || null);
-          if (action === 'stop') {
-            iurl = null;
+          if (!backfillMode && tsLt(item.timestamp, coveredNewest)) {
+            stopped = true;
             break;
           }
-          if (action === 'skip') continue;
           const h = String(item.transaction_hash).toLowerCase();
           let v = 0;
           try {
@@ -1214,36 +1269,41 @@ export async function getBridgeInflows(
         }
       }
       const np = data?.next_page_params;
-      if (!np) break;
+      if (stopped) return { native, pagesHitCap: false, pages: ipages, newCursor: null, exhausted: true, newestTs };
+      if (!np) return { native, pagesHitCap: false, pages: ipages, newCursor: null, exhausted: true, newestTs };
+      newCursor = np;
       const qs = Object.entries(np)
         .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v === null || v === undefined ? '' : String(v))}`)
         .join('&');
       iurl = `/addresses/${wallet}/internal-transactions?${qs}`;
     }
-    return { native, pagesHitCap: ipages >= BRIDGE_INFLOW_TRANSFER_PAGES, pages: ipages, oldest: oldestRef.ts };
+    return { native, pagesHitCap: true, pages: ipages, newCursor, exhausted: false, newestTs };
   };
 
   // 2b. Top-level native transfers TO the wallet (plain value sends like
   // relay fills: from=relayWallet, to=wallet, method=null). These appear in
   // NEITHER token_transfers (not tokens) NOR internal-transactions
   // (not internal) — only the address tx list shows them.
-  const walkTopLevelNative = async (): Promise<{ native: Map<string, { amount: number; froms: Set<string> }>; pagesHitCap: boolean; pages: number; oldest: string | null }> => {
+  const walkTopLevelNative = async (): Promise<{ native: Map<string, { amount: number; froms: Set<string> }>; pagesHitCap: boolean; pages: number; newCursor: unknown; exhausted: boolean; newestTs: string | null }> => {
     const native = new Map<string, { amount: number; froms: Set<string> }>();
-    let furl: string | null = `/addresses/${wallet}/transactions?filter=to`;
+    let furl: string | null = backfillMode && state.tx_cursor
+      ? `/addresses/${wallet}/transactions?filter=to&${cursorToQuery(state.tx_cursor)}`
+      : `/addresses/${wallet}/transactions?filter=to`;
     let fpages = 0;
-    const oldestRef = { ts: null as string | null };
-    const stopCheck = makeStopCheck(oldestRef);
+    let newCursor: unknown = null;
+    let exhausted = false;
+    let newestTs: string | null = null;
     while (furl && fpages < BRIDGE_INFLOW_TRANSFER_PAGES) {
       fpages++;
       const data = await bsFetch(furl);
+      let stopped = false;
       for (const item of data?.items || []) {
+        if (tsGt(item.timestamp, newestTs)) newestTs = item.timestamp;
         if (!item?.hash || !item?.value || item.value === '0') continue;
-        const action = stopCheck(item.timestamp || null);
-        if (action === 'stop') {
-          furl = null;
+        if (!backfillMode && tsLt(item.timestamp, coveredNewest)) {
+          stopped = true;
           break;
         }
-        if (action === 'skip') continue;
         const h = String(item.hash).toLowerCase();
         try {
           const v = Number(BigInt(String(item.value))) / 1e18;
@@ -1259,13 +1319,15 @@ export async function getBridgeInflows(
         }
       }
       const np = data?.next_page_params;
-      if (!np) break;
+      if (stopped) return { native, pagesHitCap: false, pages: fpages, newCursor: null, exhausted: true, newestTs };
+      if (!np) return { native, pagesHitCap: false, pages: fpages, newCursor: null, exhausted: true, newestTs };
+      newCursor = np;
       const qs = Object.entries(np)
         .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v === null || v === undefined ? '' : String(v))}`)
         .join('&');
       furl = `/addresses/${wallet}/transactions?filter=to&${qs}`;
     }
-    return { native, pagesHitCap: fpages >= BRIDGE_INFLOW_TRANSFER_PAGES, pages: fpages, oldest: oldestRef.ts };
+    return { native, pagesHitCap: true, pages: fpages, newCursor, exhausted: false, newestTs };
   };
 
   const walksStart = Date.now();
@@ -1275,12 +1337,27 @@ export async function getBridgeInflows(
     walkTopLevelNative(),
   ]);
   if (tokenWalk.pagesHitCap || internalWalk.pagesHitCap || topLevelWalk.pagesHitCap) complete = false;
-  // Extend the floor downward: the oldest timestamp COLLECTED this pass is
-  // fully processed by the derive loop below (candidates are never dropped
-  // without a check — non-bridge candidates are checked and skipped).
-  for (const w of [tokenWalk, internalWalk, topLevelWalk]) {
-    if (w.oldest && (!floorTs || w.oldest < floorTs)) floorTs = w.oldest;
+
+  // Cursor updates: per-stream pagination tokens (backfill resume) and the
+  // covered_newest high-water mark (refresh boundary). covered_newest only
+  // moves UP: the newest timestamp processed/seen.
+  if (backfillMode) {
+    if (tokenWalk.newCursor) state.tt_cursor = tokenWalk.newCursor; else state.tt_cursor = null;
+    if (tokenWalk.exhausted) state.done_tt = true;
+    if (internalWalk.newCursor) state.it_cursor = internalWalk.newCursor; else state.it_cursor = null;
+    if (internalWalk.exhausted) state.done_it = true;
+    if (topLevelWalk.newCursor) state.tx_cursor = topLevelWalk.newCursor; else state.tx_cursor = null;
+    if (topLevelWalk.exhausted) state.done_tx = true;
+  } else {
+    // REFRESH mode: the walks cover everything above the boundary, so the
+    // newest timestamp SEEN (any direction — outgoing-only wallets too) is a
+    // valid high-water. Only moves up.
+    for (const w of [tokenWalk, internalWalk, topLevelWalk]) {
+      if (tsGt(w.newestTs, coveredNewest)) coveredNewest = w.newestTs;
+    }
   }
+  // covered_newest is ALSO bumped per PROCESSED candidate in the derive loop
+  // below (covers backfill passes). Only moves up.
 
   // Merge: token-transfer candidates + native amounts (Set-merged, O(n)).
   const candidateSet = new Set<string>(tokenWalk.txs);
@@ -1315,6 +1392,9 @@ export async function getBridgeInflows(
     if (!data) continue;
     const metaTo = (data.meta.to || '').toLowerCase();
     if (seenTx.has(h)) continue;
+    // Every candidate below the current high-water is checked here; bump
+    // covered_newest to the newest processed timestamp.
+    if (tsGt(data.meta.timestamp, coveredNewest)) coveredNewest = data.meta.timestamp;
     const touchesBridge =
       bridges.has(metaTo) || data.legs.some((l) => bridges.has(l.fromAddress) || bridges.has(l.toAddress));
     if (!touchesBridge) continue;
@@ -1387,17 +1467,20 @@ export async function getBridgeInflows(
     });
     seenTx.add(h);
   }
-  // Persist ALWAYS (cursor semantics: the merged derived list + floor are
-  // progress; an incomplete pass just means history isn't fully walked yet
-  // and the queue nudges another pass). Previous behavior stored only
-  // complete walks, which is what made every capped pass re-walk from
-  // scratch.
+  // Persist ALWAYS (cursor semantics: the merged derived list + pagination
+  // tokens + covered_newest are progress; an incomplete pass just means
+  // history isn't fully walked yet and the queue nudges another pass).
+  complete = state.done_tt && state.done_it && state.done_tx;
   await dbWrite(
-    `INSERT INTO bs_bridge_inflows (wallet_address, inflows, floor_ts, complete, updated_at)
-     VALUES ($1, $2, $3, $4, now())
+    `INSERT INTO bs_bridge_inflows (wallet_address, inflows, covered_newest, complete, tt_cursor, it_cursor, tx_cursor, done_tt, done_it, done_tx, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, now())
      ON CONFLICT (wallet_address)
-     DO UPDATE SET inflows = $2, floor_ts = $3, complete = $4, updated_at = now()`,
-    [wallet, JSON.stringify(inflows), floorTs, complete]
+     DO UPDATE SET inflows = $2, covered_newest = $3, complete = $4, tt_cursor = $5, it_cursor = $6, tx_cursor = $7, done_tt = $8, done_it = $9, done_tx = $10, updated_at = now()`,
+    [wallet, JSON.stringify(inflows), coveredNewest, complete,
+      state.tt_cursor ? JSON.stringify(state.tt_cursor) : null,
+      state.it_cursor ? JSON.stringify(state.it_cursor) : null,
+      state.tx_cursor ? JSON.stringify(state.tx_cursor) : null,
+      state.done_tt, state.done_it, state.done_tx]
   );
   if (!complete) {
     await queueRefresh(wallet, 5);
@@ -1416,65 +1499,106 @@ export async function getNativeOutflow(walletAddress: string): Promise<{
 }> {
   assertEnabled();
   const wallet = walletAddress.toLowerCase();
-  const cached = await dbGet<{ out_wei: string; out_count: number; last_seen: string | null; complete: boolean; updated_at: string }>(
-    'SELECT out_wei, out_count, last_seen, complete, updated_at FROM bs_native_volume WHERE wallet_address = $1',
+
+  // Sprint 3 — CURSORED NATIVE OUTFLOW. The plain address endpoint ignores
+  // age filters (verified), so the cursor is TWO things stored per wallet:
+  //   - out_txs: the DERIVED per-tx values only (hash -> wei sent) — exactly
+  //     what the volume metric needs, nothing raw beyond that, and the
+  //     hash set doubles as the dedupe for boundary-second txs.
+  //   - next_cursor: the opaque pagination token — BACKFILL passes resume
+  //     strictly below the previous pass's cap, so deep history converges
+  //     pass after pass.
+  // REFRESH (history fully walked): walk from the top, add only unseen
+  // hashes, stop at the covered_newest boundary (same-second txs re-checked
+  // via the hash set — no double count, no miss).
+  await ensureTables();
+  await query(`ALTER TABLE bs_native_volume ADD COLUMN IF NOT EXISTS out_txs JSONB`);
+  await query(`ALTER TABLE bs_native_volume ADD COLUMN IF NOT EXISTS next_cursor JSONB`);
+  await query(`ALTER TABLE bs_native_volume ADD COLUMN IF NOT EXISTS done BOOLEAN NOT NULL DEFAULT FALSE`);
+  await query(`ALTER TABLE bs_native_volume ADD COLUMN IF NOT EXISTS covered_newest TIMESTAMPTZ`);
+
+  const cached = await dbGet<{ out_txs: Array<{ h: string; w: string }> | null; next_cursor: unknown; done: boolean; covered_newest: string | null; complete: boolean; out_wei: string; out_count: number; updated_at: string }>(
+    'SELECT out_txs, next_cursor, done, covered_newest, complete, out_wei, out_count, updated_at FROM bs_native_volume WHERE wallet_address = $1',
     [wallet]
   );
-  const fresh = cached && Date.now() - new Date(cached.updated_at).getTime() < NATIVE_VOLUME_TTL_MS;
-  // Serve fresh rows even when a previous walk hit the page cap: the plain
-  // transactions endpoint has no age_from cursor, so every refresh is a full
-  // capped walk that returns identical totals — recomputing it on every
-  // dashboard load (up to 30 Blockscout pages) buys nothing. The partial
-  // flag stays honest so callers know totals are capped.
+  const outTxs = new Map<string, string>(); // hash -> wei string
+  for (const t of cached?.out_txs || []) outTxs.set(String(t.h).toLowerCase(), String(t.w));
+  let nextCursor: unknown = cached?.next_cursor || null;
+  let done = !!cached?.done;
+  let coveredNewest: string | null = cached?.covered_newest || null;
+
+  const fresh = cached && done && Date.now() - new Date(cached.updated_at).getTime() < NATIVE_VOLUME_TTL_MS;
   if (fresh) {
-    return { outWei: cached!.out_wei, count: cached!.out_count, complete: cached!.complete };
+    return { outWei: cached!.out_wei, count: cached!.out_count, complete: true };
   }
 
-  // NOTE: the plain address-transactions endpoint does NOT support age_from
-  // (it would be silently ignored, causing double counts). So every refresh
-  // is a full walk (capped) that OVERWRITES — no accumulation, no doubles.
+  const refreshMode = done;
+  const knownHashes = new Set(outTxs.keys());
   const base = `/addresses/${wallet}/transactions?filter=from`;
-  let url: string | null = base;
-  let outWei = 0n;
-  let count = 0;
-  let newestSeen: string | null = null;
+  let url: string | null = refreshMode ? base : (nextCursor ? `${base}&${cursorToQuery(nextCursor)}` : base);
   let pages = 0;
+  let newCursor: unknown = null;
+  let exhausted = false;
   while (url && pages < MAX_NATIVE_PAGES) {
     pages++;
     const data = await bsFetch(url);
+    let stopped = false;
     for (const item of data?.items || []) {
       if (item?.status === 'ok' && item?.value) {
-        try {
-          outWei += BigInt(String(item.value));
-          count += 1;
-        } catch {
-          // ignore malformed values
+        const h = String(item.hash || '').toLowerCase();
+        if (h && !knownHashes.has(h)) {
+          try {
+            // Store every ok tx that carries a value field (zero-value
+            // contract calls included) — the count must match the previous
+            // capped-walk semantics exactly; the USD sum is unaffected
+            // because BigInt('0') adds nothing.
+            const wei = BigInt(String(item.value));
+            outTxs.set(h, wei.toString());
+            knownHashes.add(h);
+          } catch {
+            // ignore malformed values
+          }
+        }
+        if (tsGt(item?.timestamp, coveredNewest)) {
+          coveredNewest = item.timestamp;
         }
       }
-      if (item?.timestamp && (!newestSeen || item.timestamp > newestSeen)) {
-        newestSeen = item.timestamp;
+      if (refreshMode && tsLt(item?.timestamp, coveredNewest)) {
+        stopped = true;
+        break;
       }
     }
+    if (stopped) { exhausted = true; break; }
     const np = data?.next_page_params;
-    if (!np) break;
+    if (!np) { exhausted = true; break; }
+    newCursor = np;
     const qs = Object.entries(np)
       .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v === null || v === undefined ? '' : String(v))}`)
       .join('&');
     url = `${base}&${qs}`;
   }
-  const complete = pages < MAX_NATIVE_PAGES;
+  done = refreshMode ? true : exhausted;
+
+  // Totals are derived from the per-tx store — exact, additive, no doubles.
+  let outWei = 0n;
+  for (const w of outTxs.values()) {
+    try { outWei += BigInt(w); } catch { /* ignore malformed */ }
+  }
+  const count = outTxs.size;
+
   await dbWrite(
-    `INSERT INTO bs_native_volume (wallet_address, out_wei, out_count, last_seen, complete, updated_at)
-     VALUES ($1, $2, $3, $4, $5, now())
+    `INSERT INTO bs_native_volume (wallet_address, out_wei, out_count, covered_newest, next_cursor, done, out_txs, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, now())
      ON CONFLICT (wallet_address)
-     DO UPDATE SET out_wei = $2, out_count = $3, last_seen = COALESCE($4, bs_native_volume.last_seen),
-       complete = $5, updated_at = now()`,
-    [wallet, outWei.toString(), count, newestSeen, complete]
+     DO UPDATE SET out_wei = $2, out_count = $3, covered_newest = $4, next_cursor = $5, done = $6, out_txs = $7, updated_at = now()`,
+    [wallet, outWei.toString(), count, coveredNewest,
+      newCursor ? JSON.stringify(newCursor) : null, done,
+      JSON.stringify([...outTxs.entries()].map(([h, w]) => ({ h, w })))]
   );
-  if (!complete) {
+  if (!done) {
     await queueRefresh(wallet, 10);
   }
-  return { outWei: outWei.toString(), count, complete };
+  return { outWei: outWei.toString(), count, complete: done };
 }
 
 // ---- refresh queue ----------------------------------------------------------
