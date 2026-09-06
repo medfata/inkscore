@@ -38,6 +38,10 @@ const PASS_COOLDOWN_MS = parseInt(process.env.BACKFILL_PASS_COOLDOWN_MS || '1500
 // Wallets ranked <= TIER_BOUNDARY get the full multi-pass treatment; the
 // long tail (thousands of light wallets) gets a light pass each.
 const TIER_BOUNDARY = parseInt(process.argv[5] || '200', 10);
+// Passes for the long tail per sweep (default 2; raise so heavy tail
+// wallets converge within a single sweep — light wallets still exit early
+// on the first complete pass, so this only costs when actually needed).
+const TAIL_PASSES = parseInt(process.argv[8] || '2', 10);
 // Optional rank-range partition so multiple machines/processes can split the
 // leaderboard without overlapping work (cursor state lives in the SHARED
 // Postgres, so ranges are the only coordination needed):
@@ -67,7 +71,7 @@ async function backfillWallet(wallet, rank) {
   // Tiering: the top TIER wallets get full multi-pass treatment (heavy
   // histories, users actually look at them); the long tail is low-activity —
   // a single pass usually completes it, and cursors make any rerun cheap.
-  const passes = rank <= TIER_BOUNDARY ? PASSES_PER_WALLET : Math.min(2, PASSES_PER_WALLET);
+  const passes = rank <= TIER_BOUNDARY ? PASSES_PER_WALLET : Math.min(TAIL_PASSES, PASSES_PER_WALLET);
   const attempts = [];
   for (let p = 1; p <= passes; p++) {
     try {
