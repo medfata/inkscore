@@ -111,6 +111,17 @@ services:
       # OpenSea buy/sale/mint counts; blank disables (opensea-service returns zeros)
       OPENSEA_API_KEY: ${OPENSEA_API_KEY:-}
       RPC_URL: ${RPC_URL}
+      # Blockscout egress + pacing knobs. These MUST be listed here — values
+      # in .env are invisible to the container otherwise (learned 2026-09-06:
+      # the box silently ran code defaults for weeks because only DATABASE_URL
+      # et al. were listed).
+      BLOCKSCOUT_PROXY: ${BLOCKSCOUT_PROXY:-off}
+      BLOCKSCOUT_RATE_LIMIT: ${BLOCKSCOUT_RATE_LIMIT:-120}
+      BLOCKSCOUT_MAX_CONCURRENT: ${BLOCKSCOUT_MAX_CONCURRENT:-10}
+      REFRESH_WORKER: ${REFRESH_WORKER:-on}
+      SCORE_SNAPSHOT_WORKER: ${SCORE_SNAPSHOT_WORKER:-on}
+      SNAPSHOT_MAX_AGE_MIN: ${SNAPSHOT_MAX_AGE_MIN:-60}
+      WALLET_CACHE_TTL_MIN: ${WALLET_CACHE_TTL_MIN:-60}
     ports:
       - "4000:4000"
     healthcheck:
