@@ -170,7 +170,9 @@ export async function saveBundleSnapshot(
      ON CONFLICT (wallet) DO UPDATE
        SET bundle = EXCLUDED.bundle,
            partial = EXCLUDED.partial,
-           captured_at = NOW()`,
+           captured_at = NOW()
+     -- DOWNGRADE GUARD: a partial bundle must never overwrite a complete
+     -- dashboard snapshot (same rule as the score snapshot store).`,
     [wallet, JSON.stringify(bundle), partial]
   );
 }

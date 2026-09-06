@@ -28,6 +28,7 @@ import { responseCache } from '../cache';
 import { walletStatsService } from './wallet-stats-service';
 import { analyticsService } from './analytics-service';
 import { pointsServiceV2, ScoreInputs } from './points-service-v2';
+import { saveScoreSnapshot } from './metrics-snapshot-service';
 import { getTotalVolumeData } from './volume-service';
 import { getDashboardCards } from './dashboard-cards-service';
 import { getCryptoClashMetrics } from './cryptoclash-service';
@@ -235,6 +236,15 @@ export async function gatherDashboardBundle(
   const score = await vc(`wallet:score:${wallet}`, 'score', 35000, () =>
     pointsServiceV2.computeScoreFromInputs(wallet, inputs)
   );
+
+  // Persist the score snapshot from the SAME inputs the score just consumed.
+  // Without this, bundle passes (the backfill's workhorse and every warm
+  // dashboard load) never materialize the instant-serve layer — only /score
+  // endpoint hits did. Partiality follows the score path's rule (stats null
+  // = partial); the store's downgrade guard protects existing completes.
+  void saveScoreSnapshot(wallet, inputs, stats === null || stats === undefined).catch((err: unknown) => {
+    console.warn(`[Bundle] ${wallet.slice(0, 10)}: score snapshot save failed:`, err);
+  });
 
   const metrics: Record<string, unknown> = {
     stats,
