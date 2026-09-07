@@ -1497,21 +1497,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
           </div>
         </div>
 
-        {/* Cache policy notice — one real scan per wallet per TTL window */}
-        <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-slate-800/40 border border-slate-700/40 text-[11px] text-slate-400">
-          <span aria-hidden="true">🗄️</span>
-          <span>
-            Platform metrics are cached per wallet for <span className="text-slate-300 font-medium">{cacheTtlMinutes >= 60 ? `${cacheTtlMinutes / 60} hour${cacheTtlMinutes > 60 ? 's' : ''}` : `${cacheTtlMinutes} min`}</span>
-            {' '}after the first scan. Refreshing within that window reuses the cached scan (faster for you, less load on the explorers) — use the Refresh button to pull a live scan.
-            {snapshotInfo.from && snapshotInfo.capturedAt && (
-              <>{' '}This view was served from a <span className="text-slate-300 font-medium">cached snapshot</span> scanned{' '}
-                <time dateTime={snapshotInfo.capturedAt} title={new Date(snapshotInfo.capturedAt).toLocaleString()}>
-                  {formatSnapshotAge(snapshotInfo.capturedAt)}
-                </time>.
-              </>
-            )}
-          </span>
-        </div>
+        {/* Snapshot notice — the view was served from the stored snapshot */}
+        {snapshotInfo.from && snapshotInfo.capturedAt && (
+          <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-slate-800/40 border border-slate-700/40 text-[11px] text-slate-400">
+            <span aria-hidden="true">🗄️</span>
+            <span>
+              This view was served from a <span className="text-slate-300 font-medium">cached snapshot</span> scanned{' '}
+              <time dateTime={snapshotInfo.capturedAt} title={new Date(snapshotInfo.capturedAt).toLocaleString()}>
+                {formatSnapshotAge(snapshotInfo.capturedAt)}
+              </time>.
+            </span>
+          </div>
+        )}
 
         {/* Top Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
@@ -2288,8 +2285,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
           <DynamicCardsCarouselRow3 cards={dynamicCardsRow3} />
         )}
 
-        {/* Row 4: Templars + OpenSea + Otomate */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* Row 4: Templars + OpenSea + Otomate + Zenith NFT | Zenith Staking + Sweep + ZNS (4 columns) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
            {/* Templars of the Storm NFT Card */}
           <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-purple-500/20 bg-gradient-to-br from-purple-500/12 to-purple-900/5 h-[300px] flex flex-col" style={{ animationDelay: '1.1s' }}>
             <div className="flex items-center justify-between mb-4">
@@ -2914,7 +2911,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
             )}
           </div>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* Row 5: InkyPump + Shellies + Ink Brokers + NFT2Me | Gone Fishin + Sentry + Hypercall (4 columns) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {/* InkyPump Card */}
           <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-pink-500/20 bg-gradient-to-br from-pink-500/12 to-pink-900/5 h-[300px] flex flex-col" style={{ animationDelay: '0.7s' }}>
             <div className="flex items-center justify-between mb-4">
