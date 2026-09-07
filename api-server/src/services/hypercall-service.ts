@@ -4,47 +4,45 @@ import { getProtocolTxHashes, getTxData, getTokenTransfersInto, partitionTxHashe
 // Hypercall Earn (earn.hypercall.xyz) - covered-call yield for xStocks on Ink.
 //
 // User flow (verified live, Sep 2026 deployment):
-//   1. GET ASSETS:  swap USDG -> wAAPLx/wNVDAx/wSPYx through the QUOTRONS
-//      zapper (0.3% swap fee) OR through the dedicated get-assets router
-//      (ETH / memecoin -> USDG -> xStock, and the sells back). Non-USDG
-//      input routes through Velodrome CL pools -> USDG first - all from one
-//      entry tx on whichever router the frontend used.
-//   2. WRITE: accept a firm RFQ and fund a covered call in one tx on the
+//   SWAP: buys/sells of xStocks (wNVDAx/wAAPLx/wSPYx) through FloorRouterV2
+//      (verified on the explorer) - the user-facing trade venue. Buy routes
+//      ETH -> WETH -> USDG -> xStock; sell routes xStock -> USDG -> WETH.
+//   WRITE: accept a firm RFQ and fund a covered call in one tx on the
 //      Earn factory: xStock collateral -> isolated position vault, USDC
 //      premium -> writer (upfront), writer + buyer ERC-721 receipts minted.
-//   3. REWARDS: vQUOTRON campaign token mints to the wallet via the
+//   REWARDS: vQUOTRON campaign token mints to the wallet via the
 //      rewards module.
 //
-// Tracking scope (user activity only - maker/ops txs excluded by method):
-// - swaps:     txs FROM the wallet TO the zapper with zapExactInput* selectors
-//              OR TO the get-assets router with its buy/sell selectors
+// Tracking scope (per product decision 2026-09-07): swaps = FloorRouterV2
+// buys + sells ONLY (count + USD volume). The venues tracked earlier the
+// same day (QUOTRON zapper 0x215cead0, get-assets router 0x1b4d9191,
+// get-assets zapper 0x117a7bc2) are frontend zaps, not the user-facing
+// trade.
 // - positions: txs FROM the wallet TO the earn factory with the funding
-//              selector (pinned from the two observed funding txs; the
-//              factory implementation is UNVERIFIED on the explorer, so a
-//              contract upgrade could shift it - re-check on protocol changes)
+//              selector (the factory implementation is UNVERIFIED on the
+//              explorer, so a contract upgrade could shift it - re-check on
+//              protocol changes)
 // - rewards:   ERC-20 inflows from the rewards module (vQUOTRON)
 //
-// Volume is exact USD with no price lookups: USDG ≈ $1 (the swap input) and
+// Volume: exact USD via the USDG routing legs (USDG ~ $1, 6 decimals);
 // premium is USDC. Position outcomes (exercise/recovery) are DEFERRED until
 // those methods are observed on-chain.
 //
 // History is append-only: per-tx data is permanently cached and discovery
 // refreshes incrementally via last_seen cursors. No backfill worker by design.
 
-const QUOTRON_ZAPPER = '0x215cead02e0b9e0e494dd179585c18a772048a43';
+// FloorRouterV2 (verified on explorer) - THE Hypercall xStock trade venue:
+// buy routes ETH -> WETH -> USDG -> xStock (wNVDAx/wAAPLx/wSPYx), sell
+// routes xStock -> USDG -> WETH. USDG is the routing asset in every tx, so
+// each trade prices at its max USDG leg. Product decision 2026-09-07: the
+// card counts FloorRouterV2 buys+sells ONLY - the earlier venues (QUOTRON
+// zapper 0x215cead0, get-assets router 0x1b4d9191, get-assets zapper
+// 0x117a7bc2) are frontend zaps, not the user-facing trade.
+const FLOOR_ROUTER_V2 = '0xb3e8165984a91cf4001057ca646ee2e3a547cdf8';
+// buy / sell - selectors extracted from verified tx inputs.
+const FLOOR_SELECTORS = ['0x646c4451', '0x64027ecd'];
 const EARN_FACTORY = '0x86d82134d7ec5840ca0ed64131e9543b3dc1b51b';
 const REWARDS_MODULE = '0xca2d699d8889925822d148d1fbaba45249bc1ccb';
-// Get-Assets router (earn.hypercall.xyz/get-assets/): ETH-or-memecoin ->
-// USDG -> xStock (wNVDAx/wAAPLx/wSPYx) zaps and the sells back. Missed until
-// 2026-09-07 — wallets swapping through it showed 0 swaps/$0 volume because
-// only the QUOTRON zapper was tracked. Contract is UNVERIFIED on the
-// explorer; selectors were pinned from live user txs (same caveat as the
-// factory: re-check on protocol changes).
-// 0x117a7bc2 is the SECOND get-assets zapper (same USDG->xStock flow, zap
-// selectors shared with the QUOTRON zapper) — found the same day via a
-// wallet whose top activity (9 zaps) went through it untracked.
-const GET_ASSETS_ROUTER = '0x1b4d919149912c9781b086c8242729ee317631c8';
-const GET_ASSETS_ZAPPER = '0x117a7bc2cbf0feb6e5ae5b457ddc1490a84db286';
 const USDG = '0xe343167631d89b6ffc58b88d6b7fb0228795491d';
 const USDC = '0x2d270e6886d130d724215a266106e6832161eaed';
 const VQUOTRON = '0x6fed09c8f0906bf79a66a44831f47dd9775ac7fc';
@@ -52,11 +50,8 @@ const VQUOTRON = '0x6fed09c8f0906bf79a66a44831f47dd9775ac7fc';
 // zapExactInput(address,uint256,uint256,address,uint256)
 // zapExactInputToken((address,uint256,(address,address,address,int24)[],uint256,address,uint256,address,uint256))
 // zapExactInputNative((...same tuple...)) — payable
-const ZAP_SELECTORS = ['0xc75d2360', '0xd0b4708f', '0xb32c8a23'];
-// Get-Assets router: 0x11abcf9e = buy xStock with ETH + optional memecoin
-// sell-in; 0x6fd0b140 = sell xStock back. Both verified from live txs —
-// every tx through the router routes its notional through USDG.
-const GET_ASSETS_SELECTORS = ['0x11abcf9e', '0x6fd0b140'];
+// FloorRouterV2: buy = 0x646c4451, sell = 0x64027ecd (verified from live
+// tx inputs — every tx routes its notional through USDG).
 // Writer funding on the Earn factory (verified from the two live funding txs).
 const FUND_SELECTOR = '0x91c7d858';
 
@@ -96,17 +91,9 @@ export async function getHypercallData(walletAddress: string): Promise<Hypercall
   return withInflight<HypercallResponse>(lcKey, async () => {
     const wallet = walletAddress.toLowerCase();
 
-    const [zapperSwaps, getAssetsSwaps, getAssetsZapperSwaps, positions] = await Promise.all([
-      getProtocolTxHashes(wallet, QUOTRON_ZAPPER, ZAP_SELECTORS).catch((err: unknown) => {
-        console.warn('[Hypercall] swap discovery failed:', err instanceof Error ? err.message : err);
-        return { hashes: [] as string[], complete: false };
-      }),
-      getProtocolTxHashes(wallet, GET_ASSETS_ROUTER, GET_ASSETS_SELECTORS).catch((err: unknown) => {
-        console.warn('[Hypercall] get-assets swap discovery failed:', err instanceof Error ? err.message : err);
-        return { hashes: [] as string[], complete: false };
-      }),
-      getProtocolTxHashes(wallet, GET_ASSETS_ZAPPER, ZAP_SELECTORS).catch((err: unknown) => {
-        console.warn('[Hypercall] get-assets zapper discovery failed:', err instanceof Error ? err.message : err);
+    const [swaps, positions] = await Promise.all([
+      getProtocolTxHashes(wallet, FLOOR_ROUTER_V2, FLOOR_SELECTORS).catch((err: unknown) => {
+        console.warn('[Hypercall] FloorRouter swap discovery failed:', err instanceof Error ? err.message : err);
         return { hashes: [] as string[], complete: false };
       }),
       getProtocolTxHashes(wallet, EARN_FACTORY, [FUND_SELECTOR]).catch((err: unknown) => {
@@ -114,11 +101,6 @@ export async function getHypercallData(walletAddress: string): Promise<Hypercall
         return { hashes: [] as string[], complete: false };
       }),
     ]);
-    const swaps = {
-      hashes: [...new Set([...zapperSwaps.hashes, ...getAssetsSwaps.hashes, ...getAssetsZapperSwaps.hashes])],
-      complete: zapperSwaps.complete && getAssetsSwaps.complete && getAssetsZapperSwaps.complete,
-    };
-    const getAssetsSet = new Set([...getAssetsSwaps.hashes, ...getAssetsZapperSwaps.hashes]);
 
     let swapCount = 0;
     let usdgSpent = 0;
@@ -146,12 +128,10 @@ export async function getHypercallData(walletAddress: string): Promise<Hypercall
         if (!d || d.meta.ok === false) continue;
         const isSwap = swapSet.has(h);
         const isPosition = positionSet.has(h);
-        const isGetAssets = getAssetsSet.has(h);
-        // Get-Assets txs route the whole notional through USDG inside the
-        // router (the wallet only sees ETH/memecoin in and xStock out, or the
-        // reverse), so "USDG leaving the wallet" never fires for them —
-        // price each tx at its max single USDG leg instead.
-        let getAssetsTxUsdg = 0;
+        // FloorRouter txs route the whole notional through USDG inside the
+        // router (the wallet only sees ETH in / xStock out, or the reverse),
+        // so price each swap tx at its max single USDG leg.
+        let swapTxUsdg = 0;
 
         for (const leg of d.legs) {
           const token = leg.tokenAddress.toLowerCase();
@@ -159,13 +139,9 @@ export async function getHypercallData(walletAddress: string): Promise<Hypercall
           if (ts && (!firstActivityAt || ts < firstActivityAt)) firstActivityAt = ts;
           if (ts && (!lastActivityAt || ts > lastActivityAt)) lastActivityAt = ts;
 
-          // Swap: USDG leaving the wallet is the input spend (= USD volume).
-          if (isSwap && token === USDG && leg.fromAddress === wallet) {
-            usdgSpent += leg.amount;
-          }
-          // Get-Assets swap: notional = max USDG routing leg in the tx.
-          if (isGetAssets && token === USDG) {
-            getAssetsTxUsdg = Math.max(getAssetsTxUsdg, leg.amount);
+          // Swap volume: max USDG routing leg in the tx.
+          if (isSwap && token === USDG) {
+            swapTxUsdg = Math.max(swapTxUsdg, leg.amount);
           }
           // Position: USDC entering the wallet is the upfront premium.
           if (isPosition && token === USDC && leg.toAddress === wallet) {
@@ -179,7 +155,7 @@ export async function getHypercallData(walletAddress: string): Promise<Hypercall
             collateral.set(token, entry);
           }
         }
-        if (isGetAssets) usdgSpent += getAssetsTxUsdg;
+        if (isSwap) usdgSpent += swapTxUsdg;
 
         if (isSwap) swapCount++;
         if (isPosition) positionsWritten++;
