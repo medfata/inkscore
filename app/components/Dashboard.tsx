@@ -2285,8 +2285,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
           <DynamicCardsCarouselRow3 cards={dynamicCardsRow3} />
         )}
 
-        {/* Row 4: Templars + OpenSea + Otomate + Zenith NFT | Zenith Staking + Sweep + ZNS (4 columns) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* Row 4: Templars + OpenSea + Otomate (3 cards, 3 columns) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
            {/* Templars of the Storm NFT Card */}
           <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-purple-500/20 bg-gradient-to-br from-purple-500/12 to-purple-900/5 h-[300px] flex flex-col" style={{ animationDelay: '1.1s' }}>
             <div className="flex items-center justify-between mb-4">
