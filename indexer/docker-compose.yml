@@ -1,18 +1,10 @@
-# Ink Chain Indexer Services
+# InkScore production stack (box):
+#   postgres / api-server / web / cloudflared  — always on
+#   indexer-* workers — HISTORICAL/LEGACY, gated behind profiles: [legacy]
+#     (the app now reads explorer.inkonchain.com directly; those workers fed
+#      the dropped indexer tables. Start manually only if ever needed:
+#      docker compose --profile legacy up -d indexer-backfill)
 #
-# Three separate services:
-# - indexer-backfill: Historical data backfill (CSV export based)
-# - indexer-realtime: Real-time transaction polling with adaptive intervals
-# - indexer-enrichment: Event-driven volume enrichment (optimized, no polling)
-#
-# For large backlogs (500+ transactions), use: npm run concurrent-enrich
-#
-# To start all:   docker-compose up -d
-# To start one:   docker-compose up -d indexer-realtime
-# To view logs:   docker-compose logs -f indexer-enrichment
-
-version: "3.8"
-
 # Log rotation for every service — without this json-file logs grow unbounded
 # (bit us on the VPS root disk 2026-06-10).
 x-logging: &default-logging
