@@ -3068,7 +3068,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
                   title="Visit Ink Brokers"
                 >
                   <img
-                    src="https://ui-avatars.com/api/?name=IB&background=f59e0b&color=fff&size=24"
+                    src="/icons/inkbrokers.png"
                     alt="Ink Brokers"
                     className="w-6 h-6 rounded-full object-cover"
                   />
@@ -3241,7 +3241,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
                   title="Visit Gone Fishin"
                 >
                   <img
-                    src="https://gonefishin.ink/favicon.ico"
+                    src="/icons/gonefishin.svg"
                     alt="Gone Fishin"
                     className="w-6 h-6 rounded-full object-cover"
                     onError={(e) => {
@@ -3347,7 +3347,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
                   title="Visit Sentry"
                 >
                   <img
-                    src="https://sentry.trading/favicon.ico"
+                    src="/icons/sentry.ico"
                     alt="Sentry"
                     className="w-6 h-6 rounded-full object-cover"
                     onError={(e) => {
@@ -3445,7 +3445,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
                   title="Visit Hypercall Earn"
                 >
                   <img
-                    src="https://earn.hypercall.xyz/favicon.ico"
+                    src="/icons/hypercall.svg"
                     alt="Hypercall Earn"
                     className="w-6 h-6 rounded-full object-cover"
                     onError={(e) => {
