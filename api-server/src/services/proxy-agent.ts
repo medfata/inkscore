@@ -1,15 +1,19 @@
-// Residential-proxy egress for rate-limited upstreams (Blockscout).
+// Proxy egress for rate-limited upstreams (Blockscout).
 //
-// Modeled on robi-mint-bulk.mjs: a pool of sticky DataImpulse residential
-// sessions, round-robined per request. Rate limits that are enforced per IP
-// (the ~180 req/min Blockscout budget) then never accumulate on one address.
-// Sessions rotate automatically after repeated failures or 429/403 replies.
-//
-// Creds come from env (DATAIMPULSE_PROXY_USER/PASS/HOST/PORT); the fallbacks
-// match robi-mint-bulk.mjs so the pool works out of the box in this project.
+// THREE modes (pick via env):
+// 1. PROXY_URL_LIST_FILE / PROXY_URL_LIST — fixed proxy list (one URL per
+//    line / comma-separated). Round-robined per request; a 429/403 or
+//    network failure simply moves the next request to the next IP (the
+//    list is fixed, so entries are never rebuilt). This is the
+//    ProxyScrape-style datacenter mode.
+// 2. PROXY_URL_TEMPLATE — provider-agnostic sticky-session template with a
+//    {sid} placeholder (Iproyal/Decodo/DataImpulse). Entries are rebuilt
+//    with a fresh session id on failure/429.
+// 3. Legacy DATAIMPULSE_* creds (default when nothing else is set).
 // Set BLOCKSCOUT_PROXY=off to bypass the pool and egress directly.
 import { fetch as undiciFetch, ProxyAgent } from 'undici';
 import { randomBytes } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 
 const PROXY_ENABLED = process.env.BLOCKSCOUT_PROXY !== 'off';
 const PROXY_POOL_SIZE = parseInt(process.env.PROXY_POOL_SIZE || '15', 10);
@@ -44,16 +48,40 @@ const proxyUrl = (sid: string) => {
   return `http://${CREDS.user}__sessid.${sid};sessttl.${PROXY_SESSION_TTL_MIN}:${encodeURIComponent(CREDS.pass)}@${CREDS.host}:${CREDS.port}`;
 };
 
+// --- Mode 1: fixed proxy list ---
+const PROXY_URL_LIST_FILE = process.env.PROXY_URL_LIST_FILE || '';
+const PROXY_URL_LIST_INLINE = process.env.PROXY_URL_LIST || '';
+
+function loadProxyList(): string[] {
+  const raw = PROXY_URL_LIST_FILE
+    ? (() => { try { return readFileSync(PROXY_URL_LIST_FILE, 'utf8'); } catch { return ''; } })()
+    : PROXY_URL_LIST_INLINE;
+  return raw
+    .split(/\r?\n|,/)
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .map((l) => (l.startsWith('http') ? l : `http://${l}`));
+}
+
+const LIST_URLS = loadProxyList();
+const LIST_MODE = LIST_URLS.length > 0;
+
 interface PoolEntry {
   agent: ProxyAgent;
   fails: number;
+  url?: string; // list mode: the fixed proxy URL this entry serves
 }
 
-const AGENT_POOL: PoolEntry[] = PROXY_ENABLED
-  ? Array.from({ length: PROXY_POOL_SIZE }, () => ({ agent: new ProxyAgent(proxyUrl(newSessionId())), fails: 0 }))
-  : [];
+const AGENT_POOL: PoolEntry[] = !PROXY_ENABLED
+  ? []
+  : LIST_MODE
+    ? LIST_URLS.map((u) => ({ agent: new ProxyAgent(u), fails: 0, url: u }))
+    : Array.from({ length: PROXY_POOL_SIZE }, () => ({ agent: new ProxyAgent(proxyUrl(newSessionId())), fails: 0 }));
 let agentIdx = 0;
 function rotateEntry(entry: PoolEntry): void {
+  // Fixed-list entries cannot be rebuilt (same URL) — rotation is a no-op;
+  // the per-request round-robin already moves the next request to the next IP.
+  if (LIST_MODE) return;
   entry.agent = new ProxyAgent(proxyUrl(newSessionId()));
   entry.fails = 0;
 }
