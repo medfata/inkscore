@@ -119,6 +119,10 @@ export interface ScoreInputs {
   cowSwapData: CowSwapResponse | null;
   sweepData: SweepResponse | null;
   openSeaCounts: OpenSeaCounts;
+  // Ink Brokers desk activity (clock-ins, claims, active seats).
+  // Tracked for snapshots only — scoring not wired yet (points TBD).
+  // Optional: gatherScoreInputs doesn't fetch it; the bundle passes it in.
+  inkBrokersData?: unknown;
 }
 
 // System/junk wallets excluded from scoring entirely (see calculateWalletScore

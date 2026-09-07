@@ -52,6 +52,7 @@ import {
   getTemplarsBalance,
   getZenithNft,
   getZenithStaking,
+  getInkBrokersMetrics,
 } from './analytics-counts-service';
 import { openSeaService } from './opensea-service';
 import { sweepService } from './sweep-service';
@@ -59,6 +60,9 @@ import { getBridgeVolume } from './bridge-service';
 import { getSwapVolume } from './swap-service';
 import { getTydroData } from './tydro-service';
 import { getNft2meData } from './nft2me-service';
+import { getGoneFishinData } from './gonefishin-service';
+import { getSentryData } from './sentry-service';
+import { getHypercallData } from './hypercall-service';
 import { getNadoMetrics } from './nado-service';
 import type { CopinkResponse } from './points-service-v2';
 
@@ -146,6 +150,9 @@ export async function gatherDashboardBundle(
     swap,
     tydro,
     nft2me,
+    gonefishin,
+    sentry,
+    hypercall,
     nado,
     volume,
     gmData,
@@ -162,6 +169,7 @@ export async function gatherDashboardBundle(
     sweepAnalytics,
     zenithNft,
     zenithStaking,
+    inkBrokers,
     analyticsAgg,
     cards,
     copink,
@@ -173,6 +181,9 @@ export async function gatherDashboardBundle(
     vc(`wallet:swap:${wallet}`, 'swap', 20000, () => getSwapVolume(wallet)),
     vc(`wallet:tydro:${wallet}`, 'tydro', 30000, () => getTydroData(wallet)),
     vc(`wallet:nft2me:${wallet}`, 'nft2me', 20000, () => getNft2meData(wallet)),
+    vc(`wallet:gonefishin:${wallet}`, 'gonefishin', 20000, () => getGoneFishinData(wallet)),
+    vc(`wallet:sentry:${wallet}`, 'sentry', 20000, () => getSentryData(wallet)),
+    vc(`wallet:hypercall:${wallet}`, 'hypercall', 20000, () => getHypercallData(wallet)),
     vc(`nado:${wallet}`, 'nado', 30000, () => getNadoMetrics(wallet)),
     vc(`wallet:volume:${wallet}`, 'volume', 30000, () => getTotalVolumeData(wallet)),
     vc(`analytics:gm_count:${wallet}`, 'gm', 20000, () => getGmCount(wallet)),
@@ -189,6 +200,7 @@ export async function gatherDashboardBundle(
     vc(`analytics:sweep:${wallet}`, 'sweep', 20000, () => getSweep(wallet)),
     vc(`analytics:zenith_nft_balance:${wallet}`, 'zenith-nft', 20000, () => getZenithNft(wallet)),
     vc(`analytics:zenith_staking:${wallet}`, 'zenith-staking', 20000, () => getZenithStaking(wallet)),
+    vc(`analytics:ink_brokers:${wallet}`, 'ink-brokers', 20000, () => getInkBrokersMetrics(wallet)),
     vc(`analytics:${wallet}`, 'analytics', 30000, () => analyticsService.getWalletAnalytics(wallet)),
     vc(`dashboard:cards:${wallet}`, 'cards', 15000, () => getDashboardCards(wallet)),
     // Copink manages its own responseCache + stale-serve internally.
@@ -228,6 +240,7 @@ export async function gatherDashboardBundle(
     cowSwapData: cowswap,
     sweepData: sweepRaw,
     openSeaCounts,
+    inkBrokersData: inkBrokers,
   };
 
   // The score: the proven pure function over the same per-metric inputs,
@@ -252,6 +265,9 @@ export async function gatherDashboardBundle(
     swap,
     tydro,
     nft2me,
+    gonefishin,
+    sentry,
+    hypercall,
     nado,
     copink,
     score,
@@ -275,6 +291,7 @@ export async function gatherDashboardBundle(
     sweep: sweepAnalytics,
     zenithNft,
     zenithStaking,
+    inkBrokers,
   };
 
   // ACCURACY RULE: a bundle with ANY null metric is incomplete — the old
@@ -329,13 +346,26 @@ async function getCryptoClashSafe(wallet: string): Promise<unknown> {
 export function isValidBundleShape(b: unknown): b is DashboardBundle {
   if (!b || typeof b !== 'object') return false;
   const anyB = b as DashboardBundle;
+  const m = (anyB.metrics ?? null) as Record<string, unknown> | null;
   return (
     typeof anyB.wallet === 'string' &&
     typeof anyB.captured_at === 'string' &&
-    typeof anyB.metrics === 'object' &&
-    anyB.metrics !== null &&
+    m !== null &&
+    typeof m === 'object' &&
     // The score entry must at least carry the point total.
-    typeof (anyB.metrics as Record<string, unknown>).score === 'object'
+    typeof m.score === 'object' &&
+    // SCHEMA GUARD: snapshots captured before a metric joined the bundle
+    // lack its entry — serving one would show that metric as missing for a
+    // full TTL window while skipping the live gather entirely (observed:
+    // sentry/hypercall cards never rendered because a pre-deploy snapshot
+    // kept passing the old shape check). A COMPLETE bundle always contains
+    // every metric (services never return null for complete gathers), so
+    // requiring the newest keys only ever rejects stale-shape snapshots —
+    // they fall through to a live gather, which re-snapshots the full
+    // shape. Bump this list whenever a metric is added to the bundle.
+    m.gonefishin != null &&
+    m.sentry != null &&
+    m.hypercall != null
   );
 }
 

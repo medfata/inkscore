@@ -47,6 +47,9 @@ export function useStreamingDashboard(
       'copink',
       'nft2me',
       'tydro',
+      'gonefishin',
+      'sentry',
+      'hypercall',
       'gmCount',
       'inkypumpCreatedTokens',
       'inkypumpBuyVolume',
@@ -61,6 +64,7 @@ export function useStreamingDashboard(
       'cowswapSwaps',
       'zenithNft',
       'zenithStaking',
+      'inkBrokers',
     ]),
     errors: {},
     isComplete: false,
@@ -244,6 +248,9 @@ export function useStreamingDashboard(
       if (data.copink) metrics.copink = data.copink;
       if (data.nft2me) metrics.nft2me = data.nft2me;
       if (data.tydro) metrics.tydro = data.tydro;
+      if (data.gonefishin) metrics.gonefishin = data.gonefishin;
+      if (data.sentry) metrics.sentry = data.sentry;
+      if (data.hypercall) metrics.hypercall = data.hypercall;
       if (data.gmCount) metrics.gmCount = data.gmCount;
       if (data.inkypumpCreatedTokens) metrics.inkypumpCreatedTokens = data.inkypumpCreatedTokens;
       if (data.inkypumpBuyVolume) metrics.inkypumpBuyVolume = data.inkypumpBuyVolume;
@@ -258,6 +265,7 @@ export function useStreamingDashboard(
       if (data.cowswapSwaps) metrics.cowswapSwaps = data.cowswapSwaps;
       if (data.zenithNft) metrics.zenithNft = data.zenithNft;
       if (data.zenithStaking) metrics.zenithStaking = data.zenithStaking;
+      if (data.inkBrokers) metrics.inkBrokers = data.inkBrokers;
       
       setState({
         metrics,

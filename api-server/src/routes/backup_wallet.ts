@@ -12,6 +12,12 @@ import { getNft2meData } from '../services/nft2me-service';
 import type { Nft2MeResponse } from '../services/nft2me-service';
 import { getTydroData } from '../services/tydro-service';
 import type { TydroResponse } from '../services/tydro-service';
+import { getGoneFishinData } from '../services/gonefishin-service';
+import type { GoneFishinResponse } from '../services/gonefishin-service';
+import { getSentryData } from '../services/sentry-service';
+import type { SentryResponse } from '../services/sentry-service';
+import { getHypercallData } from '../services/hypercall-service';
+import type { HypercallResponse } from '../services/hypercall-service';
 
 const router = Router();
 
@@ -235,6 +241,90 @@ router.get('/:address/tydro', async (req: Request, res: Response) => {
     } catch (error) {
         console.error('Error fetching Tydro data:', error);
         res.status(500).json({ error: 'Failed to fetch Tydro data' });
+    }
+});
+
+// ============================================
+// Gone Fishin Route (logic: services/gonefishin-service.ts)
+// ============================================
+
+router.get('/:address/gonefishin', async (req: Request, res: Response) => {
+    try {
+        const { address } = req.params;
+
+        if (!isValidAddress(address)) {
+            return res.status(400).json({ error: 'Invalid wallet address format' });
+        }
+
+        const walletAddress = address.toLowerCase();
+        const cacheKey = `wallet:gonefishin:${walletAddress}`;
+        const cached = responseCache.get<GoneFishinResponse>(cacheKey);
+        if (cached) {
+            return res.json(cached);
+        }
+
+        const response = await getGoneFishinData(walletAddress);
+        responseCache.set(cacheKey, response);
+        return res.json(response);
+    } catch (error) {
+        console.error('Error fetching Gone Fishin data:', error);
+        res.status(500).json({ error: 'Failed to fetch Gone Fishin data' });
+    }
+});
+
+// ============================================
+// Sentry Route (logic: services/sentry-service.ts)
+// ============================================
+
+router.get('/:address/sentry', async (req: Request, res: Response) => {
+    try {
+        const { address } = req.params;
+
+        if (!isValidAddress(address)) {
+            return res.status(400).json({ error: 'Invalid wallet address format' });
+        }
+
+        const walletAddress = address.toLowerCase();
+        const cacheKey = `wallet:sentry:${walletAddress}`;
+        const cached = responseCache.get<SentryResponse>(cacheKey);
+        if (cached) {
+            return res.json(cached);
+        }
+
+        const response = await getSentryData(walletAddress);
+        responseCache.set(cacheKey, response);
+        return res.json(response);
+    } catch (error) {
+        console.error('Error fetching Sentry data:', error);
+        res.status(500).json({ error: 'Failed to fetch Sentry data' });
+    }
+});
+
+// ============================================
+// Hypercall Route (logic: services/hypercall-service.ts)
+// ============================================
+
+router.get('/:address/hypercall', async (req: Request, res: Response) => {
+    try {
+        const { address } = req.params;
+
+        if (!isValidAddress(address)) {
+            return res.status(400).json({ error: 'Invalid wallet address format' });
+        }
+
+        const walletAddress = address.toLowerCase();
+        const cacheKey = `wallet:hypercall:${walletAddress}`;
+        const cached = responseCache.get<HypercallResponse>(cacheKey);
+        if (cached) {
+            return res.json(cached);
+        }
+
+        const response = await getHypercallData(walletAddress);
+        responseCache.set(cacheKey, response);
+        return res.json(response);
+    } catch (error) {
+        console.error('Error fetching Hypercall data:', error);
+        res.status(500).json({ error: 'Failed to fetch Hypercall data' });
     }
 });
 

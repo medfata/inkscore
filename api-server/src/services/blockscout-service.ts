@@ -181,13 +181,15 @@ async function bsFetch(path: string, retries = 3): Promise<any> {
   }
 }
 
-// Cheapest possible "did this wallet do anything recently" probe: ONE request,
-// page size 1, both directions. Powers the catch-up worker's sweeps. Returns
-// the newest tx timestamp (Blockscout ISO format) or null (no txs / probe
-// failure — failures are retried on the next sweep, never crash it).
+// Cheapest possible "did this wallet do anything recently" probe: ONE request.
+// NOTE: this Blockscout build rejects `limit` (422 Unexpected field) and has
+// no combined to|from filter enum — the plain endpoint returns the newest tx
+// at items[0], which is all we need. Powers the catch-up worker's sweeps.
+// Returns the newest tx timestamp (Blockscout ISO format) or null (no txs /
+// probe failure — failures are retried on the next sweep, never crash it).
 export async function getLatestTxTimestamp(wallet: string): Promise<string | null> {
   try {
-    const data = await bsFetch(`/addresses/${wallet}/transactions?filter=to%7Cfrom&limit=1`);
+    const data = await bsFetch(`/addresses/${wallet}/transactions`);
     const items = (data as { items?: Array<{ timestamp?: string }> })?.items;
     const ts = items?.[0]?.timestamp;
     return typeof ts === 'string' ? ts : null;

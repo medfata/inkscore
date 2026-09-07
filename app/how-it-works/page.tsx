@@ -120,6 +120,7 @@ const PLATFORM_LOGOS: Record<string, string> = {
   dyorswap: 'https://dyorswap.finance/favicon.ico',
   velodrome: 'https://velodrome.finance/images/VELO/favicon.ico',
   curve: 'https://cdn.jsdelivr.net/gh/curvefi/curve-assets/branding/logo.png',
+  inkBrokers: 'https://inkbrokers.com/favicon.ico',
 };
 
 interface PlatformRule {
@@ -303,6 +304,20 @@ const platformMetrics: PlatformRule[] = [
     ],
     color: 'from-pink-500 to-rose-500',
     url: 'https://www.inkypump.com',
+  },
+  {
+    name: 'Ink Brokers',
+    logo: PLATFORM_LOGOS.inkBrokers,
+    description: 'Clock in to the Ink Exchange — desk activity on ERC-6551 broker accounts',
+    formula: 'Tracked: Clock-ins + Claims + Active Seats (points TBD)',
+    details: [
+      'Clock in: activate a broker on the desk (burns $INKBROKER, tier fixed by trait rarity)',
+      'Claims: collect fee-round payouts from your broker seat',
+      'Active seats: only brokers still in your wallet keep working — selling kills the seat',
+      'Tiers: Intern 1×, Analyst 3×, Associate 8×, VP 20×, Partner 60× share weight',
+    ],
+    color: 'from-amber-500 to-orange-500',
+    url: 'https://inkbrokers.com',
   },
   {
     name: 'Shellies',

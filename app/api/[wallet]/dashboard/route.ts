@@ -119,6 +119,9 @@ async function getStreamingDashboard(walletAddress: string, forceRefresh = false
         { id: 'cryptoclash', fetch: () => ef(`/api/cryptoclash/${walletAddress}`) },
         { id: 'nft2me', fetch: () => ef(`/api/wallet/${walletAddress}/nft2me`, EXPRESS_TIMEOUT_MS, 30000) },
         { id: 'tydro', fetch: () => ef(`/api/wallet/${walletAddress}/tydro`, EXPRESS_TIMEOUT_MS, 30000) },
+        { id: 'gonefishin', fetch: () => ef(`/api/wallet/${walletAddress}/gonefishin`, EXPRESS_TIMEOUT_MS, 30000) },
+        { id: 'sentry', fetch: () => ef(`/api/wallet/${walletAddress}/sentry`, EXPRESS_TIMEOUT_MS, 30000) },
+        { id: 'hypercall', fetch: () => ef(`/api/wallet/${walletAddress}/hypercall`, EXPRESS_TIMEOUT_MS, 30000) },
         { id: 'gmCount', fetch: () => ef(`/api/analytics/${walletAddress}/gm_count`) },
         { id: 'inkypumpCreatedTokens', fetch: () => ef(`/api/analytics/${walletAddress}/inkypump_created_tokens`) },
         { id: 'inkypumpBuyVolume', fetch: () => ef(`/api/analytics/${walletAddress}/inkypump_buy_volume`) },
@@ -134,6 +137,7 @@ async function getStreamingDashboard(walletAddress: string, forceRefresh = false
         { id: 'sweep', fetch: () => ef(`/api/analytics/${walletAddress}/sweep`) },
         { id: 'zenithNft', fetch: () => ef(`/api/analytics/${walletAddress}/zenith_nft_balance`) },
         { id: 'zenithStaking', fetch: () => ef(`/api/analytics/${walletAddress}/zenith_staking`) },
+        { id: 'inkBrokers', fetch: () => ef(`/api/analytics/${walletAddress}/ink_brokers`) },
       ];
 
       // Sprint 2: bundle fast path — try ONE Express call for the whole
@@ -349,7 +353,7 @@ export async function GET(
         // Mirror the old fan-out's error reporting: a null entry is what an
         // errored per-endpoint fetch would have produced anyway.
         const errors: string[] = [];
-        const trackedIds = ['stats', 'bridge', 'swap', 'volume', 'score', 'analytics', 'cards', 'nado', 'copink', 'nft2me', 'tydro', 'sweep', 'openseaBuyCount', 'mintCount', 'openseaSaleCount'] as const;
+        const trackedIds = ['stats', 'bridge', 'swap', 'volume', 'score', 'analytics', 'cards', 'nado', 'copink', 'nft2me', 'tydro', 'gonefishin', 'sentry', 'hypercall', 'sweep', 'openseaBuyCount', 'mintCount', 'openseaSaleCount'] as const;
         for (const id of trackedIds) {
           if (m[id] == null) errors.push(`${id}: missing from bundle`);
         }
@@ -367,9 +371,13 @@ export async function GET(
             copink: m.copink ?? null,
             nft2me: m.nft2me ?? null,
             tydro: m.tydro ?? null,
+            gonefishin: m.gonefishin ?? null,
+            sentry: m.sentry ?? null,
+            hypercall: m.hypercall ?? null,
             sweep: m.sweep ?? null,
             zenithNft: m.zenithNft ?? null,
             zenithStaking: m.zenithStaking ?? null,
+            inkBrokers: m.inkBrokers ?? null,
             gmCount: m.gmCount ?? null,
             inkypumpCreatedTokens: m.inkypumpCreatedTokens ?? null,
             inkypumpBuyVolume: m.inkypumpBuyVolume ?? null,
@@ -422,9 +430,13 @@ export async function GET(
       copinkResult,
       nft2meResult,
       tydroResult,
+      gonefishinResult,
+      sentryResult,
+      hypercallResult,
       sweepResult,
       zenithNftResult,
       zenithStakingResult,
+      inkBrokersResult,
       // Specific analytics metrics
       gmCountResult,
       inkypumpCreatedTokensResult,
@@ -450,12 +462,16 @@ export async function GET(
       ef(`/api/copink/${walletAddress}`),
       ef(`/api/wallet/${walletAddress}/nft2me`, EXPRESS_TIMEOUT_MS, 30000),
       ef(`/api/wallet/${walletAddress}/tydro`, EXPRESS_TIMEOUT_MS, 30000),
+      ef(`/api/wallet/${walletAddress}/gonefishin`, EXPRESS_TIMEOUT_MS, 30000),
+      ef(`/api/wallet/${walletAddress}/sentry`, EXPRESS_TIMEOUT_MS, 30000),
+      ef(`/api/wallet/${walletAddress}/hypercall`, EXPRESS_TIMEOUT_MS, 30000),
       // Sweep from analytics (same source as the streaming path) so both
       // dashboard modes always agree; the old `/api/sweep/${w}` here was a
       // divergent second implementation of the same metric.
       ef(`/api/analytics/${walletAddress}/sweep`),
       ef(`/api/analytics/${walletAddress}/zenith_nft_balance`),
       ef(`/api/analytics/${walletAddress}/zenith_staking`),
+      ef(`/api/analytics/${walletAddress}/ink_brokers`),
       // Specific analytics metrics
       ef(`/api/analytics/${walletAddress}/gm_count`),
       ef(`/api/analytics/${walletAddress}/inkypump_created_tokens`),
@@ -484,6 +500,9 @@ export async function GET(
     if (copinkResult.error) errors.push(`copink: ${copinkResult.error}`);
     if (nft2meResult.error) errors.push(`nft2me: ${nft2meResult.error}`);
     if (tydroResult.error) errors.push(`tydro: ${tydroResult.error}`);
+    if (gonefishinResult.error) errors.push(`gonefishin: ${gonefishinResult.error}`);
+    if (sentryResult.error) errors.push(`sentry: ${sentryResult.error}`);
+    if (hypercallResult.error) errors.push(`hypercall: ${hypercallResult.error}`);
     if (sweepResult.error) errors.push(`sweep: ${sweepResult.error}`);
     if (openseaBuyCountResult.error) errors.push(`openseaBuyCount: ${openseaBuyCountResult.error}`);
     if (mintCountResult.error) errors.push(`mintCount: ${mintCountResult.error}`);
@@ -501,9 +520,13 @@ export async function GET(
       copink: copinkResult.data,
       nft2me: nft2meResult.data,
       tydro: tydroResult.data,
+      gonefishin: gonefishinResult.data,
+      sentry: sentryResult.data,
+      hypercall: hypercallResult.data,
       sweep: sweepResult.data,
       zenithNft: zenithNftResult.data,
       zenithStaking: zenithStakingResult.data,
+      inkBrokers: inkBrokersResult.data,
       // Specific analytics metrics
       gmCount: gmCountResult.data,
       inkypumpCreatedTokens: inkypumpCreatedTokensResult.data,

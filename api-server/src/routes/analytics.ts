@@ -20,6 +20,7 @@ import {
   getTemplarsBalance,
   getZenithNft,
   getZenithStaking,
+  getInkBrokersMetrics,
 } from '../services/analytics-counts-service';
 import { getProtocolCount } from '../services/blockscout-service';
 import { query } from '../db';
@@ -283,6 +284,15 @@ router.get('/:wallet/:metric', async (req: Request, res: Response) => {
     // Special handling for shellies_pay_to_play (counts via Blockscout)
     if (metric === 'shellies_pay_to_play') {
       const result = await getShelliesPayToPlay(walletLower);
+
+      responseCache.set(cacheKey, result);
+      return res.json(result);
+    }
+
+    // Special handling for ink_brokers (desk activity counts via Blockscout
+    // cursors + on-chain seat reads). See services/analytics-counts-service.ts.
+    if (metric === 'ink_brokers') {
+      const result = await getInkBrokersMetrics(walletLower);
 
       responseCache.set(cacheKey, result);
       return res.json(result);

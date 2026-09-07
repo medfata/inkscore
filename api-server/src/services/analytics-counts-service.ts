@@ -1,5 +1,5 @@
 import { getLongCache, setLongCache, withInflight } from '../cache';
-import { getProtocolCount } from './blockscout-service';
+import { getProtocolCount, getProtocolTxHashes, getTxLogs } from './blockscout-service';
 import { createPublicClient, http } from 'viem';
 import { defineChain } from 'viem';
 
@@ -441,6 +441,250 @@ export async function getZenithStaking(walletLower: string): Promise<ZenithStaki
       console.error('Error fetching InkScore Zenith staking metrics:', error);
       const result = emptyResult();
       return result;
+    }
+  });
+}
+
+// ============================================
+// ink_brokers - Ink Brokers desk activity
+// (clock-ins + claims via Blockscout counts; active seats/tiers via
+//  on-chain seat reads on BrokerDesk). No points for now.
+// ============================================
+
+// BrokerDesk: activation ("clock in"), distributions, claims
+const INK_BROKERS_DESK_CONTRACT = '0xDe773cf5e6973e29aff7e7125fB4dF21BbdE713E';
+// Ink Brokers ERC-721 collection (4,444 brokers)
+const INK_BROKERS_NFT_CONTRACT = '0x0e4aa738d2cbe8c1f3d4e46a1f1af33611365a5f';
+
+const INK_BROKERS_CONFIG = {
+  clockIn: { contract: INK_BROKERS_DESK_CONTRACT, functions: ['ClockIn', 'clockIn'] },
+  claim: { contract: INK_BROKERS_DESK_CONTRACT, functions: ['Claim', 'claim'] },
+};
+
+const INK_BROKERS_LONG_CACHE_TTL = 5 * 60 * 1000;
+// Hard cap on per-token seat reads (a wallet holding more brokers than
+// this still counts clock-ins/claims fully; seat detail is capped).
+const INK_BROKERS_MAX_SEAT_READS = 25;
+// Hard cap on Blockscout NFT-holding pages walked for the wallet
+const INK_BROKERS_MAX_NFT_PAGES = 3;
+// Hard cap on clock-in txs whose logs get parsed for token ids
+const INK_BROKERS_MAX_CLOCKIN_TXS = 100;
+
+// ClockedIn(uint256 indexed tokenId, address indexed holder, address account, uint8 tier, uint256 weight, uint256 burned)
+const INK_BROKERS_CLOCKED_IN_TOPIC = '0xb797fb3d5840101cfa696d7e1d829b700ec7aab206251d0db059fe82be386f65';
+
+// BrokerDesk.seats(tokenId) => (holder, active, tier, at)
+const INK_BROKERS_DESK_ABI = [
+  {
+    inputs: [{ name: '', type: 'uint256' }],
+    name: 'seats',
+    outputs: [
+      { name: 'holder', type: 'address' },
+      { name: 'active', type: 'bool' },
+      { name: 'tier', type: 'uint8' },
+      { name: 'at', type: 'uint64' },
+    ],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [{ name: '', type: 'uint256' }],
+    name: 'seatValid',
+    outputs: [{ name: '', type: 'bool' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+] as const;
+
+const INK_BROKERS_TIER_NAMES: Record<number, string> = {
+  0: 'Intern',
+  1: 'Analyst',
+  2: 'Associate',
+  3: 'VP',
+  4: 'Partner',
+};
+
+interface InkBrokersResult {
+  slug: string;
+  name: string;
+  icon: string;
+  currency: string;
+  total_count: number;
+  total_value: string;
+  clock_in_count: number;
+  claim_count: number;
+  owned_brokers: number;
+  active_seats: number;
+  seat_tiers: Array<{ label: string; value: string }>;
+  sub_aggregates: Array<{ label: string; value: string }>;
+  last_updated: Date;
+}
+
+// Fetch the wallet's Ink Brokers token ids from Blockscout NFT holdings.
+// The collection is not ERC721Enumerable, so ids come from the explorer.
+async function getInkBrokersTokenIds(walletLower: string): Promise<string[]> {
+  const ids: string[] = [];
+  let next: Record<string, unknown> | null = null;
+  for (let page = 0; page < INK_BROKERS_MAX_NFT_PAGES; page++) {
+    const url = new URL(`https://explorer.inkonchain.com/api/v2/addresses/${walletLower}/nft`);
+    url.searchParams.set('type', 'ERC-721');
+    if (next) {
+      for (const [k, v] of Object.entries(next)) url.searchParams.set(k, String(v));
+    }
+    const r = await fetch(url, { signal: AbortSignal.timeout(10_000) });
+    if (!r.ok) break;
+    const j = (await r.json()) as {
+      items?: Array<{ token?: { address_hash?: string }; id?: string }>;
+      next_page_params?: Record<string, unknown> | null;
+    };
+    for (const item of j.items || []) {
+      if (item.token?.address_hash?.toLowerCase() === INK_BROKERS_NFT_CONTRACT && item.id != null) {
+        ids.push(item.id);
+      }
+    }
+    next = j.next_page_params ?? null;
+    if (!next) break;
+  }
+  return ids;
+}
+
+// Second id source: token ids the wallet clocked in, parsed from the
+// ClockedIn event topic1 of its desk txs (getProtocolTxHashes + getTxLogs
+// are both cursor-cached). Covers Blockscout's NFT-holdings indexing lag on
+// fresh transfers — the desk's seat data is the on-chain source of truth
+// anyway, so extra ids from past clock-ins are harmless (seatValid gates).
+async function getInkBrokersClockedInTokenIds(walletLower: string): Promise<string[]> {
+  const { hashes } = await getProtocolTxHashes(
+    walletLower,
+    INK_BROKERS_DESK_CONTRACT,
+    null,
+    ['ClockIn', 'clockIn'],
+    10,
+    'out'
+  );
+  if (hashes.length === 0) return [];
+  const logsMap = await getTxLogs(hashes.slice(0, INK_BROKERS_MAX_CLOCKIN_TXS));
+  const ids = new Set<string>();
+  for (const logs of logsMap.values()) {
+    for (const log of logs) {
+      if (
+        log.address?.toLowerCase() === INK_BROKERS_DESK_CONTRACT.toLowerCase() &&
+        log.topics?.[0] === INK_BROKERS_CLOCKED_IN_TOPIC &&
+        log.topics[1] &&
+        log.topics[1] !== '0x' + '0'.repeat(64)
+      ) {
+        ids.add(BigInt(log.topics[1]).toString());
+      }
+    }
+  }
+  return [...ids];
+}
+
+export async function getInkBrokersMetrics(walletLower: string): Promise<InkBrokersResult> {
+  const lcKey = `long:analytics:ink_brokers:${walletLower}`;
+  const lc = getLongCache<InkBrokersResult>(lcKey, INK_BROKERS_LONG_CACHE_TTL);
+  if (lc) {
+    return lc;
+  }
+  return await withInflight<InkBrokersResult>(lcKey, async (): Promise<InkBrokersResult> => {
+    const emptyResult = (): InkBrokersResult => ({
+      slug: 'ink_brokers',
+      name: 'Ink Brokers',
+      icon: '🏛️',
+      currency: 'COUNT',
+      total_count: 0,
+      total_value: '0',
+      clock_in_count: 0,
+      claim_count: 0,
+      owned_brokers: 0,
+      active_seats: 0,
+      seat_tiers: [],
+      sub_aggregates: [],
+      last_updated: new Date(),
+    });
+
+    try {
+      // Desk tx counts via Blockscout (cursor-cached; incremental after first visit)
+      const [clockInRes, claimRes, tokenIds, clockedInIds] = await Promise.all([
+        getProtocolCount(walletLower, 'inkbrokers-clockin', INK_BROKERS_CONFIG.clockIn.contract, null, INK_BROKERS_CONFIG.clockIn.functions),
+        getProtocolCount(walletLower, 'inkbrokers-claim', INK_BROKERS_CONFIG.claim.contract, null, INK_BROKERS_CONFIG.claim.functions),
+        getInkBrokersTokenIds(walletLower),
+        getInkBrokersClockedInTokenIds(walletLower).catch(() => [] as string[]),
+      ]);
+
+      // Union both id sources (holdings first, then clock-in history) and
+      // read the desk's seat state per token. seatValid(tokenId) is the
+      // on-chain truth: seat.active AND holderOf(tokenId) == seat.holder —
+      // a seat dies the moment the broker NFT moves, even before the seat
+      // row is cleared.
+      const idSet = new Set<string>([...tokenIds, ...clockedInIds]);
+      const allIds = [...idSet];
+      const seatReadIds = allIds.slice(0, INK_BROKERS_MAX_SEAT_READS);
+      let activeSeats = 0;
+      const tierCounts: Record<string, number> = {};
+      if (seatReadIds.length > 0) {
+        const seats = await Promise.all(
+          seatReadIds.map((tokenId) =>
+            Promise.all([
+              publicClient
+                .readContract({
+                  address: INK_BROKERS_DESK_CONTRACT as `0x${string}`,
+                  abi: INK_BROKERS_DESK_ABI,
+                  functionName: 'seats',
+                  args: [BigInt(tokenId)],
+                })
+                .catch(() => null),
+              publicClient
+                .readContract({
+                  address: INK_BROKERS_DESK_CONTRACT as `0x${string}`,
+                  abi: INK_BROKERS_DESK_ABI,
+                  functionName: 'seatValid',
+                  args: [BigInt(tokenId)],
+                })
+                .catch(() => false),
+            ])
+          )
+        );
+        for (const [seat, valid] of seats) {
+          if (!seat || !valid) continue;
+          const tier = seat[2];
+          activeSeats++;
+          const tierName = INK_BROKERS_TIER_NAMES[Number(tier)] ?? `T${Number(tier)}`;
+          tierCounts[tierName] = (tierCounts[tierName] ?? 0) + 1;
+        }
+      }
+
+      const clockInCount = clockInRes.count;
+      const claimCount = claimRes.count;
+
+      const seatTiers = Object.entries(tierCounts).map(([label, value]) => ({ label, value: String(value) }));
+
+      const result: InkBrokersResult = {
+        slug: 'ink_brokers',
+        name: 'Ink Brokers',
+        icon: '🏛️',
+        currency: 'COUNT',
+        total_count: clockInCount + claimCount,
+        total_value: (clockInCount + claimCount).toString(),
+        clock_in_count: clockInCount,
+        claim_count: claimCount,
+        owned_brokers: allIds.length,
+        active_seats: activeSeats,
+        seat_tiers: seatTiers,
+        sub_aggregates: [
+          { label: 'Clock-ins', value: clockInCount.toString() },
+          { label: 'Claims', value: claimCount.toString() },
+          { label: 'Active Seats', value: activeSeats.toString() },
+          ...seatTiers.map((t) => ({ label: `${t.label} Seats`, value: t.value })),
+        ],
+        last_updated: new Date(),
+      };
+
+      setLongCache(lcKey, result);
+      return result;
+    } catch (error) {
+      console.error('Error fetching Ink Brokers metrics:', error);
+      return emptyResult();
     }
   });
 }

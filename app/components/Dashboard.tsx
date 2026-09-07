@@ -84,6 +84,9 @@ const PLATFORM_URLS: Record<string, string> = {
   'otomate': 'https://www.otomate.trade/',
   'cryptoclash': 'https://www.cryptoclash.ink/',
   'nft2me': 'https://nft2me.com',
+  'gonefishin': 'https://gonefishin.ink',
+  'sentry': 'https://sentry.trading',
+  'hypercall': 'https://earn.hypercall.xyz',
   'shellies': 'https://shellies.xyz',
   'opensea': 'https://opensea.io',
   'templars': 'https://opensea.io/collection/templars-of-the-storm',
@@ -92,6 +95,7 @@ const PLATFORM_URLS: Record<string, string> = {
   'zenithNft': 'https://explorer.inkonchain.com/token/0xd0282f4Cb5c6FE4e3F2fecacFcb9477F42ce8c78',
   'zenithOpensea': 'https://opensea.io/collection/inkscore-zenith',
   'zenithStaking': 'https://inkscore.xyz/staking',
+  'inkBrokers': 'https://inkbrokers.com',
 };
 
 // Bridge volume response type
@@ -168,6 +172,54 @@ interface Nft2MeResponse {
   totalTransactions: number;
 }
 
+// Gone Fishin metrics response type (api-server gonefishin-service)
+interface GoneFishinPrize {
+  symbol: string;
+  address: string;
+  amount: number;
+  count: number;
+  usdValue: number;
+}
+interface GoneFishinResponse {
+  gamesBought: number;
+  totalSpentEth: number;
+  totalSpentUsd: number;
+  firstPlayAt: string | null;
+  lastPlayAt: string | null;
+  prizesWonCount: number;
+  prizesWonUsd: number;
+  prizesWon: GoneFishinPrize[];
+}
+
+// Sentry metrics response type (api-server sentry-service)
+interface SentryResponse {
+  tokensLaunched: number;
+  swapCount: number;
+  volumeEth: number;
+  volumeUsd: number;
+  firstSwapAt: string | null;
+  lastSwapAt: string | null;
+  partial?: boolean;
+}
+
+// Hypercall Earn metrics response type (api-server hypercall-service)
+interface HypercallCollateral {
+  symbol: string;
+  address: string;
+  amount: number;
+}
+interface HypercallResponse {
+  swapCount: number;
+  usdgSpent: number;
+  positionsWritten: number;
+  premiumEarnedUsdc: number;
+  collateralCommitted: HypercallCollateral[];
+  rewardsClaimed: number;
+  firstActivityAt: string | null;
+  lastActivityAt: string | null;
+  partial?: boolean;
+}
+
 // Copink metrics response type
 interface CopinkMetrics {
   totalVolume: number;
@@ -217,6 +269,16 @@ interface ZenithStakingMetrics {
   one_month_count: number;
   one_week_count: number;
   one_day_count: number;
+}
+
+interface InkBrokersMetrics {
+  total_count?: number;
+  clock_in_count: number;
+  claim_count: number;
+  owned_brokers: number;
+  active_seats: number;
+  seat_tiers: Array<{ label: string; value: string }>;
+  sub_aggregates?: Array<{ label: string; value: string }>;
 }
 
 interface DashboardProps {
@@ -430,9 +492,13 @@ interface ConsolidatedDashboardResponse {
   copink: CopinkMetrics | null;
   cryptoclash: CryptoClashMetrics | null;
   nft2me: Nft2MeResponse | null;
+  gonefishin: GoneFishinResponse | null;
+  sentry: SentryResponse | null;
+  hypercall: HypercallResponse | null;
   sweep: SweepMetrics | null;
   zenithNft: ZenithNftMetrics | null;
   zenithStaking: ZenithStakingMetrics | null;
+  inkBrokers: InkBrokersMetrics | null;
   tydro: {
     currentSupplyUsd?: number;
     currentSupplyEth?: number;
@@ -606,11 +672,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
   const [totalVolume, setTotalVolume] = useState<TotalVolumeResponse | null>(null);
   const [znsMetrics, setZnsMetrics] = useState<ZnsMetricsResponse | null>(null);
   const [nft2meMetrics, setNft2meMetrics] = useState<Nft2MeResponse | null>(null);
+  const [gonefishinMetrics, setGonefishinMetrics] = useState<GoneFishinResponse | null>(null);
+  const [sentryMetrics, setSentryMetrics] = useState<SentryResponse | null>(null);
+  const [hypercallMetrics, setHypercallMetrics] = useState<HypercallResponse | null>(null);
   const [copinkMetrics, setCopinkMetrics] = useState<CopinkMetrics | null>(null);
   const [nadoMetrics, setNadoMetrics] = useState<NadoMetrics | null>(null);
   const [sweepMetrics, setSweepMetrics] = useState<SweepMetrics | null>(null);
   const [zenithNftMetrics, setZenithNftMetrics] = useState<ZenithNftMetrics | null>(null);
   const [zenithStakingMetrics, setZenithStakingMetrics] = useState<ZenithStakingMetrics | null>(null);
+  const [inkBrokersMetrics, setInkBrokersMetrics] = useState<InkBrokersMetrics | null>(null);
   const [cryptoclashMetrics, setCryptoclashMetrics] = useState<CryptoClashMetrics | null>(null);
   const [inkyPumpCreatedTokens, setInkyPumpCreatedTokens] = useState<{ count: number } | null>(null);
   const [inkyPumpBuyVolume, setInkyPumpBuyVolume] = useState<{ total_value: string; total_count: number } | null>(null);
@@ -814,6 +884,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
       });
     }
 
+    // Process Ink Brokers metrics
+    if (response.inkBrokers) {
+      setInkBrokersMetrics({
+        total_count: response.inkBrokers.total_count || 0,
+        clock_in_count: response.inkBrokers.clock_in_count || 0,
+        claim_count: response.inkBrokers.claim_count || 0,
+        owned_brokers: response.inkBrokers.owned_brokers || 0,
+        active_seats: response.inkBrokers.active_seats || 0,
+        seat_tiers: response.inkBrokers.seat_tiers || [],
+        sub_aggregates: response.inkBrokers.sub_aggregates || [],
+      });
+    }
+
     // Process CryptoClash metrics
     if (response.cryptoclash) {
       setCryptoclashMetrics({
@@ -831,6 +914,46 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
         collectionsCreated: response.nft2me.collectionsCreated || 0,
         nftsMinted: response.nft2me.nftsMinted || 0,
         totalTransactions: response.nft2me.totalTransactions || 0,
+      });
+    }
+
+    // Process Gone Fishin metrics
+    if (response.gonefishin) {
+      setGonefishinMetrics({
+        gamesBought: response.gonefishin.gamesBought || 0,
+        totalSpentEth: response.gonefishin.totalSpentEth || 0,
+        totalSpentUsd: response.gonefishin.totalSpentUsd || 0,
+        firstPlayAt: response.gonefishin.firstPlayAt || null,
+        lastPlayAt: response.gonefishin.lastPlayAt || null,
+        prizesWonCount: response.gonefishin.prizesWonCount || 0,
+        prizesWonUsd: response.gonefishin.prizesWonUsd || 0,
+        prizesWon: response.gonefishin.prizesWon || [],
+      });
+    }
+
+    // Process Sentry metrics
+    if (response.sentry) {
+      setSentryMetrics({
+        tokensLaunched: response.sentry.tokensLaunched || 0,
+        swapCount: response.sentry.swapCount || 0,
+        volumeEth: response.sentry.volumeEth || 0,
+        volumeUsd: response.sentry.volumeUsd || 0,
+        firstSwapAt: response.sentry.firstSwapAt || null,
+        lastSwapAt: response.sentry.lastSwapAt || null,
+      });
+    }
+
+    // Process Hypercall Earn metrics
+    if (response.hypercall) {
+      setHypercallMetrics({
+        swapCount: response.hypercall.swapCount || 0,
+        usdgSpent: response.hypercall.usdgSpent || 0,
+        positionsWritten: response.hypercall.positionsWritten || 0,
+        premiumEarnedUsdc: response.hypercall.premiumEarnedUsdc || 0,
+        collateralCommitted: response.hypercall.collateralCommitted || [],
+        rewardsClaimed: response.hypercall.rewardsClaimed || 0,
+        firstActivityAt: response.hypercall.firstActivityAt || null,
+        lastActivityAt: response.hypercall.lastActivityAt || null,
       });
     }
 
@@ -1005,11 +1128,31 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
             one_day_count: data.one_day_count || 0,
           });
           break;
+        case 'inkBrokers':
+          setInkBrokersMetrics({
+            total_count: data.total_count || 0,
+            clock_in_count: data.clock_in_count || 0,
+            claim_count: data.claim_count || 0,
+            owned_brokers: data.owned_brokers || 0,
+            active_seats: data.active_seats || 0,
+            seat_tiers: data.seat_tiers || [],
+            sub_aggregates: data.sub_aggregates || [],
+          });
+          break;
         case 'cryptoclash':
           setCryptoclashMetrics(data);
           break;
         case 'nft2me':
           setNft2meMetrics(data);
+          break;
+        case 'gonefishin':
+          setGonefishinMetrics(data);
+          break;
+        case 'sentry':
+          setSentryMetrics(data);
+          break;
+        case 'hypercall':
+          setHypercallMetrics(data);
           break;
         case 'inkypumpCreatedTokens':
           setInkyPumpCreatedTokens({ count: data.total_count || 0 });
@@ -2913,6 +3056,84 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
               </>
             )}
           </div>
+          {/* Ink Brokers Card */}
+          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-amber-500/20 bg-gradient-to-br from-amber-500/12 to-amber-900/5 h-[300px] flex flex-col" style={{ animationDelay: '1.05s' }}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                <a
+                  href={PLATFORM_URLS.inkBrokers}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:ring-2 hover:ring-amber-500/50 rounded-full transition-all cursor-pointer"
+                  title="Visit Ink Brokers"
+                >
+                  <img
+                    src="https://ui-avatars.com/api/?name=IB&background=f59e0b&color=fff&size=24"
+                    alt="Ink Brokers"
+                    className="w-6 h-6 rounded-full object-cover"
+                  />
+                </a>
+                Ink Brokers
+              </h3>
+            </div>
+
+            {!isDemo && (isMetricLoading('inkBrokers') || !inkBrokersMetrics) ? (
+              <div className="flex-1 flex flex-col justify-center">
+                <div className="h-8 w-20 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+                <div className="h-3 w-32 bg-slate-700/30 rounded animate-pulse mb-4"></div>
+                <div className="space-y-2">
+                  <div className="h-4 w-full bg-slate-700/30 rounded animate-pulse"></div>
+                  <div className="h-4 w-full bg-slate-700/30 rounded animate-pulse"></div>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="mb-3">
+                  <div className="text-2xl font-bold font-display text-amber-400">
+                    {!isDemo && inkBrokersMetrics ? inkBrokersMetrics.total_count || 0 : 0}
+                  </div>
+                  <div className="text-xs text-slate-500">Desk Actions</div>
+                </div>
+
+                <div className="flex-1 pt-3 border-t border-slate-700/50">
+                  <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">By Activity</span>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">Clock-ins</span>
+                      <span className="font-mono text-white">
+                        {!isDemo && inkBrokersMetrics ? inkBrokersMetrics.clock_in_count : 0}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">Claims</span>
+                      <span className="font-mono text-white">
+                        {!isDemo && inkBrokersMetrics ? inkBrokersMetrics.claim_count : 0}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">Active Seats</span>
+                      <span className="font-mono text-white">
+                        {!isDemo && inkBrokersMetrics ? inkBrokersMetrics.active_seats : 0}
+                      </span>
+                    </div>
+                    {!isDemo && inkBrokersMetrics && inkBrokersMetrics.seat_tiers.map((t) => (
+                      <div key={t.label} className="flex justify-between items-center text-[11px]">
+                        <span className="text-slate-400">{t.label} Seat{Number(t.value) === 1 ? '' : 's'}</span>
+                        <span className="font-mono text-white">{t.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {!isDemo && inkBrokersMetrics && inkBrokersMetrics.active_seats > 0 && (
+                  <div className="mt-2 text-xs text-amber-400 opacity-80 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+                    Broker Clocked In
+                  </div>
+                )}
+              </>
+            )}
+          </div>
           {/* NFT2Me Card */}
           <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-cyan-500/20 bg-gradient-to-br from-cyan-500/12 to-cyan-900/5 h-[300px] flex flex-col" style={{ animationDelay: '0.95s' }}>
             <div className="flex items-center justify-between mb-4">
@@ -3008,6 +3229,320 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
               </>
             )}
           </div>
+          {/* Gone Fishin Card */}
+          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-amber-500/20 bg-gradient-to-br from-amber-500/12 to-amber-900/5 h-[300px] flex flex-col" style={{ animationDelay: '1s' }}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                <a
+                  href={PLATFORM_URLS.gonefishin}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:ring-2 hover:ring-amber-500/50 rounded-full transition-all cursor-pointer"
+                  title="Visit Gone Fishin"
+                >
+                  <img
+                    src="https://gonefishin.ink/favicon.ico"
+                    alt="Gone Fishin"
+                    className="w-6 h-6 rounded-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=GF&background=f59e0b&color=fff&size=24';
+                    }}
+                  />
+                </a>
+                Gone Fishin
+              </h3>
+            </div>
+
+            {!isDemo ? (
+              (isMetricLoading('gonefishin') || !gonefishinMetrics) ? (
+                <div className="flex-1 flex flex-col justify-center">
+                  <div className="h-8 w-16 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+                  <div className="h-3 w-24 bg-slate-700/30 rounded animate-pulse mb-4"></div>
+                  <div className="space-y-2">
+                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
+                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="mb-3">
+                    <div className="text-2xl font-bold font-display text-amber-400">
+                      {gonefishinMetrics.gamesBought.toLocaleString()}
+                    </div>
+                    <div className="text-xs text-slate-500">
+                      game{gonefishinMetrics.gamesBought !== 1 ? 's' : ''} played · {gonefishinMetrics.totalSpentEth.toFixed(4)} ETH spent
+                      {gonefishinMetrics.totalSpentUsd > 0 && ` (~$${gonefishinMetrics.totalSpentUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })})`}
+                    </div>
+                  </div>
+
+                  <div className="flex-1 pt-3 border-t border-slate-700/50 overflow-hidden">
+                    <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">
+                      Tokens Won{gonefishinMetrics.prizesWonUsd > 0 && ` · ~$${gonefishinMetrics.prizesWonUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })}`}
+                    </span>
+                    <div className="space-y-2">
+                      {gonefishinMetrics.prizesWon.length === 0 ? (
+                        <div className="text-[11px] text-slate-500">No prizes yet</div>
+                      ) : (
+                        gonefishinMetrics.prizesWon.slice(0, 4).map((p) => (
+                          <div key={p.address} className="flex justify-between items-center text-[11px]">
+                            <span className="text-slate-400">{p.symbol}</span>
+                            <span className="font-mono text-white">
+                              {p.amount < 0.0001 && p.amount > 0 ? p.amount.toExponential(1) : p.amount.toFixed(4)}
+                              {p.usdValue > 0 && <span className="text-slate-500"> (${p.usdValue.toFixed(2)})</span>}
+                            </span>
+                          </div>
+                        ))
+                      )}
+                      {gonefishinMetrics.prizesWon.length > 4 && (
+                        <div className="text-[10px] text-slate-500">+{gonefishinMetrics.prizesWon.length - 4} more token{gonefishinMetrics.prizesWon.length - 4 !== 1 ? 's' : ''}</div>
+                      )}
+                    </div>
+                  </div>
+
+                  {gonefishinMetrics.gamesBought > 0 && (
+                    <div className="mt-2 text-xs text-emerald-400 opacity-80 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                      Gone Fishin Player
+                    </div>
+                  )}
+                </>
+              )
+            ) : (
+              <>
+                <div className="mb-3">
+                  <div className="text-2xl font-bold font-display text-amber-400">12</div>
+                  <div className="text-xs text-slate-500">games played · 0.0421 ETH spent</div>
+                </div>
+
+                <div className="flex-1 pt-3 border-t border-slate-700/50">
+                  <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">Tokens Won · ~$126.40</span>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">wNVDAx</span>
+                      <span className="font-mono text-white">0.0234 ($84.20)</span>
+                    </div>
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">wAAPLx</span>
+                      <span className="font-mono text-white">0.0098 ($42.20)</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-2 text-xs text-emerald-400 opacity-80 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                  Gone Fishin Player
+                </div>
+              </>
+            )}
+          </div>
+          {/* Sentry Card */}
+          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-indigo-500/20 bg-gradient-to-br from-indigo-500/12 to-indigo-900/5 h-[300px] flex flex-col" style={{ animationDelay: '1.05s' }}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                <a
+                  href={PLATFORM_URLS.sentry}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:ring-2 hover:ring-indigo-500/50 rounded-full transition-all cursor-pointer"
+                  title="Visit Sentry"
+                >
+                  <img
+                    src="https://sentry.trading/favicon.ico"
+                    alt="Sentry"
+                    className="w-6 h-6 rounded-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=S&background=6366f1&color=fff&size=24';
+                    }}
+                  />
+                </a>
+                Sentry
+              </h3>
+            </div>
+
+            {!isDemo ? (
+              (isMetricLoading('sentry') || !sentryMetrics) ? (
+                <div className="flex-1 flex flex-col justify-center">
+                  <div className="h-8 w-16 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+                  <div className="h-3 w-24 bg-slate-700/30 rounded animate-pulse mb-4"></div>
+                  <div className="space-y-2">
+                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
+                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="mb-3">
+                    <div className="text-2xl font-bold font-display text-indigo-400">
+                      {sentryMetrics.tokensLaunched.toLocaleString()}
+                    </div>
+                    <div className="text-xs text-slate-500">
+                      token{sentryMetrics.tokensLaunched !== 1 ? 's' : ''} launched
+                    </div>
+                  </div>
+
+                  <div className="flex-1 pt-3 border-t border-slate-700/50">
+                    <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">Trading</span>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center text-[11px]">
+                        <span className="text-slate-400">Swaps</span>
+                        <span className="font-mono text-white">{sentryMetrics.swapCount.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-[11px]">
+                        <span className="text-slate-400">Volume</span>
+                        <span className="font-mono text-white">
+                          ${sentryMetrics.volumeUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                          {sentryMetrics.volumeEth > 0 && <span className="text-slate-500"> · {sentryMetrics.volumeEth.toFixed(4)} ETH</span>}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {sentryMetrics.tokensLaunched > 0 && (
+                    <div className="mt-2 text-xs text-emerald-400 opacity-80 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                      Sentry Creator
+                    </div>
+                  )}
+                </>
+              )
+            ) : (
+              <>
+                <div className="mb-3">
+                  <div className="text-2xl font-bold font-display text-indigo-400">2</div>
+                  <div className="text-xs text-slate-500">tokens launched</div>
+                </div>
+
+                <div className="flex-1 pt-3 border-t border-slate-700/50">
+                  <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">Trading</span>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">Swaps</span>
+                      <span className="font-mono text-white">47</span>
+                    </div>
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">Volume</span>
+                      <span className="font-mono text-white">$3,412.18 <span className="text-slate-500">· 1.37 ETH</span></span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-2 text-xs text-emerald-400 opacity-80 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                  Sentry Creator
+                </div>
+              </>
+            )}
+          </div>
+          {/* Hypercall Card */}
+          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-violet-500/20 bg-gradient-to-br from-violet-500/12 to-violet-900/5 h-[300px] flex flex-col" style={{ animationDelay: '1.1s' }}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                <a
+                  href={PLATFORM_URLS.hypercall}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:ring-2 hover:ring-violet-500/50 rounded-full transition-all cursor-pointer"
+                  title="Visit Hypercall Earn"
+                >
+                  <img
+                    src="https://earn.hypercall.xyz/favicon.ico"
+                    alt="Hypercall Earn"
+                    className="w-6 h-6 rounded-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=H&background=8b5cf6&color=fff&size=24';
+                    }}
+                  />
+                </a>
+                Hypercall Earn
+              </h3>
+            </div>
+
+            {!isDemo ? (
+              (isMetricLoading('hypercall') || !hypercallMetrics) ? (
+                <div className="flex-1 flex flex-col justify-center">
+                  <div className="h-8 w-16 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+                  <div className="h-3 w-24 bg-slate-700/30 rounded animate-pulse mb-4"></div>
+                  <div className="space-y-2">
+                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
+                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="mb-3">
+                    <div className="text-2xl font-bold font-display text-violet-400">
+                      {hypercallMetrics.positionsWritten.toLocaleString()}
+                    </div>
+                    <div className="text-xs text-slate-500">
+                      covered call{hypercallMetrics.positionsWritten !== 1 ? 's' : ''} written · ${hypercallMetrics.premiumEarnedUsdc.toLocaleString(undefined, { maximumFractionDigits: 2 })} premium earned
+                    </div>
+                  </div>
+
+                  <div className="flex-1 pt-3 border-t border-slate-700/50 overflow-hidden">
+                    <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">Activity</span>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center text-[11px]">
+                        <span className="text-slate-400">xStock Swaps</span>
+                        <span className="font-mono text-white">
+                          {hypercallMetrics.swapCount.toLocaleString()}
+                          {hypercallMetrics.usdgSpent > 0 && <span className="text-slate-500"> · ${hypercallMetrics.usdgSpent.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center text-[11px]">
+                        <span className="text-slate-400">Rewards (vQUOTRON)</span>
+                        <span className="font-mono text-white">{hypercallMetrics.rewardsClaimed.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                      </div>
+                      {hypercallMetrics.collateralCommitted.slice(0, 2).map((c) => (
+                        <div key={c.address} className="flex justify-between items-center text-[11px]">
+                          <span className="text-slate-400">{c.symbol || 'Collateral'}</span>
+                          <span className="font-mono text-white">
+                            {c.amount < 0.0001 && c.amount > 0 ? c.amount.toExponential(1) : c.amount.toFixed(4)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {hypercallMetrics.positionsWritten > 0 && (
+                    <div className="mt-2 text-xs text-emerald-400 opacity-80 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                      Covered Call Writer
+                    </div>
+                  )}
+                </>
+              )
+            ) : (
+              <>
+                <div className="mb-3">
+                  <div className="text-2xl font-bold font-display text-violet-400">3</div>
+                  <div className="text-xs text-slate-500">covered calls written · $68.40 premium earned</div>
+                </div>
+
+                <div className="flex-1 pt-3 border-t border-slate-700/50">
+                  <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">Activity</span>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">xStock Swaps</span>
+                      <span className="font-mono text-white">5 · $1,250.00</span>
+                    </div>
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">Rewards (vQUOTRON)</span>
+                      <span className="font-mono text-white">12.50</span>
+                    </div>
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">wAAPLx</span>
+                      <span className="font-mono text-white">2.0000</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-2 text-xs text-emerald-400 opacity-80 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                  Covered Call Writer
+                </div>
+              </>
+            )}
+          </div>
         </div>
         {/* Holdings Section - Tokens & NFTs */}
         {!isDemo && realWalletStats && (
@@ -3029,7 +3564,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
           errors={streamingState.errors}
           totalDuration={streamingState.totalDuration}
           timedOut={streamingState.timedOut}
-          totalMetrics={24}
+          totalMetrics={27}
         />
       )}
     </div>
