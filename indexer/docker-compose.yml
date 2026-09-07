@@ -46,11 +46,14 @@ services:
       timeout: 5s
       retries: 5
 
-  # Backfill Service - Historical data indexing via CSV exports
-  # Currently indexing DailyGM - DO NOT modify until complete
+  # Backfill Service - HISTORICAL/LEGACY: the in-house indexer era is over.
+  # The app now reads explorer.inkonchain.com directly; its tables were dropped
+  # (2026-09-07). Gated behind the 'legacy' profile so `up -d` never starts it.
+  # Manual start if ever needed: docker compose --profile legacy up -d indexer-backfill
   indexer-backfill:
     build: .
-    restart: always
+    profiles: [legacy]
+    restart: "no"
     logging: *default-logging
     depends_on:
       postgres:
@@ -65,9 +68,11 @@ services:
 
   # Realtime Service - Adaptive polling for new transactions
   # Polls active contracts every 15s, backs off idle ones up to 10min
+  # Realtime Service - HISTORICAL/LEGACY (see indexer-backfill note)
   indexer-realtime:
     build: .
-    restart: always
+    profiles: [legacy]
+    restart: "no"
     logging: *default-logging
     depends_on:
       postgres:
@@ -85,7 +90,8 @@ services:
   # - 90% less resource usage vs old polling approach
   indexer-enrichment:
     build: .
-    restart: always
+    profiles: [legacy]
+    restart: "no"
     logging: *default-logging
     depends_on:
       postgres:
@@ -127,7 +133,9 @@ services:
     ports:
       - "4000:4000"
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:4000/health"]
+      # 127.0.0.1 not localhost: in-container 'localhost' can resolve to IPv6
+      # ::1 first (same Alpine/standalone gotcha as the web healthcheck below).
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:4000/health"]
       interval: 30s
       timeout: 10s
       retries: 3

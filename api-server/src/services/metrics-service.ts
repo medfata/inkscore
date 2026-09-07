@@ -6,7 +6,6 @@ import {
   MetricWithRelations,
   CreateMetricRequest,
   UpdateMetricRequest,
-  ContractFunction,
 } from '../types/analytics';
 
 export class MetricsService {
@@ -226,25 +225,6 @@ export class MetricsService {
       DELETE FROM analytics_metrics WHERE id = $1 RETURNING id
     `, [id]);
     return result.length > 0;
-  }
-
-  // Get functions for a contract (from indexed data)
-  async getContractFunctions(contractAddress: string): Promise<ContractFunction[]> {
-    // Use transaction_details as the single source of truth
-    const functions = await query<ContractFunction>(`
-      SELECT 
-        function_name,
-        function_selector,
-        COUNT(*) as tx_count
-      FROM transaction_details
-      WHERE contract_address = $1
-        AND function_name IS NOT NULL
-        AND status = 1
-      GROUP BY function_name, function_selector
-      ORDER BY tx_count DESC
-    `, [contractAddress.toLowerCase()]);
-
-    return functions;
   }
 }
 
