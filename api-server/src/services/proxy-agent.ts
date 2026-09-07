@@ -15,6 +15,16 @@ const PROXY_ENABLED = process.env.BLOCKSCOUT_PROXY !== 'off';
 const PROXY_POOL_SIZE = parseInt(process.env.PROXY_POOL_SIZE || '15', 10);
 const PROXY_SESSION_TTL_MIN = 10;
 
+// PROVIDER-AGNOSTIC PROXY: set PROXY_URL_TEMPLATE with a {sid} placeholder
+// and the pool substitutes a fresh random session id per agent entry.
+// Examples:
+//   Iproyal:   http://customer-USER-sessid-{sid}:PASS@geo.iproyal.com:12321
+//   Decodo:    http://user-sessid-{sid}:PASS@gate.decodo.com:7000
+//   DataImpulse (legacy default): http://USER__sessid.{sid};sessttl.10:PASS@gw.dataimpulse.com:823
+// The session id keeps an IP sticky for the provider's session window
+// (typically 10-30 min); rotation on failure/429 is per request.
+const PROXY_URL_TEMPLATE = process.env.PROXY_URL_TEMPLATE || '';
+
 function loadProxyCreds() {
   return {
     user: process.env.DATAIMPULSE_PROXY_USER || '0feae1403d8287fcb122',
@@ -26,8 +36,13 @@ function loadProxyCreds() {
 
 const CREDS = loadProxyCreds();
 const newSessionId = () => randomBytes(8).toString('hex');
-const proxyUrl = (sid: string) =>
-  `http://${CREDS.user}__sessid.${sid};sessttl.${PROXY_SESSION_TTL_MIN}:${encodeURIComponent(CREDS.pass)}@${CREDS.host}:${CREDS.port}`;
+const proxyUrl = (sid: string) => {
+  if (PROXY_URL_TEMPLATE) {
+    return PROXY_URL_TEMPLATE.replace(/\{sid\}/g, sid);
+  }
+  // Legacy DataImpulse format
+  return `http://${CREDS.user}__sessid.${sid};sessttl.${PROXY_SESSION_TTL_MIN}:${encodeURIComponent(CREDS.pass)}@${CREDS.host}:${CREDS.port}`;
+};
 
 interface PoolEntry {
   agent: ProxyAgent;
