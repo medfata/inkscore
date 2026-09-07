@@ -40,7 +40,11 @@ const REWARDS_MODULE = '0xca2d699d8889925822d148d1fbaba45249bc1ccb';
 // only the QUOTRON zapper was tracked. Contract is UNVERIFIED on the
 // explorer; selectors were pinned from live user txs (same caveat as the
 // factory: re-check on protocol changes).
+// 0x117a7bc2 is the SECOND get-assets zapper (same USDG->xStock flow, zap
+// selectors shared with the QUOTRON zapper) — found the same day via a
+// wallet whose top activity (9 zaps) went through it untracked.
 const GET_ASSETS_ROUTER = '0x1b4d919149912c9781b086c8242729ee317631c8';
+const GET_ASSETS_ZAPPER = '0x117a7bc2cbf0feb6e5ae5b457ddc1490a84db286';
 const USDG = '0xe343167631d89b6ffc58b88d6b7fb0228795491d';
 const USDC = '0x2d270e6886d130d724215a266106e6832161eaed';
 const VQUOTRON = '0x6fed09c8f0906bf79a66a44831f47dd9775ac7fc';
@@ -92,7 +96,7 @@ export async function getHypercallData(walletAddress: string): Promise<Hypercall
   return withInflight<HypercallResponse>(lcKey, async () => {
     const wallet = walletAddress.toLowerCase();
 
-    const [zapperSwaps, getAssetsSwaps, positions] = await Promise.all([
+    const [zapperSwaps, getAssetsSwaps, getAssetsZapperSwaps, positions] = await Promise.all([
       getProtocolTxHashes(wallet, QUOTRON_ZAPPER, ZAP_SELECTORS).catch((err: unknown) => {
         console.warn('[Hypercall] swap discovery failed:', err instanceof Error ? err.message : err);
         return { hashes: [] as string[], complete: false };
@@ -101,16 +105,20 @@ export async function getHypercallData(walletAddress: string): Promise<Hypercall
         console.warn('[Hypercall] get-assets swap discovery failed:', err instanceof Error ? err.message : err);
         return { hashes: [] as string[], complete: false };
       }),
+      getProtocolTxHashes(wallet, GET_ASSETS_ZAPPER, ZAP_SELECTORS).catch((err: unknown) => {
+        console.warn('[Hypercall] get-assets zapper discovery failed:', err instanceof Error ? err.message : err);
+        return { hashes: [] as string[], complete: false };
+      }),
       getProtocolTxHashes(wallet, EARN_FACTORY, [FUND_SELECTOR]).catch((err: unknown) => {
         console.warn('[Hypercall] position discovery failed:', err instanceof Error ? err.message : err);
         return { hashes: [] as string[], complete: false };
       }),
     ]);
     const swaps = {
-      hashes: [...new Set([...zapperSwaps.hashes, ...getAssetsSwaps.hashes])],
-      complete: zapperSwaps.complete && getAssetsSwaps.complete,
+      hashes: [...new Set([...zapperSwaps.hashes, ...getAssetsSwaps.hashes, ...getAssetsZapperSwaps.hashes])],
+      complete: zapperSwaps.complete && getAssetsSwaps.complete && getAssetsZapperSwaps.complete,
     };
-    const getAssetsSet = new Set(getAssetsSwaps.hashes);
+    const getAssetsSet = new Set([...getAssetsSwaps.hashes, ...getAssetsZapperSwaps.hashes]);
 
     let swapCount = 0;
     let usdgSpent = 0;
