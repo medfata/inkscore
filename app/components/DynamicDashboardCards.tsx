@@ -103,7 +103,7 @@ export function DynamicCardsCarouselRow3({ cards }: { cards: DashboardCardData[]
       <div
         ref={scrollRef}
         onScroll={checkScroll}
-        className="flex gap-6 overflow-x-auto scrollbar-hide snap-x snap-mandatory pb-2"
+        className="flex gap-4 overflow-x-auto scrollbar-hide snap-x snap-mandatory pb-2"
         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
       >
         {cards.map((card, index) => (
@@ -178,7 +178,7 @@ export function DynamicCardsCarouselRow4({ cards }: { cards: DashboardCardData[]
       <div
         ref={scrollRef}
         onScroll={checkScroll}
-        className="flex gap-6 overflow-x-auto scrollbar-hide snap-x snap-mandatory pb-2"
+        className="flex gap-4 overflow-x-auto scrollbar-hide snap-x snap-mandatory pb-2"
         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
       >
         {cards.map((card, index) => (
@@ -210,11 +210,11 @@ export function DashboardCardLarge({ card, delay }: { card: DashboardCardData; d
 
   return (
     <div
-      className={`glass-card p-6 rounded-2xl animate-fade-in-up border ${colors.border} ${colors.bg} h-[300px] flex flex-col`}
+      className={`glass-card p-4 rounded-2xl animate-fade-in-up border ${colors.border} ${colors.bg} h-[220px] flex flex-col`}
       style={{ animationDelay: `${0.6 + delay}s` }}
     >
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-2">
         <h3 className="text-lg font-semibold text-white flex items-center gap-2">
           {/* Platform Logos */}
           {card.platforms.length > 0 && (
@@ -246,9 +246,9 @@ export function DashboardCardLarge({ card, delay }: { card: DashboardCardData; d
       </div>
 
       {/* Main Values */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-2">
         <div>
-          <div className={`text-3xl font-bold font-display ${colors.text}`}>
+          <div className={`text-4xl font-bold font-display ${colors.text}`}>
             {currency === 'COUNT' 
               ? card.totalCount.toLocaleString()
               : `$${card.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -259,7 +259,7 @@ export function DashboardCardLarge({ card, delay }: { card: DashboardCardData; d
           )}
         </div>
         <div className="text-right">
-          <div className="text-2xl font-bold font-display text-white">
+          <div className="text-3xl font-bold font-display text-white">
             {card.totalCount.toLocaleString()}
           </div>
           <div className="text-xs text-slate-500">Transactions</div>
@@ -268,9 +268,9 @@ export function DashboardCardLarge({ card, delay }: { card: DashboardCardData; d
 
       {/* Platform Breakdown */}
       {card.byPlatform.length > 0 && (
-        <div className="flex-1 pt-3 border-t border-slate-700/50 flex flex-col min-h-0">
-          <span className="text-xs text-slate-500 uppercase tracking-wider mb-2">By Platform</span>
-          <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar max-h-[140px]">
+        <div className="pt-2 border-t border-slate-700/50 flex flex-col min-h-0">
+          <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">By Platform</span>
+          <div className="flex-1 overflow-y-auto space-y-1 pr-1 custom-scrollbar max-h-[80px]">
             {card.byPlatform.map((platform, i) => (
               <div key={i} className="flex justify-between items-center text-xs py-0.5">
                 <span className="text-slate-400 flex items-center gap-1.5">
@@ -305,7 +305,7 @@ export function DashboardCardLarge({ card, delay }: { card: DashboardCardData; d
 
       {/* Active Indicator */}
       {card.totalCount > 0 && (
-        <div className={`mt-3 text-xs ${colors.text} opacity-80 flex items-center gap-1`}>
+        <div className={`mt-1.5 text-[11px] ${colors.text} opacity-80 flex items-center gap-1`}>
           <span className={`w-1.5 h-1.5 rounded-full ${colors.text.replace('text-', 'bg-')} animate-pulse`}></span>
           Active
         </div>
@@ -322,11 +322,11 @@ export function SmallDashboardCard({ card, delay }: { card: DashboardCardData; d
 
   return (
     <div
-      className={`glass-card p-6 rounded-xl animate-fade-in-up border ${colors.border} ${colors.bg} h-[200px] flex flex-col`}
+      className={`glass-card p-4 rounded-xl animate-fade-in-up border ${colors.border} ${colors.bg} h-[200px] flex flex-col`}
       style={{ animationDelay: `${0.6 + delay}s` }}
     >
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-2">
         <h3 className="text-lg font-semibold text-white flex items-center gap-2">
           {platform?.logo_url && (
             <img
@@ -348,7 +348,7 @@ export function SmallDashboardCard({ card, delay }: { card: DashboardCardData; d
       {/* Values */}
       <div className="flex items-center justify-between flex-1">
         <div>
-          <div className={`text-2xl font-bold font-display ${colors.text}`}>
+          <div className={`text-3xl font-bold font-display ${colors.text}`}>
             {currency === 'COUNT'
               ? card.totalCount.toLocaleString()
               : `$${card.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -359,7 +359,7 @@ export function SmallDashboardCard({ card, delay }: { card: DashboardCardData; d
           )}
         </div>
         <div className="text-right">
-          <div className="text-2xl font-bold font-display text-white">
+          <div className="text-3xl font-bold font-display text-white">
             {card.totalCount.toLocaleString()}
           </div>
           <div className="text-xs text-slate-500">Transactions</div>
@@ -368,7 +368,7 @@ export function SmallDashboardCard({ card, delay }: { card: DashboardCardData; d
 
       {/* Active Indicator */}
       {card.totalCount > 0 && (
-        <div className={`mt-auto text-xs ${colors.text} opacity-80 flex items-center gap-1`}>
+        <div className={`mt-auto text-[11px] ${colors.text} opacity-80 flex items-center gap-1`}>
           <span className={`w-1.5 h-1.5 rounded-full ${colors.text.replace('text-', 'bg-')} animate-pulse`}></span>
           Active
         </div>

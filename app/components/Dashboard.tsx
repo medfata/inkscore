@@ -1447,7 +1447,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
     <div className="min-h-screen pt-24 pb-12 px-4 sm:px-6 relative">
       <div className="absolute inset-0 grid-bg opacity-20 pointer-events-none fixed"></div>
 
-      <div className="max-w-7xl mx-auto space-y-6 relative z-10">
+      <div className="max-w-7xl mx-auto space-y-5 relative z-10">
         {/* Header Info */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8 animate-fade-in-up">
           <div>
@@ -1575,21 +1575,21 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
           ].map((item, i) => (
             <div
               key={i}
-              className="glass-card glass-card-hover p-6 rounded-xl flex items-center gap-4 animate-fade-in-up group"
+              className="glass-card glass-card-hover p-4 rounded-xl flex items-center gap-3 animate-fade-in-up group"
               style={{ animationDelay: item.delay }}
             >
-              <div className={`p-3 bg-${item.color}-500/10 rounded-lg text-${item.color}-400 group-hover:scale-110 transition-transform`}>
-                <item.icon size={24} />
+              <div className={`p-2.5 bg-${item.color}-500/10 rounded-lg text-${item.color}-400 group-hover:scale-110 transition-transform`}>
+                <item.icon size={22} />
               </div>
-              <div>
-                <div className="text-slate-400 text-sm">{item.label}</div>
-                <div className="text-xl font-bold font-display text-white">
+              <div className="min-w-0">
+                <div className="text-slate-400 text-xs">{item.label}</div>
+                <div className="text-2xl font-bold font-display text-white leading-tight">
                   {item.isLoading ? (
                     <span className="inline-block w-24 h-7 bg-slate-700/50 rounded animate-pulse"></span>
                   ) : item.value}
                 </div>
                 {'subValue' in item && item.subValue && (
-                  <div className="text-xs text-slate-500">{item.subValue}</div>
+                  <div className="text-[11px] text-slate-500">{item.subValue}</div>
                 )}
               </div>
             </div>
@@ -1597,16 +1597,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
         </div>
 
         {/* Row 2: Total INKSCORE (50%) + Tydro DeFi (50%) */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Total INKSCORE Card - 50% width */}
-          <div className="glass-card p-8 rounded-2xl animate-fade-in-up h-[300px] flex flex-col" style={{ animationDelay: '0.5s' }}>
-            <div className="flex flex-col md:flex-row items-center justify-between gap-6 flex-1">
+          <div className="glass-card p-6 rounded-2xl animate-fade-in-up h-[260px] flex flex-col" style={{ animationDelay: '0.5s' }}>
+            <div className="flex flex-col md:flex-row items-center justify-between gap-3 flex-1">
               <div className="text-center relative flex-shrink-0">
                 <div className="absolute -top-20 -left-20 w-40 h-40 bg-ink-purple/20 blur-3xl rounded-full"></div>
                 <h2 className="text-slate-400 mb-2 relative z-10">Total INKSCORE</h2>
                 {!isDemo && walletScore ? (
                   <>
-                    <div className="text-6xl font-display font-bold text-white tracking-tighter mb-2 relative z-10 drop-shadow-[0_0_15px_rgba(124,58,237,0.3)]">
+                    <div className="text-5xl font-display font-bold text-white tracking-tighter mb-2 relative z-10 drop-shadow-[0_0_15px_rgba(124,58,237,0.3)]">
                       {(walletScore.total_points || 0).toLocaleString()}
                     </div>
                     <div
@@ -1630,7 +1630,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
                   </>
                 ) : (
                   <>
-                    <div className="text-6xl font-display font-bold text-white tracking-tighter mb-2 relative z-10 drop-shadow-[0_0_15px_rgba(124,58,237,0.3)]">
+                    <div className="text-5xl font-display font-bold text-white tracking-tighter mb-2 relative z-10 drop-shadow-[0_0_15px_rgba(124,58,237,0.3)]">
                       {data.score.totalScore || 0}
                     </div>
                     <div className="inline-block px-4 py-1 rounded-full bg-gradient-to-r from-ink-blue to-ink-purple text-white text-sm font-semibold shadow-lg shadow-purple-900/40 relative z-10">
@@ -1638,7 +1638,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
                     </div>
                   </>
                 )}
-                <p className="mt-3 text-slate-400 text-sm max-w-xs relative z-10">
+                <p className="mt-2 text-slate-400 text-xs max-w-xs relative z-10">
                   {!isDemo && walletScore && (walletScore.total_points || 0) > 0
                     ? 'Points based on your on-chain activity.'
                     : 'Top 5% of active InkChain addresses.'}
@@ -1656,7 +1656,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
                 )}
               </div>
 
-              <div className="h-[200px] w-full md:w-[240px] flex-shrink-0">
+              <div className="h-[170px] w-full md:w-[210px] flex-shrink-0">
                 {!isDemo && !walletScore ? (
                   // Empty radar chart skeleton - 5 edges, no data, no labels
                   <ResponsiveContainer width="100%" height="100%">
@@ -1693,7 +1693,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
 
           {/* Tydro DeFi Card - 50% width - Premium Card */}
           <div
-            className="animated-border p-6 rounded-2xl animate-fade-in-up h-[300px] flex flex-col relative"
+            className="animated-border p-4 rounded-2xl animate-fade-in-up h-[260px] flex flex-col relative"
             style={{
               animationDelay: '0.55s',
               background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(15, 23, 42, 0.6) 100%)',
@@ -1762,7 +1762,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
                       </div>
                       <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/15 text-green-400 font-medium">LIVE</span>
                     </div>
-                    <div className="text-2xl font-bold font-display text-green-400">
+                    <div className="text-3xl font-bold font-display text-green-400">
                       ${!isDemo && tydroCurrentSupply
                         ? (tydroCurrentSupply.currentSupplyUsd || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                         : '0.00'}
@@ -1785,7 +1785,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
                       </div>
                       <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-500/15 text-orange-400 font-medium">LIVE</span>
                     </div>
-                    <div className="text-2xl font-bold font-display text-orange-400">
+                    <div className="text-3xl font-bold font-display text-orange-400">
                       ${!isDemo && tydroCurrentSupply
                         ? (tydroCurrentSupply.currentBorrowUsd || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                         : '0.00'}
@@ -1809,7 +1809,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
                     <div className="flex justify-around items-baseline gap-2 mt-2">
                       <div>
                         <div className="text-xs text-green-400 mb-0.5">Supply</div>
-                        <div className="text-sm font-bold font-display text-white">
+                        <div className="text-base font-bold font-display text-white">
                           ${!isDemo && tydroCurrentSupply
                             ? (tydroCurrentSupply.totalDepositedUsd || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                             : '0.00'}
@@ -1820,7 +1820,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
                       </div>
                       <div>
                         <div className="text-xs text-red-400 mb-0.5">Withdraw</div>
-                        <div className="text-sm font-bold font-display text-white">
+                        <div className="text-base font-bold font-display text-white">
                           ${!isDemo && tydroCurrentSupply
                             ? (tydroCurrentSupply.totalWithdrawnUsd || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                             : '0.00'}
@@ -1842,7 +1842,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
                     <div className="flex justify-around items-baseline gap-2">
                       <div>
                         <div className="text-xs text-orange-400 mb-0.5">Borrow</div>
-                        <div className="text-sm font-bold font-display text-white">
+                        <div className="text-base font-bold font-display text-white">
                           ${!isDemo && tydroCurrentSupply
                             ? (tydroCurrentSupply.totalBorrowedUsd || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                             : '0.00'}
@@ -1853,7 +1853,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
                       </div>
                       <div>
                         <div className="text-xs text-blue-400 mb-0.5">Repay</div>
-                        <div className="text-sm font-bold font-display text-white">
+                        <div className="text-base font-bold font-display text-white">
                           ${!isDemo && tydroCurrentSupply
                             ? (tydroCurrentSupply.totalRepaidUsd || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                             : '0.00'}
@@ -1871,10 +1871,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
         </div>
 
         {/* Row 3: Nado + GM + Bridge Volume + InkyPump + Swap Volume (5 columns) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Nado Card */}
           <div
-            className="animated-border-indigo p-6 rounded-2xl animate-fade-in-up h-[300px] flex flex-col relative"
+            className="animated-border-indigo p-4 rounded-2xl animate-fade-in-up h-[220px] flex flex-col relative"
             style={{
               animationDelay: '0.55s',
               background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(15, 23, 42, 0.6) 100%)',
@@ -1903,53 +1903,46 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
             </div>
 
             {!isDemo && (isMetricLoading('nado') || !nadoMetrics) ? (
-              <div className="flex-1 flex flex-col justify-center">
-                <div className="h-8 w-20 bg-slate-700/50 rounded animate-pulse mb-2"></div>
-                <div className="h-3 w-32 bg-slate-700/30 rounded animate-pulse mb-4"></div>
-                <div className="space-y-2">
-                  <div className="h-4 w-full bg-slate-700/30 rounded animate-pulse"></div>
-                  <div className="h-4 w-full bg-slate-700/30 rounded animate-pulse"></div>
+              <div className="flex-1 flex flex-col items-center justify-center relative z-10">
+                <div className="h-9 w-24 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+                <div className="h-3 w-28 bg-slate-700/30 rounded animate-pulse mb-4"></div>
+                <div className="w-full space-y-2">
+                  <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
+                  <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
                 </div>
               </div>
             ) : (
               <>
-                <div className="mb-3">
-                  <div className="text-2xl font-bold font-display text-indigo-400">
+                <div className="flex-1 flex flex-col items-center justify-center min-h-0 text-center relative z-10">
+                  <div className="text-4xl font-bold font-display text-indigo-400 leading-none tracking-tight">
                     {!isDemo && nadoMetrics
                       ? (nadoMetrics.totalTransactions || 0).toLocaleString()
                       : '12'}
                   </div>
-                  <div className="text-xs text-slate-500">
-                    {!isDemo && nadoMetrics
-                      ? `${nadoMetrics.totalTransactions || 0} transaction${(nadoMetrics.totalTransactions || 0) !== 1 ? 's' : ''}`
-                      : '12 transactions'}
-                  </div>
+                  <div className="text-xs text-slate-500 mt-1.5">Total Transactions</div>
                 </div>
 
-                <div className="flex-1 pt-3 border-t border-slate-700/50">
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">Metrics</span>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-slate-400">Total Deposits</span>
-                      <span className="font-mono text-white">
-                        ${!isDemo && nadoMetrics
-                          ? (nadoMetrics.totalDeposits || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                          : '8,750.00'}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-slate-400">Total Volume</span>
-                      <span className="font-mono text-white">
-                        ${!isDemo && nadoMetrics?.nadoVolumeUSD !== undefined
-                          ? (nadoMetrics.nadoVolumeUSD || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                          : '12,340.00'}
-                      </span>
-                    </div>
+                <div className="pt-2 border-t border-slate-700/50 space-y-1 relative z-10">
+                  <div className="flex justify-between items-center text-[11px]">
+                    <span className="text-slate-400">Total Deposits</span>
+                    <span className="font-mono text-white">
+                      ${!isDemo && nadoMetrics
+                        ? (nadoMetrics.totalDeposits || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                        : '8,750.00'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-[11px]">
+                    <span className="text-slate-400">Total Volume</span>
+                    <span className="font-mono text-white">
+                      ${!isDemo && nadoMetrics?.nadoVolumeUSD !== undefined
+                        ? (nadoMetrics.nadoVolumeUSD || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                        : '12,340.00'}
+                    </span>
                   </div>
                 </div>
 
                 {(!isDemo && nadoMetrics && nadoMetrics.totalTransactions > 0) || (isDemo) ? (
-                  <div className="mt-2 text-xs text-indigo-400 opacity-80 flex items-center gap-1">
+                  <div className="mt-1.5 text-[11px] text-indigo-400 opacity-80 flex items-center gap-1 relative z-10">
                     <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse"></span>
                     Active Nado User
                   </div>
@@ -1959,8 +1952,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
           </div>
 
           {/* GM Activity Card */}
-          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-purple-500/20 bg-gradient-to-br from-purple-500/12 to-purple-900/5 h-[300px] flex flex-col" style={{ animationDelay: '0.6s' }}>
-            <div className="flex items-center justify-between mb-4">
+          <div className="glass-card p-4 rounded-2xl animate-fade-in-up border border-purple-500/20 bg-gradient-to-br from-purple-500/12 to-purple-900/5 h-[220px] flex flex-col" style={{ animationDelay: '0.6s' }}>
+            <div className="flex items-center justify-between mb-2">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                 <a
                   href={PLATFORM_URLS.gm}
@@ -1996,7 +1989,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
                   <div className="text-sm text-slate-400">Total Transactions</div>
                 </div>
                 {((!isDemo && realGmData ? (realGmData.count || 0) : (data.stats.gmInteractionCount || 0)) > 0) && (
-                  <div className="mt-3 text-xs text-purple-500/80 flex items-center justify-center gap-1">
+                  <div className="mt-2 text-[11px] text-purple-500/80 flex items-center justify-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse"></span>
                     Active GM Participant
                   </div>
@@ -2006,7 +1999,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
           </div>
 
           {/* Bridge Volume Card */}
-          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-teal-500/20 bg-gradient-to-br from-teal-500/12 to-teal-900/5 h-[300px] flex flex-col" style={{ animationDelay: '0.65s' }}>
+          <div className="glass-card p-4 rounded-2xl animate-fade-in-up border border-teal-500/20 bg-gradient-to-br from-teal-500/12 to-teal-900/5 h-[220px] flex flex-col" style={{ animationDelay: '0.65s' }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                 <div className="flex items-center -space-x-3">
@@ -2066,16 +2059,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
 
                 return (
                   <>
-                    <div className="mb-3">
-                      <div className="text-2xl font-bold font-display text-teal-400">
+                    <div className="flex-1 flex flex-col items-center justify-center min-h-0 text-center">
+                      <div className="text-4xl font-bold font-display text-teal-400 leading-none tracking-tight">
                         ${totalUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </div>
-                      <div className="text-xs text-slate-500">{totalTxCount} transactions</div>
+                      <div className="text-[11px] text-slate-500 mt-1.5">{totalTxCount.toLocaleString()} transactions</div>
                     </div>
 
-                    <div className="flex-1 pt-3 border-t border-slate-700/50 flex flex-col min-h-0">
+                    <div className="pt-2 border-t border-slate-700/50 flex flex-col min-h-0">
                       <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">By Platform</span>
-                      <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar">
+                      <div className="flex-1 overflow-y-auto space-y-0.5 pr-1 custom-scrollbar">
                         {allPlatforms
                           .sort((a, b) => {
                             // Custom order: Ink Official -> Relay -> Native -> Bungee
@@ -2136,7 +2129,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
                     </div>
 
                     {totalTxCount > 0 && (
-                      <div className="mt-2 text-xs text-teal-400 opacity-80 flex items-center gap-1">
+                      <div className="mt-1.5 text-[11px] text-teal-400 opacity-80 flex items-center gap-1">
                         <span className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse"></span>
                         Active Bridger
                       </div>
@@ -2149,7 +2142,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
                 {isDemo ? (
                   <div className="flex-1 flex items-center justify-center">
                     <div className="text-center text-slate-500">
-                      <div className="text-2xl font-bold font-display text-purple-400 mb-2">$12,450.00</div>
+                      <div className="text-4xl font-bold font-display text-purple-400 mb-2">$12,450.00</div>
                       <div className="text-xs">Demo Bridge Volume</div>
                     </div>
                   </div>
@@ -2164,7 +2157,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
           </div>
 
           {/* Swap Volume Card */}
-          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-cyan-500/20 bg-gradient-to-br from-cyan-500/12 to-cyan-900/5 h-[300px] flex flex-col" style={{ animationDelay: '0.75s' }}>
+          <div className="glass-card p-4 rounded-2xl animate-fade-in-up border border-cyan-500/20 bg-gradient-to-br from-cyan-500/12 to-cyan-900/5 h-[220px] flex flex-col" style={{ animationDelay: '0.75s' }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                 <div className="flex items-center -space-x-3">
@@ -2194,27 +2187,26 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
             </div>
 
             {!isDemo && (isMetricLoading('swap') || !swapVolume) ? (
-              <div className="flex-1 flex flex-col justify-center">
-                <div className="h-8 w-28 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+              <div className="flex-1 flex flex-col items-center justify-center">
+                <div className="h-9 w-28 bg-slate-700/50 rounded animate-pulse mb-2"></div>
                 <div className="h-3 w-20 bg-slate-700/30 rounded animate-pulse mb-4"></div>
-                <div className="space-y-2">
-                  <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
+                <div className="w-full space-y-2">
                   <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
                   <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
                 </div>
               </div>
             ) : !isDemo && swapVolume ? (
               <>
-                <div className="mb-3">
-                  <div className="text-2xl font-bold font-display text-cyan-400">
+                <div className="flex-1 flex flex-col items-center justify-center min-h-0 text-center">
+                  <div className="text-4xl font-bold font-display text-cyan-400 leading-none tracking-tight">
                     ${swapVolume.totalUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </div>
-                  <div className="text-xs text-slate-500">{swapVolume.txCount} swaps</div>
+                  <div className="text-[11px] text-slate-500 mt-1.5">{swapVolume.txCount.toLocaleString()} swaps</div>
                 </div>
 
-                <div className="flex-1 pt-3 border-t border-slate-700/50 flex flex-col min-h-0">
+                <div className="pt-2 border-t border-slate-700/50 flex flex-col min-h-0">
                   <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">By Platform</span>
-                  <div className="flex-1 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
+                  <div className="flex-1 overflow-y-auto space-y-0.5 pr-1 custom-scrollbar">
                     {Object.entries(DEX_PLATFORMS)
                       .map(([contractAddress, platformInfo]) => {
                         const platformData = swapVolume.byPlatform.find(
@@ -2258,7 +2250,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
                 </div>
 
                 {swapVolume.txCount > 0 && (
-                  <div className="mt-2 text-xs text-cyan-400 opacity-80 flex items-center gap-1">
+                  <div className="mt-1.5 text-[11px] text-cyan-400 opacity-80 flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
                     Active Trader
                   </div>
@@ -2269,7 +2261,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
                 {isDemo ? (
                   <div className="flex-1 flex items-center justify-center">
                     <div className="text-center text-slate-500">
-                      <div className="text-2xl font-bold font-display text-cyan-400 mb-2">$8,750.00</div>
+                      <div className="text-4xl font-bold font-display text-cyan-400 mb-2">$8,750.00</div>
                       <div className="text-xs">Demo Swap Volume</div>
                     </div>
                   </div>
@@ -2292,9 +2284,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
         )}
 
         {/* Row 4: Templars + OpenSea + Otomate (3 cards, 3 columns) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
            {/* Templars of the Storm NFT Card */}
-          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-purple-500/20 bg-gradient-to-br from-purple-500/12 to-purple-900/5 h-[300px] flex flex-col" style={{ animationDelay: '1.1s' }}>
+          <div className="glass-card p-4 rounded-2xl animate-fade-in-up border border-purple-500/20 bg-gradient-to-br from-purple-500/12 to-purple-900/5 h-[220px] flex flex-col" style={{ animationDelay: '1.1s' }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                 <a
@@ -2319,41 +2311,26 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
 
             {!isDemo ? (
               (isMetricLoading('templarsNftBalance') || !templarsNftBalance) ? (
-                <div className="flex-1 flex flex-col justify-center">
-                  <div className="h-8 w-16 bg-slate-700/50 rounded animate-pulse mb-2"></div>
-                  <div className="h-3 w-24 bg-slate-700/30 rounded animate-pulse mb-4"></div>
-                  <div className="space-y-2">
-                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
-                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
-                  </div>
+                <div className="flex-1 flex flex-col items-center justify-center">
+                  <div className="h-9 w-24 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+                  <div className="h-3 w-28 bg-slate-700/30 rounded animate-pulse"></div>
                 </div>
               ) : (
                 <>
-                  <div className="mb-3">
-                    <div className="text-2xl font-bold font-display text-purple-400">
+                  <div className="flex-1 flex flex-col items-center justify-center min-h-0 text-center">
+                    <div className="text-4xl font-bold font-display text-purple-400 leading-none tracking-tight">
                       {templarsNftBalance.total_count.toLocaleString()}
                     </div>
-                    <div className="text-xs text-slate-500">
-                      {templarsNftBalance.total_count} NFT{templarsNftBalance.total_count !== 1 ? 's' : ''} held
-                    </div>
+                    <div className="text-xs text-slate-500 mt-1.5">NFTs Held</div>
                   </div>
 
-                  <div className="flex-1 pt-3 border-t border-slate-700/50">
-                    <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">Collection</span>
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center text-[11px]">
-                        <span className="text-slate-400">Templars of the Storm</span>
-                        <span className="font-mono text-purple-400">NFT</span>
-                      </div>
-                      <div className="flex justify-between items-center text-[11px]">
-                        <span className="text-slate-400">Balance</span>
-                        <span className="font-mono text-white">{templarsNftBalance.total_count}</span>
-                      </div>
-                    </div>
+                  <div className="pt-2 border-t border-slate-700/50 flex items-center justify-between text-[11px]">
+                    <span className="text-slate-400">Collection</span>
+                    <span className="font-mono text-purple-400">Templars of the Storm</span>
                   </div>
 
                   {templarsNftBalance.total_count > 0 && (
-                    <div className="mt-2 text-xs text-purple-400 opacity-80 flex items-center gap-1">
+                    <div className="mt-1.5 text-[11px] text-purple-400 opacity-80 flex items-center gap-1">
                       <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse"></span>
                       Templar Holder
                     </div>
@@ -2362,29 +2339,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
               )
             ) : (
               <>
-                <div className="mb-3">
-                  <div className="text-2xl font-bold font-display text-purple-400">0</div>
-                  <div className="text-xs text-slate-500">0 NFTs held</div>
+                <div className="flex-1 flex flex-col items-center justify-center min-h-0 text-center">
+                  <div className="text-4xl font-bold font-display text-purple-400 leading-none tracking-tight">0</div>
+                  <div className="text-xs text-slate-500 mt-1.5">NFTs Held</div>
                 </div>
 
-                <div className="flex-1 pt-3 border-t border-slate-700/50">
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">Collection</span>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-slate-400">Templars of the Storm</span>
-                      <span className="font-mono text-slate-500">NFT</span>
-                    </div>
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-slate-400">Balance</span>
-                      <span className="font-mono text-white">0</span>
-                    </div>
-                  </div>
+                <div className="pt-2 border-t border-slate-700/50 flex items-center justify-between text-[11px]">
+                  <span className="text-slate-400">Collection</span>
+                  <span className="font-mono text-slate-500">Templars of the Storm</span>
                 </div>
               </>
             )}
           </div>
           {/* OpenSea Card */}
-          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-sky-500/20 bg-gradient-to-br from-sky-500/12 to-sky-900/5 h-[300px] flex flex-col" style={{ animationDelay: '0.75s' }}>
+          <div className="glass-card p-4 rounded-2xl animate-fade-in-up border border-sky-500/20 bg-gradient-to-br from-sky-500/12 to-sky-900/5 h-[220px] flex flex-col" style={{ animationDelay: '0.75s' }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                 <a
@@ -2409,44 +2377,36 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
 
             {!isDemo ? (
               (isMetricLoading('openseaBuyCount') || isMetricLoading('mintCount') || isMetricLoading('openseaSaleCount') || !realOpenSeaBuys) ? (
-                <div className="flex-1 flex flex-col justify-center">
-                  <div className="h-8 w-20 bg-slate-700/50 rounded animate-pulse mb-2"></div>
-                  <div className="h-3 w-32 bg-slate-700/30 rounded animate-pulse mb-4"></div>
-                  <div className="space-y-2">
-                    <div className="h-4 w-full bg-slate-700/30 rounded animate-pulse"></div>
-                    <div className="h-4 w-full bg-slate-700/30 rounded animate-pulse"></div>
-                    <div className="h-4 w-full bg-slate-700/30 rounded animate-pulse"></div>
-                  </div>
+                <div className="flex-1 flex flex-col items-center justify-center">
+                  <div className="h-9 w-28 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+                  <div className="h-3 w-32 bg-slate-700/30 rounded animate-pulse"></div>
                 </div>
               ) : (
                 <>
-                  <div className="mb-3">
-                    <div className="text-2xl font-bold font-display text-sky-400">
+                  <div className="flex-1 flex flex-col items-center justify-center min-h-0 text-center">
+                    <div className="text-4xl font-bold font-display text-sky-400 leading-none tracking-tight">
                       {((realOpenSeaBuys?.count || 0) + (realMintCount?.count || 0) + (realOpenSeaSales?.count || 0)).toLocaleString()}
                     </div>
-                    <div className="text-xs text-slate-500">Total Activity</div>
+                    <div className="text-xs text-slate-500 mt-1.5">Total Activity</div>
                   </div>
 
-                  <div className="flex-1 pt-3 border-t border-slate-700/50">
-                    <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">By Type</span>
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center text-[11px]">
-                        <span className="text-slate-400">Buys</span>
-                        <span className="font-mono text-white">{(realOpenSeaBuys?.count || 0).toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between items-center text-[11px]">
-                        <span className="text-slate-400">Sales</span>
-                        <span className="font-mono text-white">{(realOpenSeaSales?.count || 0).toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between items-center text-[11px]">
-                        <span className="text-slate-400">Mints</span>
-                        <span className="font-mono text-white">{(realMintCount?.count || 0).toLocaleString()}</span>
-                      </div>
+                  <div className="pt-2 border-t border-slate-700/50 space-y-1">
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">Buys</span>
+                      <span className="font-mono text-white">{(realOpenSeaBuys?.count || 0).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">Sales</span>
+                      <span className="font-mono text-white">{(realOpenSeaSales?.count || 0).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">Mints</span>
+                      <span className="font-mono text-white">{(realMintCount?.count || 0).toLocaleString()}</span>
                     </div>
                   </div>
 
                   {((realOpenSeaBuys?.count || 0) + (realMintCount?.count || 0) + (realOpenSeaSales?.count || 0)) > 0 && (
-                    <div className="mt-2 text-xs text-sky-400 opacity-80 flex items-center gap-1">
+                    <div className="mt-1.5 text-[11px] text-sky-400 opacity-80 flex items-center gap-1">
                       <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse"></span>
                       Active NFT Trader
                     </div>
@@ -2455,30 +2415,27 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
               )
             ) : (
               <>
-                <div className="mb-3">
-                  <div className="text-2xl font-bold font-display text-sky-400">10</div>
-                  <div className="text-xs text-slate-500">Total Activity</div>
+                <div className="flex-1 flex flex-col items-center justify-center min-h-0 text-center">
+                  <div className="text-4xl font-bold font-display text-sky-400 leading-none tracking-tight">10</div>
+                  <div className="text-xs text-slate-500 mt-1.5">Total Activity</div>
                 </div>
 
-                <div className="flex-1 pt-3 border-t border-slate-700/50">
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">By Type</span>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-slate-400">Buys</span>
-                      <span className="font-mono text-white">5</span>
-                    </div>
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-slate-400">Sales</span>
-                      <span className="font-mono text-white">2</span>
-                    </div>
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-slate-400">Mints</span>
-                      <span className="font-mono text-white">3</span>
-                    </div>
+                <div className="pt-2 border-t border-slate-700/50 space-y-1">
+                  <div className="flex justify-between items-center text-[11px]">
+                    <span className="text-slate-400">Buys</span>
+                    <span className="font-mono text-white">5</span>
+                  </div>
+                  <div className="flex justify-between items-center text-[11px]">
+                    <span className="text-slate-400">Sales</span>
+                    <span className="font-mono text-white">2</span>
+                  </div>
+                  <div className="flex justify-between items-center text-[11px]">
+                    <span className="text-slate-400">Mints</span>
+                    <span className="font-mono text-white">3</span>
                   </div>
                 </div>
 
-                <div className="mt-2 text-xs text-sky-400 opacity-80 flex items-center gap-1">
+                <div className="mt-1.5 text-[11px] text-sky-400 opacity-80 flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse"></span>
                   Active NFT Trader
                 </div>
@@ -2486,7 +2443,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
             )}
           </div>
           {/* Otomate Card */}
-          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-green-500/20 bg-gradient-to-br from-green-500/12 to-green-900/5 h-[300px] flex flex-col" style={{ animationDelay: '0.9s' }}>
+          <div className="glass-card p-4 rounded-2xl animate-fade-in-up border border-green-500/20 bg-gradient-to-br from-green-500/12 to-green-900/5 h-[220px] flex flex-col" style={{ animationDelay: '0.9s' }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                 <a
@@ -2511,36 +2468,26 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
 
             {!isDemo ? (
               (isMetricLoading('copink') || !copinkMetrics) ? (
-                <div className="flex-1 flex flex-col justify-center">
-                  <div className="h-8 w-20 bg-slate-700/50 rounded animate-pulse mb-2"></div>
-                  <div className="h-3 w-32 bg-slate-700/30 rounded animate-pulse mb-4"></div>
-                  <div className="space-y-2">
-                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
-                  </div>
+                <div className="flex-1 flex flex-col items-center justify-center">
+                  <div className="h-9 w-28 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+                  <div className="h-3 w-32 bg-slate-700/30 rounded animate-pulse"></div>
                 </div>
               ) : (
                 <>
-                  <div className="mb-3">
-                    <div className="text-2xl font-bold font-display text-green-400">
+                  <div className="flex-1 flex flex-col items-center justify-center min-h-0 text-center">
+                    <div className="text-4xl font-bold font-display text-green-400 leading-none tracking-tight">
                       ${copinkMetrics.totalVolume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </div>
-                    <div className="text-xs text-slate-500">
-                      Total Trading Volume
-                    </div>
+                    <div className="text-xs text-slate-500 mt-1.5">Total Trading Volume</div>
                   </div>
 
-                  <div className="flex-1 pt-3 border-t border-slate-700/50">
-                    <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">Account Details</span>
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center text-[11px]">
-                        <span className="text-slate-400">Subaccounts Found</span>
-                        <span className="font-mono text-white">{copinkMetrics.subaccountsFound}</span>
-                      </div>
-                    </div>
+                  <div className="pt-2 border-t border-slate-700/50 flex items-center justify-between text-[11px]">
+                    <span className="text-slate-400">Subaccounts Found</span>
+                    <span className="font-mono text-white">{copinkMetrics.subaccountsFound}</span>
                   </div>
 
                   {copinkMetrics.totalVolume > 0 && (
-                    <div className="mt-2 text-xs text-green-400 opacity-80 flex items-center gap-1">
+                    <div className="mt-1.5 text-[11px] text-green-400 opacity-80 flex items-center gap-1">
                       <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></span>
                       Active Otomate Trader
                     </div>
@@ -2549,19 +2496,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
               )
             ) : (
               <>
-                <div className="mb-3">
-                  <div className="text-2xl font-bold font-display text-violet-400">$0.00</div>
-                  <div className="text-xs text-slate-500">Total Trading Volume</div>
+                <div className="flex-1 flex flex-col items-center justify-center min-h-0 text-center">
+                  <div className="text-4xl font-bold font-display text-green-400 leading-none tracking-tight">$0.00</div>
+                  <div className="text-xs text-slate-500 mt-1.5">Total Trading Volume</div>
                 </div>
 
-                <div className="flex-1 pt-3 border-t border-slate-700/50">
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">Account Details</span>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-slate-400">Subaccounts Found</span>
-                      <span className="font-mono text-white">0</span>
-                    </div>
-                  </div>
+                <div className="pt-2 border-t border-slate-700/50 flex items-center justify-between text-[11px]">
+                  <span className="text-slate-400">Subaccounts Found</span>
+                  <span className="font-mono text-white">0</span>
                 </div>
               </>
             )}
@@ -2574,9 +2516,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
         )}
 
         {/* Row 4b: InkScore Zenith + Staking + Sweep + ZNS (single row) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
           {/* InkScore Zenith NFT Card */}
-          <div className="glass-card relative overflow-hidden p-6 rounded-2xl animate-fade-in-up border border-fuchsia-500/25 bg-gradient-to-br from-fuchsia-500/15 via-fuchsia-900/10 to-fuchsia-900/5 h-[300px] flex flex-col" style={{ animationDelay: '0.68s' }}>
+          <div className="glass-card relative overflow-hidden p-4 rounded-2xl animate-fade-in-up border border-fuchsia-500/25 bg-gradient-to-br from-fuchsia-500/15 via-fuchsia-900/10 to-fuchsia-900/5 h-[220px] flex flex-col" style={{ animationDelay: '0.68s' }}>
             {/* Decorative glow + shine */}
             <div className="absolute -top-12 -right-12 w-36 h-36 bg-fuchsia-500/20 rounded-full blur-3xl pointer-events-none"></div>
             <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-fuchsia-400/70 to-transparent"></div>
@@ -2608,55 +2550,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
 
             {!isDemo ? (
               (isMetricLoading('zenithNft') || !zenithNftMetrics) ? (
-                <div className="flex-1 flex flex-col justify-center items-center">
-                  <div className="h-16 w-24 bg-slate-700/50 rounded animate-pulse mb-2"></div>
-                  <div className="h-4 w-32 bg-slate-700/30 rounded animate-pulse"></div>
+                <div className="flex-1 flex flex-col items-center justify-center">
+                  <div className="h-9 w-28 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+                  <div className="h-3 w-36 bg-slate-700/30 rounded animate-pulse"></div>
                 </div>
               ) : (
                 <>
-                  <div className="relative mb-3">
-                    <div className="text-3xl font-extrabold font-display bg-gradient-to-r from-fuchsia-200 via-fuchsia-400 to-fuchsia-600 bg-clip-text text-transparent">
+                  <div className="relative flex-1 flex flex-col items-center justify-center min-h-0 text-center">
+                    <div className="text-5xl font-extrabold font-display bg-gradient-to-r from-fuchsia-200 via-fuchsia-400 to-fuchsia-600 bg-clip-text text-transparent leading-none tracking-tight">
                       {zenithNftMetrics.total_count.toLocaleString()}
                     </div>
-                    <div className="text-xs text-slate-500">
-                      NFTs Held
-                    </div>
+                    <div className="text-xs text-slate-500 mt-1.5">NFTs Held</div>
                   </div>
 
-                  <div className="relative flex-1 pt-3 border-t border-fuchsia-500/15">
-                    <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">Collection Details</span>
-                    <div className="space-y-2">
-                      <a
-                        href={PLATFORM_URLS.zenithNft}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex justify-between items-center text-[11px] hover:text-fuchsia-300 transition-colors cursor-pointer"
-                        title="View InkScore Zenith on Explorer"
-                      >
-                        <span className="text-slate-400">Contract</span>
-                        <span className="font-mono text-white hover:text-fuchsia-300 transition-colors">0xd028...8c78 ↗</span>
-                      </a>
-                    </div>
-                  </div>
-
-                  {zenithNftMetrics.total_count > 0 && (
-                    <div className="mt-2 text-xs text-fuchsia-400 opacity-80 flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-fuchsia-400 animate-pulse"></span>
-                      Zenith Holder
-                    </div>
-                  )}
-                </>
-              )
-            ) : (
-              <>
-                <div className="relative mb-3">
-                  <div className="text-3xl font-extrabold font-display bg-gradient-to-r from-fuchsia-200 via-fuchsia-400 to-fuchsia-600 bg-clip-text text-transparent">0</div>
-                  <div className="text-[11px] text-slate-500 uppercase tracking-wider">NFTs Held</div>
-                </div>
-
-                <div className="relative flex-1 pt-3 border-t border-fuchsia-500/15">
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">Collection Details</span>
-                  <div className="space-y-2">
+                  <div className="relative pt-2 border-t border-fuchsia-500/15">
                     <a
                       href={PLATFORM_URLS.zenithNft}
                       target="_blank"
@@ -2668,13 +2575,40 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
                       <span className="font-mono text-white hover:text-fuchsia-300 transition-colors">0xd028...8c78 ↗</span>
                     </a>
                   </div>
+
+                  {zenithNftMetrics.total_count > 0 && (
+                    <div className="relative mt-1.5 text-[11px] text-fuchsia-400 opacity-80 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-fuchsia-400 animate-pulse"></span>
+                      Zenith Holder
+                    </div>
+                  )}
+                </>
+              )
+            ) : (
+              <>
+                <div className="relative flex-1 flex flex-col items-center justify-center min-h-0 text-center">
+                  <div className="text-5xl font-extrabold font-display bg-gradient-to-r from-fuchsia-200 via-fuchsia-400 to-fuchsia-600 bg-clip-text text-transparent leading-none tracking-tight">0</div>
+                  <div className="text-xs text-slate-500 mt-1.5">NFTs Held</div>
+                </div>
+
+                <div className="relative pt-2 border-t border-fuchsia-500/15">
+                  <a
+                    href={PLATFORM_URLS.zenithNft}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex justify-between items-center text-[11px] hover:text-fuchsia-300 transition-colors cursor-pointer"
+                    title="View InkScore Zenith on Explorer"
+                  >
+                    <span className="text-slate-400">Contract</span>
+                    <span className="font-mono text-white hover:text-fuchsia-300 transition-colors">0xd028...8c78 ↗</span>
+                  </a>
                 </div>
               </>
             )}
           </div>
 
           {/* InkScore Zenith Staking Card */}
-          <div className="glass-card relative overflow-hidden p-6 rounded-2xl animate-fade-in-up border border-indigo-500/25 bg-gradient-to-br from-indigo-500/15 via-violet-900/10 to-indigo-900/5 h-[300px] flex flex-col" style={{ animationDelay: '0.65s' }}>
+          <div className="glass-card relative overflow-hidden p-4 rounded-2xl animate-fade-in-up border border-indigo-500/25 bg-gradient-to-br from-indigo-500/15 via-violet-900/10 to-indigo-900/5 h-[220px] flex flex-col" style={{ animationDelay: '0.65s' }}>
             {/* Decorative glow + shine */}
             <div className="absolute -top-12 -right-12 w-36 h-36 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none"></div>
             <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-indigo-400/70 to-transparent"></div>
@@ -2706,41 +2640,36 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
 
             {!isDemo ? (
               (isMetricLoading('zenithStaking') || !zenithStakingMetrics) ? (
-                <div className="flex-1 flex flex-col justify-center items-center">
-                  <div className="h-16 w-24 bg-slate-700/50 rounded animate-pulse mb-2"></div>
-                  <div className="h-4 w-32 bg-slate-700/30 rounded animate-pulse"></div>
+                <div className="flex-1 flex flex-col items-center justify-center">
+                  <div className="h-9 w-28 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+                  <div className="h-3 w-36 bg-slate-700/30 rounded animate-pulse"></div>
                 </div>
               ) : (
                 <>
-                  <div className="relative mb-3">
-                    <div className="text-3xl font-extrabold font-display bg-gradient-to-r from-indigo-200 via-indigo-400 to-violet-600 bg-clip-text text-transparent">
+                  <div className="relative flex-1 flex flex-col items-center justify-center min-h-0 text-center">
+                    <div className="text-4xl font-extrabold font-display bg-gradient-to-r from-indigo-200 via-indigo-400 to-violet-600 bg-clip-text text-transparent leading-none tracking-tight">
                       {zenithStakingMetrics.total_staked.toLocaleString()}
                     </div>
-                    <div className="text-xs text-slate-500">
-                      NFTs Staked
-                    </div>
+                    <div className="text-xs text-slate-500 mt-1.5">NFTs Staked</div>
                   </div>
 
-                  <div className="relative flex-1 pt-3 border-t border-indigo-500/15">
-                    <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">By Lock Period</span>
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center text-[11px]">
-                        <span className="text-slate-400">1 Month</span>
-                        <span className="font-mono text-white">{zenithStakingMetrics.one_month_count.toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between items-center text-[11px]">
-                        <span className="text-slate-400">1 Week</span>
-                        <span className="font-mono text-white">{zenithStakingMetrics.one_week_count.toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between items-center text-[11px]">
-                        <span className="text-slate-400">1 Day</span>
-                        <span className="font-mono text-white">{zenithStakingMetrics.one_day_count.toLocaleString()}</span>
-                      </div>
+                  <div className="relative pt-2 border-t border-indigo-500/15 space-y-1">
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">1 Month</span>
+                      <span className="font-mono text-white">{zenithStakingMetrics.one_month_count.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">1 Week</span>
+                      <span className="font-mono text-white">{zenithStakingMetrics.one_week_count.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">1 Day</span>
+                      <span className="font-mono text-white">{zenithStakingMetrics.one_day_count.toLocaleString()}</span>
                     </div>
                   </div>
 
                   {zenithStakingMetrics.total_staked > 0 && (
-                    <div className="mt-2 text-xs text-indigo-400 opacity-80 flex items-center gap-1">
+                    <div className="relative mt-1.5 text-[11px] text-indigo-400 opacity-80 flex items-center gap-1">
                       <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse"></span>
                       Active Staker
                     </div>
@@ -2749,26 +2678,23 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
               )
             ) : (
               <>
-                <div className="relative mb-3">
-                  <div className="text-3xl font-extrabold font-display bg-gradient-to-r from-indigo-200 via-indigo-400 to-violet-600 bg-clip-text text-transparent">0</div>
-                  <div className="text-[11px] text-slate-500 uppercase tracking-wider">NFTs Staked</div>
+                <div className="relative flex-1 flex flex-col items-center justify-center min-h-0 text-center">
+                  <div className="text-4xl font-extrabold font-display bg-gradient-to-r from-indigo-200 via-indigo-400 to-violet-600 bg-clip-text text-transparent leading-none tracking-tight">0</div>
+                  <div className="text-xs text-slate-500 mt-1.5">NFTs Staked</div>
                 </div>
 
-                <div className="relative flex-1 pt-3 border-t border-indigo-500/15">
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">By Lock Period</span>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-slate-400">1 Month</span>
-                      <span className="font-mono text-white">0</span>
-                    </div>
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-slate-400">1 Week</span>
-                      <span className="font-mono text-white">0</span>
-                    </div>
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-slate-400">1 Day</span>
-                      <span className="font-mono text-white">0</span>
-                    </div>
+                <div className="relative pt-2 border-t border-indigo-500/15 space-y-1">
+                  <div className="flex justify-between items-center text-[11px]">
+                    <span className="text-slate-400">1 Month</span>
+                    <span className="font-mono text-white">0</span>
+                  </div>
+                  <div className="flex justify-between items-center text-[11px]">
+                    <span className="text-slate-400">1 Week</span>
+                    <span className="font-mono text-white">0</span>
+                  </div>
+                  <div className="flex justify-between items-center text-[11px]">
+                    <span className="text-slate-400">1 Day</span>
+                    <span className="font-mono text-white">0</span>
                   </div>
                 </div>
               </>
@@ -2776,7 +2702,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
           </div>
 
           {/* Sweep Card */}
-          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-yellow-500/20 bg-gradient-to-br from-yellow-500/12 to-yellow-900/5 h-[300px] flex flex-col" style={{ animationDelay: '0.93s' }}>
+          <div className="glass-card p-4 rounded-2xl animate-fade-in-up border border-yellow-500/20 bg-gradient-to-br from-yellow-500/12 to-yellow-900/5 h-[220px] flex flex-col" style={{ animationDelay: '0.93s' }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                 <a
@@ -2806,31 +2732,26 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
               </div>
             ) : (
               <>
-                <div className="mb-3">
-                  <div className="text-2xl font-bold font-display text-yellow-400">
+                <div className="flex-1 flex flex-col items-center justify-center min-h-0 text-center">
+                  <div className="text-4xl font-bold font-display text-yellow-400 leading-none tracking-tight">
                     {(!isDemo && sweepMetrics ? (sweepMetrics.totalCollections || 0) : 0).toLocaleString()}
                   </div>
-                  <div className="text-xs text-slate-500">
-                    NFT Collections Deployed
-                  </div>
+                  <div className="text-xs text-slate-500 mt-1.5">NFT Collections Deployed</div>
                 </div>
 
-                <div className="flex-1 pt-3 border-t border-slate-700/50">
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">Account Details</span>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-slate-400">Sweep Badges</span>
-                      <span className="font-mono text-white">{(sweepMetrics?.sweepBadgeBalance || 0).toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-slate-400">Total Streak</span>
-                      <span className="font-mono text-white">{(sweepMetrics?.totalStreak || 0).toLocaleString()}</span>
-                    </div>
+                <div className="pt-2 border-t border-slate-700/50 space-y-1">
+                  <div className="flex justify-between items-center text-[11px]">
+                    <span className="text-slate-400">Sweep Badges</span>
+                    <span className="font-mono text-white">{(sweepMetrics?.sweepBadgeBalance || 0).toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-[11px]">
+                    <span className="text-slate-400">Total Streak</span>
+                    <span className="font-mono text-white">{(sweepMetrics?.totalStreak || 0).toLocaleString()}</span>
                   </div>
                 </div>
 
                 {((!isDemo && sweepMetrics ? (sweepMetrics.totalCollections || 0) : 0) > 0 || (!isDemo && sweepMetrics ? (sweepMetrics.sweepBadgeBalance || 0) : 0) > 0) && (
-                  <div className="mt-2 text-xs text-yellow-400 opacity-80 flex items-center gap-1">
+                  <div className="mt-1.5 text-[11px] text-yellow-400 opacity-80 flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-yellow-400 animate-pulse"></span>
                     NFT Creator
                   </div>
@@ -2839,7 +2760,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
             )}
           </div>
           {/* ZNS Domain Card */}
-          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-lime-500/20 bg-gradient-to-br from-lime-500/12 to-lime-900/5 h-[300px] flex flex-col" style={{ animationDelay: '0.8s' }}>
+          <div className="glass-card p-4 rounded-2xl animate-fade-in-up border border-lime-500/20 bg-gradient-to-br from-lime-500/12 to-lime-900/5 h-[220px] flex flex-col" style={{ animationDelay: '0.8s' }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                 <a
@@ -2863,52 +2784,42 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
             </div>
 
             {!isDemo && (isMetricLoading('zns') || !znsMetrics) ? (
-              <div className="flex-1 flex flex-col justify-center">
-                <div className="h-8 w-16 bg-slate-700/50 rounded animate-pulse mb-2"></div>
-                <div className="h-3 w-24 bg-slate-700/30 rounded animate-pulse mb-4"></div>
-                <div className="space-y-2">
-                  <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
-                  <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
-                  <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
-                </div>
+              <div className="flex-1 flex flex-col items-center justify-center">
+                <div className="h-9 w-24 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+                <div className="h-3 w-28 bg-slate-700/30 rounded animate-pulse"></div>
               </div>
             ) : (
               <>
-                <div className="mb-3">
-                  <div className="text-2xl font-bold font-display text-lime-400">
+                <div className="flex-1 flex flex-col items-center justify-center min-h-0 text-center">
+                  <div className="text-4xl font-bold font-display text-lime-400 leading-none tracking-tight">
                     {!isDemo && znsMetrics ? znsMetrics.total_count : 0}
                   </div>
-                  <div className="text-xs text-slate-500">
-                    {!isDemo && znsMetrics ? znsMetrics.total_count : 0} transactions
-                  </div>
+                  <div className="text-xs text-slate-500 mt-1.5">Transactions</div>
                 </div>
 
-                <div className="flex-1 pt-3 border-t border-slate-700/50">
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">By Action</span>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-slate-400">Deploy Smart Contract</span>
-                      <span className="font-mono text-white">
-                        {!isDemo && znsMetrics ? znsMetrics.deploy_count : 0}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-slate-400">Say GM</span>
-                      <span className="font-mono text-white">
-                        {!isDemo && znsMetrics ? znsMetrics.say_gm_count : 0}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-slate-400">Register Domain</span>
-                      <span className="font-mono text-white">
-                        {!isDemo && znsMetrics ? znsMetrics.register_domain_count : 0}
-                      </span>
-                    </div>
+                <div className="pt-2 border-t border-slate-700/50 space-y-1">
+                  <div className="flex justify-between items-center text-[11px]">
+                    <span className="text-slate-400">Deploy Smart Contract</span>
+                    <span className="font-mono text-white">
+                      {!isDemo && znsMetrics ? znsMetrics.deploy_count : 0}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-[11px]">
+                    <span className="text-slate-400">Say GM</span>
+                    <span className="font-mono text-white">
+                      {!isDemo && znsMetrics ? znsMetrics.say_gm_count : 0}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-[11px]">
+                    <span className="text-slate-400">Register Domain</span>
+                    <span className="font-mono text-white">
+                      {!isDemo && znsMetrics ? znsMetrics.register_domain_count : 0}
+                    </span>
                   </div>
                 </div>
 
                 {!isDemo && znsMetrics && znsMetrics.total_count > 0 && (
-                  <div className="mt-2 text-xs text-lime-400 opacity-80 flex items-center gap-1">
+                  <div className="mt-1.5 text-[11px] text-lime-400 opacity-80 flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-lime-400 animate-pulse"></span>
                     Active ZNS User
                   </div>
@@ -2918,9 +2829,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
           </div>
         </div>
         {/* Row 5: InkyPump + Shellies + Ink Brokers + NFT2Me | Gone Fishin + Sentry + Hypercall (4 columns) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* InkyPump Card */}
-          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-pink-500/20 bg-gradient-to-br from-pink-500/12 to-pink-900/5 h-[300px] flex flex-col" style={{ animationDelay: '0.7s' }}>
+          <div className="glass-card p-4 rounded-2xl animate-fade-in-up border border-pink-500/20 bg-gradient-to-br from-pink-500/12 to-pink-900/5 h-[220px] flex flex-col" style={{ animationDelay: '0.7s' }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                 <a
@@ -2944,52 +2855,44 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
             </div>
 
             {!isDemo && (isMetricLoading('inkypumpCreatedTokens') || isMetricLoading('inkypumpBuyVolume') || isMetricLoading('inkypumpSellVolume') || !inkyPumpCreatedTokens || !inkyPumpBuyVolume || !inkyPumpSellVolume) ? (
-              <div className="flex-1 flex flex-col justify-center">
-                <div className="h-8 w-20 bg-slate-700/50 rounded animate-pulse mb-2"></div>
-                <div className="h-3 w-24 bg-slate-700/30 rounded animate-pulse mb-4"></div>
-                <div className="h-20 w-full bg-slate-700/30 rounded animate-pulse"></div>
+              <div className="flex-1 flex flex-col items-center justify-center">
+                <div className="h-9 w-24 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+                <div className="h-3 w-28 bg-slate-700/30 rounded animate-pulse"></div>
               </div>
             ) : (
               <>
-                <div className="mb-3">
-                  <div className="text-2xl font-bold font-display text-pink-400">
+                <div className="flex-1 flex flex-col items-center justify-center min-h-0 text-center">
+                  <div className="text-4xl font-bold font-display text-pink-400 leading-none tracking-tight">
                     {!isDemo && inkyPumpCreatedTokens ? inkyPumpCreatedTokens.count : 0}
                   </div>
-                  <div className="text-xs text-slate-500">Created Tokens</div>
+                  <div className="text-xs text-slate-500 mt-1.5">Created Tokens</div>
                 </div>
 
-                <div className="flex-1 pt-3 border-t border-slate-700/50">
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">By Action</span>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-slate-400">Created Tokens</span>
-                      <span className="font-mono text-white">{!isDemo && inkyPumpCreatedTokens ? inkyPumpCreatedTokens.count : 0}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-slate-400">Buy Token volume</span>
-                      <span className="font-mono text-white">
-                        ${!isDemo && inkyPumpBuyVolume ? parseFloat(inkyPumpBuyVolume.total_value).toFixed(2) : '0.00'}
-                        <span className="pl-[2px] text-[10px] text-slate-500"> /
-                          {!isDemo && inkyPumpBuyVolume ? inkyPumpBuyVolume.total_count || 0 : 0} tx
-                        </span>
+                <div className="pt-2 border-t border-slate-700/50 space-y-1">
+                  <div className="flex justify-between items-center text-[11px]">
+                    <span className="text-slate-400">Buy Token volume</span>
+                    <span className="font-mono text-white">
+                      ${!isDemo && inkyPumpBuyVolume ? parseFloat(inkyPumpBuyVolume.total_value).toFixed(2) : '0.00'}
+                      <span className="pl-[2px] text-[10px] text-slate-500"> /
+                        {!isDemo && inkyPumpBuyVolume ? inkyPumpBuyVolume.total_count || 0 : 0} tx
                       </span>
-                    </div>
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-slate-400">Sell Token volume</span>
-                      <span className="font-mono text-white">
-                        ${!isDemo && inkyPumpSellVolume ? parseFloat(inkyPumpSellVolume.total_value).toFixed(2) : '0.00'}
-                        <span className="pl-[2px] text-[10px] text-slate-500"> /
-                          {!isDemo && inkyPumpSellVolume ? inkyPumpSellVolume.total_count || 0 : 0} tx
-                        </span>
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-[11px]">
+                    <span className="text-slate-400">Sell Token volume</span>
+                    <span className="font-mono text-white">
+                      ${!isDemo && inkyPumpSellVolume ? parseFloat(inkyPumpSellVolume.total_value).toFixed(2) : '0.00'}
+                      <span className="pl-[2px] text-[10px] text-slate-500"> /
+                        {!isDemo && inkyPumpSellVolume ? inkyPumpSellVolume.total_count || 0 : 0} tx
                       </span>
-                    </div>
+                    </span>
                   </div>
                 </div>
               </>
             )}
           </div>
            {/* Shellies Unified Card */}
-          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-violet-500/20 bg-gradient-to-br from-violet-500/12 to-violet-900/5 h-[300px] flex flex-col" style={{ animationDelay: '1.0s' }}>
+          <div className="glass-card p-4 rounded-2xl animate-fade-in-up border border-violet-500/20 bg-gradient-to-br from-violet-500/12 to-violet-900/5 h-[220px] flex flex-col" style={{ animationDelay: '1.0s' }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                 <a
@@ -3013,46 +2916,42 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
             </div>
 
             {!isDemo && (isMetricLoading('shelliesJoinedRaffles') || isMetricLoading('shelliesPayToPlay') || !shelliesJoinedRaffles || !shelliesPayToPlay) ? (
-              <div className="flex-1 flex flex-col justify-center">
-                <div className="h-8 w-20 bg-slate-700/50 rounded animate-pulse mb-2"></div>
-                <div className="h-3 w-32 bg-slate-700/30 rounded animate-pulse mb-4"></div>
-                <div className="space-y-2">
-                  <div className="h-4 w-full bg-slate-700/30 rounded animate-pulse"></div>
-                  <div className="h-4 w-full bg-slate-700/30 rounded animate-pulse"></div>
+              <div className="flex-1 flex flex-col items-center justify-center">
+                <div className="h-9 w-28 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+                <div className="w-full space-y-2">
+                  <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
+                  <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
                 </div>
               </div>
             ) : (
               <>
-                <div className="mb-3">
-                  <div className="text-2xl font-bold font-display text-violet-400">
+                <div className="flex-1 flex flex-col items-center justify-center min-h-0 text-center">
+                  <div className="text-4xl font-bold font-display text-violet-400 leading-none tracking-tight">
                     {!isDemo && shelliesJoinedRaffles && shelliesPayToPlay
                       ? (shelliesJoinedRaffles.total_count + shelliesPayToPlay.total_count)
                       : 0}
                   </div>
-                  <div className="text-xs text-slate-500">Total Transactions</div>
+                  <div className="text-xs text-slate-500 mt-1.5">Total Transactions</div>
                 </div>
 
-                <div className="flex-1 pt-3 border-t border-slate-700/50">
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">By Activity</span>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-slate-400">Joined Raffles</span>
-                      <span className="font-mono text-white">
-                        {!isDemo && shelliesJoinedRaffles ? shelliesJoinedRaffles.total_count : 0}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-slate-400">Pay to Play</span>
-                      <span className="font-mono text-white">
-                        {!isDemo && shelliesPayToPlay ? shelliesPayToPlay.total_count : 0}
-                      </span>
-                    </div>
+                <div className="pt-2 border-t border-slate-700/50 space-y-1">
+                  <div className="flex justify-between items-center text-[11px]">
+                    <span className="text-slate-400">Joined Raffles</span>
+                    <span className="font-mono text-white">
+                      {!isDemo && shelliesJoinedRaffles ? shelliesJoinedRaffles.total_count : 0}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-[11px]">
+                    <span className="text-slate-400">Pay to Play</span>
+                    <span className="font-mono text-white">
+                      {!isDemo && shelliesPayToPlay ? shelliesPayToPlay.total_count : 0}
+                    </span>
                   </div>
                 </div>
 
                 {!isDemo && shelliesJoinedRaffles && shelliesPayToPlay &&
                   (shelliesJoinedRaffles.total_count + shelliesPayToPlay.total_count) > 0 && (
-                    <div className="mt-2 text-xs text-violet-400 opacity-80 flex items-center gap-1">
+                    <div className="mt-1.5 text-[11px] text-violet-400 opacity-80 flex items-center gap-1">
                       <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse"></span>
                       Active Shellies User
                     </div>
@@ -3061,8 +2960,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
             )}
           </div>
           {/* Ink Brokers Card */}
-          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-amber-500/20 bg-gradient-to-br from-amber-500/12 to-amber-900/5 h-[300px] flex flex-col" style={{ animationDelay: '1.05s' }}>
-            <div className="flex items-center justify-between mb-4">
+          <div className="glass-card p-4 rounded-2xl animate-fade-in-up border border-amber-500/20 bg-gradient-to-br from-amber-500/12 to-amber-900/5 h-[220px] flex flex-col" style={{ animationDelay: '1.05s' }}>
+            <div className="flex items-center justify-between mb-2">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                 <a
                   href={PLATFORM_URLS.inkBrokers}
@@ -3098,13 +2997,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
                   </div>
                 </div>
                 {!isDemo && inkBrokersMetrics && inkBrokersMetrics.active_seats > 0 && (
-                  <div className="mt-3 pt-3 border-t border-slate-700/50 flex items-center justify-between text-[11px]">
+                  <div className="mt-2 pt-2 border-t border-slate-700/50 flex items-center justify-between text-[11px]">
                     <span className="text-slate-400">Desk Active</span>
                     <span className="font-mono text-white">{inkBrokersMetrics.active_seats} seat{inkBrokersMetrics.active_seats !== 1 ? 's' : ''}</span>
                   </div>
                 )}
                 {!isDemo && inkBrokersMetrics && inkBrokersMetrics.active_seats > 0 && (
-                  <div className="mt-2 text-xs text-amber-400 opacity-80 flex items-center gap-1">
+                  <div className="mt-1.5 text-[11px] text-amber-400 opacity-80 flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
                     Broker Clocked In
                   </div>
@@ -3113,7 +3012,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
             )}
           </div>
           {/* NFT2Me Card */}
-          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-cyan-500/20 bg-gradient-to-br from-cyan-500/12 to-cyan-900/5 h-[300px] flex flex-col" style={{ animationDelay: '0.95s' }}>
+          <div className="glass-card p-4 rounded-2xl animate-fade-in-up border border-cyan-500/20 bg-gradient-to-br from-cyan-500/12 to-cyan-900/5 h-[220px] flex flex-col" style={{ animationDelay: '0.95s' }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                 <a
@@ -3138,41 +3037,32 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
 
             {!isDemo ? (
               (isMetricLoading('nft2me') || !nft2meMetrics) ? (
-                <div className="flex-1 flex flex-col justify-center">
-                  <div className="h-8 w-16 bg-slate-700/50 rounded animate-pulse mb-2"></div>
-                  <div className="h-3 w-24 bg-slate-700/30 rounded animate-pulse mb-4"></div>
-                  <div className="space-y-2">
-                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
-                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
-                  </div>
+                <div className="flex-1 flex flex-col items-center justify-center">
+                  <div className="h-9 w-24 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+                  <div className="h-3 w-28 bg-slate-700/30 rounded animate-pulse"></div>
                 </div>
               ) : (
                 <>
-                  <div className="mb-3">
-                    <div className="text-2xl font-bold font-display text-cyan-400">
+                  <div className="flex-1 flex flex-col items-center justify-center min-h-0 text-center">
+                    <div className="text-4xl font-bold font-display text-cyan-400 leading-none tracking-tight">
                       {nft2meMetrics.totalTransactions.toLocaleString()}
                     </div>
-                    <div className="text-xs text-slate-500">
-                      {nft2meMetrics.totalTransactions} transaction{nft2meMetrics.totalTransactions !== 1 ? 's' : ''}
-                    </div>
+                    <div className="text-xs text-slate-500 mt-1.5">Total Transactions</div>
                   </div>
 
-                  <div className="flex-1 pt-3 border-t border-slate-700/50">
-                    <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">By Action</span>
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center text-[11px]">
-                        <span className="text-slate-400">Collections Created</span>
-                        <span className="font-mono text-white">{nft2meMetrics.collectionsCreated}</span>
-                      </div>
-                      <div className="flex justify-between items-center text-[11px]">
-                        <span className="text-slate-400">NFTs Minted</span>
-                        <span className="font-mono text-white">{nft2meMetrics.nftsMinted}</span>
-                      </div>
+                  <div className="pt-2 border-t border-slate-700/50 space-y-1">
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">Collections Created</span>
+                      <span className="font-mono text-white">{nft2meMetrics.collectionsCreated}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">NFTs Minted</span>
+                      <span className="font-mono text-white">{nft2meMetrics.nftsMinted}</span>
                     </div>
                   </div>
 
                   {nft2meMetrics.totalTransactions > 0 && (
-                    <div className="mt-2 text-xs text-emerald-400 opacity-80 flex items-center gap-1">
+                    <div className="mt-1.5 text-[11px] text-emerald-400 opacity-80 flex items-center gap-1">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
                       NFT2Me Creator
                     </div>
@@ -3181,26 +3071,23 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
               )
             ) : (
               <>
-                <div className="mb-3">
-                  <div className="text-2xl font-bold font-display text-cyan-400">3</div>
-                  <div className="text-xs text-slate-500">3 transactions</div>
+                <div className="flex-1 flex flex-col items-center justify-center min-h-0 text-center">
+                  <div className="text-4xl font-bold font-display text-cyan-400 leading-none tracking-tight">3</div>
+                  <div className="text-xs text-slate-500 mt-1.5">Total Transactions</div>
                 </div>
 
-                <div className="flex-1 pt-3 border-t border-slate-700/50">
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">By Action</span>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-slate-400">Collections Created</span>
-                      <span className="font-mono text-white">1</span>
-                    </div>
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-slate-400">NFTs Minted</span>
-                      <span className="font-mono text-white">2</span>
-                    </div>
+                <div className="pt-2 border-t border-slate-700/50 space-y-1">
+                  <div className="flex justify-between items-center text-[11px]">
+                    <span className="text-slate-400">Collections Created</span>
+                    <span className="font-mono text-white">1</span>
+                  </div>
+                  <div className="flex justify-between items-center text-[11px]">
+                    <span className="text-slate-400">NFTs Minted</span>
+                    <span className="font-mono text-white">2</span>
                   </div>
                 </div>
 
-                <div className="mt-2 text-xs text-emerald-400 opacity-80 flex items-center gap-1">
+                <div className="mt-1.5 text-[11px] text-emerald-400 opacity-80 flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
                   NFT2Me Creator
                 </div>
@@ -3208,8 +3095,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
             )}
           </div>
           {/* Gone Fishin Card */}
-          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-amber-500/20 bg-gradient-to-br from-amber-500/12 to-amber-900/5 h-[300px] flex flex-col" style={{ animationDelay: '1s' }}>
-            <div className="flex items-center justify-between mb-4">
+          <div className="glass-card p-4 rounded-2xl animate-fade-in-up border border-amber-500/20 bg-gradient-to-br from-amber-500/12 to-amber-900/5 h-[220px] flex flex-col" style={{ animationDelay: '1s' }}>
+            <div className="flex items-center justify-between mb-2">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                 <a
                   href={PLATFORM_URLS.gonefishin}
@@ -3233,13 +3120,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
 
             {!isDemo ? (
               (isMetricLoading('gonefishin') || !gonefishinMetrics) ? (
-                <div className="flex-1 flex flex-col justify-center">
-                  <div className="h-8 w-16 bg-slate-700/50 rounded animate-pulse mb-2"></div>
-                  <div className="h-3 w-24 bg-slate-700/30 rounded animate-pulse mb-4"></div>
-                  <div className="space-y-2">
-                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
-                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
-                  </div>
+                <div className="flex-1 flex flex-col items-center justify-center">
+                  <div className="h-9 w-24 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+                  <div className="h-3 w-28 bg-slate-700/30 rounded animate-pulse"></div>
                 </div>
               ) : (
                 <>
@@ -3253,7 +3136,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
                     </div>
                   </div>
                   {gonefishinMetrics.gamesBought > 0 && (
-                    <div className="mt-2 text-xs text-emerald-400 opacity-80 flex items-center gap-1">
+                    <div className="mt-1.5 text-[11px] text-emerald-400 opacity-80 flex items-center gap-1">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
                       Gone Fishin Player
                     </div>
@@ -3267,7 +3150,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
                   <div className="text-sm text-slate-400">Total Played</div>
                   <div className="text-xs text-slate-500 mt-1">~$126.40</div>
                 </div>
-                <div className="mt-2 text-xs text-emerald-400 opacity-80 flex items-center gap-1">
+                <div className="mt-1.5 text-[11px] text-emerald-400 opacity-80 flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
                   Gone Fishin Player
                 </div>
@@ -3275,8 +3158,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
             )}
           </div>
           {/* Sentry Card */}
-          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-indigo-500/20 bg-gradient-to-br from-indigo-500/12 to-indigo-900/5 h-[300px] flex flex-col" style={{ animationDelay: '1.05s' }}>
-            <div className="flex items-center justify-between mb-4">
+          <div className="glass-card p-4 rounded-2xl animate-fade-in-up border border-indigo-500/20 bg-gradient-to-br from-indigo-500/12 to-indigo-900/5 h-[220px] flex flex-col" style={{ animationDelay: '1.05s' }}>
+            <div className="flex items-center justify-between mb-2">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                 <a
                   href={PLATFORM_URLS.sentry}
@@ -3300,13 +3183,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
 
             {!isDemo ? (
               (isMetricLoading('sentry') || !sentryMetrics) ? (
-                <div className="flex-1 flex flex-col justify-center">
-                  <div className="h-8 w-16 bg-slate-700/50 rounded animate-pulse mb-2"></div>
-                  <div className="h-3 w-24 bg-slate-700/30 rounded animate-pulse mb-4"></div>
-                  <div className="space-y-2">
-                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
-                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
-                  </div>
+                <div className="flex-1 flex flex-col items-center justify-center">
+                  <div className="h-9 w-24 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+                  <div className="h-3 w-28 bg-slate-700/30 rounded animate-pulse"></div>
                 </div>
               ) : (
                 <>
@@ -3320,13 +3199,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
                     </div>
                   </div>
                   {sentryMetrics.tokensLaunched > 0 && (
-                    <div className="mt-3 pt-3 border-t border-slate-700/50 flex items-center justify-between text-[11px]">
+                    <div className="mt-2 pt-2 border-t border-slate-700/50 flex items-center justify-between text-[11px]">
                       <span className="text-slate-400">Tokens Launched</span>
                       <span className="font-mono text-white">{sentryMetrics.tokensLaunched.toLocaleString()}</span>
                     </div>
                   )}
                   {sentryMetrics.tokensLaunched > 0 && (
-                    <div className="mt-2 text-xs text-emerald-400 opacity-80 flex items-center gap-1">
+                    <div className="mt-1.5 text-[11px] text-emerald-400 opacity-80 flex items-center gap-1">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
                       Sentry Creator
                     </div>
@@ -3340,11 +3219,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
                   <div className="text-sm text-slate-400">Total Volume</div>
                   <div className="text-xs text-slate-500 mt-1">47 swaps</div>
                 </div>
-                <div className="mt-3 pt-3 border-t border-slate-700/50 flex items-center justify-between text-[11px]">
+                <div className="mt-2 pt-2 border-t border-slate-700/50 flex items-center justify-between text-[11px]">
                   <span className="text-slate-400">Tokens Launched</span>
                   <span className="font-mono text-white">2</span>
                 </div>
-                <div className="mt-2 text-xs text-emerald-400 opacity-80 flex items-center gap-1">
+                <div className="mt-1.5 text-[11px] text-emerald-400 opacity-80 flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
                   Sentry Creator
                 </div>
@@ -3352,8 +3231,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
             )}
           </div>
           {/* Hypercall Card */}
-          <div className="glass-card p-6 rounded-2xl animate-fade-in-up border border-violet-500/20 bg-gradient-to-br from-violet-500/12 to-violet-900/5 h-[300px] flex flex-col" style={{ animationDelay: '1.1s' }}>
-            <div className="flex items-center justify-between mb-4">
+          <div className="glass-card p-4 rounded-2xl animate-fade-in-up border border-violet-500/20 bg-gradient-to-br from-violet-500/12 to-violet-900/5 h-[220px] flex flex-col" style={{ animationDelay: '1.1s' }}>
+            <div className="flex items-center justify-between mb-2">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                 <a
                   href={PLATFORM_URLS.hypercall}
@@ -3377,13 +3256,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
 
             {!isDemo ? (
               (isMetricLoading('hypercall') || !hypercallMetrics) ? (
-                <div className="flex-1 flex flex-col justify-center">
-                  <div className="h-8 w-16 bg-slate-700/50 rounded animate-pulse mb-2"></div>
-                  <div className="h-3 w-24 bg-slate-700/30 rounded animate-pulse mb-4"></div>
-                  <div className="space-y-2">
-                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
-                    <div className="h-3 w-full bg-slate-700/30 rounded animate-pulse"></div>
-                  </div>
+                <div className="flex-1 flex flex-col items-center justify-center">
+                  <div className="h-9 w-24 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+                  <div className="h-3 w-28 bg-slate-700/30 rounded animate-pulse"></div>
                 </div>
               ) : (
                 <>
@@ -3397,13 +3272,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
                     </div>
                   </div>
                   {hypercallMetrics.positionsWritten > 0 && (
-                    <div className="mt-3 pt-3 border-t border-slate-700/50 flex items-center justify-between text-[11px]">
+                    <div className="mt-2 pt-2 border-t border-slate-700/50 flex items-center justify-between text-[11px]">
                       <span className="text-slate-400">Covered Calls Written</span>
                       <span className="font-mono text-white">{hypercallMetrics.positionsWritten.toLocaleString()}</span>
                     </div>
                   )}
                   {hypercallMetrics.positionsWritten > 0 && (
-                    <div className="mt-2 text-xs text-emerald-400 opacity-80 flex items-center gap-1">
+                    <div className="mt-1.5 text-[11px] text-emerald-400 opacity-80 flex items-center gap-1">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
                       Covered Call Writer
                     </div>
@@ -3417,11 +3292,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
                   <div className="text-sm text-slate-400">Total Volume</div>
                   <div className="text-xs text-slate-500 mt-1">5 swaps</div>
                 </div>
-                <div className="mt-3 pt-3 border-t border-slate-700/50 flex items-center justify-between text-[11px]">
+                <div className="mt-2 pt-2 border-t border-slate-700/50 flex items-center justify-between text-[11px]">
                   <span className="text-slate-400">Covered Calls Written</span>
                   <span className="font-mono text-white">3</span>
                 </div>
-                <div className="mt-2 text-xs text-emerald-400 opacity-80 flex items-center gap-1">
+                <div className="mt-1.5 text-[11px] text-emerald-400 opacity-80 flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
                   Covered Call Writer
                 </div>
