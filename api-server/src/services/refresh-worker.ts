@@ -54,7 +54,7 @@ const WORKER_CONCURRENCY = 2;
 // System/junk wallets that must never be walked: the burn address has 55M
 // txs — every Blockscout query for it times out and poisons the shared
 // request budget for real users.
-const JUNK_WALLETS = new Set([
+export const JUNK_WALLETS = new Set([
   '0xdeaddeaddeaddeaddeaddeaddeaddeaddead0001',
 ]);
 
@@ -118,6 +118,15 @@ async function runJob(row: QueueRow): Promise<void> {
     // request-path timeout pressure (bridge discovery for an active wallet
     // can take minutes), its service caches fill, and the NEXT user load
     // hits warm data.
+    // Full-bundle refresh (catch-up worker / warm sweeps): the exact work a
+    // user visit would do, off the request path — every metric re-gathers
+    // with cursor-resume (delta only) and the complete bundle persists to the
+    // snapshot store, so the next visit serves instantly.
+    if (row.protocol === 'bundle') {
+      const bundle = await gatherDashboardBundle(row.wallet_address, { fresh: true });
+      if (bundle.partial) throw new Error('bundle refresh ended partial — will retry with backoff');
+      return;
+    }
     if (row.protocol === 'bridge') {
       await getBridgeVolume(row.wallet_address);
     } else if (row.protocol === 'volume') {

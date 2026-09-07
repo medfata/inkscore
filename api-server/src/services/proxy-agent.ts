@@ -1,21 +1,35 @@
 // Proxy egress for rate-limited upstreams (Blockscout).
 //
-// THREE modes (pick via env):
-// 1. PROXY_URL_LIST_FILE / PROXY_URL_LIST — fixed proxy list (one URL per
-//    line / comma-separated). Round-robined per request; a 429/403 or
-//    network failure simply moves the next request to the next IP (the
-//    list is fixed, so entries are never rebuilt). This is the
-//    ProxyScrape-style datacenter mode.
-// 2. PROXY_URL_TEMPLATE — provider-agnostic sticky-session template with a
-//    {sid} placeholder (Iproyal/Decodo/DataImpulse). Entries are rebuilt
-//    with a fresh session id on failure/429.
-// 3. Legacy DATAIMPULSE_* creds (default when nothing else is set).
-// Set BLOCKSCOUT_PROXY=off to bypass the pool and egress directly.
+// FOUR modes (pick via env BLOCKSCOUT_PROXY):
+// 1. "on"    — all Blockscout traffic egresses through the proxy pool.
+// 2. "hybrid"— DIRECT-FIRST. Direct egress until it gets 429/403'd or fails,
+//              then the pool takes over for a cooldown window; direct is
+//              re-probed after the window and re-armed on success. Pool
+//              failures fall straight back to direct (a dead pool must never
+//              take the API down). This is the production default.
+// 3. "off"   — direct always, pool never built.
+// (Pool sources, in priority order:)
+//    a. PROXY_URL_LIST_FILE / PROXY_URL_LIST — fixed list (one URL per line),
+//       round-robined per request; 429/403/network failure moves the next
+//       request to the next IP. ProxyScrape-style datacenter mode.
+//    b. PROXY_URL_TEMPLATE — provider-agnostic sticky-session template with
+//       {sid} (Iproyal/Decodo/DataImpulse). Rebuilt with a fresh session id
+//       on failure/429.
+//    c. Legacy DATAIMPULSE_* creds (default when nothing else is set).
 import { fetch as undiciFetch, ProxyAgent } from 'undici';
 import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 
 const PROXY_ENABLED = process.env.BLOCKSCOUT_PROXY !== 'off';
+// HYBRID: direct-first, pool only as rate-limit/failure fallback.
+const HYBRID = process.env.BLOCKSCOUT_PROXY === 'hybrid';
+// How long direct egress stays benched after a 429/403 before being re-probed.
+const DIRECT_COOLDOWN_MS = parseInt(process.env.PROXY_DIRECT_COOLDOWN_MS || '60000', 10);
+// How long the pool stays benched after repeated pool failures (dead pool must
+// never take the API down — direct takes over again immediately).
+const POOL_COOLDOWN_MS = parseInt(process.env.PROXY_POOL_COOLDOWN_MS || '60000', 10);
+let directBlockedUntil = 0;
+let poolBlockedUntil = 0;
 const PROXY_POOL_SIZE = parseInt(process.env.PROXY_POOL_SIZE || '15', 10);
 const PROXY_SESSION_TTL_MIN = 10;
 
@@ -92,12 +106,37 @@ export async function proxiedFetch(
   url: string,
   init: { signal?: AbortSignal; headers?: Record<string, string> } = {}
 ): Promise<{ ok: boolean; status: number; headers: { get(name: string): string | null }; json(): Promise<unknown> }> {
-  if (!PROXY_ENABLED || AGENT_POOL.length === 0) {
-    // Direct egress (BLOCKSCOUT_PROXY=off or pool unavailable).
+  const poolAvailable = PROXY_ENABLED && AGENT_POOL.length > 0;
+  const poolOnCooldown = HYBRID && Date.now() < poolBlockedUntil;
+
+  // Direct egress paths: BLOCKSCOUT_PROXY=off, no pool built, or hybrid with
+  // the pool benched after failures.
+  if (!poolAvailable || poolOnCooldown) {
     const res = await fetch(url, init as RequestInit);
     return res as unknown as Awaited<ReturnType<typeof proxiedFetch>>;
   }
+
   const entry = AGENT_POOL[agentIdx++ % AGENT_POOL.length];
+
+  // HYBRID: try DIRECT first (free, unlimited-ish budget for the box's own IP).
+  if (HYBRID && Date.now() >= directBlockedUntil) {
+    try {
+      const res = await fetch(url, init as RequestInit);
+      if (res.status === 429 || res.status === 403) {
+        // Direct IP is rate-limited — bench it and let the retry (and every
+        // request until the cooldown expires) ride the pool instead.
+        directBlockedUntil = Date.now() + DIRECT_COOLDOWN_MS;
+        console.warn(`[Proxy] hybrid: direct egress ${res.status} — pool takes over for ${Math.round(DIRECT_COOLDOWN_MS / 1000)}s`);
+      }
+      return res as unknown as Awaited<ReturnType<typeof proxiedFetch>>;
+    } catch (err: unknown) {
+      // Direct network failure — bench direct briefly, surface to bsFetch so
+      // its retry rides the pool.
+      directBlockedUntil = Date.now() + Math.min(DIRECT_COOLDOWN_MS, 15_000);
+      throw err;
+    }
+  }
+
   try {
     const res = await undiciFetch(url, { ...init, dispatcher: entry.agent } as never);
     entry.fails = 0;
@@ -118,12 +157,39 @@ export async function proxiedFetch(
     // every round-robin turn and poisons ~1 in every N requests. Rotating is
     // cheap; keeping a bad session is not.
     rotateEntry(entry);
+    // HYBRID: if the whole pool looks dead, fall back to DIRECT immediately —
+    // a dead pool must never take the API down.
+    if (HYBRID) {
+      entry.fails += 1;
+      if (countPoolFailures() >= Math.min(5, AGENT_POOL.length)) {
+        poolBlockedUntil = Date.now() + POOL_COOLDOWN_MS;
+        console.warn(`[Proxy] hybrid: pool failures piling up — back to direct for ${Math.round(POOL_COOLDOWN_MS / 1000)}s`);
+      }
+      try {
+        const res = await fetch(url, init as RequestInit);
+        return res as unknown as Awaited<ReturnType<typeof proxiedFetch>>;
+      } catch {
+        throw err; // surface the original pool error
+      }
+    }
     throw err;
   }
 }
 
+function isPoolUsable(): boolean {
+  return true; // placeholder — real gate is poolBlockedUntil checked by caller
+}
+
+function countPoolFailures(): number {
+  return AGENT_POOL.filter((e) => e.fails > 0).length;
+}
+
 export function isProxyEnabled(): boolean {
   return PROXY_ENABLED && AGENT_POOL.length > 0;
+}
+
+export function isHybridMode(): boolean {
+  return HYBRID && AGENT_POOL.length > 0;
 }
 
 // Startup preflight (fire-and-forget): 3 probes through 3 different sessions.
@@ -155,8 +221,16 @@ function preflight(): Promise<void> {
 
 export function logProxyStatus(): void {
   if (PROXY_ENABLED && AGENT_POOL.length > 0) {
-    console.log(`[Proxy] DataImpulse pool ready: ${AGENT_POOL.length} sticky residential sessions via ${CREDS.host}:${CREDS.port}`);
-    void preflight();
+    if (HYBRID) {
+      console.log(`[Proxy] HYBRID mode: direct-first egress, pool of ${AGENT_POOL.length} IPs as 429/failure fallback (direct cooldown ${Math.round(DIRECT_COOLDOWN_MS / 1000)}s)`);
+      void preflight();
+    } else {
+      console.log(`[Proxy] DataImpulse pool ready: ${AGENT_POOL.length} sticky residential sessions via ${CREDS.host}:${CREDS.port}`);
+      void preflight();
+    }
+  } else if (PROXY_ENABLED && HYBRID) {
+    // hybrid with no pool (missing/garbage list file) degrades to pure direct
+    console.log('[Proxy] HYBRID mode but no proxy list found — running direct-only');
   } else {
     console.log('[Proxy] Disabled — Blockscout traffic egresses directly (BLOCKSCOUT_PROXY=off)');
   }

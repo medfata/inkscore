@@ -113,7 +113,7 @@ services:
       # in .env are invisible to the container otherwise (learned 2026-09-06:
       # the box silently ran code defaults for weeks because only DATABASE_URL
       # et al. were listed).
-      BLOCKSCOUT_PROXY: ${BLOCKSCOUT_PROXY:-on}
+      BLOCKSCOUT_PROXY: ${BLOCKSCOUT_PROXY:-hybrid}
       BLOCKSCOUT_RATE_LIMIT: ${BLOCKSCOUT_RATE_LIMIT:-120}
       BLOCKSCOUT_MAX_CONCURRENT: ${BLOCKSCOUT_MAX_CONCURRENT:-10}
       PROXY_URL_LIST_FILE: ${PROXY_URL_LIST_FILE:-}
@@ -122,6 +122,17 @@ services:
       SCORE_SNAPSHOT_WORKER: ${SCORE_SNAPSHOT_WORKER:-on}
       SNAPSHOT_MAX_AGE_MIN: ${SNAPSHOT_MAX_AGE_MIN:-60}
       WALLET_CACHE_TTL_MIN: ${WALLET_CACHE_TTL_MIN:-60}
+      # Catch-up worker (24h activity sweeps): off by default — prod opts in
+      # via .env. Dev machines must NEVER enqueue against the shared queue.
+      CATCHUP_WORKER: ${CATCHUP_WORKER:-off}
+      CATCHUP_TOP_N: ${CATCHUP_TOP_N:-200}
+      CATCHUP_TOP_INTERVAL_HOURS: ${CATCHUP_TOP_INTERVAL_HOURS:-6}
+      CATCHUP_INTERVAL_HOURS: ${CATCHUP_INTERVAL_HOURS:-24}
+    volumes:
+      # Optional ProxyScrape-style list for hybrid mode. If the host file is
+      # absent this mounts an empty dir — the reader fails gracefully and the
+      # box just runs direct-only.
+      - ${PROXY_LIST_HOST_PATH:-/root/proxyscrape-list.txt}:/proxyscrape-list.txt:ro
     ports:
       - "4000:4000"
     healthcheck:

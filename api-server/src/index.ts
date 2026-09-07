@@ -11,6 +11,7 @@ import ranksRoutes from './routes/ranks';
 import cryptoclashRoutes from './routes/cryptoclash';
 import sweepRoutes from './routes/sweep';
 import { startRefreshWorker } from './services/refresh-worker';
+import { startCatchupWorker } from './services/catchup-worker';
 import { logProxyStatus } from './services/proxy-agent';
 import { bypassWalletCache } from './cache';
 
@@ -70,6 +71,7 @@ async function startServer() {
     // Background worker: completes truncated Blockscout fills + refreshes
     // stale caches without blocking interactive traffic.
     startRefreshWorker();
+  startCatchupWorker();
   });
   // Node's default keep-alive timeout (5s) is shorter than the idle window
   // proxies/clients reuse connections over — the classic cause of sporadic

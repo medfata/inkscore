@@ -181,6 +181,21 @@ async function bsFetch(path: string, retries = 3): Promise<any> {
   }
 }
 
+// Cheapest possible "did this wallet do anything recently" probe: ONE request,
+// page size 1, both directions. Powers the catch-up worker's sweeps. Returns
+// the newest tx timestamp (Blockscout ISO format) or null (no txs / probe
+// failure — failures are retried on the next sweep, never crash it).
+export async function getLatestTxTimestamp(wallet: string): Promise<string | null> {
+  try {
+    const data = await bsFetch(`/addresses/${wallet}/transactions?filter=to%7Cfrom&limit=1`);
+    const items = (data as { items?: Array<{ timestamp?: string }> })?.items;
+    const ts = items?.[0]?.timestamp;
+    return typeof ts === 'string' ? ts : null;
+  } catch {
+    return null;
+  }
+}
+
 export function isBlockscoutEnabled(): boolean {
   return process.env.BLOCKSCOUT_SOURCE !== 'off';
 }
@@ -338,6 +353,35 @@ function ensureTables(): Promise<void> {
         first_seen TIMESTAMPTZ NOT NULL DEFAULT now(),
         PRIMARY KEY (wallet_address, query_hash, tx_hash)
       )`);
+      // Cursored ERC-20 inflows — transfers TO a wallet FROM a specific
+      // contract (e.g. game prize payouts that arrive inside keeper txs the
+      // wallet never signs). Historical transfers never change, so the
+      // accumulated rows ARE the history; refreshes scan age_from=covered_newest.
+      await query(`CREATE TABLE IF NOT EXISTS bs_token_inflows (
+        wallet_address TEXT NOT NULL,
+        from_address TEXT NOT NULL,
+        tx_hash TEXT NOT NULL,
+        log_index INTEGER NOT NULL DEFAULT 0,
+        token_address TEXT NOT NULL,
+        symbol TEXT NOT NULL DEFAULT '',
+        decimals INTEGER NOT NULL DEFAULT 18,
+        amount NUMERIC NOT NULL DEFAULT 0,
+        tx_timestamp TIMESTAMPTZ,
+        first_seen TIMESTAMPTZ NOT NULL DEFAULT now(),
+        PRIMARY KEY (wallet_address, from_address, tx_hash, log_index)
+      )`);
+      await query(`CREATE TABLE IF NOT EXISTS bs_token_inflow_cursors (
+        wallet_address TEXT NOT NULL,
+        from_address TEXT NOT NULL,
+        covered_newest TIMESTAMPTZ,
+        complete BOOLEAN NOT NULL DEFAULT FALSE,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        PRIMARY KEY (wallet_address, from_address)
+      )`);
+      // Additive migration: the first deployed build of the cursors table
+      // only carried covered_newest; the known-boundary refresh model needs
+      // the floor too.
+      await query(`ALTER TABLE bs_token_inflow_cursors ADD COLUMN IF NOT EXISTS covered_oldest TIMESTAMPTZ`);
       await query(`CREATE TABLE IF NOT EXISTS bs_refresh_queue (
         wallet_address TEXT NOT NULL,
         protocol TEXT NOT NULL DEFAULT '',
@@ -857,6 +901,199 @@ export async function getProtocolTxHashes(
 export interface BsTxData {
   legs: BsTransferLeg[];
   meta: BsTxMeta;
+}
+
+// Cursored ERC-20 inflow discovery. Covers transfers TO a wallet FROM a
+// given contract — the counterparties here arrive inside txs the wallet
+// never signed (game keepers settle prize payouts), so the per-wallet
+// token-transfers endpoint is the only discovery surface. Model matches
+// getProtocolTxHashes:
+// - Build pass (history not yet covered): walks newest→oldest; a page-capped
+//   pass stores its floor (covered_oldest) and the NEXT pass resumes
+//   strictly BELOW it with age_to, extending coverage downward.
+// - Refresh pass (complete): only scans age_from=covered_newest, so
+//   steady-state cost is only new activity.
+// - Rows are additive with ON CONFLICT DO NOTHING, so boundary overlaps are
+//   deduped and a returned set is always the full accumulated history.
+export interface BsInflowTransfer {
+  txHash: string;
+  logIndex: number;
+  tokenAddress: string;
+  symbol: string;
+  decimals: number;
+  amount: number; // human-readable
+  timestamp: string | null;
+}
+
+const INFLOW_DISCOVERY_TTL_MS = 10 * 60 * 1000; // same as bs_tx_discovery refresh TTL
+
+async function readInflowRows(wallet: string, from: string): Promise<BsInflowTransfer[]> {
+  try {
+    await ensureTables();
+    const rows = await query<{
+      tx_hash: string;
+      log_index: number;
+      token_address: string;
+      symbol: string;
+      decimals: number;
+      amount: string;
+      tx_timestamp: string | null;
+    }>(
+      'SELECT tx_hash, log_index, token_address, symbol, decimals, amount, tx_timestamp FROM bs_token_inflows WHERE wallet_address = $1 AND from_address = $2 ORDER BY tx_timestamp ASC NULLS LAST',
+      [wallet, from]
+    );
+    return rows.map((r) => ({
+      txHash: r.tx_hash,
+      logIndex: r.log_index,
+      tokenAddress: r.token_address,
+      symbol: r.symbol,
+      decimals: r.decimals,
+      amount: Number(r.amount) || 0,
+      timestamp: r.tx_timestamp,
+    }));
+  } catch (err: any) {
+    console.warn('[Blockscout] token inflow read failed:', err.message || err);
+    return [];
+  }
+}
+
+export async function getTokenTransfersInto(
+  walletAddress: string,
+  fromAddress: string,
+  maxPages = 10
+): Promise<{ transfers: BsInflowTransfer[]; complete: boolean }> {
+  assertEnabled();
+  const wallet = walletAddress.toLowerCase();
+  const from = fromAddress.toLowerCase();
+
+  const cached = await dbGet<{ covered_oldest: string | null; covered_newest: string | null; complete: boolean; updated_at: string }>(
+    'SELECT covered_oldest, covered_newest, complete, updated_at FROM bs_token_inflow_cursors WHERE wallet_address = $1 AND from_address = $2',
+    [wallet, from]
+  );
+  if (cached && cached.complete && Date.now() - new Date(cached.updated_at).getTime() < INFLOW_DISCOVERY_TTL_MS) {
+    return { transfers: await readInflowRows(wallet, from), complete: true };
+  }
+
+  return withInflight(`token-inflow:${wallet}:${from}`, async () => {
+    // Re-read state inside the in-flight slot (a concurrent pass may have
+    // advanced the cursor while we waited).
+    const cur =
+      (await dbGet<{ covered_oldest: string | null; covered_newest: string | null; complete: boolean }>(
+        'SELECT covered_oldest, covered_newest, complete FROM bs_token_inflow_cursors WHERE wallet_address = $1 AND from_address = $2',
+        [wallet, from]
+      )) ?? { covered_oldest: null, covered_newest: null, complete: false };
+
+    // Keys we already have stored. The list endpoint returns NEWEST FIRST,
+    // so on a refresh pass the first already-known item marks the scan
+    // boundary: everything below it is stored history. (age_from/age_to are
+    // NOT usable here — verified live, this endpoint returns 0 items for
+    // any age filter on the current Blockscout build.)
+    const refreshPass = cur.complete;
+    let known = new Set<string>();
+    if (refreshPass) {
+      try {
+        await ensureTables();
+        const rows = await query<{ tx_hash: string; log_index: number }>(
+          'SELECT tx_hash, log_index FROM bs_token_inflows WHERE wallet_address = $1 AND from_address = $2',
+          [wallet, from]
+        );
+        known = new Set(rows.map((r) => `${r.tx_hash}:${r.log_index}`));
+      } catch (err: any) {
+        // DB down → empty known set → the pass re-walks and re-inserts; the
+        // ON CONFLICT dedupe keeps the table correct regardless.
+        console.warn('[Blockscout] inflow key preload failed, full re-walk:', err.message || err);
+      }
+    }
+
+    // Newest-first walk. Refresh stops at the first known key; a build pass
+    // walks until pages are exhausted or the page cap trips.
+    // NOTE: the endpoint's default ordering is newest-first (verified live);
+    // passing sort=desc here is rejected with HTTP 422.
+    let url: string | null = `/addresses/${wallet}/token-transfers?type=ERC-20&filter=to`;
+    let pages = 0;
+    let newestSeen: string | null = cur.covered_newest;
+    let oldestSeen: string | null = cur.covered_oldest;
+    let inserted = 0;
+    let hitKnown = false;
+    let pagesExhausted = false;
+    while (url && pages < maxPages) {
+      pages++;
+      const data = await bsFetch(url);
+      for (const item of data?.items || []) {
+        const ts: string | null = item?.timestamp || null;
+        if (ts && (!newestSeen || ts > newestSeen)) newestSeen = ts;
+        if (ts && (!oldestSeen || ts < oldestSeen)) oldestSeen = ts;
+
+        // Counterparty filter is client-side: the endpoint has no from-filter.
+        const legFrom = String(item?.from?.hash || item?.from || '').toLowerCase();
+        if (legFrom !== from) continue;
+        const tk = item?.token || {};
+        if (!tk?.address_hash || item?.total?.value === undefined) continue;
+        const txHash = String(item?.transaction_hash || item?.tx_hash || '').toLowerCase();
+        if (!txHash) continue;
+        const logIndex = parseInt(String(item?.log_index ?? '0'), 10) || 0;
+
+        const key = `${txHash}:${logIndex}`;
+        if (known.has(key)) {
+          if (refreshPass) {
+            hitKnown = true; // everything newer than this was scanned above
+            break;
+          }
+          continue;
+        }
+        known.add(key);
+        const decimals = Number(item.total.decimals ?? tk.decimals ?? 18);
+        let amount = 0;
+        try {
+          amount = Number(BigInt(String(item.total.value))) / Math.pow(10, decimals);
+        } catch {
+          continue;
+        }
+        await dbWrite(
+          `INSERT INTO bs_token_inflows (wallet_address, from_address, tx_hash, log_index, token_address, symbol, decimals, amount, tx_timestamp)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) ON CONFLICT DO NOTHING`,
+          [wallet, from, txHash, logIndex, String(tk.address_hash).toLowerCase(), tk.symbol || '', decimals, amount, ts]
+        );
+        inserted++;
+      }
+      if (hitKnown) break;
+      const np = data?.next_page_params;
+      if (!np) {
+        pagesExhausted = true;
+        break;
+      }
+      const qs = Object.entries(np)
+        .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v === null || v === undefined ? '' : String(v))}`)
+        .join('&');
+      const basePath = '/addresses/' + wallet + '/token-transfers';
+      url = `${basePath}?type=ERC-20&filter=to&${qs}`;
+    }
+
+    // complete = walked past the known boundary (refresh) or reached the
+    // oldest page without tripping the cap (build). A capped build pass
+    // leaves complete=false; the next pass re-walks newest-first and stops
+    // at the (now populated) boundary — coverage converges downward.
+    const complete = refreshPass || pagesExhausted;
+
+    if (refreshPass && !hitKnown && !pagesExhausted) {
+      console.warn(`[Blockscout] token inflow refresh capped (${maxPages} pages, +${inserted} rows) for ${wallet.slice(0, 10)}`);
+    } else if (!refreshPass && !complete) {
+      console.warn(`[Blockscout] token inflow build pass capped (${maxPages} pages, +${inserted} rows) for ${wallet.slice(0, 10)}`);
+    }
+
+    await dbWrite(
+      `INSERT INTO bs_token_inflow_cursors (wallet_address, from_address, covered_oldest, covered_newest, complete, updated_at)
+       VALUES ($1, $2, $3, $4, $5, now())
+       ON CONFLICT (wallet_address, from_address)
+       DO UPDATE SET
+         covered_oldest = LEAST(COALESCE(bs_token_inflow_cursors.covered_oldest, 'infinity'::timestamptz), COALESCE($3, 'infinity'::timestamptz)),
+         covered_newest = GREATEST(COALESCE(bs_token_inflow_cursors.covered_newest, '-infinity'::timestamptz), COALESCE($4, '-infinity'::timestamptz)),
+         complete = $5, updated_at = now()`,
+      [wallet, from, oldestSeen, newestSeen, complete]
+    );
+
+    return { transfers: await readInflowRows(wallet, from), complete };
+  });
 }
 
 export async function getTxData(txHashes: string[]): Promise<Map<string, BsTxData>> {
