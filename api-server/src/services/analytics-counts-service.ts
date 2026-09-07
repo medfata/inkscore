@@ -1,5 +1,5 @@
 import { getLongCache, setLongCache, withInflight } from '../cache';
-import { getProtocolCount, getProtocolTxHashes, getTxLogs } from './blockscout-service';
+import { getProtocolCount, getProtocolTxHashes, getTxLogs, getTxData, partitionTxHashes } from './blockscout-service';
 import { createPublicClient, http } from 'viem';
 import { defineChain } from 'viem';
 
@@ -461,6 +461,16 @@ const INK_BROKERS_CONFIG = {
   claim: { contract: INK_BROKERS_DESK_CONTRACT, functions: ['Claim', 'claim'] },
 };
 
+// FloorRouterV2 (verified on explorer) - the Ink Brokers swap venue: buys
+// route ETH -> WETH -> USDG -> asset, sells reverse. USDG is the routing
+// asset in every tx, so each trade prices at its max USDG leg. Missed until
+// 2026-09-07 (the card only counted desk actions).
+const INK_BROKERS_FLOOR_ROUTER = '0xb3e8165984a91cf4001057ca646ee2e3a547cdf8';
+// buy / sell - selectors extracted from verified tx inputs.
+const INK_BROKERS_FLOOR_SELECTORS = ['0x646c4451', '0x64027ecd'];
+const INK_BROKERS_USDG = '0xe343167631d89b6ffc58b88d6b7fb0228795491d';
+const INK_BROKERS_MAX_SWAPS_PRICED = 1000;
+
 const INK_BROKERS_LONG_CACHE_TTL = 5 * 60 * 1000;
 // Hard cap on per-token seat reads (a wallet holding more brokers than
 // this still counts clock-ins/claims fully; seat detail is capped).
@@ -515,6 +525,8 @@ interface InkBrokersResult {
   claim_count: number;
   owned_brokers: number;
   active_seats: number;
+  swap_count: number;
+  swap_volume_usd: number;
   seat_tiers: Array<{ label: string; value: string }>;
   sub_aggregates: Array<{ label: string; value: string }>;
   last_updated: Date;
@@ -598,6 +610,8 @@ export async function getInkBrokersMetrics(walletLower: string): Promise<InkBrok
       claim_count: 0,
       owned_brokers: 0,
       active_seats: 0,
+      swap_count: 0,
+      swap_volume_usd: 0,
       seat_tiers: [],
       sub_aggregates: [],
       last_updated: new Date(),
@@ -605,12 +619,39 @@ export async function getInkBrokersMetrics(walletLower: string): Promise<InkBrok
 
     try {
       // Desk tx counts via Blockscout (cursor-cached; incremental after first visit)
-      const [clockInRes, claimRes, tokenIds, clockedInIds] = await Promise.all([
+      const [clockInRes, claimRes, tokenIds, clockedInIds, floorSwaps] = await Promise.all([
         getProtocolCount(walletLower, 'inkbrokers-clockin', INK_BROKERS_CONFIG.clockIn.contract, null, INK_BROKERS_CONFIG.clockIn.functions),
         getProtocolCount(walletLower, 'inkbrokers-claim', INK_BROKERS_CONFIG.claim.contract, null, INK_BROKERS_CONFIG.claim.functions),
         getInkBrokersTokenIds(walletLower),
         getInkBrokersClockedInTokenIds(walletLower).catch(() => [] as string[]),
+        getProtocolTxHashes(walletLower, INK_BROKERS_FLOOR_ROUTER, INK_BROKERS_FLOOR_SELECTORS).catch((err: unknown) => {
+          console.warn('[InkBrokers] FloorRouter swap discovery failed:', err instanceof Error ? err.message : err);
+          return { hashes: [] as string[], complete: false };
+        }),
       ]);
+
+      // FloorRouterV2 buys+sells: USD volume = max USDG routing leg per tx
+      // (the wallet sees ETH in / asset out, or the reverse - the USDG leg
+      // carries the notional).
+      let swapCount = 0;
+      let swapVolumeUsd = 0;
+      if (floorSwaps.hashes.length > 0) {
+        const { cached: cachedHashes, uncached } = await partitionTxHashes(floorSwaps.hashes);
+        const priced = [...cachedHashes, ...uncached.slice(0, INK_BROKERS_MAX_SWAPS_PRICED)];
+        const txData = await getTxData(priced);
+        for (const h of priced) {
+          const d = txData.get(h);
+          if (!d || d.meta.ok === false) continue;
+          let txUsdg = 0;
+          for (const leg of d.legs) {
+            if (leg.tokenAddress.toLowerCase() === INK_BROKERS_USDG) {
+              txUsdg = Math.max(txUsdg, leg.amount);
+            }
+          }
+          swapCount++;
+          swapVolumeUsd += txUsdg;
+        }
+      }
 
       // Union both id sources (holdings first, then clock-in history) and
       // read the desk's seat state per token. seatValid(tokenId) is the
@@ -670,6 +711,8 @@ export async function getInkBrokersMetrics(walletLower: string): Promise<InkBrok
         claim_count: claimCount,
         owned_brokers: allIds.length,
         active_seats: activeSeats,
+        swap_count: swapCount,
+        swap_volume_usd: Math.round(swapVolumeUsd * 100) / 100,
         seat_tiers: seatTiers,
         sub_aggregates: [
           { label: 'Clock-ins', value: clockInCount.toString() },

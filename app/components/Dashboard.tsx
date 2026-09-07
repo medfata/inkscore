@@ -277,6 +277,8 @@ interface InkBrokersMetrics {
   claim_count: number;
   owned_brokers: number;
   active_seats: number;
+  swap_count: number;
+  swap_volume_usd: number;
   seat_tiers: Array<{ label: string; value: string }>;
   sub_aggregates?: Array<{ label: string; value: string }>;
 }
@@ -892,6 +894,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
         claim_count: response.inkBrokers.claim_count || 0,
         owned_brokers: response.inkBrokers.owned_brokers || 0,
         active_seats: response.inkBrokers.active_seats || 0,
+        swap_count: response.inkBrokers.swap_count || 0,
+        swap_volume_usd: response.inkBrokers.swap_volume_usd || 0,
         seat_tiers: response.inkBrokers.seat_tiers || [],
         sub_aggregates: response.inkBrokers.sub_aggregates || [],
       });
@@ -1135,6 +1139,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
             claim_count: data.claim_count || 0,
             owned_brokers: data.owned_brokers || 0,
             active_seats: data.active_seats || 0,
+            swap_count: data.swap_count || 0,
+            swap_volume_usd: data.swap_volume_usd || 0,
             seat_tiers: data.seat_tiers || [],
             sub_aggregates: data.sub_aggregates || [],
           });
@@ -3076,53 +3082,27 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
             </div>
 
             {!isDemo && (isMetricLoading('inkBrokers') || !inkBrokersMetrics) ? (
-              <div className="flex-1 flex flex-col justify-center">
-                <div className="h-8 w-20 bg-slate-700/50 rounded animate-pulse mb-2"></div>
-                <div className="h-3 w-32 bg-slate-700/30 rounded animate-pulse mb-4"></div>
-                <div className="space-y-2">
-                  <div className="h-4 w-full bg-slate-700/30 rounded animate-pulse"></div>
-                  <div className="h-4 w-full bg-slate-700/30 rounded animate-pulse"></div>
-                </div>
+              <div className="flex-1 flex flex-col items-center justify-center">
+                <div className="h-16 w-24 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+                <div className="h-4 w-32 bg-slate-700/30 rounded animate-pulse"></div>
               </div>
             ) : (
               <>
-                <div className="mb-3">
-                  <div className="text-2xl font-bold font-display text-amber-400">
-                    {!isDemo && inkBrokersMetrics ? inkBrokersMetrics.total_count || 0 : 0}
+                <div className="flex-1 flex flex-col items-center justify-center">
+                  <div className="text-5xl font-bold font-display text-amber-400/80 mb-2">
+                    {!isDemo && inkBrokersMetrics ? inkBrokersMetrics.swap_count.toLocaleString() : 0}
                   </div>
-                  <div className="text-xs text-slate-500">Desk Actions</div>
-                </div>
-
-                <div className="flex-1 pt-3 border-t border-slate-700/50">
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 block">By Activity</span>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-slate-400">Clock-ins</span>
-                      <span className="font-mono text-white">
-                        {!isDemo && inkBrokersMetrics ? inkBrokersMetrics.clock_in_count : 0}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-slate-400">Claims</span>
-                      <span className="font-mono text-white">
-                        {!isDemo && inkBrokersMetrics ? inkBrokersMetrics.claim_count : 0}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-slate-400">Active Seats</span>
-                      <span className="font-mono text-white">
-                        {!isDemo && inkBrokersMetrics ? inkBrokersMetrics.active_seats : 0}
-                      </span>
-                    </div>
-                    {!isDemo && inkBrokersMetrics && inkBrokersMetrics.seat_tiers.map((t) => (
-                      <div key={t.label} className="flex justify-between items-center text-[11px]">
-                        <span className="text-slate-400">{t.label} Seat{Number(t.value) === 1 ? '' : 's'}</span>
-                        <span className="font-mono text-white">{t.value}</span>
-                      </div>
-                    ))}
+                  <div className="text-sm text-slate-400">Total Swaps</div>
+                  <div className="text-xs text-slate-500 mt-1">
+                    ~${(!isDemo && inkBrokersMetrics ? inkBrokersMetrics.swap_volume_usd : 0).toLocaleString(undefined, { maximumFractionDigits: 2 })} volume
                   </div>
                 </div>
-
+                {!isDemo && inkBrokersMetrics && inkBrokersMetrics.active_seats > 0 && (
+                  <div className="mt-3 pt-3 border-t border-slate-700/50 flex items-center justify-between text-[11px]">
+                    <span className="text-slate-400">Desk Active</span>
+                    <span className="font-mono text-white">{inkBrokersMetrics.active_seats} seat{inkBrokersMetrics.active_seats !== 1 ? 's' : ''}</span>
+                  </div>
+                )}
                 {!isDemo && inkBrokersMetrics && inkBrokersMetrics.active_seats > 0 && (
                   <div className="mt-2 text-xs text-amber-400 opacity-80 flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
