@@ -18,6 +18,7 @@
 // (none) and pacing (polite concurrency).
 import 'dotenv/config';
 import pg from 'pg';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'path';
 
@@ -27,21 +28,33 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const { Client } = pg;
 
 const BASE = process.env.API_BASE_URL_TEST || 'http://127.0.0.1:4000';
-// "all" = every wallet in cached_leaderboard (no LIMIT).
+// MODES:
+//   "all" | <N>            — rank-range mode over cached_leaderboard (legacy)
+//   "wallets" <file>       — explicit wallet list (one per line). Processes
+//                            ONLY those wallets — zero warm re-walking. The
+//                            targeted endgame mode: the list is generated
+//                            from the DB as exactly the incomplete wallets.
+// Arg positions in wallets mode: [3]=file [4]=conc [5]=passes [6]=tail
+const MODE = process.argv[2] === 'wallets' ? 'wallets' : 'ranks';
+const WALLET_LIST_FILE = MODE === 'wallets' ? (process.argv[3] || '') : '';
 const topNArg = process.argv[2] || '50';
 const topN = topNArg === 'all' ? 100000 : parseInt(topNArg, 10);
-const concurrency = Math.max(1, Math.min(5, parseInt(process.argv[3] || '3', 10)));
+const concArg = MODE === 'wallets' ? process.argv[4] : process.argv[3];
+const passesArg = MODE === 'wallets' ? process.argv[5] : process.argv[4];
+const tierArg = MODE === 'wallets' ? process.argv[6] : process.argv[5];
+const tailArg = MODE === 'wallets' ? process.argv[7] : process.argv[8];
+const concurrency = Math.max(1, Math.min(5, parseInt(concArg || '3', 10)));
 // Full discovery of heavy wallets takes several passes; each pass is capped
 // by the discovery maxPages, and cursors resume below the previous floor.
-const PASSES_PER_WALLET = parseInt(process.argv[4] || '6', 10);
+const PASSES_PER_WALLET = parseInt(passesArg || '6', 10);
 const PASS_COOLDOWN_MS = parseInt(process.env.BACKFILL_PASS_COOLDOWN_MS || '1500', 10);
 // Wallets ranked <= TIER_BOUNDARY get the full multi-pass treatment; the
 // long tail (thousands of light wallets) gets a light pass each.
-const TIER_BOUNDARY = parseInt(process.argv[5] || '200', 10);
+const TIER_BOUNDARY = parseInt(tierArg || '200', 10);
 // Passes for the long tail per sweep (default 2; raise so heavy tail
 // wallets converge within a single sweep — light wallets still exit early
 // on the first complete pass, so this only costs when actually needed).
-const TAIL_PASSES = parseInt(process.argv[8] || '2', 10);
+const TAIL_PASSES = parseInt(tailArg || '2', 10);
 // Optional rank-range partition so multiple machines/processes can split the
 // leaderboard without overlapping work (cursor state lives in the SHARED
 // Postgres, so ranges are the only coordination needed):
@@ -104,40 +117,50 @@ async function backfillWallet(wallet, rank) {
 }
 
 (async () => {
-  const c = new Client({ connectionString: process.env.DATABASE_URL });
-  await c.connect();
-  const r = await c.query(
-    topNArg === 'all'
-      ? `SELECT DISTINCT entry->>'wallet_address' AS wallet, (entry->>'score')::numeric AS score
-           FROM cached_leaderboard, jsonb_array_elements(leaderboard_data) AS entry
-          WHERE id = 1
-          ORDER BY (entry->>'score')::numeric DESC`
-      : `SELECT entry->>'wallet_address' AS wallet
-           FROM cached_leaderboard, jsonb_array_elements(leaderboard_data) AS entry
-          WHERE id = 1
-          ORDER BY (entry->>'score')::numeric DESC
-          LIMIT $1`,
-    topNArg === 'all' ? [] : [topN]
-  );
-  await c.end();
-  const wallets = r.rows.map((x) => (x.wallet || '').toLowerCase()).filter((w) => /^0x[0-9a-f]{40}$/.test(w));
-  const endRank = endRankRaw > 0 ? Math.min(endRankRaw, wallets.length) : wallets.length;
-  if (startRank > 1 || endRank < wallets.length) {
+  let wallets;
+  if (MODE === 'wallets') {
+    wallets = readFileSync(WALLET_LIST_FILE, 'utf8')
+      .split(/\r?\n/).map((s) => s.trim().toLowerCase())
+      .filter((w) => /^0x[0-9a-f]{40}$/.test(w));
+    console.log(`wallets mode: ${wallets.length} wallets from ${WALLET_LIST_FILE}, conc=${concurrency}, passes=${PASSES_PER_WALLET}\n`);
+  } else {
+    const c = new Client({ connectionString: process.env.DATABASE_URL });
+    await c.connect();
+    const r = await c.query(
+      topNArg === 'all'
+        ? `SELECT DISTINCT entry->>'wallet_address' AS wallet, (entry->>'score')::numeric AS score
+             FROM cached_leaderboard, jsonb_array_elements(leaderboard_data) AS entry
+            WHERE id = 1
+            ORDER BY (entry->>'score')::numeric DESC`
+        : `SELECT entry->>'wallet_address' AS wallet
+             FROM cached_leaderboard, jsonb_array_elements(leaderboard_data) AS entry
+            WHERE id = 1
+            ORDER BY (entry->>'score')::numeric DESC
+            LIMIT $1`,
+      topNArg === 'all' ? [] : [topN]
+    );
+    await c.end();
+    wallets = r.rows.map((x) => (x.wallet || '').toLowerCase()).filter((w) => /^0x[0-9a-f]{40}$/.test(w));
+  }
+  const endRank = MODE === 'wallets' ? wallets.length : (endRankRaw > 0 ? Math.min(endRankRaw, wallets.length) : wallets.length);
+  const listStart = MODE === 'wallets' ? 0 : startRank - 1;
+  const listEnd = MODE === 'wallets' ? wallets.length : endRank;
+  if (MODE !== 'wallets' && (startRank > 1 || endRank < wallets.length)) {
     console.log(`range partition: ranks ${startRank}..${endRank} of ${wallets.length} (this lane)\n`);
   }
   console.log(`backfill: ${wallets.length} wallets, concurrency=${concurrency}, passes=${PASSES_PER_WALLET}\n`);
 
   const t0 = Date.now();
-  let idx = startRank - 1;
+  let idx = listStart;
   let done = 0;
   const results = [];
   const worker = async () => {
-    while (idx < endRank) {
+    while (idx < listEnd) {
       const i = idx++;
       const res = await backfillWallet(wallets[i], i + 1);
       results.push(res);
       done++;
-      console.log(`[${done}/${endRank - startRank + 1}] rank ${i + 1}: ${res.ok ? 'COMPLETE' : 'incomplete after passes'}`);
+      console.log(`[${done}/${listEnd - listStart}] rank ${i + 1}: ${res.ok ? 'COMPLETE' : 'incomplete after passes'}`);
     }
   };
   await Promise.all(Array.from({ length: concurrency }, worker));
