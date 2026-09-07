@@ -115,9 +115,10 @@ services:
       # in .env are invisible to the container otherwise (learned 2026-09-06:
       # the box silently ran code defaults for weeks because only DATABASE_URL
       # et al. were listed).
-      BLOCKSCOUT_PROXY: ${BLOCKSCOUT_PROXY:-off}
+      BLOCKSCOUT_PROXY: ${BLOCKSCOUT_PROXY:-on}
       BLOCKSCOUT_RATE_LIMIT: ${BLOCKSCOUT_RATE_LIMIT:-120}
       BLOCKSCOUT_MAX_CONCURRENT: ${BLOCKSCOUT_MAX_CONCURRENT:-10}
+      PROXY_URL_LIST_FILE: ${PROXY_URL_LIST_FILE:-}
       NODE_OPTIONS: ${NODE_OPTIONS:---max-old-space-size=2048}
       REFRESH_WORKER: ${REFRESH_WORKER:-on}
       SCORE_SNAPSHOT_WORKER: ${SCORE_SNAPSHOT_WORKER:-on}
