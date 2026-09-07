@@ -3090,11 +3090,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
               <>
                 <div className="flex-1 flex flex-col items-center justify-center">
                   <div className="text-5xl font-bold font-display text-amber-400/80 mb-2">
-                    {!isDemo && inkBrokersMetrics ? inkBrokersMetrics.swap_count.toLocaleString() : 0}
+                    ~${(!isDemo && inkBrokersMetrics ? inkBrokersMetrics.swap_volume_usd : 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}
                   </div>
-                  <div className="text-sm text-slate-400">Total Swaps</div>
+                  <div className="text-sm text-slate-400">Total Volume</div>
                   <div className="text-xs text-slate-500 mt-1">
-                    ~${(!isDemo && inkBrokersMetrics ? inkBrokersMetrics.swap_volume_usd : 0).toLocaleString(undefined, { maximumFractionDigits: 2 })} volume
+                    {(!isDemo && inkBrokersMetrics ? inkBrokersMetrics.swap_count : 0).toLocaleString()} swap{(!isDemo && inkBrokersMetrics ? inkBrokersMetrics.swap_count : 0) !== 1 ? 's' : ''}
                   </div>
                 </div>
                 {!isDemo && inkBrokersMetrics && inkBrokersMetrics.active_seats > 0 && (
@@ -3249,17 +3249,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
                     </div>
                     <div className="text-sm text-slate-400">Total Played</div>
                     <div className="text-xs text-slate-500 mt-1">
-                      {gonefishinMetrics.totalSpentEth.toFixed(4)} ETH
-                      {gonefishinMetrics.totalSpentUsd > 0 && ` · ~$${gonefishinMetrics.totalSpentUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })}`}
+                      {gonefishinMetrics.totalSpentUsd > 0 ? `~$${gonefishinMetrics.totalSpentUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '—'}
                     </div>
-                  </div>
-                  <div className="mt-3 pt-3 border-t border-slate-700/50 flex items-center justify-between text-[11px]">
-                    <span className="text-slate-400">Tokens Won</span>
-                    <span className="font-mono text-white">
-                      {gonefishinMetrics.prizesWon.length > 0
-                        ? `${gonefishinMetrics.prizesWon.length} token${gonefishinMetrics.prizesWon.length !== 1 ? 's' : ''}${gonefishinMetrics.prizesWonUsd > 0 ? ` · ~$${gonefishinMetrics.prizesWonUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : ''}`
-                        : '—'}
-                    </span>
                   </div>
                   {gonefishinMetrics.gamesBought > 0 && (
                     <div className="mt-2 text-xs text-emerald-400 opacity-80 flex items-center gap-1">
@@ -3274,11 +3265,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
                 <div className="flex-1 flex flex-col items-center justify-center">
                   <div className="text-5xl font-bold font-display text-amber-400/80 mb-2">12</div>
                   <div className="text-sm text-slate-400">Total Played</div>
-                  <div className="text-xs text-slate-500 mt-1">0.0421 ETH · ~$126.40</div>
-                </div>
-                <div className="mt-3 pt-3 border-t border-slate-700/50 flex items-center justify-between text-[11px]">
-                  <span className="text-slate-400">Tokens Won</span>
-                  <span className="font-mono text-white">2 tokens · ~$126.40</span>
+                  <div className="text-xs text-slate-500 mt-1">~$126.40</div>
                 </div>
                 <div className="mt-2 text-xs text-emerald-400 opacity-80 flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
@@ -3325,12 +3312,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
                 <>
                   <div className="flex-1 flex flex-col items-center justify-center">
                     <div className="text-5xl font-bold font-display text-indigo-400/80 mb-2">
-                      {sentryMetrics.swapCount.toLocaleString()}
-                    </div>
-                    <div className="text-sm text-slate-400">Total Swaps</div>
-                    <div className="text-xs text-slate-500 mt-1">
                       ~${sentryMetrics.volumeUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                      {sentryMetrics.volumeEth > 0 && ` · ${sentryMetrics.volumeEth.toFixed(4)} ETH`}
+                    </div>
+                    <div className="text-sm text-slate-400">Total Volume</div>
+                    <div className="text-xs text-slate-500 mt-1">
+                      {sentryMetrics.swapCount.toLocaleString()} swap{sentryMetrics.swapCount !== 1 ? 's' : ''}
                     </div>
                   </div>
                   {sentryMetrics.tokensLaunched > 0 && (
@@ -3350,9 +3336,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
             ) : (
               <>
                 <div className="flex-1 flex flex-col items-center justify-center">
-                  <div className="text-5xl font-bold font-display text-indigo-400/80 mb-2">47</div>
-                  <div className="text-sm text-slate-400">Total Swaps</div>
-                  <div className="text-xs text-slate-500 mt-1">~$3,412.18 · 1.37 ETH</div>
+                  <div className="text-5xl font-bold font-display text-indigo-400/80 mb-2">~$3,412.18</div>
+                  <div className="text-sm text-slate-400">Total Volume</div>
+                  <div className="text-xs text-slate-500 mt-1">47 swaps</div>
                 </div>
                 <div className="mt-3 pt-3 border-t border-slate-700/50 flex items-center justify-between text-[11px]">
                   <span className="text-slate-400">Tokens Launched</span>
@@ -3403,11 +3389,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
                 <>
                   <div className="flex-1 flex flex-col items-center justify-center">
                     <div className="text-5xl font-bold font-display text-violet-400/80 mb-2">
-                      {hypercallMetrics.swapCount.toLocaleString()}
+                      ~${hypercallMetrics.usdgSpent.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                     </div>
-                    <div className="text-sm text-slate-400">Total Swaps</div>
+                    <div className="text-sm text-slate-400">Total Volume</div>
                     <div className="text-xs text-slate-500 mt-1">
-                      ~${hypercallMetrics.usdgSpent.toLocaleString(undefined, { maximumFractionDigits: 2 })} volume
+                      {hypercallMetrics.swapCount.toLocaleString()} swap{hypercallMetrics.swapCount !== 1 ? 's' : ''}
                     </div>
                   </div>
                   {hypercallMetrics.positionsWritten > 0 && (
@@ -3427,9 +3413,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
             ) : (
               <>
                 <div className="flex-1 flex flex-col items-center justify-center">
-                  <div className="text-5xl font-bold font-display text-violet-400/80 mb-2">5</div>
-                  <div className="text-sm text-slate-400">Total Swaps</div>
-                  <div className="text-xs text-slate-500 mt-1">~$1,250.00 volume</div>
+                  <div className="text-5xl font-bold font-display text-violet-400/80 mb-2">~$1,250.00</div>
+                  <div className="text-sm text-slate-400">Total Volume</div>
+                  <div className="text-xs text-slate-500 mt-1">5 swaps</div>
                 </div>
                 <div className="mt-3 pt-3 border-t border-slate-700/50 flex items-center justify-between text-[11px]">
                   <span className="text-slate-400">Covered Calls Written</span>
