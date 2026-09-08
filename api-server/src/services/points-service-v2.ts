@@ -37,7 +37,8 @@ import {
 import { sweepService } from './sweep-service';
 import { getNadoMetrics } from './nado-service';
 import { getCopinkMetrics } from './copink-service';
-import { getFreshScoreSnapshot, saveScoreSnapshot } from './metrics-snapshot-service';
+import { getFreshScoreSnapshot, getStaleScoreSnapshot, saveScoreSnapshot } from './metrics-snapshot-service';
+import { responseCache } from '../cache';
 
 // TEMPORARY: wallets whose stored leaderboard score is known to be stale;
 // skip the floor clamp for them and trust the realtime score.
@@ -739,6 +740,22 @@ export class PointsServiceV2 {
         console.log(`[PointsServiceV2] Wallet ${wallet.slice(0, 10)}: serving score from metrics snapshot (captured ${snap.capturedAt.toISOString()})`);
         return this.computeScoreFromInputs(wallet, snap.inputs);
       }
+
+      // Stale-while-revalidate: no fresh snapshot, but a complete older one
+      // exists — serve it INSTANTLY (the dashboard's score card otherwise
+      // stares at a skeleton for the full 10-30s cold gather) and refresh
+      // in the background. The background pass overwrites the responseCache
+      // entry, so the next poll/load gets the fresh value.
+      const stale = await getStaleScoreSnapshot(wallet).catch((err: unknown) => {
+        console.warn(`[PointsServiceV2] Wallet ${wallet}: stale snapshot read failed, computing live:`, err);
+        return null;
+      });
+      if (stale && !stale.partial) {
+        const ageSec = Math.round((Date.now() - stale.capturedAt.getTime()) / 1000);
+        console.log(`[PointsServiceV2] Wallet ${wallet.slice(0, 10)}: serving STALE score from snapshot (${ageSec}s old), refreshing in background`);
+        void this.refreshScoreInBackground(wallet);
+        return this.computeScoreFromInputs(wallet, stale.inputs);
+      }
     }
 
     const inputs = await this.gatherScoreInputs(wallet);
@@ -755,6 +772,35 @@ export class PointsServiceV2 {
     );
 
     return result;
+  }
+
+  // One background refresh per wallet at a time — repeated stale serves while
+  // a refresh is already running must not stampede the upstreams.
+  private refreshingScores = new Set<string>();
+
+  /**
+   * Stale-while-revalidate refresh: live gather → recompute → persist the
+   * snapshot → overwrite the responseCache entry the stale serve just
+   * populated. Fire-and-forget by design; every failure is logged and
+   * swallowed (the next stale serve retries).
+   */
+  private async refreshScoreInBackground(wallet: string): Promise<void> {
+    if (this.refreshingScores.has(wallet)) return;
+    this.refreshingScores.add(wallet);
+    const start = Date.now();
+    try {
+      const inputs = await this.gatherScoreInputs(wallet);
+      const result = await this.computeScoreFromInputs(wallet, inputs);
+      await saveScoreSnapshot(wallet, inputs, inputs.walletStats === null);
+      responseCache.set(`wallet:score:${wallet}`, result);
+      console.log(
+        `[PointsServiceV2] Wallet ${wallet.slice(0, 10)}: background refresh complete in ${Date.now() - start}ms → ${result.total_points} pts`
+      );
+    } catch (err) {
+      console.warn(`[PointsServiceV2] Wallet ${wallet.slice(0, 10)}: background refresh failed:`, err);
+    } finally {
+      this.refreshingScores.delete(wallet);
+    }
   }
 
   /**

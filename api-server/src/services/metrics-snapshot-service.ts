@@ -85,23 +85,14 @@ export async function saveScoreSnapshot(
  * Malformed/partial snapshots return null (the caller falls back to a live
  * gather) — a snapshot is a cache of facts, never a source of them.
  */
-export async function getFreshScoreSnapshot(wallet: string): Promise<ScoreSnapshot | null> {
-  await ensureTable();
-  const row = await queryOne<{
-    inputs: ScoreInputs;
-    partial: boolean;
-    captured_at: string;
-  }>(
-    `SELECT inputs, partial, captured_at
-       FROM wallet_metrics_snapshots
-      WHERE wallet = $1
-        AND captured_at > NOW() - ($2::bigint * INTERVAL '1 millisecond')`,
-    [wallet, SNAPSHOT_MAX_AGE_MS]
-  );
-  if (!row) return null;
-
-  // Structural sanity: refuse to serve anything that doesn't look like a
-  // complete ScoreInputs object (e.g. a hand-edited or truncated row).
+/**
+ * Map a snapshot row to a ScoreSnapshot, refusing malformed/truncated inputs
+ * (a snapshot is a cache of facts, never a source of them).
+ */
+function rowToScoreSnapshot(
+  wallet: string,
+  row: { inputs: ScoreInputs; partial: boolean; captured_at: string }
+): ScoreSnapshot | null {
   const i = row.inputs;
   if (
     !i || typeof i !== 'object' ||
@@ -116,6 +107,57 @@ export async function getFreshScoreSnapshot(wallet: string): Promise<ScoreSnapsh
     capturedAt: new Date(row.captured_at),
     partial: row.partial,
   };
+}
+
+/**
+ * Fresh snapshot: complete and captured within SNAPSHOT_MAX_AGE_MS — served
+ * as-is, byte-identical semantics to the warm responseCache it replaces.
+ */
+export async function getFreshScoreSnapshot(wallet: string): Promise<ScoreSnapshot | null> {
+  await ensureTable();
+  const row = await queryOne<{
+    inputs: ScoreInputs;
+    partial: boolean;
+    captured_at: string;
+  }>(
+    `SELECT inputs, partial, captured_at
+       FROM wallet_metrics_snapshots
+      WHERE wallet = $1
+        AND captured_at > NOW() - ($2::bigint * INTERVAL '1 millisecond')`,
+    [wallet, SNAPSHOT_MAX_AGE_MS]
+  );
+  if (!row) return null;
+  return rowToScoreSnapshot(wallet, row);
+}
+
+// Stale-while-revalidate cap: a snapshot older than this is worthless (the
+// wallet could have changed completely) — fall through to a live gather.
+const STALE_SNAPSHOT_MAX_AGE_MS =
+  parseInt(process.env.STALE_SNAPSHOT_MAX_AGE_H || '168', 10) * 60 * 60 * 1000;
+
+/**
+ * Stale snapshot: complete but of ANY age (up to STALE_SNAPSHOT_MAX_AGE_MS).
+ * Served instantly by the score's stale-while-revalidate path while a fresh
+ * live gather runs in the background — a day-old score on screen beats a
+ * 10-30s skeleton.
+ */
+export async function getStaleScoreSnapshot(wallet: string): Promise<ScoreSnapshot | null> {
+  await ensureTable();
+  const row = await queryOne<{
+    inputs: ScoreInputs;
+    partial: boolean;
+    captured_at: string;
+  }>(
+    `SELECT inputs, partial, captured_at
+       FROM wallet_metrics_snapshots
+      WHERE wallet = $1
+        AND captured_at > NOW() - ($2::bigint * INTERVAL '1 millisecond')
+      ORDER BY captured_at DESC
+      LIMIT 1`,
+    [wallet, STALE_SNAPSHOT_MAX_AGE_MS]
+  );
+  if (!row) return null;
+  return rowToScoreSnapshot(wallet, row);
 }
 
 /** Age of the wallet's latest snapshot in ms, or null if none exists. */

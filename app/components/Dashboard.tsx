@@ -569,6 +569,18 @@ const MAIN_METRIC_GRADIENTS: Record<string, string> = {
   lime: 'from-lime-200 via-lime-400 to-lime-600',
 };
 
+/** Auto-scaling font size for main metrics: steps down as the formatted value
+ *  grows, so a long number (e.g. "$33,859.71") never crowds the card's footer
+ *  rows. Thresholds tuned for the display font's digit width. */
+const metricSizeClass = (value: React.ReactNode): string => {
+  const text = typeof value === 'string' || typeof value === 'number' ? String(value) : '';
+  const len = text.length;
+  if (len <= 7) return 'text-5xl';
+  if (len <= 9) return 'text-4xl';
+  if (len <= 11) return 'text-3xl';
+  return 'text-2xl';
+};
+
 /** A platform card's big main metric (volume or count) — shared gradient design. */
 const CardMainMetric = ({ color = 'purple', className = '', children }: {
   color?: string;
@@ -576,7 +588,7 @@ const CardMainMetric = ({ color = 'purple', className = '', children }: {
   children: React.ReactNode;
 }) => (
   <div
-    className={`text-5xl font-extrabold font-display bg-gradient-to-r ${
+    className={`${metricSizeClass(children)} font-extrabold font-display bg-gradient-to-r ${
       MAIN_METRIC_GRADIENTS[color] || MAIN_METRIC_GRADIENTS.purple
     } bg-clip-text text-transparent leading-none tracking-tight ${className}`}
   >
@@ -1657,7 +1669,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
                 <h2 className="text-slate-400 mb-2 relative z-10">Total INKSCORE</h2>
                 {!isDemo && walletScore ? (
                   <>
-                    <div className="text-5xl font-display font-extrabold text-gradient tracking-tighter mb-2 relative z-10">
+                    <div className={`${metricSizeClass((walletScore.total_points || 0).toLocaleString())} font-display font-extrabold text-white leading-none tracking-tight mb-2 relative z-10 drop-shadow-[0_0_18px_rgba(124,58,237,0.35)]`}>
                       {(walletScore.total_points || 0).toLocaleString()}
                     </div>
                     <div
@@ -1681,7 +1693,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
                   </>
                 ) : (
                   <>
-                    <div className="text-5xl font-display font-extrabold text-gradient tracking-tighter mb-2 relative z-10">
+                    <div className={`${metricSizeClass(data.score.totalScore || 0)} font-display font-extrabold text-white leading-none tracking-tight mb-2 relative z-10 drop-shadow-[0_0_18px_rgba(124,58,237,0.35)]`}>
                       {data.score.totalScore || 0}
                     </div>
                     <div className="inline-block px-4 py-1 rounded-full bg-gradient-to-r from-ink-blue to-ink-purple text-white text-sm font-semibold shadow-lg shadow-purple-900/40 relative z-10">
@@ -2640,7 +2652,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
               ) : (
                 <>
                   <div className="relative flex-1 flex flex-col items-center justify-center min-h-0 text-center">
-                    <div className="text-5xl font-extrabold font-display bg-gradient-to-r from-emerald-200 via-[#16C995] to-emerald-600 bg-clip-text text-transparent mb-2 leading-none tracking-tight">
+                    <div className={`${metricSizeClass(`~$${sentryMetrics.volumeUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })}`)} font-extrabold font-display bg-gradient-to-r from-emerald-200 via-[#16C995] to-emerald-600 bg-clip-text text-transparent mb-2 leading-none tracking-tight`}>
                       {formatMainUsd(sentryMetrics.volumeUsd, '~$')}
                     </div>
                     <div className="text-sm text-slate-400">Total Volume</div>
@@ -2665,7 +2677,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
             ) : (
               <>
                 <div className="relative flex-1 flex flex-col items-center justify-center min-h-0 text-center">
-                  <div className="text-5xl font-extrabold font-display bg-gradient-to-r from-emerald-200 via-[#16C995] to-emerald-600 bg-clip-text text-transparent mb-2 leading-none tracking-tight">~$3,412.18</div>
+                  <div className={`${metricSizeClass('~$3,412.18')} font-extrabold font-display bg-gradient-to-r from-emerald-200 via-[#16C995] to-emerald-600 bg-clip-text text-transparent mb-2 leading-none tracking-tight`}>~$3,412.18</div>
                   <div className="text-sm text-slate-400">Total Volume</div>
                   <div className="text-[11px] text-slate-500 mt-1">47 swaps</div>
                 </div>
@@ -2719,7 +2731,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
               ) : (
                 <>
                   <div className="relative flex-1 flex flex-col items-center justify-center min-h-0 text-center">
-                    <div className="text-5xl font-extrabold font-display bg-gradient-to-r from-lime-200 via-[#a5f44b] to-lime-600 bg-clip-text text-transparent mb-2 leading-none tracking-tight">
+                    <div className={`${metricSizeClass(`~$${hypercallMetrics.usdgSpent.toLocaleString(undefined, { maximumFractionDigits: 2 })}`)} font-extrabold font-display bg-gradient-to-r from-lime-200 via-[#a5f44b] to-lime-600 bg-clip-text text-transparent mb-2 leading-none tracking-tight`}>
                       {formatMainUsd(hypercallMetrics.usdgSpent, '~$')}
                     </div>
                     <div className="text-sm text-slate-400">Total Volume</div>
@@ -2744,7 +2756,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
             ) : (
               <>
                 <div className="relative flex-1 flex flex-col items-center justify-center min-h-0 text-center">
-                  <div className="text-5xl font-extrabold font-display bg-gradient-to-r from-lime-200 via-[#a5f44b] to-lime-600 bg-clip-text text-transparent mb-2 leading-none tracking-tight">~$1,250.00</div>
+                  <div className={`${metricSizeClass('~$1,250.00')} font-extrabold font-display bg-gradient-to-r from-lime-200 via-[#a5f44b] to-lime-600 bg-clip-text text-transparent mb-2 leading-none tracking-tight`}>~$1,250.00</div>
                   <div className="text-sm text-slate-400">Total Volume</div>
                   <div className="text-[11px] text-slate-500 mt-1">5 swaps</div>
                 </div>
@@ -2802,7 +2814,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
               ) : (
                 <>
                   <div className="relative flex-1 flex flex-col items-center justify-center min-h-0 text-center">
-                    <div className="text-5xl font-extrabold font-display bg-gradient-to-r from-indigo-200 via-indigo-400 to-violet-600 bg-clip-text text-transparent leading-none tracking-tight">
+                    <div className={`${metricSizeClass(zenithStakingMetrics.total_staked.toLocaleString())} font-extrabold font-display bg-gradient-to-r from-indigo-200 via-indigo-400 to-violet-600 bg-clip-text text-transparent leading-none tracking-tight`}>
                       {zenithStakingMetrics.total_staked.toLocaleString()}
                     </div>
                     <div className="text-xs text-slate-500 mt-1.5">NFTs Staked</div>
@@ -2834,7 +2846,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
             ) : (
               <>
                 <div className="relative flex-1 flex flex-col items-center justify-center min-h-0 text-center">
-                  <div className="text-5xl font-extrabold font-display bg-gradient-to-r from-indigo-200 via-indigo-400 to-violet-600 bg-clip-text text-transparent leading-none tracking-tight">0</div>
+                  <div className={`${metricSizeClass(0)} font-extrabold font-display bg-gradient-to-r from-indigo-200 via-indigo-400 to-violet-600 bg-clip-text text-transparent leading-none tracking-tight`}>0</div>
                   <div className="text-xs text-slate-500 mt-1.5">NFTs Staked</div>
                 </div>
 
@@ -2894,7 +2906,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
               ) : (
                 <>
                   <div className="relative flex-1 flex flex-col items-center justify-center min-h-0 text-center">
-                    <div className="text-5xl font-extrabold font-display bg-gradient-to-r from-[#FFC2AE] via-[#F83800] to-[#A82500] bg-clip-text text-transparent mb-2 leading-none tracking-tight">
+                    <div className={`${metricSizeClass(gonefishinMetrics.gamesBought.toLocaleString())} font-extrabold font-display bg-gradient-to-r from-[#FFC2AE] via-[#F83800] to-[#A82500] bg-clip-text text-transparent mb-2 leading-none tracking-tight`}>
                       {gonefishinMetrics.gamesBought.toLocaleString()}
                     </div>
                     <div className="text-sm text-slate-400">Total Played</div>
@@ -2913,7 +2925,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
             ) : (
               <>
                 <div className="relative flex-1 flex flex-col items-center justify-center min-h-0 text-center">
-                  <div className="text-5xl font-extrabold font-display bg-gradient-to-r from-[#FFC2AE] via-[#F83800] to-[#A82500] bg-clip-text text-transparent mb-2 leading-none tracking-tight">12</div>
+                  <div className={`${metricSizeClass('12')} font-extrabold font-display bg-gradient-to-r from-[#FFC2AE] via-[#F83800] to-[#A82500] bg-clip-text text-transparent mb-2 leading-none tracking-tight`}>12</div>
                   <div className="text-sm text-slate-400">Total Played</div>
                   <div className="text-[11px] text-slate-500 mt-1">~$126.40</div>
                 </div>
@@ -2959,7 +2971,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
             ) : (
               <>
                 <div className="relative flex-1 flex flex-col items-center justify-center min-h-0 text-center">
-                  <div className="text-5xl font-extrabold font-display bg-gradient-to-r from-[#D8CCF0] via-[#9A7FC8] to-[#5E409C] bg-clip-text text-transparent mb-2 leading-none tracking-tight">
+                  <div className={`${metricSizeClass(formatMainUsd(!isDemo && inkBrokersMetrics ? inkBrokersMetrics.swap_volume_usd : 0, '~$'))} font-extrabold font-display bg-gradient-to-r from-[#D8CCF0] via-[#9A7FC8] to-[#5E409C] bg-clip-text text-transparent mb-2 leading-none tracking-tight`}>
                     {formatMainUsd(!isDemo && inkBrokersMetrics ? inkBrokersMetrics.swap_volume_usd : 0, '~$')}
                   </div>
                   <div className="text-sm text-slate-400">Total Volume</div>
