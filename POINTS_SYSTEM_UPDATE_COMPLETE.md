@@ -21,10 +21,14 @@ All platform metrics have been updated from simple multipliers to **tiered rewar
 | Shellies | Mixed | **Tiered (25-400)** | 400 |
 | ZNS | Mixed | **Tiered (20-300)** | 300 |
 | NFT2Me | Mixed | **Tiered (50-300)** | 300 |
-| NFT Trading | Mixed | **Tiered (15-400)** | 400 |
-| Marvk | Mixed | **Tiered (50-300)** | 300 |
 | Nado | Unlimited | Tiered (50-2,500) | 2,500 |
 | Copink | Multiplier | **Tiered (50-400)** | 400 |
+| InkScore Zenith (NFTs) | None | **Tiered (1,000-5,000)** | 5,000 |
+| InkScore Zenith (Staking) | Per-day accrual | **Tiered (2,000-6,000)** | 6,000 |
+| Hypercall Earn | None | **Tiered (1,000-5,000)** | 5,000 |
+| Sentry | None | **Tiered (1,000-5,000)** | 5,000 |
+| Ink Brokers | None | **Tiered (1,000-5,000)** | 5,000 |
+| Gone Fishin | None | **500/game (max 3)** | 1,500 |
 
 ---
 
@@ -178,43 +182,57 @@ All platform metrics have been updated from simple multipliers to **tiered rewar
 | Mint 10 - 99 NFTs | 100 | 💎 Minter |
 | Mint 100+ NFTs | 200 | 🚀 Degen |
 
-### 11. NFT Marketplace (Max: 400 points)
+### 11. InkScore Zenith — NFT Holdings (Max: 5,000 points)
+| Tier | NFTs Held | Points |
+|------|-----------|--------|
+| 1 | 1 NFT | 1,000 |
+| 2 | 2 - 8 NFTs | 2,500 |
+| 3 | 9+ NFTs | 5,000 |
 
-**Platforms Used (Max: 100 points)**
-| Platform | Points |
-|----------|--------|
-| Used Squid Market | 50 |
-| Used Net Protocol | 35 |
-| Used Mintique | 15 |
-| **All 3 Platforms** | **100** |
+### 12. InkScore Zenith — Staking (Max: 6,000 points)
 
-**Trade Count (Max: 300 points)**
+Replaces the old per-NFT per-time accrual system (5/15/50 pts per day/week/month):
+points are now flat tiers on the currently-staked count and feed the main
+inkscore wallet score.
+
+| Tier | NFTs Staked | Points |
+|------|-------------|--------|
+| 1 | 1 NFT | 2,000 |
+| 2 | 2 - 8 NFTs | 4,000 |
+| 3 | 9+ NFTs | 6,000 |
+
+### 13. Hypercall Earn (Max: 5,000 points)
+| Tier | Swap Volume | Points |
+|------|-------------|--------|
+| 1 | $1 - $100 | 1,000 |
+| 2 | $100 - $1,000 | 2,500 |
+| 3 | $1,000+ | 5,000 |
+
+### 14. Sentry (Max: 5,000 points)
+| Tier | Swap Volume | Points |
+|------|-------------|--------|
+| 1 | $1 - $100 | 1,000 |
+| 2 | $100 - $1,000 | 2,500 |
+| 3 | $1,000+ | 5,000 |
+
+### 15. Ink Brokers (Max: 5,000 points)
+
+Scored on FloorRouterV2 swap volume (the Ink Brokers swap venue):
+
+| Tier | Swap Volume | Points |
+|------|-------------|--------|
+| 1 | $1 - $100 | 1,000 |
+| 2 | $100 - $1,000 | 2,500 |
+| 3 | $1,000+ | 5,000 |
+
+### 16. Gone Fishin (Max: 1,500 points)
 | Requirement | Points |
 |-------------|--------|
-| 1 NFT Traded | 50 |
-| 5 NFTs Traded | 150 |
-| 10+ NFTs Traded | 300 |
+| Per game purchased (round or pack) | 500 |
+| Cap | 3 games |
+| **Maximum** | **1,500** |
 
-### 12. Marvk (Max: 300 points)
-
-**Mint Card (Max: 100 points - one-time)**
-| Requirement | Points | Status |
-|-------------|--------|--------|
-| Mint Marvk Card | 100 | 💳 Member |
-
-**Lock Token (Max: 100 points)**
-| Requirement | Points | Status |
-|-------------|--------|--------|
-| Lock 1 Token | 50 | 🔒 Locker |
-| Lock 5+ Tokens | 100 | 🔐 Hodler |
-
-**Vest Token (Max: 100 points)**
-| Requirement | Points | Status |
-|-------------|--------|--------|
-| Vest 1 Token | 50 | ⏳ Vester |
-| Vest 5+ Tokens | 100 | 🏦 Investor |
-
-### 13. Nado Finance (Max: 2,500 points)
+### 17. Nado Finance (Max: 2,500 points)
 
 **Deposits (Max: 1,250 points)**
 | Tier | Deposit Range | Points | Rank |
@@ -236,7 +254,7 @@ All platform metrics have been updated from simple multipliers to **tiered rewar
 | 5 | $10,000,000 - $24,999,999 | 1,150 | 💎 Market Maker |
 | 6 | $25,000,000+ | 1,250 | 👑 Legend |
 
-### 14. Copink (Max: 400 points)
+### 18. Copink (Max: 400 points)
 
 **Volume (Max: 300 points)**
 | Tier | Volume | Points | Status |
@@ -307,11 +325,15 @@ All platform metrics have been updated from simple multipliers to **tiered rewar
 | Shellies | 400 |
 | ZNS | 300 |
 | NFT2Me | 300 |
-| NFT Trading | 400 |
-| Marvk | 300 |
+| InkScore Zenith (NFTs) | 5,000 |
+| InkScore Zenith (Staking) | 6,000 |
+| Hypercall Earn | 5,000 |
+| Sentry | 5,000 |
+| Ink Brokers | 5,000 |
+| Gone Fishin | 1,500 |
 | Nado | 2,500 |
 | Copink | 400 |
-| **Total Maximum** | **12,100** |
+| **Total Maximum** | **38,900** |
 
 ---
 

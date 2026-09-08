@@ -25,8 +25,7 @@ import {
   type StakingDuration,
   type ZenithNFT,
 } from '@/lib/staking-contract';
-import { accruedPoints, awardForLock } from '@/lib/staking-points';
-import { StakingCard, formatRemaining, useNow, type StakingMode, type StakingPhase } from '../components/StakingCard';
+import { StakingCard, formatRemaining, type StakingMode, type StakingPhase } from '../components/StakingCard';
 import { StakeModal } from '../components/StakeModal';
 import { useSmoothPoints } from '../hooks/useSmoothPoints';
 
@@ -94,12 +93,6 @@ const BUSY_PHASES = new Set<StakingPhase>(['signing', 'broadcasting', 'confirmin
 interface UnifiedNFT {
   token: ZenithNFT;
   mode: StakingMode;
-}
-
-/** On-chain lock window of a currently-staked NFT (from stakeInfo). */
-interface StakedLockInfo {
-  stakedAtSec: number;
-  unlockAtSec: number;
 }
 
 export default function StakingPage() {
@@ -250,93 +243,11 @@ export default function StakingPage() {
     return match?.label ?? formatRemaining(diff * 1000);
   }, []);
 
-  /* ------------------- staking points (off-chain) --------------------- */
-  // Banked = settled at unstake time (server-verified from event logs).
-  // Live = still-staked accrual, derived client-side with the same formula.
-  const {
-    data: bankedPoints,
-    refetch: refetchBankedPoints,
-  } = useQuery({
-    queryKey: ['staking-points-banked', address],
-    queryFn: async (): Promise<number> => {
-      const res = await fetch(`/api/staking/points?wallet=${address}`);
-      if (!res.ok) return 0;
-      const data = (await res.json()) as { banked?: unknown };
-      return typeof data.banked === 'number' ? data.banked : 0;
-    },
-    enabled: ready,
-    staleTime: 30_000,
-    refetchOnWindowFocus: false,
-  });
-
-  const stakedLocks = useMemo<StakedLockInfo[]>(() => Object.values(lockInfoById), [lockInfoById]);
-
-  /**
-   * Fire-and-forget: anchor the position after a STAKE confirms. The server
-   * verifies the tx receipt and records the open position (no points yet).
-   * One retry — a missed anchor means that cycle can't be credited later.
-   */
-  const anchorStakingPoints = useCallback(
-    async (tokenId: string, txHash: string) => {
-      if (!address) return;
-      const post = () =>
-        fetch('/api/staking/points/anchor', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ wallet: address, tokenId: Number(tokenId), txHash }),
-        });
-      try {
-        if ((await post()).ok) return;
-      } catch {
-        // retry below
-      }
-      await new Promise((resolve) => setTimeout(resolve, 2_000));
-      try {
-        await post();
-      } catch {
-        // Give up silently — stake/holdings flows are unaffected.
-      }
-    },
-    [address]
-  );
-
-  /** Fire-and-forget: bank one NFT's points after its UNSTAKE confirms. */
-  const claimStakingPoints = useCallback(
-    async (tokenId: string, txHash: string) => {
-      if (!address) return;
-      try {
-        const res = await fetch('/api/staking/points/claim', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ wallet: address, tokenId: Number(tokenId), txHash }),
-        });
-        if (res.ok) void refetchBankedPoints();
-      } catch {
-        // Best-effort — the reconcile-on-visit below covers missed claims.
-      }
-    },
-    [address, refetchBankedPoints]
-  );
-
-  // Self-heal on visit: settle any cycles unstaked while the page was
-  // closed (POST without tokenId reconciles the wallet's whole history).
-  const reconciledWalletRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (!ready || !address || reconciledWalletRef.current === address) return;
-    reconciledWalletRef.current = address;
-    void (async () => {
-      try {
-        const res = await fetch('/api/staking/points/claim', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ wallet: address }),
-        });
-        if (res.ok) void refetchBankedPoints();
-      } catch {
-        // Retried on the next visit.
-      }
-    })();
-  }, [ready, address, refetchBankedPoints]);
+  /* ------------------- staking points (flat tiers) -------------------- */
+  // Points are now flat tiers on the staked count (1 → 2k, 2-8 → 4k,
+  // >8 → 6k), credited to the main inkscore wallet score server-side.
+  // The old per-day accrual/anchor/claim flow was removed.
+  const stakedCount = stakedIds.length;
 
   /* --------------------------- write flows ---------------------------- */
   const [activeOp, setActiveOp] = useState<ActiveOp | null>(null);
@@ -425,11 +336,6 @@ export default function StakingPage() {
         // Confirmed — refresh everything immediately so the UI always shows
         // the live on-chain state, keep the success pulse for a beat.
         refreshAll();
-        // Points flow: anchor on stake (records the verified position),
-        // settle on unstake (banks the award) — both receipt-verified
-        // server-side and idempotent.
-        if (kind === 'stake') void anchorStakingPoints(tokenId, hash);
-        else void claimStakingPoints(tokenId, hash);
         setActiveOp((p) =>
           p?.tokenId === tokenId
             ? { ...p, phase: 'success', detail: transactionExplorerUrl(hash) }
@@ -460,7 +366,7 @@ export default function StakingPage() {
         });
       }
     },
-    [ready, address, publicClient, isApprovedForAll, stakeFeeWei, unstakeFeeWei, writeContractAsync, refetchApproval, refreshAll, anchorStakingPoints, claimStakingPoints]
+    [ready, address, publicClient, isApprovedForAll, stakeFeeWei, unstakeFeeWei, writeContractAsync, refetchApproval, refreshAll]
   );
 
   const dismissOp = useCallback(() => setActiveOp(null), []);
@@ -611,9 +517,9 @@ export default function StakingPage() {
               <StatusBar op={activeOp} onDismiss={dismissOp} />
             )}
 
-            {/* Live staking points total (banked + in-progress accrual) */}
+            {/* Staking points (flat tiers on the staked count) */}
             <div className="flex justify-end">
-              <StakingPointsPill banked={bankedPoints} locks={stakedLocks} />
+              <StakingPointsPill staked={stakedCount} />
             </div>
 
             {/* Collection-wide staking progress (updates on every stake/unstake) */}
@@ -762,35 +668,19 @@ function StatChip({
 }
 
 /**
- * Collection staking-points total: banked (settled at unstake, from the DB)
- * plus the live in-progress accrual of every currently-staked NFT, derived
- * per second with the same formula as the cards. Rolls in with the same
- * count-up animation as the card accumulators.
+ * Collection staking-points total: flat tiers on the currently-staked count —
+ * 1 staked → 2,000 pts · 2-8 → 4,000 pts · 9+ → 6,000 pts. These points are
+ * part of the main inkscore wallet score (points-service-v2), credited
+ * server-side; the pill mirrors the tier the wallet currently sits in.
  */
-function StakingPointsPill({
-  banked,
-  locks,
-}: {
-  banked: number | undefined;
-  locks: StakedLockInfo[];
-}) {
-  const now = useNow(true);
-  const nowSec = Math.floor(now / 1000);
-  const live = useMemo(() => {
-    let sum = 0;
-    for (const lock of locks) {
-      const award = awardForLock(lock.stakedAtSec, lock.unlockAtSec);
-      if (award !== null) sum += accruedPoints(lock.stakedAtSec, lock.unlockAtSec, nowSec, award);
-    }
-    return sum;
-  }, [locks, nowSec]);
-
-  const display = useSmoothPoints((banked ?? 0) + live);
+function StakingPointsPill({ staked }: { staked: number }) {
+  const points = staked > 8 ? 6000 : staked >= 2 ? 4000 : staked >= 1 ? 2000 : 0;
+  const display = useSmoothPoints(points);
 
   return (
     <div
       className="glass-card animate-fade-in inline-flex items-center gap-2 rounded-full border border-emerald-500/20 px-4 py-2"
-      title="Points earned by staked NFTs — banked when you unstake"
+      title="Points earned by staked NFTs — 2,000 for 1 staked, 4,000 for 2-8, 6,000 for 9+"
     >
       <Zap size={14} className="shrink-0 text-emerald-400" />
       <span className="text-sm font-bold tabular-nums text-white">

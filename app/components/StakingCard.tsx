@@ -1,10 +1,8 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from 'react';
-import { Check, Clock, Loader2, Lock, Unlock } from './Icons';
+import React, { useEffect, useState } from 'react';
+import { Clock, Loader2, Lock, Unlock } from './Icons';
 import type { ZenithNFT } from '@/lib/staking-contract';
-import { awardForLock } from '@/lib/staking-points';
-import { PointsAccumulator } from './PointsAccumulator';
 
 export type StakingPhase =
   | 'idle'
@@ -161,16 +159,6 @@ export const StakingCard: React.FC<StakingCardProps> = ({
     ? Math.min(100, Math.max(0, ((chainNowSec - stakedAtSec) / (unlockAtSec - stakedAtSec)) * 100))
     : 0;
 
-  // Points plan award for this position — derived from the on-chain lock
-  // duration; null (accumulator hidden) when the duration is unknown.
-  const pointsAward = useMemo(
-    () =>
-      hasLock && stakedAtSec != null && unlockAtSec != null
-        ? awardForLock(stakedAtSec, unlockAtSec)
-        : null,
-    [hasLock, stakedAtSec, unlockAtSec]
-  );
-
   const action = isStaked ? (locked ? 'Locked' : 'Unstake') : 'Stake';
   // Staked but lock data not loaded yet — stay on the safe side and keep
   // the button disabled rather than offering an unstake that would revert.
@@ -292,21 +280,7 @@ export const StakingCard: React.FC<StakingCardProps> = ({
                     style={{ width: `${progress}%` }}
                   />
                 </div>
-
-                {/* Live points accumulator — counts up on mount, ticks in real time */}
-                {pointsAward !== null && stakedAtSec != null && (
-                  <PointsAccumulator award={pointsAward} fraction={progress / 100} />
-                )}
               </>
-            ) : pointsAward !== null ? (
-              /* Lock complete — ONE pill, no bar: the earned award IS the state */
-              <div
-                className="animate-pill-pop inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-emerald-500/10 py-1 text-[11px] font-semibold text-emerald-400"
-                aria-label={`${pointsAward} points earned — NFT unlocked, unstake to bank them`}
-              >
-                <Check size={11} className="shrink-0" />
-                {pointsAward} pts earned — ready to unstake
-              </div>
             ) : (
               <span className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-emerald-500/10 py-1 text-emerald-400">
                 <Unlock size={11} className="shrink-0" />

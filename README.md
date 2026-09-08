@@ -103,16 +103,29 @@ INKSCORE is a comprehensive reputation scoring system that quantifies your on-ch
 - Create collection: 25 points each
 - Mint NFT: 10 points each
 
-#### NFT Trading
-- **Formula**: Squid × 50 + Net Protocol × 25 + Mintiq × 10
-- Squid Market trades: 50 points each
-- Net Protocol trades: 25 points each
-- Mintiq trades: 10 points each
+#### InkScore Zenith (NFTs)
+- **Formula (tiered)**: 1 NFT = 1,000 · 2-8 NFTs = 2,500 · 9+ NFTs = 5,000
+- Maximum possible: 5,000 points
 
-#### Marvk
-- **Formula**: Cards × 50 + (Lock + Vest) × 1.5
-- Card minted: 50 points each
-- Lock/Vest tokens: 1.5 points per action
+#### InkScore Zenith (Staking)
+- **Formula (tiered on staked count)**: 1 staked = 2,000 · 2-8 staked = 4,000 · 9+ staked = 6,000
+- Maximum possible: 6,000 points
+
+#### Hypercall Earn
+- **Formula (tiered on swap volume)**: $1-$100 = 1,000 · $100-$1K = 2,500 · $1K+ = 5,000
+- Maximum possible: 5,000 points
+
+#### Sentry
+- **Formula (tiered on swap volume)**: $1-$100 = 1,000 · $100-$1K = 2,500 · $1K+ = 5,000
+- Maximum possible: 5,000 points
+
+#### Ink Brokers
+- **Formula (tiered on FloorRouterV2 swap volume)**: $1-$100 = 1,000 · $100-$1K = 2,500 · $1K+ = 5,000
+- Maximum possible: 5,000 points
+
+#### Gone Fishin
+- **Formula**: 500 points per game purchased (round or pack), capped at 3 games
+- Maximum possible: 1,500 points
 
 #### Nado Finance
 - **Formula**: Deposits × 5 + Volume × 0.1

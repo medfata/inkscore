@@ -26,10 +26,16 @@ This document provides a complete overview of all point sources in the InkScore 
 
 | Platform | Max Points | Metrics Tracked |
 |----------|-----------|-----------------|
+| **InkScore Zenith (Staking)** ⭐ NEW | **6,000** | Staked NFT count (1/2-8/9+ tiers) |
+| **InkScore Zenith (NFTs)** ⭐ NEW | **5,000** | Held NFT count (1/2-8/9+ tiers) |
+| **Hypercall Earn** ⭐ NEW | **5,000** | Swap volume (USD tiers) |
+| **Sentry** ⭐ NEW | **5,000** | Swap volume (USD tiers) |
+| **Ink Brokers** ⭐ NEW | **5,000** | FloorRouterV2 swap volume (USD tiers) |
 | **Templars of the Storm** ⭐ | **2,700** | NFT holdings (1/2/3+ tiers) |
-| **OpenSea** ⭐ NEW | **2,500** | Buy/Sell/Mint activity (tiered) |
+| **OpenSea** ⭐ | **2,500** | Buy/Sell/Mint activity (tiered) |
 | **Tydro** | 2,500 | Supply (1,250) + Borrow (1,250) |
 | **Nado Finance** | 2,500 | Deposits (1,250) + Volume (1,250) |
+| **Gone Fishin** ⭐ NEW | 1,500 | Games played (500/game, max 3) |
 
 ### Medium-Value Platforms (500-999 points)
 
@@ -45,14 +51,12 @@ This document provides a complete overview of all point sources in the InkScore 
 |----------|-----------|-----------------|
 | **InkyPump** | 400 | Token creation + trading volume |
 | **Shellies** | 400 | Games played + NFTs staked + raffles |
-| **NFT Trading** | 400 | Squid, Net Protocol, Mintique activity |
 | **Copink** | 400 | Trading volume + subaccounts |
 | **GM** | 400 | GM count |
 | **ZNS** | 300 | Domains + contracts + GM activity |
 | **NFT2Me** | 300 | Collections created + NFTs minted |
-| **Marvk** | 300 | Cards minted + tokens locked/vested |
 
-**Platform Total:** ~10,700 points
+**Platform Total:** ~38,200 points
 
 ---
 
@@ -84,12 +88,13 @@ This document provides a complete overview of all point sources in the InkScore 
 ## Points Distribution by Category
 
 ```
-Native Metrics:        2,300 pts (15.3%)
-High-Value Platforms: 10,200 pts (68.0%)  ← Templars, OpenSea, Tydro, Nado
-Medium-Value:          1,500 pts (10.0%)  ← Bridges, Swap
-Standard Platforms:    1,000 pts ( 6.7%)  ← Other platforms
+Native Metrics:        2,300 pts ( 5.5%)
+High-Value Platforms: 37,700 pts (90.2%)  <- Zenith, Hypercall, Sentry, Ink Brokers,
+                                             Gone Fishin, Templars, OpenSea, Tydro, Nado
+Medium-Value:          1,500 pts ( 3.6%)  ← Bridges, Swap
+Standard Platforms:      300 pts ( 0.7%)  ← Other platforms
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Total Maximum:        ~15,000 pts
+Total Maximum:        ~41,800 pts
 ```
 
 ---

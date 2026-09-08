@@ -17,7 +17,13 @@ import {
   getShelliesPayToPlay,
   getShelliesStaking,
   getTemplarsBalance,
+  getZenithNft,
+  getZenithStaking,
+  getInkBrokersMetrics,
 } from './analytics-counts-service';
+import { getGoneFishinData } from './gonefishin-service';
+import { getSentryData } from './sentry-service';
+import { getHypercallData } from './hypercall-service';
 import {
   getGmCount,
   getInkypumpCreatedTokens,
@@ -97,6 +103,19 @@ export interface OpenSeaCounts {
   saleTransactions: unknown[];
   mintTransactions: unknown[];
 }
+// InkScore Zenith ERC721 holdings (minimal shape the score needs; the full
+// interface lives in analytics-counts-service).
+export interface ZenithNftResponse { total_count?: number; }
+// InkScore Zenith staking positions (blockchain reads via the staking contract).
+export interface ZenithStakingResponse { total_count?: number; total_staked?: number; }
+// Gone Fishin game purchases (buy txs to the game contract, rounds + packs).
+export interface GoneFishinScoreResponse { gamesBought?: number; totalSpentUsd?: number; prizesWonCount?: number; prizesWonUsd?: number; }
+// Sentry swaps through SentryInkRouterV4.
+export interface SentryScoreResponse { swapCount?: number; volumeUsd?: number; }
+// Hypercall Earn zaps + positions (USDG ≈ $1 exact USD volume).
+export interface HypercallScoreResponse { swapCount?: number; usdgSpent?: number; }
+// Ink Brokers desk activity + FloorRouterV2 swap volume.
+export interface InkBrokersResponse { swap_count?: number; swap_volume_usd?: number; }
 
 export interface ScoreInputs {
   walletStats: ScoreWalletStats | null;
@@ -119,10 +138,16 @@ export interface ScoreInputs {
   cowSwapData: CowSwapResponse | null;
   sweepData: SweepResponse | null;
   openSeaCounts: OpenSeaCounts;
-  // Ink Brokers desk activity (clock-ins, claims, active seats).
-  // Tracked for snapshots only — scoring not wired yet (points TBD).
-  // Optional: gatherScoreInputs doesn't fetch it; the bundle passes it in.
-  inkBrokersData?: unknown;
+  // InkScore Zenith NFT holdings + staking positions (blockchain reads).
+  zenithNftData: ZenithNftResponse | null;
+  zenithStakingData: ZenithStakingResponse | null;
+  // Gone Fishin game purchases.
+  gonefishinData: GoneFishinScoreResponse | null;
+  // Swap-venue platforms scored on USD swap volume tiers.
+  sentryData: SentryScoreResponse | null;
+  hypercallData: HypercallScoreResponse | null;
+  // Ink Brokers desk activity + FloorRouterV2 swap volume.
+  inkBrokersData?: InkBrokersResponse | null;
 }
 
 // System/junk wallets excluded from scoring entirely (see calculateWalletScore
@@ -623,6 +648,37 @@ export class PointsServiceV2 {
     return collectionPoints + mintPoints;
   }
 
+  private calculateZenithNftPoints(heldCount: number): number {
+    // InkScore Zenith NFT holdings (Max: 5,000 points)
+    if (heldCount > 8) return 5000;  // Tier 3: 9+ held
+    if (heldCount >= 2) return 2500; // Tier 2: 2-8 held
+    if (heldCount >= 1) return 1000; // Tier 1: 1 held
+    return 0;
+  }
+
+  private calculateZenithStakingPoints(stakedCount: number): number {
+    // InkScore Zenith staking positions (Max: 6,000 points)
+    if (stakedCount > 8) return 6000;  // Tier 3: 9+ staked
+    if (stakedCount >= 2) return 4000; // Tier 2: 2-8 staked
+    if (stakedCount >= 1) return 2000; // Tier 1: 1 staked
+    return 0;
+  }
+
+  private calculateSwapVenueTierPoints(swapVolumeUsd: number): number {
+    // Shared USD swap-volume tier for Hypercall Earn, Sentry and Ink Brokers
+    // (Max: 5,000 points each)
+    if (swapVolumeUsd > 1000) return 5000; // Tier 3: > $1k volume
+    if (swapVolumeUsd > 100) return 2500;  // Tier 2: $100 - $1k volume
+    if (swapVolumeUsd >= 1) return 1000;   // Tier 1: $1 - $100 volume
+    return 0;
+  }
+
+  private calculateGoneFishinPoints(gamesBought: number): number {
+    // Gone Fishin game purchases (Max: 1,500 points — 500 per game, capped at 3)
+    const games = Math.min(Math.floor(gamesBought) || 0, 3);
+    return games * 500;
+  }
+
   async calculateWalletScore(
     walletAddress: string,
     opts?: { skipSnapshot?: boolean }
@@ -790,7 +846,13 @@ export class PointsServiceV2 {
         mintData,
         cowSwapData,
         sweepData,
-        openSeaCounts
+        openSeaCounts,
+        zenithNftData,
+        zenithStakingData,
+        gonefishinData,
+        sentryData,
+        hypercallData,
+        inkBrokersData
       ] = await Promise.all([
         walletStatsPromise,
         // Sprint 1: direct service call — no loopback HTTP. The service
@@ -862,6 +924,16 @@ export class PointsServiceV2 {
         // — same sweepService both HTTP wrappers use.
         withTimeout(sweepService.getDeployedCollections(wallet).catch(() => null), 20000, null, 'sweep'),
         openSeaCountsPromise,
+        // InkScore Zenith NFT holdings + staking positions (viem blockchain
+        // reads with their own long caches; 20s budget like the other counts).
+        withTimeout(getZenithNft(wallet).catch(() => null), 20000, null, 'zenith-nft'),
+        withTimeout(getZenithStaking(wallet).catch(() => null), 20000, null, 'zenith-staking'),
+        // Gone Fishin game purchases (Blockscout walk, own long cache).
+        withTimeout(getGoneFishinData(wallet).catch(() => null), 20000, null, 'gonefishin'),
+        // Swap-venue platforms (each service layers its own long cache).
+        withTimeout(getSentryData(wallet).catch(() => null), 20000, null, 'sentry'),
+        withTimeout(getHypercallData(wallet).catch(() => null), 20000, null, 'hypercall'),
+        withTimeout(getInkBrokersMetrics(wallet).catch(() => null), 20000, null, 'ink-brokers'),
       ]);
 
       console.log(`[Score] ${wallet.slice(0, 10)} fetch batch completed in ${Date.now() - batchStart}ms`);
@@ -887,6 +959,12 @@ export class PointsServiceV2 {
         cowSwapData,
         sweepData,
         openSeaCounts,
+        zenithNftData,
+        zenithStakingData,
+        gonefishinData,
+        sentryData,
+        hypercallData,
+        inkBrokersData,
       };
   }
 
@@ -918,7 +996,13 @@ export class PointsServiceV2 {
       mintData,
       cowSwapData,
       sweepData,
-      openSeaCounts
+      openSeaCounts,
+      zenithNftData,
+      zenithStakingData,
+      gonefishinData,
+      sentryData,
+      hypercallData,
+      inkBrokersData
     } = inputs;
 
     const breakdown: WalletPointsBreakdown = {
@@ -1079,6 +1163,42 @@ export class PointsServiceV2 {
       const totalSweepActivity = sweepCollections + sweepBadges + sweepStreak;
       breakdown.platforms['sweep'] = { tx_count: totalSweepActivity, usd_volume: 0, points: sweepPoints };
       totalPoints += sweepPoints;
+
+      // InkScore Zenith NFT holdings points
+      const zenithNftCount = zenithNftData?.total_count || 0;
+      const zenithNftPoints = this.calculateZenithNftPoints(zenithNftCount);
+      breakdown.platforms['zenith_nft'] = { tx_count: zenithNftCount, usd_volume: 0, points: zenithNftPoints };
+      totalPoints += zenithNftPoints;
+
+      // InkScore Zenith staking points
+      const zenithStakedCount = zenithStakingData?.total_count || 0;
+      const zenithStakingPoints = this.calculateZenithStakingPoints(zenithStakedCount);
+      breakdown.platforms['zenith_staking'] = { tx_count: zenithStakedCount, usd_volume: 0, points: zenithStakingPoints };
+      totalPoints += zenithStakingPoints;
+
+      // Hypercall Earn swap-volume points
+      const hypercallVolumeUsd = hypercallData?.usdgSpent || 0;
+      const hypercallPoints = this.calculateSwapVenueTierPoints(hypercallVolumeUsd);
+      breakdown.platforms['hypercall'] = { tx_count: hypercallData?.swapCount || 0, usd_volume: hypercallVolumeUsd, points: hypercallPoints };
+      totalPoints += hypercallPoints;
+
+      // Sentry swap-volume points
+      const sentryVolumeUsd = sentryData?.volumeUsd || 0;
+      const sentryPoints = this.calculateSwapVenueTierPoints(sentryVolumeUsd);
+      breakdown.platforms['sentry'] = { tx_count: sentryData?.swapCount || 0, usd_volume: sentryVolumeUsd, points: sentryPoints };
+      totalPoints += sentryPoints;
+
+      // Ink Brokers swap-volume points (FloorRouterV2 swaps)
+      const inkBrokersVolumeUsd = inkBrokersData?.swap_volume_usd || 0;
+      const inkBrokersPoints = this.calculateSwapVenueTierPoints(inkBrokersVolumeUsd);
+      breakdown.platforms['ink_brokers'] = { tx_count: inkBrokersData?.swap_count || 0, usd_volume: inkBrokersVolumeUsd, points: inkBrokersPoints };
+      totalPoints += inkBrokersPoints;
+
+      // Gone Fishin game-purchase points (500 per game, max 3 games)
+      const gonefishinGames = gonefishinData?.gamesBought || 0;
+      const gonefishinPoints = this.calculateGoneFishinPoints(gonefishinGames);
+      breakdown.platforms['gonefishin'] = { tx_count: gonefishinGames, usd_volume: 0, points: gonefishinPoints };
+      totalPoints += gonefishinPoints;
 
       // Verification logs - check formula correctness
 

@@ -49,6 +49,86 @@ body {
   border-color: rgba(124, 58, 237, 0.2);
 }
 
+/* ---- Featured card: rotating glow border ----
+   Same effect as the Nado/Tydro "animated-border" cards, but the hue
+   is configurable per card via two custom properties:
+     --glow-color: the sweeping conic-gradient arc color
+     --glow-border: the faint static border around the card */
+.animated-border-glow {
+  position: relative;
+  border-radius: 1rem;
+}
+
+.animated-border-glow::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 1rem;
+  padding: 1px;
+  background: conic-gradient(
+    from var(--border-angle, 0deg),
+    transparent 0%,
+    transparent 25%,
+    var(--glow-color, #a855f7) 50%,
+    transparent 75%,
+    transparent 100%
+  );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: rotate-border 6s linear infinite;
+  pointer-events: none;
+}
+
+.animated-border-glow::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 1rem;
+  border: 1px solid var(--glow-border, rgba(168, 85, 247, 0.25));
+  pointer-events: none;
+}
+
+/* ---- Holo foil sheen (feature cards) ----
+   A soft diagonal light band that drifts across the card face, tinted
+   with the card's --glow-color plus a white foil glint. blend: screen
+   keeps it luminous but gentle on the dark theme, so metrics stay fully
+   legible. Usage: add as the FIRST child of a card that defines
+   --glow-color —  <div aria-hidden="true" className="holo-sheen" />  */
+.holo-sheen {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background-image: linear-gradient(
+    115deg,
+    transparent 20%,
+    color-mix(in srgb, var(--glow-color, #a855f7) 20%, transparent) 35%,
+    rgba(255, 255, 255, 0.1) 45%,
+    color-mix(in srgb, var(--glow-color, #a855f7) 20%, transparent) 55%,
+    transparent 70%
+  );
+  background-size: 250% 250%;
+  background-repeat: no-repeat;
+  mix-blend-mode: screen;
+  animation: holo-sweep 7s ease-in-out infinite alternate;
+}
+
+@keyframes holo-sweep {
+  0% {
+    background-position: 0% 0%;
+  }
+  100% {
+    background-position: 100% 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .holo-sheen {
+    animation: none;
+  }
+}
+
 /* Grid Background */
 .grid-bg {
   background-image: 

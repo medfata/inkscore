@@ -1,16 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import {
-  ResponsiveContainer,
-  RadarChart,
-  PolarGrid,
-  PolarAngleAxis,
-  PolarRadiusAxis,
-  Radar,
-  Tooltip
-} from 'recharts';
-import { Sparkles, ShieldCheck, Activity, Wallet, Award, Clock, Image, ExternalLink, Coins, Sun, Landmark, Zap, ArrowLeftRight, RefreshCw, TrendingUp } from './Icons';
+import { Sparkles, ShieldCheck, Activity, Wallet, Award, Clock, Image, ExternalLink, Coins, Sun, ArrowLeftRight, RefreshCw, TrendingUp } from './Icons';
 import { ScoreData, WalletStats, ScoreTier, AiAnalysisResult, NftHolding, TokenHolding } from '../types';
 import { Logo } from './Logo';
 import { HoldingsSection } from './HoldingsSection';
@@ -549,7 +540,59 @@ interface ConsolidatedDashboardResponse {
 const REFRESH_COOLDOWN_MS = 30000; // 30 seconds
 
 const isUsableWalletScore = (score: WalletScoreResponse | null | undefined): score is WalletScoreResponse => {
-  return Boolean(score && Number(score.total_points) > 0);
+  if (!score || Number(score.total_points) <= 0) return false;
+  // Schema guard: reject breakdowns captured before the newest platforms
+  // joined the score — serving one renders the breakdown list as a wall of
+  // zeros without those platforms. Rejected scores keep the skeleton up and
+  // the auto-heal refetch then serves a live gather with the full breakdown.
+  return Boolean(
+    score.breakdown?.platforms &&
+      'hypercall' in score.breakdown.platforms &&
+      'nado' in score.breakdown.platforms
+  );
+};
+
+// Gradient stops for a platform card's big main metric — light shade → accent
+// → deep shade, clipped to the text (the shared "new card" design).
+const MAIN_METRIC_GRADIENTS: Record<string, string> = {
+  emerald: 'from-emerald-200 via-emerald-400 to-emerald-600',
+  orange: 'from-orange-200 via-orange-400 to-orange-600',
+  indigo: 'from-indigo-200 via-indigo-400 to-violet-600',
+  purple: 'from-purple-200 via-purple-400 to-purple-600',
+  teal: 'from-teal-200 via-teal-400 to-teal-600',
+  cyan: 'from-cyan-200 via-cyan-400 to-cyan-600',
+  sky: 'from-sky-200 via-sky-400 to-sky-600',
+  green: 'from-green-200 via-green-400 to-green-600',
+  pink: 'from-pink-200 via-pink-400 to-pink-600',
+  violet: 'from-violet-200 via-violet-400 to-violet-600',
+  yellow: 'from-yellow-200 via-yellow-400 to-yellow-600',
+  lime: 'from-lime-200 via-lime-400 to-lime-600',
+};
+
+/** A platform card's big main metric (volume or count) — shared gradient design. */
+const CardMainMetric = ({ color = 'purple', className = '', children }: {
+  color?: string;
+  className?: string;
+  children: React.ReactNode;
+}) => (
+  <div
+    className={`text-5xl font-extrabold font-display bg-gradient-to-r ${
+      MAIN_METRIC_GRADIENTS[color] || MAIN_METRIC_GRADIENTS.purple
+    } bg-clip-text text-transparent leading-none tracking-tight ${className}`}
+  >
+    {children}
+  </div>
+);
+
+/**
+ * Main-metric USD formatting: "$1,250.00" as usual, and a zero volume renders
+ * as "$0" — the ".00" tail is dropped (it reads like noise on the big
+ * gradient number) but the dollar sign always stays, same size as the amount.
+ */
+const formatMainUsd = (usd: number, prefix = '$'): string => {
+  const v = Number(usd) || 0;
+  if (v === 0) return `${prefix}0`;
+  return `${prefix}${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 };
 
 export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isAdmin }) => {
@@ -1387,9 +1430,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
       });
 
       // Add platform metrics
+      const platformLabels: Record<string, string> = {
+        zenith_nft: 'Zenith NFT',
+        zenith_staking: 'Staking',
+        hypercall: 'Hypercall',
+        sentry: 'Sentry',
+        ink_brokers: 'Brokers',
+        gonefishin: 'Fishin',
+      };
       Object.entries(walletScore.breakdown.platforms).forEach(([slug, data]) => {
         // Shorten platform names for radar chart
-        const shortName = slug.length > 8 ? slug.substring(0, 7) + '.' : slug;
+        const shortName = platformLabels[slug] || (slug.length > 8 ? slug.substring(0, 7) + '.' : slug);
         items.push({
           subject: shortName.charAt(0).toUpperCase() + shortName.slice(1),
           A: data.points || 0,
@@ -1522,7 +1573,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
             {
               label: 'Net Worth Estimate',
               value: !isDemo && realWalletStats
-                ? `$${((realWalletStats.balanceUsd || 0) + (realWalletStats.tokenHoldings || []).filter(t => t.symbol !== 'ETH').reduce((sum, t) => sum + (t.usdValue || 0), 0)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                ? formatMainUsd((realWalletStats.balanceUsd || 0) + (realWalletStats.tokenHoldings || []).filter(t => t.symbol !== 'ETH').reduce((sum, t) => sum + (t.usdValue || 0), 0))
                 : `$${(data.stats.tokenHoldingsUsd || 0).toLocaleString()}`,
               icon: Wallet,
               color: 'blue',
@@ -1542,8 +1593,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
             {
               label: 'Circulated Volume',
               value: !isDemo && totalVolume
-                ? `$${(totalVolume.totalUsd || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                : '$0.00',
+                ? formatMainUsd(totalVolume.totalUsd || 0)
+                : '$0',
               subValue: !isDemo && totalVolume
                 ? `${(totalVolume.totalEth || 0).toFixed(4)} ETH`
                 : undefined,
@@ -1599,14 +1650,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
         {/* Row 2: Total INKSCORE (50%) + Tydro DeFi (50%) */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Total INKSCORE Card - 50% width */}
-          <div className="glass-card p-6 rounded-2xl animate-fade-in-up h-[260px] flex flex-col" style={{ animationDelay: '0.5s' }}>
-            <div className="flex flex-col md:flex-row items-center justify-between gap-3 flex-1">
+          <div className="animated-border-glow glass-card relative overflow-hidden p-6 rounded-2xl animate-fade-in-up h-[260px] flex flex-col" style={{ animationDelay: '0.5s', '--glow-color': '#7c3aed', '--glow-border': 'rgba(124, 58, 237, 0.25)' } as React.CSSProperties}>
+            <div className="relative flex flex-col md:flex-row items-center justify-between gap-3 flex-1">
               <div className="text-center relative flex-shrink-0">
                 <div className="absolute -top-20 -left-20 w-40 h-40 bg-ink-purple/20 blur-3xl rounded-full"></div>
                 <h2 className="text-slate-400 mb-2 relative z-10">Total INKSCORE</h2>
                 {!isDemo && walletScore ? (
                   <>
-                    <div className="text-5xl font-display font-bold text-white tracking-tighter mb-2 relative z-10 drop-shadow-[0_0_15px_rgba(124,58,237,0.3)]">
+                    <div className="text-5xl font-display font-extrabold text-gradient tracking-tighter mb-2 relative z-10">
                       {(walletScore.total_points || 0).toLocaleString()}
                     </div>
                     <div
@@ -1630,7 +1681,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
                   </>
                 ) : (
                   <>
-                    <div className="text-5xl font-display font-bold text-white tracking-tighter mb-2 relative z-10 drop-shadow-[0_0_15px_rgba(124,58,237,0.3)]">
+                    <div className="text-5xl font-display font-extrabold text-gradient tracking-tighter mb-2 relative z-10">
                       {data.score.totalScore || 0}
                     </div>
                     <div className="inline-block px-4 py-1 rounded-full bg-gradient-to-r from-ink-blue to-ink-purple text-white text-sm font-semibold shadow-lg shadow-purple-900/40 relative z-10">
@@ -1656,36 +1707,46 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
                 )}
               </div>
 
-              <div className="h-[170px] w-full md:w-[210px] flex-shrink-0">
+              <div className="relative flex-1 w-full md:max-w-[300px] self-stretch flex flex-col justify-center min-w-0">
                 {!isDemo && !walletScore ? (
-                  // Empty radar chart skeleton - 5 edges, no data, no labels
-                  <ResponsiveContainer width="100%" height="100%">
-                    <RadarChart cx="50%" cy="50%" outerRadius="70%" data={[
-                      { subject: '', A: 0, fullMark: 100 },
-                      { subject: '', A: 0, fullMark: 100 },
-                      { subject: '', A: 0, fullMark: 100 },
-                      { subject: '', A: 0, fullMark: 100 },
-                      { subject: '', A: 0, fullMark: 100 },
-                    ]}>
-                      <PolarGrid stroke="#334155" />
-                      <PolarAngleAxis dataKey="subject" tick={false} />
-                      <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
-                    </RadarChart>
-                  </ResponsiveContainer>
+                  /* Loading skeleton — same rhythm as the breakdown bars */
+                  <div className="flex flex-col gap-2.5">
+                    {['Age', 'TXs', 'NFTs', 'Tokens', 'Volume', 'Platforms'].map((label) => (
+                      <div key={label} className="flex items-center gap-2">
+                        <div className="h-2 w-[76px] bg-slate-700/40 rounded animate-pulse shrink-0"></div>
+                        <div className="flex-1 h-1.5 bg-slate-700/40 rounded animate-pulse"></div>
+                        <div className="h-2 w-12 bg-slate-700/40 rounded animate-pulse shrink-0"></div>
+                      </div>
+                    ))}
+                  </div>
                 ) : (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <RadarChart cx="50%" cy="50%" outerRadius="70%" data={chartData}>
-                      <PolarGrid stroke="#334155" />
-                      <PolarAngleAxis dataKey="subject" tick={{ fill: '#94a3b8', fontSize: 11 }} />
-                      <PolarRadiusAxis angle={30} domain={[0, 'dataMax']} tick={false} axisLine={false} />
-                      <Radar name="Points" dataKey="A" stroke="#7c3aed" strokeWidth={2} fill="#7c3aed" fillOpacity={0.4} />
-                      <Tooltip
-                        contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px', color: '#fff' }}
-                        itemStyle={{ color: '#a855f7' }}
-                        formatter={(value) => [`${value} pts`, 'Points']}
-                      />
-                    </RadarChart>
-                  </ResponsiveContainer>
+                  /* Score breakdown — one bar per category, scaled to the top earner */
+                  <div className="flex flex-col justify-center gap-1.5 max-h-[200px] overflow-y-auto custom-scrollbar">
+                    {chartData.every((item) => !item.A) && (
+                      <div className="text-[11px] text-slate-500 text-center py-4">
+                        No category points earned yet
+                      </div>
+                    )}
+                    {[...chartData].sort((a, b) => b.A - a.A).filter((item) => item.A > 0).map((item, i) => {
+                      const pct = item.fullMark > 0 ? Math.min(100, Math.round((item.A / item.fullMark) * 100)) : 0;
+                      return (
+                        <div key={`${item.subject}-${i}`} className="flex items-center gap-2">
+                          <span className="text-[11px] text-slate-400 w-[76px] shrink-0 truncate text-right" title={item.subject}>
+                            {item.subject || '—'}
+                          </span>
+                          <div className="flex-1 h-1.5 rounded-full bg-slate-700/40 overflow-hidden">
+                            <div
+                              className="h-full rounded-full bg-gradient-to-r from-ink-blue to-ink-purple"
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                          <span className="text-[11px] font-mono text-white w-14 shrink-0 text-right">
+                            {(item.A || 0).toLocaleString()}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
                 )}
               </div>
             </div>
@@ -1713,155 +1774,89 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
                     alt="Tydro"
                     className="w-full h-full object-contain"
                     onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = 'none';
+                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=T&background=10b981&color=fff&size=24';
                     }}
                   />
                 </a>
                 <span className="text-white font-display">Tydro DeFi</span>
               </h3>
-
             </div>
 
             {!isDemo && (isMetricLoading('tydro') || (!realTydroData && !tydroCurrentSupply)) ? (
-              <div className="flex-1 flex flex-col gap-3 relative z-10">
-                {/* Current Positions Skeleton */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="p-3 rounded-xl bg-slate-800/40 border border-slate-700/30">
-                    <div className="h-3 w-24 bg-slate-700/40 rounded animate-pulse mb-2"></div>
-                    <div className="h-7 w-20 bg-slate-700/50 rounded animate-pulse"></div>
+              <div className="flex-1 grid grid-cols-2 gap-6 relative z-10">
+                {[0, 1].map((i) => (
+                  <div key={i} className="flex flex-col justify-center">
+                    <div className="h-2.5 w-20 bg-slate-700/40 rounded animate-pulse mb-2"></div>
+                    <div className="h-9 w-28 bg-slate-700/50 rounded animate-pulse mb-4"></div>
+                    <div className="h-3 w-36 bg-slate-700/30 rounded animate-pulse mb-1.5"></div>
+                    <div className="h-3 w-36 bg-slate-700/30 rounded animate-pulse"></div>
                   </div>
-                  <div className="p-3 rounded-xl bg-slate-800/40 border border-slate-700/30">
-                    <div className="h-3 w-24 bg-slate-700/40 rounded animate-pulse mb-2"></div>
-                    <div className="h-7 w-20 bg-slate-700/50 rounded animate-pulse"></div>
-                  </div>
-                </div>
-                {/* Historical Skeleton */}
-                <div className="grid grid-cols-2 gap-3 flex-1">
-                  <div className="p-3 rounded-xl bg-slate-800/30 border border-slate-700/20">
-                    <div className="h-3 w-28 bg-slate-700/30 rounded animate-pulse mb-2"></div>
-                    <div className="h-6 w-24 bg-slate-700/40 rounded animate-pulse"></div>
-                  </div>
-                  <div className="p-3 rounded-xl bg-slate-800/30 border border-slate-700/20">
-                    <div className="h-3 w-28 bg-slate-700/30 rounded animate-pulse mb-2"></div>
-                    <div className="h-6 w-24 bg-slate-700/40 rounded animate-pulse"></div>
-                  </div>
-                </div>
+                ))}
               </div>
             ) : (
-              <div className="flex-1 flex flex-col gap-3 relative z-10">
-                {/* Current Positions Row */}
-                <div className="grid grid-cols-2 gap-3">
-                  {/* Current Supply Position - Event Sourced (deposits - withdrawals) */}
-                  <div className="p-3 rounded-xl bg-green-500/10 border border-green-500/20 hover:border-green-500/40 transition-colors duration-200">
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-full bg-green-500/20 flex items-center justify-center">
-                          <Landmark size={12} className="text-green-400" />
-                        </div>
-                        <span className="text-xs font-medium text-slate-400">Current Supply</span>
-                      </div>
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/15 text-green-400 font-medium">LIVE</span>
-                    </div>
-                    <div className="text-3xl font-bold font-display text-green-400">
-                      ${!isDemo && tydroCurrentSupply
-                        ? (tydroCurrentSupply.currentSupplyUsd || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                        : '0.00'}
-                    </div>
-                    {!isDemo && tydroCurrentSupply && (tydroCurrentSupply.currentSupplyEth || 0) > 0 && (
-                      <div className="text-[10px] text-slate-500 mt-0.5">
-                        {(tydroCurrentSupply.currentSupplyEth || 0).toFixed(4)} ETH
-                      </div>
-                    )}
+              <div className="flex-1 grid grid-cols-2 relative z-10">
+                {/* Supply side — label + number centered, historical flow below */}
+                <div className="flex flex-col justify-center pr-5">
+                  <div className="flex items-center justify-center gap-3 mb-3">
+                    <span className="text-lg font-bold font-display bg-gradient-to-r from-emerald-200 via-emerald-400 to-emerald-600 bg-clip-text text-transparent leading-none tracking-tight">
+                      Supply
+                    </span>
+                    <CardMainMetric color="emerald">
+                      {formatMainUsd(!isDemo && tydroCurrentSupply ? (tydroCurrentSupply.currentSupplyUsd || 0) : 1250)}
+                    </CardMainMetric>
                   </div>
 
-                  {/* Current Borrow Position */}
-                  <div className="p-3 rounded-xl bg-orange-500/10 border border-orange-500/20 hover:border-orange-500/40 transition-colors duration-200">
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-full bg-orange-500/20 flex items-center justify-center">
-                          <Zap size={12} className="text-orange-400" />
-                        </div>
-                        <span className="text-xs font-medium text-slate-400">Current Borrow</span>
-                      </div>
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-500/15 text-orange-400 font-medium">LIVE</span>
+                  <div className="space-y-1.5 border-t border-slate-700/40 pt-2.5">
+                    <div className="flex justify-between items-baseline gap-2">
+                      <span className="text-[10px] font-medium uppercase tracking-wider text-emerald-400/80">Supplied</span>
+                      <span className="text-sm font-semibold font-display text-white leading-none tabular-nums">
+                        {formatMainUsd(!isDemo && tydroCurrentSupply ? (tydroCurrentSupply.totalDepositedUsd || 0) : 2100)}
+                        <span className="pl-1 text-[9px] text-slate-500 font-normal">
+                          / {!isDemo && tydroCurrentSupply ? (tydroCurrentSupply.depositCount || 0) : 6} tx
+                        </span>
+                      </span>
                     </div>
-                    <div className="text-3xl font-bold font-display text-orange-400">
-                      ${!isDemo && tydroCurrentSupply
-                        ? (tydroCurrentSupply.currentBorrowUsd || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                        : '0.00'}
+                    <div className="flex justify-between items-baseline gap-2">
+                      <span className="text-[10px] font-medium uppercase tracking-wider text-rose-400/80">Withdrawn</span>
+                      <span className="text-sm font-semibold font-display text-white leading-none tabular-nums">
+                        {formatMainUsd(!isDemo && tydroCurrentSupply ? (tydroCurrentSupply.totalWithdrawnUsd || 0) : 850)}
+                        <span className="pl-1 text-[9px] text-slate-500 font-normal">
+                          / {!isDemo && tydroCurrentSupply ? (tydroCurrentSupply.withdrawCount || 0) : 4} tx
+                        </span>
+                      </span>
                     </div>
-                    {!isDemo && tydroCurrentSupply && (tydroCurrentSupply.currentBorrowEth || 0) > 0 && (
-                      <div className="text-[10px] text-slate-500 mt-0.5">
-                        {(tydroCurrentSupply.currentBorrowEth || 0).toFixed(4)} ETH
-                      </div>
-                    )}
                   </div>
                 </div>
 
-                {/* Historical Volume Row */}
-                <div className="grid grid-cols-2 gap-3 flex-1">
-                  {/* Historical Supply/Withdraw Volume */}
-                  <div className="p-3 rounded-xl bg-slate-800/40 border border-slate-700/40 hover:border-slate-600/60 transition-colors duration-200">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Clock size={12} className="text-slate-500" />
-                      <span className="text-xs text-slate-500">Historical Supply/Withdraw</span>
-                    </div>
-                    <div className="flex justify-around items-baseline gap-2 mt-2">
-                      <div>
-                        <div className="text-xs text-green-400 mb-0.5">Supply</div>
-                        <div className="text-base font-bold font-display text-white">
-                          ${!isDemo && tydroCurrentSupply
-                            ? (tydroCurrentSupply.totalDepositedUsd || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                            : '0.00'}
-                          <div className=" pl-[2px] inline text-[10px] text-slate-500"> /
-                            {!isDemo && tydroCurrentSupply ? (tydroCurrentSupply.depositCount || 0) : 0} tx
-                          </div>
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-red-400 mb-0.5">Withdraw</div>
-                        <div className="text-base font-bold font-display text-white">
-                          ${!isDemo && tydroCurrentSupply
-                            ? (tydroCurrentSupply.totalWithdrawnUsd || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                            : '0.00'}
-                          <div className="pl-[2px] inline text-[10px] text-slate-500"> /
-                            {!isDemo && tydroCurrentSupply ? (tydroCurrentSupply.withdrawCount || 0) : 0} tx
-                          </div>
-                        </div>
-
-                      </div>
-                    </div>
+                {/* Borrow side — label + number centered, historical flow below */}
+                <div className="flex flex-col justify-center pl-5 border-l border-slate-700/50">
+                  <div className="flex items-center justify-center gap-3 mb-3">
+                    <span className="text-lg font-bold font-display bg-gradient-to-r from-orange-200 via-orange-400 to-orange-600 bg-clip-text text-transparent leading-none tracking-tight">
+                      Borrow
+                    </span>
+                    <CardMainMetric color="orange">
+                      {formatMainUsd(!isDemo && tydroCurrentSupply ? (tydroCurrentSupply.currentBorrowUsd || 0) : 350)}
+                    </CardMainMetric>
                   </div>
 
-                  {/* Historical Borrow/Repay Volume */}
-                  <div className="p-3 rounded-xl bg-slate-800/40 border border-slate-700/40 hover:border-slate-600/60 transition-colors duration-200">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Clock size={12} className="text-slate-500" />
-                      <span className="text-xs text-slate-500">Historical Borrow/Repay</span>
+                  <div className="space-y-1.5 border-t border-slate-700/40 pt-2.5">
+                    <div className="flex justify-between items-baseline gap-2">
+                      <span className="text-[10px] font-medium uppercase tracking-wider text-orange-400/80">Borrowed</span>
+                      <span className="text-sm font-semibold font-display text-white leading-none tabular-nums">
+                        {formatMainUsd(!isDemo && tydroCurrentSupply ? (tydroCurrentSupply.totalBorrowedUsd || 0) : 900)}
+                        <span className="pl-1 text-[9px] text-slate-500 font-normal">
+                          / {!isDemo && tydroCurrentSupply ? (tydroCurrentSupply.borrowCount || 0) : 5} tx
+                        </span>
+                      </span>
                     </div>
-                    <div className="flex justify-around items-baseline gap-2">
-                      <div>
-                        <div className="text-xs text-orange-400 mb-0.5">Borrow</div>
-                        <div className="text-base font-bold font-display text-white">
-                          ${!isDemo && tydroCurrentSupply
-                            ? (tydroCurrentSupply.totalBorrowedUsd || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                            : '0.00'}
-                          <div className="pl-[2px] inline text-[10px] text-slate-500"> /
-                            {!isDemo && tydroCurrentSupply ? (tydroCurrentSupply.borrowCount || 0) : 0} tx
-                          </div>
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-blue-400 mb-0.5">Repay</div>
-                        <div className="text-base font-bold font-display text-white">
-                          ${!isDemo && tydroCurrentSupply
-                            ? (tydroCurrentSupply.totalRepaidUsd || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                            : '0.00'}
-                          <div className="pl-[2px] inline text-[10px] text-slate-500"> /
-                            {!isDemo && tydroCurrentSupply ? (tydroCurrentSupply.repayCount || 0) : 0} tx
-                          </div>
-                        </div>
-                      </div>
+                    <div className="flex justify-between items-baseline gap-2">
+                      <span className="text-[10px] font-medium uppercase tracking-wider text-sky-400/80">Repaid</span>
+                      <span className="text-sm font-semibold font-display text-white leading-none tabular-nums">
+                        {formatMainUsd(!isDemo && tydroCurrentSupply ? (tydroCurrentSupply.totalRepaidUsd || 0) : 550)}
+                        <span className="pl-1 text-[9px] text-slate-500 font-normal">
+                          / {!isDemo && tydroCurrentSupply ? (tydroCurrentSupply.repayCount || 0) : 3} tx
+                        </span>
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -1914,11 +1909,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
             ) : (
               <>
                 <div className="flex-1 flex flex-col items-center justify-center min-h-0 text-center relative z-10">
-                  <div className="text-4xl font-bold font-display text-indigo-400 leading-none tracking-tight">
+                  <CardMainMetric color="indigo">
                     {!isDemo && nadoMetrics
                       ? (nadoMetrics.totalTransactions || 0).toLocaleString()
                       : '12'}
-                  </div>
+                  </CardMainMetric>
                   <div className="text-xs text-slate-500 mt-1.5">Total Transactions</div>
                 </div>
 
@@ -1983,9 +1978,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
             ) : (
               <>
                 <div className="flex-1 flex flex-col items-center justify-center">
-                  <div className="text-5xl font-bold font-display text-purple-500/80 mb-2">
+                  <CardMainMetric color="purple" className="mb-2">
                     {!isDemo && realGmData ? (realGmData.count || 0) : (data.stats.gmInteractionCount || 0)}
-                  </div>
+                  </CardMainMetric>
                   <div className="text-sm text-slate-400">Total Transactions</div>
                 </div>
                 {((!isDemo && realGmData ? (realGmData.count || 0) : (data.stats.gmInteractionCount || 0)) > 0) && (
@@ -2060,14 +2055,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
                 return (
                   <>
                     <div className="flex-1 flex flex-col items-center justify-center min-h-0 text-center">
-                      <div className="text-4xl font-bold font-display text-teal-400 leading-none tracking-tight">
-                        ${totalUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </div>
-                      <div className="text-[11px] text-slate-500 mt-1.5">{totalTxCount.toLocaleString()} transactions</div>
+                      <CardMainMetric color="teal">
+                        {formatMainUsd(totalUsd)}
+                      </CardMainMetric>
                     </div>
 
                     <div className="pt-2 border-t border-slate-700/50 flex flex-col min-h-0">
-                      <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">By Platform</span>
                       <div className="flex-1 overflow-y-auto space-y-0.5 pr-1 custom-scrollbar">
                         {allPlatforms
                           .sort((a, b) => {
@@ -2142,7 +2135,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
                 {isDemo ? (
                   <div className="flex-1 flex items-center justify-center">
                     <div className="text-center text-slate-500">
-                      <div className="text-4xl font-bold font-display text-purple-400 mb-2">$12,450.00</div>
+                      <CardMainMetric color="purple" className="mb-2">$12,450.00</CardMainMetric>
                       <div className="text-xs">Demo Bridge Volume</div>
                     </div>
                   </div>
@@ -2198,14 +2191,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
             ) : !isDemo && swapVolume ? (
               <>
                 <div className="flex-1 flex flex-col items-center justify-center min-h-0 text-center">
-                  <div className="text-4xl font-bold font-display text-cyan-400 leading-none tracking-tight">
-                    ${swapVolume.totalUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </div>
-                  <div className="text-[11px] text-slate-500 mt-1.5">{swapVolume.txCount.toLocaleString()} swaps</div>
+                  <CardMainMetric color="cyan">
+                    {formatMainUsd(swapVolume.totalUsd)}
+                  </CardMainMetric>
                 </div>
 
                 <div className="pt-2 border-t border-slate-700/50 flex flex-col min-h-0">
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">By Platform</span>
                   <div className="flex-1 overflow-y-auto space-y-0.5 pr-1 custom-scrollbar">
                     {Object.entries(DEX_PLATFORMS)
                       .map(([contractAddress, platformInfo]) => {
@@ -2261,7 +2252,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
                 {isDemo ? (
                   <div className="flex-1 flex items-center justify-center">
                     <div className="text-center text-slate-500">
-                      <div className="text-4xl font-bold font-display text-cyan-400 mb-2">$8,750.00</div>
+                      <CardMainMetric color="cyan" className="mb-2">$8,750.00</CardMainMetric>
                       <div className="text-xs">Demo Swap Volume</div>
                     </div>
                   </div>
@@ -2318,9 +2309,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
               ) : (
                 <>
                   <div className="flex-1 flex flex-col items-center justify-center min-h-0 text-center">
-                    <div className="text-4xl font-bold font-display text-purple-400 leading-none tracking-tight">
+                    <CardMainMetric color="purple">
                       {templarsNftBalance.total_count.toLocaleString()}
-                    </div>
+                    </CardMainMetric>
                     <div className="text-xs text-slate-500 mt-1.5">NFTs Held</div>
                   </div>
 
@@ -2340,7 +2331,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
             ) : (
               <>
                 <div className="flex-1 flex flex-col items-center justify-center min-h-0 text-center">
-                  <div className="text-4xl font-bold font-display text-purple-400 leading-none tracking-tight">0</div>
+                  <CardMainMetric color="purple">0</CardMainMetric>
                   <div className="text-xs text-slate-500 mt-1.5">NFTs Held</div>
                 </div>
 
@@ -2384,9 +2375,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
               ) : (
                 <>
                   <div className="flex-1 flex flex-col items-center justify-center min-h-0 text-center">
-                    <div className="text-4xl font-bold font-display text-sky-400 leading-none tracking-tight">
+                    <CardMainMetric color="sky">
                       {((realOpenSeaBuys?.count || 0) + (realMintCount?.count || 0) + (realOpenSeaSales?.count || 0)).toLocaleString()}
-                    </div>
+                    </CardMainMetric>
                     <div className="text-xs text-slate-500 mt-1.5">Total Activity</div>
                   </div>
 
@@ -2416,7 +2407,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
             ) : (
               <>
                 <div className="flex-1 flex flex-col items-center justify-center min-h-0 text-center">
-                  <div className="text-4xl font-bold font-display text-sky-400 leading-none tracking-tight">10</div>
+                  <CardMainMetric color="sky">10</CardMainMetric>
                   <div className="text-xs text-slate-500 mt-1.5">Total Activity</div>
                 </div>
 
@@ -2475,9 +2466,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
               ) : (
                 <>
                   <div className="flex-1 flex flex-col items-center justify-center min-h-0 text-center">
-                    <div className="text-4xl font-bold font-display text-green-400 leading-none tracking-tight">
-                      ${copinkMetrics.totalVolume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </div>
+                    <CardMainMetric color="green">
+                      {formatMainUsd(copinkMetrics.totalVolume)}
+                    </CardMainMetric>
                     <div className="text-xs text-slate-500 mt-1.5">Total Trading Volume</div>
                   </div>
 
@@ -2497,7 +2488,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
             ) : (
               <>
                 <div className="flex-1 flex flex-col items-center justify-center min-h-0 text-center">
-                  <div className="text-4xl font-bold font-display text-green-400 leading-none tracking-tight">$0.00</div>
+                  <CardMainMetric color="green">$0</CardMainMetric>
                   <div className="text-xs text-slate-500 mt-1.5">Total Trading Volume</div>
                 </div>
 
@@ -2515,10 +2506,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
           <DynamicCardsCarouselRow4 cards={dynamicCardsRow4} />
         )}
 
-        {/* Row 4b: InkScore Zenith + Staking + Sweep + ZNS (single row) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+        {/* Row 4b: InkScore Zenith + Staking (stacked left) | Sentry + Hypercall / Gone Fishin + Ink Brokers — 3 columns x 2 rows */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {/* InkScore Zenith NFT Card */}
-          <div className="glass-card relative overflow-hidden p-4 rounded-2xl animate-fade-in-up border border-fuchsia-500/25 bg-gradient-to-br from-fuchsia-500/15 via-fuchsia-900/10 to-fuchsia-900/5 h-[220px] flex flex-col" style={{ animationDelay: '0.68s' }}>
+          <div className="animated-border-glow glass-card relative overflow-hidden p-4 rounded-2xl animate-fade-in-up bg-gradient-to-br from-fuchsia-500/15 via-fuchsia-900/10 to-fuchsia-900/5 h-[220px] flex flex-col" style={{ animationDelay: '0.68s', '--glow-color': '#d946ef', '--glow-border': 'rgba(217, 70, 239, 0.25)' } as React.CSSProperties}>
+            {/* Holo foil sheen — tinted with --glow-color */}
+            <div aria-hidden="true" className="holo-sheen"></div>
+
             {/* Decorative glow + shine */}
             <div className="absolute -top-12 -right-12 w-36 h-36 bg-fuchsia-500/20 rounded-full blur-3xl pointer-events-none"></div>
             <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-fuchsia-400/70 to-transparent"></div>
@@ -2557,7 +2551,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
               ) : (
                 <>
                   <div className="relative flex-1 flex flex-col items-center justify-center min-h-0 text-center">
-                    <div className="text-5xl font-extrabold font-display bg-gradient-to-r from-fuchsia-200 via-fuchsia-400 to-fuchsia-600 bg-clip-text text-transparent leading-none tracking-tight">
+                    <div className="text-6xl font-extrabold font-display bg-gradient-to-r from-fuchsia-200 via-fuchsia-400 to-fuchsia-600 bg-clip-text text-transparent leading-none tracking-tight">
                       {zenithNftMetrics.total_count.toLocaleString()}
                     </div>
                     <div className="text-xs text-slate-500 mt-1.5">NFTs Held</div>
@@ -2587,7 +2581,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
             ) : (
               <>
                 <div className="relative flex-1 flex flex-col items-center justify-center min-h-0 text-center">
-                  <div className="text-5xl font-extrabold font-display bg-gradient-to-r from-fuchsia-200 via-fuchsia-400 to-fuchsia-600 bg-clip-text text-transparent leading-none tracking-tight">0</div>
+                  <div className="text-6xl font-extrabold font-display bg-gradient-to-r from-fuchsia-200 via-fuchsia-400 to-fuchsia-600 bg-clip-text text-transparent leading-none tracking-tight">0</div>
                   <div className="text-xs text-slate-500 mt-1.5">NFTs Held</div>
                 </div>
 
@@ -2607,8 +2601,169 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
             )}
           </div>
 
+          {/* Sentry Card */}
+          <div className="animated-border-glow glass-card relative overflow-hidden p-4 rounded-2xl animate-fade-in-up bg-gradient-to-br from-[#16C995]/10 via-[#16C995]/5 to-transparent h-[220px] flex flex-col" style={{ animationDelay: '0.72s', '--glow-color': '#16C995', '--glow-border': 'rgba(22, 201, 149, 0.25)' } as React.CSSProperties}>
+            {/* Holo foil sheen — tinted with --glow-color */}
+            <div aria-hidden="true" className="holo-sheen"></div>
+
+            <div className="relative flex items-center justify-between mb-2 gap-2">
+              <h3 className="text-lg font-semibold text-white flex items-center gap-2 min-w-0">
+                <a
+                  href={PLATFORM_URLS.sentry}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="shrink-0 hover:ring-2 hover:ring-[#16C995]/50 rounded-full transition-all cursor-pointer"
+                  title="Visit Sentry"
+                >
+                  <img
+                    src="/icons/sentry.ico"
+                    alt="Sentry"
+                    className="w-6 h-6 rounded-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=S&background=16C995&color=fff&size=24';
+                    }}
+                  />
+                </a>
+                <span className="truncate">Sentry</span>
+              </h3>
+              <span className="shrink-0 text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full bg-[#16C995]/20 text-[#16C995] border border-[#16C995]/30">
+                New
+              </span>
+            </div>
+
+            {!isDemo ? (
+              (isMetricLoading('sentry') || !sentryMetrics) ? (
+                <div className="flex-1 flex flex-col items-center justify-center relative z-10">
+                  <div className="h-9 w-24 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+                  <div className="h-3 w-28 bg-slate-700/30 rounded animate-pulse"></div>
+                </div>
+              ) : (
+                <>
+                  <div className="relative flex-1 flex flex-col items-center justify-center min-h-0 text-center">
+                    <div className="text-5xl font-extrabold font-display bg-gradient-to-r from-emerald-200 via-[#16C995] to-emerald-600 bg-clip-text text-transparent mb-2 leading-none tracking-tight">
+                      {formatMainUsd(sentryMetrics.volumeUsd, '~$')}
+                    </div>
+                    <div className="text-sm text-slate-400">Total Volume</div>
+                    <div className="text-[11px] text-slate-500 mt-1">
+                      {sentryMetrics.swapCount.toLocaleString()} swap{sentryMetrics.swapCount !== 1 ? 's' : ''}
+                    </div>
+                  </div>
+                  {sentryMetrics.tokensLaunched > 0 && (
+                    <div className="relative mt-2 pt-2 border-t border-[#16C995]/15 flex items-center justify-between text-[11px]">
+                      <span className="text-slate-400">Tokens Launched</span>
+                      <span className="font-mono text-white">{sentryMetrics.tokensLaunched.toLocaleString()}</span>
+                    </div>
+                  )}
+                  {sentryMetrics.tokensLaunched > 0 && (
+                    <div className="relative mt-1.5 text-[11px] text-[#16C995] opacity-90 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#16C995] animate-pulse"></span>
+                      Sentry Creator
+                    </div>
+                  )}
+                </>
+              )
+            ) : (
+              <>
+                <div className="relative flex-1 flex flex-col items-center justify-center min-h-0 text-center">
+                  <div className="text-5xl font-extrabold font-display bg-gradient-to-r from-emerald-200 via-[#16C995] to-emerald-600 bg-clip-text text-transparent mb-2 leading-none tracking-tight">~$3,412.18</div>
+                  <div className="text-sm text-slate-400">Total Volume</div>
+                  <div className="text-[11px] text-slate-500 mt-1">47 swaps</div>
+                </div>
+                <div className="relative mt-2 pt-2 border-t border-[#16C995]/15 flex items-center justify-between text-[11px]">
+                  <span className="text-slate-400">Tokens Launched</span>
+                  <span className="font-mono text-white">2</span>
+                </div>
+                <div className="relative mt-1.5 text-[11px] text-[#16C995] opacity-90 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#16C995] animate-pulse"></span>
+                  Sentry Creator
+                </div>
+              </>
+            )}
+          </div>
+          {/* Hypercall Earn Card */}
+          <div className="animated-border-glow glass-card relative overflow-hidden p-4 rounded-2xl animate-fade-in-up bg-gradient-to-br from-[#a5f44b]/10 via-[#a5f44b]/5 to-transparent h-[220px] flex flex-col" style={{ animationDelay: '0.76s', '--glow-color': '#a5f44b', '--glow-border': 'rgba(165, 244, 75, 0.25)' } as React.CSSProperties}>
+            {/* Holo foil sheen — tinted with --glow-color */}
+            <div aria-hidden="true" className="holo-sheen"></div>
+
+            <div className="relative flex items-center justify-between mb-2 gap-2">
+              <h3 className="text-lg font-semibold text-white flex items-center gap-2 min-w-0">
+                <a
+                  href={PLATFORM_URLS.hypercall}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="shrink-0 hover:ring-2 hover:ring-[#a5f44b]/50 rounded-full transition-all cursor-pointer"
+                  title="Visit Hypercall Earn"
+                >
+                  <img
+                    src="/icons/hypercall.svg"
+                    alt="Hypercall Earn"
+                    className="w-6 h-6 rounded-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=H&background=a5f44b&color=0a0a0f&size=24';
+                    }}
+                  />
+                </a>
+                <span className="truncate">Hypercall Earn</span>
+              </h3>
+              <span className="shrink-0 text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full bg-[#a5f44b]/20 text-[#a5f44b] border border-[#a5f44b]/30">
+                New
+              </span>
+            </div>
+
+            {!isDemo ? (
+              (isMetricLoading('hypercall') || !hypercallMetrics) ? (
+                <div className="flex-1 flex flex-col items-center justify-center relative z-10">
+                  <div className="h-9 w-24 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+                  <div className="h-3 w-28 bg-slate-700/30 rounded animate-pulse"></div>
+                </div>
+              ) : (
+                <>
+                  <div className="relative flex-1 flex flex-col items-center justify-center min-h-0 text-center">
+                    <div className="text-5xl font-extrabold font-display bg-gradient-to-r from-lime-200 via-[#a5f44b] to-lime-600 bg-clip-text text-transparent mb-2 leading-none tracking-tight">
+                      {formatMainUsd(hypercallMetrics.usdgSpent, '~$')}
+                    </div>
+                    <div className="text-sm text-slate-400">Total Volume</div>
+                    <div className="text-[11px] text-slate-500 mt-1">
+                      {hypercallMetrics.swapCount.toLocaleString()} swap{hypercallMetrics.swapCount !== 1 ? 's' : ''}
+                    </div>
+                  </div>
+                  {hypercallMetrics.positionsWritten > 0 && (
+                    <div className="relative mt-2 pt-2 border-t border-[#a5f44b]/15 flex items-center justify-between text-[11px]">
+                      <span className="text-slate-400">Covered Calls Written</span>
+                      <span className="font-mono text-white">{hypercallMetrics.positionsWritten.toLocaleString()}</span>
+                    </div>
+                  )}
+                  {hypercallMetrics.positionsWritten > 0 && (
+                    <div className="relative mt-1.5 text-[11px] text-[#a5f44b] opacity-90 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#a5f44b] animate-pulse"></span>
+                      Covered Call Writer
+                    </div>
+                  )}
+                </>
+              )
+            ) : (
+              <>
+                <div className="relative flex-1 flex flex-col items-center justify-center min-h-0 text-center">
+                  <div className="text-5xl font-extrabold font-display bg-gradient-to-r from-lime-200 via-[#a5f44b] to-lime-600 bg-clip-text text-transparent mb-2 leading-none tracking-tight">~$1,250.00</div>
+                  <div className="text-sm text-slate-400">Total Volume</div>
+                  <div className="text-[11px] text-slate-500 mt-1">5 swaps</div>
+                </div>
+                <div className="relative mt-2 pt-2 border-t border-[#a5f44b]/15 flex items-center justify-between text-[11px]">
+                  <span className="text-slate-400">Covered Calls Written</span>
+                  <span className="font-mono text-white">3</span>
+                </div>
+                <div className="relative mt-1.5 text-[11px] text-[#a5f44b] opacity-90 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#a5f44b] animate-pulse"></span>
+                  Covered Call Writer
+                </div>
+              </>
+            )}
+          </div>
           {/* InkScore Zenith Staking Card */}
-          <div className="glass-card relative overflow-hidden p-4 rounded-2xl animate-fade-in-up border border-indigo-500/25 bg-gradient-to-br from-indigo-500/15 via-violet-900/10 to-indigo-900/5 h-[220px] flex flex-col" style={{ animationDelay: '0.65s' }}>
+          <div className="animated-border-glow glass-card relative overflow-hidden p-4 rounded-2xl animate-fade-in-up bg-gradient-to-br from-indigo-500/15 via-violet-900/10 to-indigo-900/5 h-[220px] flex flex-col" style={{ animationDelay: '0.8s', '--glow-color': '#6366f1', '--glow-border': 'rgba(99, 102, 241, 0.25)' } as React.CSSProperties}>
+            {/* Holo foil sheen — tinted with --glow-color */}
+            <div aria-hidden="true" className="holo-sheen"></div>
+
             {/* Decorative glow + shine */}
             <div className="absolute -top-12 -right-12 w-36 h-36 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none"></div>
             <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-indigo-400/70 to-transparent"></div>
@@ -2647,7 +2802,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
               ) : (
                 <>
                   <div className="relative flex-1 flex flex-col items-center justify-center min-h-0 text-center">
-                    <div className="text-4xl font-extrabold font-display bg-gradient-to-r from-indigo-200 via-indigo-400 to-violet-600 bg-clip-text text-transparent leading-none tracking-tight">
+                    <div className="text-5xl font-extrabold font-display bg-gradient-to-r from-indigo-200 via-indigo-400 to-violet-600 bg-clip-text text-transparent leading-none tracking-tight">
                       {zenithStakingMetrics.total_staked.toLocaleString()}
                     </div>
                     <div className="text-xs text-slate-500 mt-1.5">NFTs Staked</div>
@@ -2679,7 +2834,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
             ) : (
               <>
                 <div className="relative flex-1 flex flex-col items-center justify-center min-h-0 text-center">
-                  <div className="text-4xl font-extrabold font-display bg-gradient-to-r from-indigo-200 via-indigo-400 to-violet-600 bg-clip-text text-transparent leading-none tracking-tight">0</div>
+                  <div className="text-5xl font-extrabold font-display bg-gradient-to-r from-indigo-200 via-indigo-400 to-violet-600 bg-clip-text text-transparent leading-none tracking-tight">0</div>
                   <div className="text-xs text-slate-500 mt-1.5">NFTs Staked</div>
                 </div>
 
@@ -2700,136 +2855,136 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
               </>
             )}
           </div>
+          {/* Gone Fishin Card */}
+          <div className="animated-border-glow glass-card relative overflow-hidden p-4 rounded-2xl animate-fade-in-up bg-gradient-to-br from-[#F83800]/10 via-[#F83800]/5 to-transparent h-[220px] flex flex-col" style={{ animationDelay: '0.9s', '--glow-color': '#F83800', '--glow-border': 'rgba(248, 56, 0, 0.25)' } as React.CSSProperties}>
+            {/* Holo foil sheen — tinted with --glow-color */}
+            <div aria-hidden="true" className="holo-sheen"></div>
 
-          {/* Sweep Card */}
-          <div className="glass-card p-4 rounded-2xl animate-fade-in-up border border-yellow-500/20 bg-gradient-to-br from-yellow-500/12 to-yellow-900/5 h-[220px] flex flex-col" style={{ animationDelay: '0.93s' }}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+            <div className="relative flex items-center justify-between mb-2 gap-2">
+              <h3 className="text-lg font-semibold text-white flex items-center gap-2 min-w-0">
                 <a
-                  href={PLATFORM_URLS.sweep}
+                  href={PLATFORM_URLS.gonefishin}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="hover:ring-2 hover:ring-yellow-500/50 rounded-full transition-all cursor-pointer"
-                  title="Visit Sweep"
+                  className="shrink-0 hover:ring-2 hover:ring-[#F83800]/50 rounded-full transition-all cursor-pointer"
+                  title="Visit Gone Fishin"
                 >
                   <img
-                    src="https://sweep.haus/sweep.png"
-                    alt="Sweep"
+                    src="/icons/gonefishin.svg"
+                    alt="Gone Fishin"
                     className="w-6 h-6 rounded-full object-cover"
                     onError={(e) => {
-                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=S&background=eab308&color=fff&size=24';
+                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=GF&background=F83800&color=fff&size=24';
                     }}
                   />
                 </a>
-                Sweep
+                <span className="truncate">Gone Fishin</span>
               </h3>
+              <span className="shrink-0 text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full bg-[#F83800]/20 text-[#F83800] border border-[#F83800]/30">
+                New
+              </span>
             </div>
 
-            {!isDemo && (isMetricLoading('sweep') || !sweepMetrics) ? (
-              <div className="flex-1 flex flex-col justify-center items-center">
-                <div className="h-16 w-24 bg-slate-700/50 rounded animate-pulse mb-2"></div>
-                <div className="h-4 w-32 bg-slate-700/30 rounded animate-pulse"></div>
-              </div>
+            {!isDemo ? (
+              (isMetricLoading('gonefishin') || !gonefishinMetrics) ? (
+                <div className="flex-1 flex flex-col items-center justify-center relative z-10">
+                  <div className="h-9 w-24 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+                  <div className="h-3 w-28 bg-slate-700/30 rounded animate-pulse"></div>
+                </div>
+              ) : (
+                <>
+                  <div className="relative flex-1 flex flex-col items-center justify-center min-h-0 text-center">
+                    <div className="text-5xl font-extrabold font-display bg-gradient-to-r from-[#FFC2AE] via-[#F83800] to-[#A82500] bg-clip-text text-transparent mb-2 leading-none tracking-tight">
+                      {gonefishinMetrics.gamesBought.toLocaleString()}
+                    </div>
+                    <div className="text-sm text-slate-400">Total Played</div>
+                    <div className="text-[11px] text-slate-500 mt-1">
+                      {gonefishinMetrics.totalSpentUsd > 0 ? `~$${gonefishinMetrics.totalSpentUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '—'}
+                    </div>
+                  </div>
+                  {gonefishinMetrics.gamesBought > 0 && (
+                    <div className="relative mt-1.5 text-[11px] text-[#F83800] opacity-90 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#F83800] animate-pulse"></span>
+                      Gone Fishin Player
+                    </div>
+                  )}
+                </>
+              )
             ) : (
               <>
-                <div className="flex-1 flex flex-col items-center justify-center min-h-0 text-center">
-                  <div className="text-4xl font-bold font-display text-yellow-400 leading-none tracking-tight">
-                    {(!isDemo && sweepMetrics ? (sweepMetrics.totalCollections || 0) : 0).toLocaleString()}
-                  </div>
-                  <div className="text-xs text-slate-500 mt-1.5">NFT Collections Deployed</div>
+                <div className="relative flex-1 flex flex-col items-center justify-center min-h-0 text-center">
+                  <div className="text-5xl font-extrabold font-display bg-gradient-to-r from-[#FFC2AE] via-[#F83800] to-[#A82500] bg-clip-text text-transparent mb-2 leading-none tracking-tight">12</div>
+                  <div className="text-sm text-slate-400">Total Played</div>
+                  <div className="text-[11px] text-slate-500 mt-1">~$126.40</div>
                 </div>
-
-                <div className="pt-2 border-t border-slate-700/50 space-y-1">
-                  <div className="flex justify-between items-center text-[11px]">
-                    <span className="text-slate-400">Sweep Badges</span>
-                    <span className="font-mono text-white">{(sweepMetrics?.sweepBadgeBalance || 0).toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between items-center text-[11px]">
-                    <span className="text-slate-400">Total Streak</span>
-                    <span className="font-mono text-white">{(sweepMetrics?.totalStreak || 0).toLocaleString()}</span>
-                  </div>
+                <div className="relative mt-1.5 text-[11px] text-[#F83800] opacity-90 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#F83800] animate-pulse"></span>
+                  Gone Fishin Player
                 </div>
-
-                {((!isDemo && sweepMetrics ? (sweepMetrics.totalCollections || 0) : 0) > 0 || (!isDemo && sweepMetrics ? (sweepMetrics.sweepBadgeBalance || 0) : 0) > 0) && (
-                  <div className="mt-1.5 text-[11px] text-yellow-400 opacity-80 flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-yellow-400 animate-pulse"></span>
-                    NFT Creator
-                  </div>
-                )}
               </>
             )}
           </div>
-          {/* ZNS Domain Card */}
-          <div className="glass-card p-4 rounded-2xl animate-fade-in-up border border-lime-500/20 bg-gradient-to-br from-lime-500/12 to-lime-900/5 h-[220px] flex flex-col" style={{ animationDelay: '0.8s' }}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+          {/* Ink Brokers Card */}
+          <div className="animated-border-glow glass-card relative overflow-hidden p-4 rounded-2xl animate-fade-in-up bg-gradient-to-br from-[#9A7FC8]/12 via-[#9A7FC8]/5 to-transparent h-[220px] flex flex-col" style={{ animationDelay: '0.95s', '--glow-color': '#9A7FC8', '--glow-border': 'rgba(154, 127, 200, 0.25)' } as React.CSSProperties}>
+            {/* Holo foil sheen — tinted with --glow-color */}
+            <div aria-hidden="true" className="holo-sheen"></div>
+
+            <div className="relative flex items-center justify-between mb-2 gap-2">
+              <h3 className="text-lg font-semibold text-white flex items-center gap-2 min-w-0">
                 <a
-                  href={PLATFORM_URLS.zns}
+                  href={PLATFORM_URLS.inkBrokers}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="hover:ring-2 hover:ring-blue-500/50 rounded-full transition-all cursor-pointer"
-                  title="Visit ZNS Connect"
+                  className="shrink-0 hover:ring-2 hover:ring-[#9A7FC8]/50 rounded-full transition-all cursor-pointer"
+                  title="Visit Ink Brokers"
                 >
                   <img
-                    src="https://pbs.twimg.com/profile_images/1813882885406965760/7wkPAsLn_400x400.jpg"
-                    alt="ZNS"
+                    src="/icons/inkbrokers.png"
+                    alt="Ink Brokers"
                     className="w-6 h-6 rounded-full object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=ZNS&background=3b82f6&color=fff&size=24';
-                    }}
                   />
                 </a>
-                ZNS Connect
+                <span className="truncate">Ink Brokers</span>
               </h3>
+              <span className="shrink-0 text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full bg-[#9A7FC8]/20 text-[#9A7FC8] border border-[#9A7FC8]/30">
+                New
+              </span>
             </div>
 
-            {!isDemo && (isMetricLoading('zns') || !znsMetrics) ? (
-              <div className="flex-1 flex flex-col items-center justify-center">
+            {!isDemo && (isMetricLoading('inkBrokers') || !inkBrokersMetrics) ? (
+              <div className="flex-1 flex flex-col items-center justify-center relative z-10">
                 <div className="h-9 w-24 bg-slate-700/50 rounded animate-pulse mb-2"></div>
                 <div className="h-3 w-28 bg-slate-700/30 rounded animate-pulse"></div>
               </div>
             ) : (
               <>
-                <div className="flex-1 flex flex-col items-center justify-center min-h-0 text-center">
-                  <div className="text-4xl font-bold font-display text-lime-400 leading-none tracking-tight">
-                    {!isDemo && znsMetrics ? znsMetrics.total_count : 0}
+                <div className="relative flex-1 flex flex-col items-center justify-center min-h-0 text-center">
+                  <div className="text-5xl font-extrabold font-display bg-gradient-to-r from-[#D8CCF0] via-[#9A7FC8] to-[#5E409C] bg-clip-text text-transparent mb-2 leading-none tracking-tight">
+                    {formatMainUsd(!isDemo && inkBrokersMetrics ? inkBrokersMetrics.swap_volume_usd : 0, '~$')}
                   </div>
-                  <div className="text-xs text-slate-500 mt-1.5">Transactions</div>
-                </div>
-
-                <div className="pt-2 border-t border-slate-700/50 space-y-1">
-                  <div className="flex justify-between items-center text-[11px]">
-                    <span className="text-slate-400">Deploy Smart Contract</span>
-                    <span className="font-mono text-white">
-                      {!isDemo && znsMetrics ? znsMetrics.deploy_count : 0}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center text-[11px]">
-                    <span className="text-slate-400">Say GM</span>
-                    <span className="font-mono text-white">
-                      {!isDemo && znsMetrics ? znsMetrics.say_gm_count : 0}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center text-[11px]">
-                    <span className="text-slate-400">Register Domain</span>
-                    <span className="font-mono text-white">
-                      {!isDemo && znsMetrics ? znsMetrics.register_domain_count : 0}
-                    </span>
+                  <div className="text-sm text-slate-400">Total Volume</div>
+                  <div className="text-[11px] text-slate-500 mt-1">
+                    {(!isDemo && inkBrokersMetrics ? inkBrokersMetrics.swap_count : 0).toLocaleString()} swap{(!isDemo && inkBrokersMetrics ? inkBrokersMetrics.swap_count : 0) !== 1 ? 's' : ''}
                   </div>
                 </div>
-
-                {!isDemo && znsMetrics && znsMetrics.total_count > 0 && (
-                  <div className="mt-1.5 text-[11px] text-lime-400 opacity-80 flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-lime-400 animate-pulse"></span>
-                    Active ZNS User
+                {!isDemo && inkBrokersMetrics && inkBrokersMetrics.active_seats > 0 && (
+                  <div className="relative mt-2 pt-2 border-t border-[#9A7FC8]/15 flex items-center justify-between text-[11px]">
+                    <span className="text-slate-400">Desk Active</span>
+                    <span className="font-mono text-white">{inkBrokersMetrics.active_seats} seat{inkBrokersMetrics.active_seats !== 1 ? 's' : ''}</span>
+                  </div>
+                )}
+                {!isDemo && inkBrokersMetrics && inkBrokersMetrics.active_seats > 0 && (
+                  <div className="relative mt-1.5 text-[11px] text-[#9A7FC8] opacity-90 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#9A7FC8] animate-pulse"></span>
+                    Broker Clocked In
                   </div>
                 )}
               </>
             )}
           </div>
         </div>
-        {/* Row 5: InkyPump + Shellies + Ink Brokers + NFT2Me | Gone Fishin + Sentry + Hypercall (4 columns) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Row 5: InkyPump + Shellies + NFT2Me + Sweep + ZNS (5 columns at xl) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           {/* InkyPump Card */}
           <div className="glass-card p-4 rounded-2xl animate-fade-in-up border border-pink-500/20 bg-gradient-to-br from-pink-500/12 to-pink-900/5 h-[220px] flex flex-col" style={{ animationDelay: '0.7s' }}>
             <div className="flex items-center justify-between mb-4">
@@ -2862,9 +3017,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
             ) : (
               <>
                 <div className="flex-1 flex flex-col items-center justify-center min-h-0 text-center">
-                  <div className="text-4xl font-bold font-display text-pink-400 leading-none tracking-tight">
+                  <CardMainMetric color="pink">
                     {!isDemo && inkyPumpCreatedTokens ? inkyPumpCreatedTokens.count : 0}
-                  </div>
+                  </CardMainMetric>
                   <div className="text-xs text-slate-500 mt-1.5">Created Tokens</div>
                 </div>
 
@@ -2926,11 +3081,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
             ) : (
               <>
                 <div className="flex-1 flex flex-col items-center justify-center min-h-0 text-center">
-                  <div className="text-4xl font-bold font-display text-violet-400 leading-none tracking-tight">
+                  <CardMainMetric color="violet">
                     {!isDemo && shelliesJoinedRaffles && shelliesPayToPlay
                       ? (shelliesJoinedRaffles.total_count + shelliesPayToPlay.total_count)
                       : 0}
-                  </div>
+                  </CardMainMetric>
                   <div className="text-xs text-slate-500 mt-1.5">Total Transactions</div>
                 </div>
 
@@ -2956,58 +3111,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
                       Active Shellies User
                     </div>
                   )}
-              </>
-            )}
-          </div>
-          {/* Ink Brokers Card */}
-          <div className="glass-card p-4 rounded-2xl animate-fade-in-up border border-amber-500/20 bg-gradient-to-br from-amber-500/12 to-amber-900/5 h-[220px] flex flex-col" style={{ animationDelay: '1.05s' }}>
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                <a
-                  href={PLATFORM_URLS.inkBrokers}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:ring-2 hover:ring-amber-500/50 rounded-full transition-all cursor-pointer"
-                  title="Visit Ink Brokers"
-                >
-                  <img
-                    src="/icons/inkbrokers.png"
-                    alt="Ink Brokers"
-                    className="w-6 h-6 rounded-full object-cover"
-                  />
-                </a>
-                Ink Brokers
-              </h3>
-            </div>
-
-            {!isDemo && (isMetricLoading('inkBrokers') || !inkBrokersMetrics) ? (
-              <div className="flex-1 flex flex-col items-center justify-center">
-                <div className="h-16 w-24 bg-slate-700/50 rounded animate-pulse mb-2"></div>
-                <div className="h-4 w-32 bg-slate-700/30 rounded animate-pulse"></div>
-              </div>
-            ) : (
-              <>
-                <div className="flex-1 flex flex-col items-center justify-center">
-                  <div className="text-5xl font-bold font-display text-amber-400/80 mb-2">
-                    ~${(!isDemo && inkBrokersMetrics ? inkBrokersMetrics.swap_volume_usd : 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                  </div>
-                  <div className="text-sm text-slate-400">Total Volume</div>
-                  <div className="text-xs text-slate-500 mt-1">
-                    {(!isDemo && inkBrokersMetrics ? inkBrokersMetrics.swap_count : 0).toLocaleString()} swap{(!isDemo && inkBrokersMetrics ? inkBrokersMetrics.swap_count : 0) !== 1 ? 's' : ''}
-                  </div>
-                </div>
-                {!isDemo && inkBrokersMetrics && inkBrokersMetrics.active_seats > 0 && (
-                  <div className="mt-2 pt-2 border-t border-slate-700/50 flex items-center justify-between text-[11px]">
-                    <span className="text-slate-400">Desk Active</span>
-                    <span className="font-mono text-white">{inkBrokersMetrics.active_seats} seat{inkBrokersMetrics.active_seats !== 1 ? 's' : ''}</span>
-                  </div>
-                )}
-                {!isDemo && inkBrokersMetrics && inkBrokersMetrics.active_seats > 0 && (
-                  <div className="mt-1.5 text-[11px] text-amber-400 opacity-80 flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
-                    Broker Clocked In
-                  </div>
-                )}
               </>
             )}
           </div>
@@ -3044,9 +3147,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
               ) : (
                 <>
                   <div className="flex-1 flex flex-col items-center justify-center min-h-0 text-center">
-                    <div className="text-4xl font-bold font-display text-cyan-400 leading-none tracking-tight">
+                    <CardMainMetric color="cyan">
                       {nft2meMetrics.totalTransactions.toLocaleString()}
-                    </div>
+                    </CardMainMetric>
                     <div className="text-xs text-slate-500 mt-1.5">Total Transactions</div>
                   </div>
 
@@ -3072,7 +3175,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
             ) : (
               <>
                 <div className="flex-1 flex flex-col items-center justify-center min-h-0 text-center">
-                  <div className="text-4xl font-bold font-display text-cyan-400 leading-none tracking-tight">3</div>
+                  <CardMainMetric color="cyan">3</CardMainMetric>
                   <div className="text-xs text-slate-500 mt-1.5">Total Transactions</div>
                 </div>
 
@@ -3094,212 +3197,129 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
               </>
             )}
           </div>
-          {/* Gone Fishin Card */}
-          <div className="glass-card p-4 rounded-2xl animate-fade-in-up border border-amber-500/20 bg-gradient-to-br from-amber-500/12 to-amber-900/5 h-[220px] flex flex-col" style={{ animationDelay: '1s' }}>
-            <div className="flex items-center justify-between mb-2">
+          {/* Sweep Card */}
+          <div className="glass-card p-4 rounded-2xl animate-fade-in-up border border-yellow-500/20 bg-gradient-to-br from-yellow-500/12 to-yellow-900/5 h-[220px] flex flex-col" style={{ animationDelay: '0.93s' }}>
+            <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                 <a
-                  href={PLATFORM_URLS.gonefishin}
+                  href={PLATFORM_URLS.sweep}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="hover:ring-2 hover:ring-amber-500/50 rounded-full transition-all cursor-pointer"
-                  title="Visit Gone Fishin"
+                  className="hover:ring-2 hover:ring-yellow-500/50 rounded-full transition-all cursor-pointer"
+                  title="Visit Sweep"
                 >
                   <img
-                    src="/icons/gonefishin.svg"
-                    alt="Gone Fishin"
+                    src="https://sweep.haus/sweep.png"
+                    alt="Sweep"
                     className="w-6 h-6 rounded-full object-cover"
                     onError={(e) => {
-                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=GF&background=f59e0b&color=fff&size=24';
+                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=S&background=eab308&color=fff&size=24';
                     }}
                   />
                 </a>
-                Gone Fishin
+                Sweep
               </h3>
             </div>
 
-            {!isDemo ? (
-              (isMetricLoading('gonefishin') || !gonefishinMetrics) ? (
-                <div className="flex-1 flex flex-col items-center justify-center">
-                  <div className="h-9 w-24 bg-slate-700/50 rounded animate-pulse mb-2"></div>
-                  <div className="h-3 w-28 bg-slate-700/30 rounded animate-pulse"></div>
-                </div>
-              ) : (
-                <>
-                  <div className="flex-1 flex flex-col items-center justify-center">
-                    <div className="text-5xl font-bold font-display text-amber-400/80 mb-2">
-                      {gonefishinMetrics.gamesBought.toLocaleString()}
-                    </div>
-                    <div className="text-sm text-slate-400">Total Played</div>
-                    <div className="text-xs text-slate-500 mt-1">
-                      {gonefishinMetrics.totalSpentUsd > 0 ? `~$${gonefishinMetrics.totalSpentUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '—'}
-                    </div>
-                  </div>
-                  {gonefishinMetrics.gamesBought > 0 && (
-                    <div className="mt-1.5 text-[11px] text-emerald-400 opacity-80 flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                      Gone Fishin Player
-                    </div>
-                  )}
-                </>
-              )
+            {!isDemo && (isMetricLoading('sweep') || !sweepMetrics) ? (
+              <div className="flex-1 flex flex-col justify-center items-center">
+                <div className="h-16 w-24 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+                <div className="h-4 w-32 bg-slate-700/30 rounded animate-pulse"></div>
+              </div>
             ) : (
               <>
-                <div className="flex-1 flex flex-col items-center justify-center">
-                  <div className="text-5xl font-bold font-display text-amber-400/80 mb-2">12</div>
-                  <div className="text-sm text-slate-400">Total Played</div>
-                  <div className="text-xs text-slate-500 mt-1">~$126.40</div>
+                <div className="flex-1 flex flex-col items-center justify-center min-h-0 text-center">
+                  <CardMainMetric color="yellow">
+                    {(!isDemo && sweepMetrics ? (sweepMetrics.totalCollections || 0) : 0).toLocaleString()}
+                  </CardMainMetric>
+                  <div className="text-xs text-slate-500 mt-1.5">NFT Collections Deployed</div>
                 </div>
-                <div className="mt-1.5 text-[11px] text-emerald-400 opacity-80 flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                  Gone Fishin Player
+
+                <div className="pt-2 border-t border-slate-700/50 space-y-1">
+                  <div className="flex justify-between items-center text-[11px]">
+                    <span className="text-slate-400">Sweep Badges</span>
+                    <span className="font-mono text-white">{(sweepMetrics?.sweepBadgeBalance || 0).toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-[11px]">
+                    <span className="text-slate-400">Total Streak</span>
+                    <span className="font-mono text-white">{(sweepMetrics?.totalStreak || 0).toLocaleString()}</span>
+                  </div>
                 </div>
+
+                {((!isDemo && sweepMetrics ? (sweepMetrics.totalCollections || 0) : 0) > 0 || (!isDemo && sweepMetrics ? (sweepMetrics.sweepBadgeBalance || 0) : 0) > 0) && (
+                  <div className="mt-1.5 text-[11px] text-yellow-400 opacity-80 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-yellow-400 animate-pulse"></span>
+                    NFT Creator
+                  </div>
+                )}
               </>
             )}
           </div>
-          {/* Sentry Card */}
-          <div className="glass-card p-4 rounded-2xl animate-fade-in-up border border-indigo-500/20 bg-gradient-to-br from-indigo-500/12 to-indigo-900/5 h-[220px] flex flex-col" style={{ animationDelay: '1.05s' }}>
-            <div className="flex items-center justify-between mb-2">
+          {/* ZNS Domain Card */}
+          <div className="glass-card p-4 rounded-2xl animate-fade-in-up border border-lime-500/20 bg-gradient-to-br from-lime-500/12 to-lime-900/5 h-[220px] flex flex-col" style={{ animationDelay: '0.8s' }}>
+            <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                 <a
-                  href={PLATFORM_URLS.sentry}
+                  href={PLATFORM_URLS.zns}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="hover:ring-2 hover:ring-indigo-500/50 rounded-full transition-all cursor-pointer"
-                  title="Visit Sentry"
+                  className="hover:ring-2 hover:ring-blue-500/50 rounded-full transition-all cursor-pointer"
+                  title="Visit ZNS Connect"
                 >
                   <img
-                    src="/icons/sentry.ico"
-                    alt="Sentry"
+                    src="https://pbs.twimg.com/profile_images/1813882885406965760/7wkPAsLn_400x400.jpg"
+                    alt="ZNS"
                     className="w-6 h-6 rounded-full object-cover"
                     onError={(e) => {
-                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=S&background=6366f1&color=fff&size=24';
+                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=ZNS&background=3b82f6&color=fff&size=24';
                     }}
                   />
                 </a>
-                Sentry
+                ZNS Connect
               </h3>
             </div>
 
-            {!isDemo ? (
-              (isMetricLoading('sentry') || !sentryMetrics) ? (
-                <div className="flex-1 flex flex-col items-center justify-center">
-                  <div className="h-9 w-24 bg-slate-700/50 rounded animate-pulse mb-2"></div>
-                  <div className="h-3 w-28 bg-slate-700/30 rounded animate-pulse"></div>
-                </div>
-              ) : (
-                <>
-                  <div className="flex-1 flex flex-col items-center justify-center">
-                    <div className="text-5xl font-bold font-display text-indigo-400/80 mb-2">
-                      ~${sentryMetrics.volumeUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                    </div>
-                    <div className="text-sm text-slate-400">Total Volume</div>
-                    <div className="text-xs text-slate-500 mt-1">
-                      {sentryMetrics.swapCount.toLocaleString()} swap{sentryMetrics.swapCount !== 1 ? 's' : ''}
-                    </div>
-                  </div>
-                  {sentryMetrics.tokensLaunched > 0 && (
-                    <div className="mt-2 pt-2 border-t border-slate-700/50 flex items-center justify-between text-[11px]">
-                      <span className="text-slate-400">Tokens Launched</span>
-                      <span className="font-mono text-white">{sentryMetrics.tokensLaunched.toLocaleString()}</span>
-                    </div>
-                  )}
-                  {sentryMetrics.tokensLaunched > 0 && (
-                    <div className="mt-1.5 text-[11px] text-emerald-400 opacity-80 flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                      Sentry Creator
-                    </div>
-                  )}
-                </>
-              )
+            {!isDemo && (isMetricLoading('zns') || !znsMetrics) ? (
+              <div className="flex-1 flex flex-col items-center justify-center">
+                <div className="h-9 w-24 bg-slate-700/50 rounded animate-pulse mb-2"></div>
+                <div className="h-3 w-28 bg-slate-700/30 rounded animate-pulse"></div>
+              </div>
             ) : (
               <>
-                <div className="flex-1 flex flex-col items-center justify-center">
-                  <div className="text-5xl font-bold font-display text-indigo-400/80 mb-2">~$3,412.18</div>
-                  <div className="text-sm text-slate-400">Total Volume</div>
-                  <div className="text-xs text-slate-500 mt-1">47 swaps</div>
+                <div className="flex-1 flex flex-col items-center justify-center min-h-0 text-center">
+                  <CardMainMetric color="lime">
+                    {!isDemo && znsMetrics ? znsMetrics.total_count : 0}
+                  </CardMainMetric>
+                  <div className="text-xs text-slate-500 mt-1.5">Transactions</div>
                 </div>
-                <div className="mt-2 pt-2 border-t border-slate-700/50 flex items-center justify-between text-[11px]">
-                  <span className="text-slate-400">Tokens Launched</span>
-                  <span className="font-mono text-white">2</span>
-                </div>
-                <div className="mt-1.5 text-[11px] text-emerald-400 opacity-80 flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                  Sentry Creator
-                </div>
-              </>
-            )}
-          </div>
-          {/* Hypercall Card */}
-          <div className="glass-card p-4 rounded-2xl animate-fade-in-up border border-violet-500/20 bg-gradient-to-br from-violet-500/12 to-violet-900/5 h-[220px] flex flex-col" style={{ animationDelay: '1.1s' }}>
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                <a
-                  href={PLATFORM_URLS.hypercall}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:ring-2 hover:ring-violet-500/50 rounded-full transition-all cursor-pointer"
-                  title="Visit Hypercall Earn"
-                >
-                  <img
-                    src="/icons/hypercall.svg"
-                    alt="Hypercall Earn"
-                    className="w-6 h-6 rounded-full object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=H&background=8b5cf6&color=fff&size=24';
-                    }}
-                  />
-                </a>
-                Hypercall Earn
-              </h3>
-            </div>
 
-            {!isDemo ? (
-              (isMetricLoading('hypercall') || !hypercallMetrics) ? (
-                <div className="flex-1 flex flex-col items-center justify-center">
-                  <div className="h-9 w-24 bg-slate-700/50 rounded animate-pulse mb-2"></div>
-                  <div className="h-3 w-28 bg-slate-700/30 rounded animate-pulse"></div>
-                </div>
-              ) : (
-                <>
-                  <div className="flex-1 flex flex-col items-center justify-center">
-                    <div className="text-5xl font-bold font-display text-violet-400/80 mb-2">
-                      ~${hypercallMetrics.usdgSpent.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                    </div>
-                    <div className="text-sm text-slate-400">Total Volume</div>
-                    <div className="text-xs text-slate-500 mt-1">
-                      {hypercallMetrics.swapCount.toLocaleString()} swap{hypercallMetrics.swapCount !== 1 ? 's' : ''}
-                    </div>
+                <div className="pt-2 border-t border-slate-700/50 space-y-1">
+                  <div className="flex justify-between items-center text-[11px]">
+                    <span className="text-slate-400">Deploy Smart Contract</span>
+                    <span className="font-mono text-white">
+                      {!isDemo && znsMetrics ? znsMetrics.deploy_count : 0}
+                    </span>
                   </div>
-                  {hypercallMetrics.positionsWritten > 0 && (
-                    <div className="mt-2 pt-2 border-t border-slate-700/50 flex items-center justify-between text-[11px]">
-                      <span className="text-slate-400">Covered Calls Written</span>
-                      <span className="font-mono text-white">{hypercallMetrics.positionsWritten.toLocaleString()}</span>
-                    </div>
-                  )}
-                  {hypercallMetrics.positionsWritten > 0 && (
-                    <div className="mt-1.5 text-[11px] text-emerald-400 opacity-80 flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                      Covered Call Writer
-                    </div>
-                  )}
-                </>
-              )
-            ) : (
-              <>
-                <div className="flex-1 flex flex-col items-center justify-center">
-                  <div className="text-5xl font-bold font-display text-violet-400/80 mb-2">~$1,250.00</div>
-                  <div className="text-sm text-slate-400">Total Volume</div>
-                  <div className="text-xs text-slate-500 mt-1">5 swaps</div>
+                  <div className="flex justify-between items-center text-[11px]">
+                    <span className="text-slate-400">Say GM</span>
+                    <span className="font-mono text-white">
+                      {!isDemo && znsMetrics ? znsMetrics.say_gm_count : 0}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-[11px]">
+                    <span className="text-slate-400">Register Domain</span>
+                    <span className="font-mono text-white">
+                      {!isDemo && znsMetrics ? znsMetrics.register_domain_count : 0}
+                    </span>
+                  </div>
                 </div>
-                <div className="mt-2 pt-2 border-t border-slate-700/50 flex items-center justify-between text-[11px]">
-                  <span className="text-slate-400">Covered Calls Written</span>
-                  <span className="font-mono text-white">3</span>
-                </div>
-                <div className="mt-1.5 text-[11px] text-emerald-400 opacity-80 flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                  Covered Call Writer
-                </div>
+
+                {!isDemo && znsMetrics && znsMetrics.total_count > 0 && (
+                  <div className="mt-1.5 text-[11px] text-lime-400 opacity-80 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-lime-400 animate-pulse"></span>
+                    Active ZNS User
+                  </div>
+                )}
               </>
             )}
           </div>

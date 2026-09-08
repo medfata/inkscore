@@ -73,10 +73,6 @@ The current "How It Works" page is too detailed with long formulas and tier brea
           <td className="py-3 text-right text-ink-accent font-mono">400</td>
         </tr>
         <tr className="border-b border-slate-800">
-          <td className="py-3 text-slate-300">NFT Marketplace</td>
-          <td className="py-3 text-right text-ink-accent font-mono">400</td>
-        </tr>
-        <tr className="border-b border-slate-800">
           <td className="py-3 text-slate-300">GM Activity</td>
           <td className="py-3 text-right text-ink-accent font-mono">400</td>
         </tr>
@@ -87,9 +83,9 @@ The current "How It Works" page is too detailed with long formulas and tier brea
         
         {/* GROUP B */}
         <tr className="border-b border-slate-800">
-          <td className="py-3 text-green-400 font-semibold" rowSpan={4}>
+          <td className="py-3 text-green-400 font-semibold" rowSpan={3}>
             🛡️ GROUP B<br/>
-            <span className="text-xs text-slate-500">12% of Score<br/>(4 Items × 300)</span>
+            <span className="text-xs text-slate-500">12% of Score<br/>(3 Items × 300)</span>
           </td>
           <td className="py-3 text-slate-300">ZNS Connect</td>
           <td className="py-3 text-right text-ink-accent font-mono">300</td>
@@ -100,10 +96,6 @@ The current "How It Works" page is too detailed with long formulas and tier brea
         </tr>
         <tr className="border-b border-slate-800">
           <td className="py-3 text-slate-300">NFT2Me</td>
-          <td className="py-3 text-right text-ink-accent font-mono">300</td>
-        </tr>
-        <tr className="border-b border-slate-800">
-          <td className="py-3 text-slate-300">Marvk</td>
           <td className="py-3 text-right text-ink-accent font-mono">300</td>
         </tr>
         
@@ -137,8 +129,8 @@ The current "How It Works" page is too detailed with long formulas and tier brea
     </div>
     <div className="glass-card p-4 rounded-xl border-l-4 border-green-500">
       <div className="text-green-400 font-semibold mb-1">🛡️ GROUP B</div>
-      <div className="text-2xl font-bold text-white">1,200</div>
-      <div className="text-xs text-slate-500">12% of total</div>
+      <div className="text-2xl font-bold text-white">900</div>
+      <div className="text-xs text-slate-500">9% of total</div>
     </div>
   </div>
 </section>

@@ -240,6 +240,11 @@ export async function gatherDashboardBundle(
     cowSwapData: cowswap,
     sweepData: sweepRaw,
     openSeaCounts,
+    zenithNftData: zenithNft,
+    zenithStakingData: zenithStaking,
+    gonefishinData: gonefishin,
+    sentryData: sentry,
+    hypercallData: hypercall,
     inkBrokersData: inkBrokers,
   };
 
