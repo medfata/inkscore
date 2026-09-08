@@ -2072,8 +2072,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
                       </CardMainMetric>
                     </div>
 
-                    <div className="pt-2 border-t border-slate-700/50 flex flex-col min-h-0">
-                      <div className="flex-1 overflow-y-auto space-y-0.5 pr-1 custom-scrollbar">
+                    <div className="h-[96px] pt-2 border-t border-slate-700/50 flex flex-col min-h-0">
+                      <div className="flex-1 min-h-0 overflow-y-auto space-y-0.5 pr-1 custom-scrollbar">
                         {allPlatforms
                           .sort((a, b) => {
                             // Custom order: Ink Official -> Relay -> Native -> Bungee
@@ -2208,8 +2208,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
                   </CardMainMetric>
                 </div>
 
-                <div className="pt-2 border-t border-slate-700/50 flex flex-col min-h-0">
-                  <div className="flex-1 overflow-y-auto space-y-0.5 pr-1 custom-scrollbar">
+                <div className="h-[96px] pt-2 border-t border-slate-700/50 flex flex-col min-h-0">
+                  <div className="flex-1 min-h-0 overflow-y-auto space-y-0.5 pr-1 custom-scrollbar">
                     {Object.entries(DEX_PLATFORMS)
                       .map(([contractAddress, platformInfo]) => {
                         const platformData = swapVolume.byPlatform.find(
