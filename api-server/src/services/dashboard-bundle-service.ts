@@ -32,7 +32,7 @@ import { saveScoreSnapshot } from './metrics-snapshot-service';
 import { getTotalVolumeData } from './volume-service';
 import { getDashboardCards } from './dashboard-cards-service';
 import { getCryptoClashMetrics } from './cryptoclash-service';
-import { getCopinkMetrics } from './copink-service';
+import { getOtomateMetrics } from './otomate-service';
 import {
   getSweep,
   getOpenseaBuyCount,
@@ -42,7 +42,6 @@ import {
   getInkypumpBuyVolume,
   getInkypumpSellVolume,
   getMintCount,
-  getCowswapSwaps,
 } from './analytics-metrics-service';
 import {
   getZnsMetrics,
@@ -64,7 +63,7 @@ import { getGoneFishinData } from './gonefishin-service';
 import { getSentryData } from './sentry-service';
 import { getHypercallData } from './hypercall-service';
 import { getNadoMetrics } from './nado-service';
-import type { CopinkResponse } from './points-service-v2';
+import type { OtomateResponse } from './points-service-v2';
 
 export interface DashboardBundle {
   wallet: string;
@@ -165,14 +164,13 @@ export async function gatherDashboardBundle(
     shelliesStaking,
     templars,
     mintData,
-    cowswap,
     sweepAnalytics,
     zenithNft,
     zenithStaking,
     inkBrokers,
     analyticsAgg,
     cards,
-    copink,
+    otomate,
     openseaBuy,
     openseaSale,
   ] = await Promise.all([
@@ -196,15 +194,14 @@ export async function gatherDashboardBundle(
     vc(`analytics:shellies_staking:${wallet}`, 'shellies-staking', 20000, () => getShelliesStaking(wallet)),
     vc(`analytics:templars_nft_balance:${wallet}`, 'templars', 20000, () => getTemplarsBalance(wallet)),
     vc(`analytics:mint_count:${wallet}`, 'mint', 20000, () => getMintCount(wallet)),
-    vc(`analytics:cowswap_swaps:${wallet}`, 'cowswap', 20000, () => getCowswapSwaps(wallet)),
     vc(`analytics:sweep:${wallet}`, 'sweep', 20000, () => getSweep(wallet)),
     vc(`analytics:zenith_nft_balance:${wallet}`, 'zenith-nft', 20000, () => getZenithNft(wallet)),
     vc(`analytics:zenith_staking:${wallet}`, 'zenith-staking', 20000, () => getZenithStaking(wallet)),
     vc(`analytics:ink_brokers:${wallet}`, 'ink-brokers', 20000, () => getInkBrokersMetrics(wallet)),
     vc(`analytics:${wallet}`, 'analytics', 30000, () => analyticsService.getWalletAnalytics(wallet)),
     vc(`dashboard:cards:${wallet}`, 'cards', 15000, () => getDashboardCards(wallet)),
-    // Copink manages its own responseCache + stale-serve internally.
-    getCopinkSafe(wallet),
+    // Otomate manages its own responseCache + stale-serve internally.
+    getOtomateSafe(wallet),
     vc(`analytics:opensea_buy_count:${wallet}`, 'opensea-buy', 20000, () => getOpenseaBuyCount(wallet)),
     vc(`analytics:opensea_sale_count:${wallet}`, 'opensea-sale', 20000, () => getOpenseaSaleCount(wallet)),
   ]);
@@ -234,10 +231,9 @@ export async function gatherDashboardBundle(
     znsData: zns,
     nft2meData: nft2me,
     nadoData: nado,
-    copinkData: copink,
+    otomateData: otomate,
     templarsData: templars,
     mintData,
-    cowSwapData: cowswap,
     sweepData: sweepRaw,
     openSeaCounts,
     zenithNftData: zenithNft,
@@ -274,7 +270,7 @@ export async function gatherDashboardBundle(
     sentry,
     hypercall,
     nado,
-    copink,
+    otomate,
     score,
     volume,
     analytics: analyticsAgg,
@@ -292,7 +288,6 @@ export async function gatherDashboardBundle(
     openseaSaleCount: openseaSale,
     mintCount: mintData,
     templarsNftBalance: templars,
-    cowswapSwaps: cowswap,
     sweep: sweepAnalytics,
     zenithNft,
     zenithStaking,
@@ -323,13 +318,13 @@ export async function gatherDashboardBundle(
   };
 }
 
-// Copink never throws (stale-serve built in); a null here means even the
+// Otomate never throws (stale-serve built in); a null here means even the
 // stale path failed — same "missing, not zero" treatment as every metric.
-async function getCopinkSafe(wallet: string): Promise<CopinkResponse | null> {
+async function getOtomateSafe(wallet: string): Promise<OtomateResponse | null> {
   try {
-    return await getCopinkMetrics(wallet);
+    return await getOtomateMetrics(wallet);
   } catch (err) {
-    console.warn(`[Bundle] copink failed for ${wallet.slice(0, 10)}:`, err);
+    console.warn(`[Bundle] otomate failed for ${wallet.slice(0, 10)}:`, err);
     return null;
   }
 }

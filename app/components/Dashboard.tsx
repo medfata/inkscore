@@ -81,7 +81,6 @@ const PLATFORM_URLS: Record<string, string> = {
   'shellies': 'https://shellies.xyz',
   'opensea': 'https://opensea.io',
   'templars': 'https://opensea.io/collection/templars-of-the-storm',
-  'cowswap': 'https://swap.cow.fi',
   'sweep': 'https://sweep.haus',
   'zenithNft': 'https://explorer.inkonchain.com/token/0xd0282f4Cb5c6FE4e3F2fecacFcb9477F42ce8c78',
   'zenithOpensea': 'https://opensea.io/collection/inkscore-zenith',
@@ -211,8 +210,8 @@ interface HypercallResponse {
   partial?: boolean;
 }
 
-// Copink metrics response type
-interface CopinkMetrics {
+// Otomate metrics response type
+interface OtomateMetrics {
   totalVolume: number;
   subaccountsFound: number;
 }
@@ -482,7 +481,7 @@ interface ConsolidatedDashboardResponse {
   analytics: { metrics?: Array<{ slug: string; total_value?: string; total_count?: number }> } | null;
   cards: { row3?: DashboardCardData[]; row4?: DashboardCardData[] } | null;
   nado: NadoMetrics | null;
-  copink: CopinkMetrics | null;
+  otomate: OtomateMetrics | null;
   cryptoclash: CryptoClashMetrics | null;
   nft2me: Nft2MeResponse | null;
   gonefishin: GoneFishinResponse | null;
@@ -517,15 +516,6 @@ interface ConsolidatedDashboardResponse {
   mintCount: { total_count?: number } | null;
   openseaSaleCount: { total_count?: number } | null;
   templarsNftBalance: { total_count?: number } | null;
-  cowswapSwaps: {
-    total_count?: number;
-    total_value?: string;
-    sub_aggregates?: Array<{
-      token: string;
-      usd_value: string;
-      count: number;
-    }>;
-  } | null;
   errors?: string[];
   // Sprint 2 freshness metadata (optional, from the bundle fast path):
   // whether this payload was served from the server's dashboard snapshot
@@ -732,7 +722,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
   const [gonefishinMetrics, setGonefishinMetrics] = useState<GoneFishinResponse | null>(null);
   const [sentryMetrics, setSentryMetrics] = useState<SentryResponse | null>(null);
   const [hypercallMetrics, setHypercallMetrics] = useState<HypercallResponse | null>(null);
-  const [copinkMetrics, setCopinkMetrics] = useState<CopinkMetrics | null>(null);
+  const [otomateMetrics, setOtomateMetrics] = useState<OtomateMetrics | null>(null);
   const [nadoMetrics, setNadoMetrics] = useState<NadoMetrics | null>(null);
   const [sweepMetrics, setSweepMetrics] = useState<SweepMetrics | null>(null);
   const [zenithNftMetrics, setZenithNftMetrics] = useState<ZenithNftMetrics | null>(null);
@@ -750,16 +740,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
   // Templars NFT metrics state
   const [templarsNftBalance, setTemplarsNftBalance] = useState<{ total_count: number } | null>(null);
 
-  // Cow Swap metrics state
-  const [cowswapSwaps, setCowswapSwaps] = useState<{
-    total_count: number;
-    total_value: string;
-    sub_aggregates: Array<{
-      token: string;
-      usd_value: string;
-      count: number;
-    }>;
-  } | null>(null);
 
   // Dynamic dashboard cards state
   const [dynamicCardsRow3, setDynamicCardsRow3] = useState<DashboardCardData[]>([]);
@@ -895,11 +875,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
       setDynamicCardsRow4(response.cards.row4 || []);
     }
 
-    // Process Copink metrics
-    if (response.copink) {
-      setCopinkMetrics({
-        totalVolume: response.copink.totalVolume || 0,
-        subaccountsFound: response.copink.subaccountsFound || 0,
+    // Process Otomate metrics
+    if (response.otomate) {
+      setOtomateMetrics({
+        totalVolume: response.otomate.totalVolume || 0,
+        subaccountsFound: response.otomate.subaccountsFound || 0,
       });
     }
 
@@ -1093,15 +1073,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
     if (response.templarsNftBalance) {
       setTemplarsNftBalance({ total_count: response.templarsNftBalance.total_count || 0 });
     }
-
-    // Process Cow Swap metrics
-    if (response.cowswapSwaps) {
-      setCowswapSwaps({
-        total_count: response.cowswapSwaps.total_count || 0,
-        total_value: response.cowswapSwaps.total_value || '0',
-        sub_aggregates: response.cowswapSwaps.sub_aggregates || [],
-      });
-    }
   }, []);
 
   // Process streaming metrics when they arrive
@@ -1157,8 +1128,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
         case 'openseaSaleCount':
           setRealOpenSeaSales({ count: data.total_count || 0 });
           break;
-        case 'copink':
-          setCopinkMetrics(data);
+        case 'otomate':
+          setOtomateMetrics(data);
           break;
         case 'nado':
           setNadoMetrics(data);
@@ -1236,9 +1207,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
         case 'templarsNftBalance':
           setTemplarsNftBalance({ total_count: data.total_count || 0 });
           break;
-        case 'cowswapSwaps':
-          setCowswapSwaps(data);
-          break;
         case 'cards':
           if (data.row3) setDynamicCardsRow3(data.row3);
           if (data.row4) setDynamicCardsRow4(data.row4);
@@ -1288,7 +1256,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
     setTotalVolume(null);
     setZnsMetrics(null);
     setNft2meMetrics(null);
-    setCopinkMetrics(null);
+    setOtomateMetrics(null);
     setNadoMetrics(null);
     setCryptoclashMetrics(null);
     setInkyPumpCreatedTokens(null);
@@ -1297,7 +1265,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
     setShelliesJoinedRaffles(null);
     setShelliesPayToPlay(null);
     setTemplarsNftBalance(null);
-    setCowswapSwaps(null);
     setDynamicCardsRow3([]);
     setDynamicCardsRow4([]);
 
@@ -1453,13 +1420,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
         gonefishin: 'Gone Fishin',
         gm: 'GM',
         zns: 'ZNS',
-        copink: 'Otomate',
+        otomate: 'Otomate',
         shellies: 'Shellies',
         tydro: 'Tydro',
         templars: 'Templars',
         opensea: 'OpenSea',
         nado: 'Nado',
-        cowswap: 'CowSwap',
         swap: 'Swap',
         sweep: 'Sweep',
         nft2me: 'NFT2Me',
@@ -2494,7 +2460,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
             </div>
 
             {!isDemo ? (
-              (isMetricLoading('copink') || !copinkMetrics) ? (
+              (isMetricLoading('otomate') || !otomateMetrics) ? (
                 <div className="flex-1 flex flex-col items-center justify-center">
                   <div className="h-9 w-28 bg-slate-700/50 rounded animate-pulse mb-2"></div>
                   <div className="h-3 w-32 bg-slate-700/30 rounded animate-pulse"></div>
@@ -2503,17 +2469,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
                 <>
                   <div className="flex-1 flex flex-col items-center justify-center min-h-0 text-center">
                     <CardMainMetric color="green">
-                      {formatMainUsd(copinkMetrics.totalVolume)}
+                      {formatMainUsd(otomateMetrics.totalVolume)}
                     </CardMainMetric>
                     <div className="text-xs text-slate-500 mt-1.5">Total Trading Volume</div>
                   </div>
 
                   <div className="pt-2 border-t border-slate-700/50 flex items-center justify-between text-[11px]">
                     <span className="text-slate-400">Subaccounts Found</span>
-                    <span className="font-mono text-white">{copinkMetrics.subaccountsFound}</span>
+                    <span className="font-mono text-white">{otomateMetrics.subaccountsFound}</span>
                   </div>
 
-                  {copinkMetrics.totalVolume > 0 && (
+                  {otomateMetrics.totalVolume > 0 && (
                     <div className="mt-1.5 text-[11px] text-green-400 opacity-80 flex items-center gap-1">
                       <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></span>
                       Active Otomate Trader

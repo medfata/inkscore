@@ -132,7 +132,7 @@ describe('useStreamingDashboard', () => {
       expect(result.current.loadingMetrics.size).toBeGreaterThan(0);
       expect(result.current.loadingMetrics.has('stats')).toBe(true);
       expect(result.current.loadingMetrics.has('bridge')).toBe(true);
-      expect(result.current.loadingMetrics.has('cowswapSwaps')).toBe(true);
+      expect(result.current.loadingMetrics.has('otomate')).toBe(true);
     });
 
     it('should update metrics progressively as they arrive', async () => {
@@ -223,18 +223,18 @@ describe('useStreamingDashboard', () => {
 
       mockEventSourceInstance!.simulateMessage({
         type: 'error',
-        id: 'cowswapSwaps',
+        id: 'otomate',
         error: 'API timeout',
         timestamp: Date.now(),
       });
 
       await waitFor(() => {
-        expect(result.current.errors.cowswapSwaps).toBe('API timeout');
-        expect(result.current.loadingMetrics.has('cowswapSwaps')).toBe(false);
+        expect(result.current.errors.otomate).toBe('API timeout');
+        expect(result.current.loadingMetrics.has('otomate')).toBe(false);
       });
 
       // Metric should not be in metrics object
-      expect(result.current.metrics.cowswapSwaps).toBeUndefined();
+      expect(result.current.metrics.otomate).toBeUndefined();
     });
 
     it('should handle multiple errors without affecting successful metrics', async () => {
@@ -506,13 +506,13 @@ describe('useStreamingDashboard', () => {
       // Receive an error
       mockEventSourceInstance!.simulateMessage({
         type: 'error',
-        id: 'cowswapSwaps',
+        id: 'otomate',
         error: 'Timeout',
         timestamp: Date.now(),
       });
 
       await waitFor(() => {
-        expect(result.current.errors.cowswapSwaps).toBe('Timeout');
+        expect(result.current.errors.otomate).toBe('Timeout');
       });
 
       // Receive done event
@@ -532,10 +532,10 @@ describe('useStreamingDashboard', () => {
       // Verify final state
       expect(result.current.metrics.stats).toEqual({ total: 100 });
       expect(result.current.metrics.bridge).toEqual({ volume: 5000 });
-      expect(result.current.errors.cowswapSwaps).toBe('Timeout');
+      expect(result.current.errors.otomate).toBe('Timeout');
       expect(result.current.loadingMetrics.has('stats')).toBe(false);
       expect(result.current.loadingMetrics.has('bridge')).toBe(false);
-      expect(result.current.loadingMetrics.has('cowswapSwaps')).toBe(false);
+      expect(result.current.loadingMetrics.has('otomate')).toBe(false);
     });
   });
 });

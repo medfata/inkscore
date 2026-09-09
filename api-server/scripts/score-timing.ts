@@ -23,10 +23,10 @@ async function main() {
   const { getTydroData } = await import('../src/services/tydro-service');
   const { getNft2meData } = await import('../src/services/nft2me-service');
   const { getZnsMetrics, getShelliesJoinedRaffles, getShelliesPayToPlay, getShelliesStaking, getTemplarsBalance, getZenithNft, getZenithStaking, getInkBrokersMetrics } = await import('../src/services/analytics-counts-service');
-  const { getGmCount, getInkypumpCreatedTokens, getInkypumpBuyVolume, getInkypumpSellVolume, getCowswapSwaps, getMintCount } = await import('../src/services/analytics-metrics-service');
+  const { getGmCount, getInkypumpCreatedTokens, getInkypumpBuyVolume, getInkypumpSellVolume, getMintCount } = await import('../src/services/analytics-metrics-service');
   const { sweepService } = await import('../src/services/sweep-service');
   const { getNadoMetrics } = await import('../src/services/nado-service');
-  const { getCopinkMetrics } = await import('../src/services/copink-service');
+  const { getOtomateMetrics } = await import('../src/services/otomate-service');
   const { getGoneFishinData } = await import('../src/services/gonefishin-service');
   const { getSentryData } = await import('../src/services/sentry-service');
   const { getHypercallData } = await import('../src/services/hypercall-service');
@@ -50,11 +50,10 @@ async function main() {
     ['inkypump-created', getInkypumpCreatedTokens(wallet)],
     ['inkypump-buy', getInkypumpBuyVolume(wallet)],
     ['inkypump-sell', getInkypumpSellVolume(wallet)],
-    ['cowswap', getCowswapSwaps(wallet)],
     ['mint', getMintCount(wallet)],
     ['sweep', sweepService.getDeployedCollections(wallet)],
     ['nado', getNadoMetrics(wallet)],
-    ['copink', getCopinkMetrics(wallet)],
+    ['otomate', getOtomateMetrics(wallet)],
     ['gonefishin', getGoneFishinData(wallet)],
     ['sentry', getSentryData(wallet)],
     ['hypercall', getHypercallData(wallet)],

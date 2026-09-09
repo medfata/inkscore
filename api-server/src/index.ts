@@ -6,7 +6,7 @@ import walletRoutes from './routes/backup_wallet';
 import analyticsRoutes from './routes/analytics';
 import dashboardRoutes from './routes/dashboard';
 import nadoRoutes from './routes/nado';
-import copinkRoutes from './routes/copink';
+import otomateRoutes from './routes/otomate';
 import ranksRoutes from './routes/ranks';
 import cryptoclashRoutes from './routes/cryptoclash';
 import sweepRoutes from './routes/sweep';
@@ -49,7 +49,10 @@ app.use('/api/wallet', walletRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/nado', nadoRoutes);
-app.use('/api/copink', copinkRoutes);
+app.use('/api/otomate', otomateRoutes);
+// Deprecated alias (Copink → Otomate rename): keep serving the old path so
+// cached clients and old snapshots don't 404 during the transition.
+app.use('/api/copink', otomateRoutes);
 app.use('/api/ranks', ranksRoutes);
 app.use('/api/cryptoclash', cryptoclashRoutes);
 app.use('/api/sweep', sweepRoutes);

@@ -29,14 +29,13 @@ import {
   getInkypumpCreatedTokens,
   getInkypumpBuyVolume,
   getInkypumpSellVolume,
-  getCowswapSwaps,
   getMintCount,
   getOpenseaBuyCount,
   getOpenseaSaleCount,
 } from './analytics-metrics-service';
 import { sweepService } from './sweep-service';
 import { getNadoMetrics } from './nado-service';
-import { getCopinkMetrics } from './copink-service';
+import { getOtomateMetrics } from './otomate-service';
 import { getFreshScoreSnapshot, getStaleScoreSnapshot, saveScoreSnapshot } from './metrics-snapshot-service';
 import { responseCache } from '../cache';
 
@@ -75,10 +74,12 @@ export interface NadoResponse {
   totalTransactions?: number;
   nadoVolumeUSD?: number;
 }
-export interface CopinkResponse {
+export interface OtomateResponse {
   totalVolume?: number;
   subaccountsFound?: number;
 }
+// Deprecated alias (Copink → Otomate rename).
+export type CopinkResponse = OtomateResponse;
 export interface TemplarsResponse {
   total_count?: number;
   value?: number;
@@ -86,10 +87,6 @@ export interface TemplarsResponse {
 export interface OpenSeaResponse {
   total_count?: number;
   value?: number;
-}
-export interface CowSwapResponse {
-  total_count?: number;
-  total_value?: string;
 }
 export interface SweepResponse {
   totalCollections?: number;
@@ -133,10 +130,9 @@ export interface ScoreInputs {
   znsData: ZnsResponse | null;
   nft2meData: Nft2meResponse | null;
   nadoData: NadoResponse | null;
-  copinkData: CopinkResponse | null;
+  otomateData: OtomateResponse | null;
   templarsData: TemplarsResponse | null;
   mintData: OpenSeaResponse | null;
-  cowSwapData: CowSwapResponse | null;
   sweepData: SweepResponse | null;
   openSeaCounts: OpenSeaCounts;
   // InkScore Zenith NFT holdings + staking positions (blockchain reads).
@@ -587,8 +583,8 @@ export class PointsServiceV2 {
     return depositPoints + volumePoints;
   }
 
-  private calculateCopinkPoints(subaccountsFound: number, totalVolume: number): number {
-    // New tiered system for Copink (Max: 400 points)
+  private calculateOtomatePoints(subaccountsFound: number, totalVolume: number): number {
+    // Tiered system for Otomate (Max: 400 points)
     // 1. Volume (Max: 300 points)
     let volumePoints = 0;
     if (totalVolume >= 10000) volumePoints = 300;
@@ -654,15 +650,6 @@ export class PointsServiceV2 {
     }
     
     return buyPoints + sellPoints + mintPoints;
-  }
-
-  private calculateCowSwapPoints(totalSwapAmountUsd: number): number {
-    // Cow Swap Volume Points (Max: 2,000 points)
-    // Tiered system based on total swap volume in USD
-    if (totalSwapAmountUsd > 1000) return 2000;  // Tier 3: Whale (Liquidity Provider)
-    if (totalSwapAmountUsd >= 101) return 1200;  // Tier 2: Trader (Active Participant)
-    if (totalSwapAmountUsd >= 10) return 400;    // Tier 1: Starter (Basic DeFi User)
-    return 0; // No activity
   }
 
   private calculateSweepPoints(collectionsCreated: number, badgesMinted: number, dailyStreak: number): number {
@@ -735,9 +722,11 @@ export class PointsServiceV2 {
   private calculateSwapVenueTierPoints(swapVolumeUsd: number): number {
     // Shared USD swap-volume tier for Hypercall Earn, Sentry and Ink Brokers
     // (Max: 5,000 points each)
-    if (swapVolumeUsd > 1000) return 5000; // Tier 3: > $1k volume
-    if (swapVolumeUsd > 100) return 2500;  // Tier 2: $100 - $1k volume
-    if (swapVolumeUsd >= 1) return 1000;   // Tier 1: $1 - $100 volume
+    // Tier 1: $1–$99.99 → 1,000 pts, Tier 2: $100–$1,000 → 2,500 pts,
+    // Tier 3: >$1,000 → 5,000 pts.
+    if (swapVolumeUsd > 1000) return 5000; // Tier 3: > $1,000 volume
+    if (swapVolumeUsd >= 100) return 2500;  // Tier 2: $100 - $1,000 volume
+    if (swapVolumeUsd >= 1) return 1000;   // Tier 1: $1 - $99.99 volume
     return 0;
   }
 
@@ -881,9 +870,9 @@ export class PointsServiceV2 {
       // score has zero loopback HTTP since the Sprint-1 direct-call wiring,
       // so nothing referenced it anymore. The two budgets still used by the
       // batch below are kept verbatim:
-      // Copink proxies a third-party API measured at ~5s per call — a 3.5s
-      // budget guarantees a timeout (and 0 copink points) on every cold load.
-      const COPINK_FETCH_TIMEOUT = 10000;
+      // Otomate proxies a third-party API measured at ~5s per call — a 3.5s
+      // budget guarantees a timeout (and 0 otomate points) on every cold load.
+      const OTOMATE_FETCH_TIMEOUT = 10000;
       const SLOW_FETCH_TIMEOUT = 30000;
 
       // Resolve with a fallback if the promise is still pending after ms. The
@@ -954,10 +943,9 @@ export class PointsServiceV2 {
         znsData,
         nft2meData,
         nadoData,
-        copinkData,
+        otomateData,
         templarsData,
         mintData,
-        cowSwapData,
         sweepData,
         openSeaCounts,
         zenithNftData,
@@ -999,7 +987,7 @@ export class PointsServiceV2 {
           'tydro'
         ),
         // Sprint 1: direct service calls — the score's last loopback
-        // self-fetches removed. gm/cowswap/sweep/opensea counts use a 20s
+        // self-fetches removed. gm/sweep/opensea counts use a 20s
         // budget (matching the old 3.5s + retry ladder worst case); still
         // under the dashboard's 30s timeout.
         withTimeout(getGmCount(wallet).catch(() => null), 20000, null, 'gm'),
@@ -1028,11 +1016,10 @@ export class PointsServiceV2 {
         // Sprint 1: direct service calls — the score's LAST loopback
         // self-fetches are gone. Budgets match the old fetch timeouts.
         withTimeout(getNadoMetrics(wallet).catch(() => null), SLOW_FETCH_TIMEOUT, null, 'nado'),
-        withTimeout(getCopinkMetrics(wallet).catch(() => null), COPINK_FETCH_TIMEOUT, null, 'copink'),
+        withTimeout(getOtomateMetrics(wallet).catch(() => null), OTOMATE_FETCH_TIMEOUT, null, 'otomate'),
         // Sprint 1: direct service call (viem balanceOf read).
         withTimeout(getTemplarsBalance(wallet).catch(() => null), 20000, null, 'templars'),
         withTimeout(getMintCount(wallet).catch(() => null), 20000, null, 'mints'),
-        withTimeout(getCowswapSwaps(wallet).catch(() => null), 20000, null, 'cowswap'),
         // Sweep: the score reads the RAW shape (totalCollections/badges/streak)
         // — same sweepService both HTTP wrappers use.
         withTimeout(sweepService.getDeployedCollections(wallet).catch(() => null), 20000, null, 'sweep'),
@@ -1066,10 +1053,9 @@ export class PointsServiceV2 {
         znsData,
         nft2meData,
         nadoData,
-        copinkData,
+        otomateData,
         templarsData,
         mintData,
-        cowSwapData,
         sweepData,
         openSeaCounts,
         zenithNftData,
@@ -1104,10 +1090,9 @@ export class PointsServiceV2 {
       znsData,
       nft2meData,
       nadoData,
-      copinkData,
+      otomateData,
       templarsData,
       mintData,
-      cowSwapData,
       sweepData,
       openSeaCounts,
       zenithNftData,
@@ -1116,7 +1101,12 @@ export class PointsServiceV2 {
       sentryData,
       hypercallData,
       inkBrokersData
-    } = inputs;
+    } = inputs as ScoreInputs & { copinkData?: OtomateResponse | null };
+
+    // Backward compat: snapshots captured before the Copink → Otomate rename
+    // carry `copinkData`. Prefer the new key, fall back to the legacy one.
+    const resolvedOtomateData =
+      otomateData ?? (inputs as { copinkData?: OtomateResponse | null }).copinkData ?? null;
 
     const breakdown: WalletPointsBreakdown = {
       native: {},
@@ -1238,12 +1228,12 @@ export class PointsServiceV2 {
       breakdown.platforms['nado'] = { tx_count: nadoData?.totalTransactions || 0, usd_volume: nadoTotalVolume, points: nadoPoints };
       totalPoints += nadoPoints;
 
-      // Copink points
-      const copinkSubaccounts = copinkData?.subaccountsFound || 0;
-      const copinkVolume = copinkData?.totalVolume || 0;
-      const copinkPoints = this.calculateCopinkPoints(copinkSubaccounts, copinkVolume);
-      breakdown.platforms['copink'] = { tx_count: copinkSubaccounts, usd_volume: copinkVolume, points: copinkPoints };
-      totalPoints += copinkPoints;
+      // Otomate points
+      const otomateSubaccounts = resolvedOtomateData?.subaccountsFound || 0;
+      const otomateVolume = resolvedOtomateData?.totalVolume || 0;
+      const otomatePoints = this.calculateOtomatePoints(otomateSubaccounts, otomateVolume);
+      breakdown.platforms['otomate'] = { tx_count: otomateSubaccounts, usd_volume: otomateVolume, points: otomatePoints };
+      totalPoints += otomatePoints;
 
       // Templars of the Storm NFT points
       const templarsBalance = templarsData?.value || 0;
@@ -1260,13 +1250,6 @@ export class PointsServiceV2 {
       breakdown.platforms['opensea'] = { tx_count: totalOpenSeaTxs, usd_volume: 0, points: openSeaPoints };
       totalPoints += openSeaPoints;
       console.log(`[Score] ${wallet.slice(0, 10)} OpenSea: buys=${openseaBuyCount} sales=${openseaSellCount} mints=${mintCount} → ${openSeaPoints}pts`);
-
-      // Cow Swap points
-      const cowSwapVolumeUsd = parseFloat(cowSwapData?.total_value || '0');
-      const cowSwapCount = cowSwapData?.total_count || 0;
-      const cowSwapPoints = this.calculateCowSwapPoints(cowSwapVolumeUsd);
-      breakdown.platforms['cowswap'] = { tx_count: cowSwapCount, usd_volume: cowSwapVolumeUsd, points: cowSwapPoints };
-      totalPoints += cowSwapPoints;
 
       // Sweep Platform points
       const sweepCollections = sweepData?.totalCollections || 0;

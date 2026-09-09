@@ -115,7 +115,7 @@ async function getStreamingDashboard(walletAddress: string, forceRefresh = false
         { id: 'analytics', fetch: () => ef(`/api/analytics/${walletAddress}`) },
         { id: 'cards', fetch: () => ef(`/api/dashboard/cards/${walletAddress}`) },
         { id: 'nado', fetch: () => ef(`/api/nado/${walletAddress}`) },
-        { id: 'copink', fetch: () => ef(`/api/copink/${walletAddress}`) },
+        { id: 'otomate', fetch: () => ef(`/api/otomate/${walletAddress}`) },
         { id: 'cryptoclash', fetch: () => ef(`/api/cryptoclash/${walletAddress}`) },
         { id: 'nft2me', fetch: () => ef(`/api/wallet/${walletAddress}/nft2me`, EXPRESS_TIMEOUT_MS, 30000) },
         { id: 'tydro', fetch: () => ef(`/api/wallet/${walletAddress}/tydro`, EXPRESS_TIMEOUT_MS, 30000) },
@@ -133,7 +133,6 @@ async function getStreamingDashboard(walletAddress: string, forceRefresh = false
         { id: 'mintCount', fetch: () => ef(`/api/analytics/${walletAddress}/mint_count`) },
         { id: 'openseaSaleCount', fetch: () => ef(`/api/analytics/${walletAddress}/opensea_sale_count`) },
         { id: 'templarsNftBalance', fetch: () => ef(`/api/analytics/${walletAddress}/templars_nft_balance`) },
-        { id: 'cowswapSwaps', fetch: () => ef(`/api/analytics/${walletAddress}/cowswap_swaps`) },
         { id: 'sweep', fetch: () => ef(`/api/analytics/${walletAddress}/sweep`) },
         { id: 'zenithNft', fetch: () => ef(`/api/analytics/${walletAddress}/zenith_nft_balance`) },
         { id: 'zenithStaking', fetch: () => ef(`/api/analytics/${walletAddress}/zenith_staking`) },
@@ -353,7 +352,7 @@ export async function GET(
         // Mirror the old fan-out's error reporting: a null entry is what an
         // errored per-endpoint fetch would have produced anyway.
         const errors: string[] = [];
-        const trackedIds = ['stats', 'bridge', 'swap', 'volume', 'score', 'analytics', 'cards', 'nado', 'copink', 'nft2me', 'tydro', 'gonefishin', 'sentry', 'hypercall', 'sweep', 'openseaBuyCount', 'mintCount', 'openseaSaleCount'] as const;
+        const trackedIds = ['stats', 'bridge', 'swap', 'volume', 'score', 'analytics', 'cards', 'nado', 'otomate', 'nft2me', 'tydro', 'gonefishin', 'sentry', 'hypercall', 'sweep', 'openseaBuyCount', 'mintCount', 'openseaSaleCount'] as const;
         for (const id of trackedIds) {
           if (m[id] == null) errors.push(`${id}: missing from bundle`);
         }
@@ -368,7 +367,7 @@ export async function GET(
             analytics: m.analytics ?? null,
             cards: m.cards ?? null,
             nado: m.nado ?? null,
-            copink: m.copink ?? null,
+            otomate: (m.otomate ?? m.copink) ?? null,
             nft2me: m.nft2me ?? null,
             tydro: m.tydro ?? null,
             gonefishin: m.gonefishin ?? null,
@@ -390,7 +389,6 @@ export async function GET(
             mintCount: m.mintCount ?? null,
             openseaSaleCount: m.openseaSaleCount ?? null,
             templarsNftBalance: m.templarsNftBalance ?? null,
-            cowswapSwaps: m.cowswapSwaps ?? null,
             // The old non-streaming fan-out never filled cryptoclash (the
             // UI fetched it separately). The bundle has it — filling the
             // typed field is strictly closer to the declared contract.
@@ -427,7 +425,7 @@ export async function GET(
       analyticsResult,
       cardsResult,
       nadoResult,
-      copinkResult,
+      otomateResult,
       nft2meResult,
       tydroResult,
       gonefishinResult,
@@ -449,7 +447,6 @@ export async function GET(
       mintCountResult,
       openseaSaleCountResult,
       templarsNftBalanceResult,
-      cowswapSwapsResult,
     ] = await Promise.all([
       ef(`/api/wallet/${walletAddress}/stats`),
       ef(`/api/wallet/${walletAddress}/bridge`, BRIDGE_TIMEOUT_MS, 42000),
@@ -459,7 +456,7 @@ export async function GET(
       ef(`/api/analytics/${walletAddress}`),
       ef(`/api/dashboard/cards/${walletAddress}`),
       ef(`/api/nado/${walletAddress}`),
-      ef(`/api/copink/${walletAddress}`),
+      ef(`/api/otomate/${walletAddress}`),
       ef(`/api/wallet/${walletAddress}/nft2me`, EXPRESS_TIMEOUT_MS, 30000),
       ef(`/api/wallet/${walletAddress}/tydro`, EXPRESS_TIMEOUT_MS, 30000),
       ef(`/api/wallet/${walletAddress}/gonefishin`, EXPRESS_TIMEOUT_MS, 30000),
@@ -484,7 +481,6 @@ export async function GET(
       ef(`/api/analytics/${walletAddress}/mint_count`),
       ef(`/api/analytics/${walletAddress}/opensea_sale_count`),
       ef(`/api/analytics/${walletAddress}/templars_nft_balance`),
-      ef(`/api/analytics/${walletAddress}/cowswap_swaps`),
     ]);
 
     // Collect any errors (only log critical ones)
@@ -497,7 +493,7 @@ export async function GET(
     if (analyticsResult.error) errors.push(`analytics: ${analyticsResult.error}`);
     if (cardsResult.error) errors.push(`cards: ${cardsResult.error}`);
     if (nadoResult.error) errors.push(`nado: ${nadoResult.error}`);
-    if (copinkResult.error) errors.push(`copink: ${copinkResult.error}`);
+    if (otomateResult.error) errors.push(`otomate: ${otomateResult.error}`);
     if (nft2meResult.error) errors.push(`nft2me: ${nft2meResult.error}`);
     if (tydroResult.error) errors.push(`tydro: ${tydroResult.error}`);
     if (gonefishinResult.error) errors.push(`gonefishin: ${gonefishinResult.error}`);
@@ -517,7 +513,7 @@ export async function GET(
       analytics: analyticsResult.data,
       cards: cardsResult.data,
       nado: nadoResult.data,
-      copink: copinkResult.data,
+      otomate: otomateResult.data,
       nft2me: nft2meResult.data,
       tydro: tydroResult.data,
       gonefishin: gonefishinResult.data,
@@ -539,7 +535,6 @@ export async function GET(
       mintCount: mintCountResult.data,
       openseaSaleCount: openseaSaleCountResult.data,
       templarsNftBalance: templarsNftBalanceResult.data,
-      cowswapSwaps: cowswapSwapsResult.data,
       ...(errors.length > 0 && { errors }),
     };
 

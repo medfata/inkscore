@@ -44,7 +44,7 @@ export function useStreamingDashboard(
       'analytics',
       'cards',
       'nado',
-      'copink',
+      'otomate',
       'nft2me',
       'tydro',
       'gonefishin',
@@ -61,7 +61,6 @@ export function useStreamingDashboard(
       'mintCount',
       'openseaSaleCount',
       'templarsNftBalance',
-      'cowswapSwaps',
       'zenithNft',
       'zenithStaking',
       'inkBrokers',
@@ -245,7 +244,8 @@ export function useStreamingDashboard(
       if (data.analytics) metrics.analytics = data.analytics;
       if (data.cards) metrics.cards = data.cards;
       if (data.nado) metrics.nado = data.nado;
-      if (data.copink) metrics.copink = data.copink;
+      if (data.otomate) metrics.otomate = data.otomate;
+      else if (data.copink) metrics.otomate = data.copink;
       if (data.nft2me) metrics.nft2me = data.nft2me;
       if (data.tydro) metrics.tydro = data.tydro;
       if (data.gonefishin) metrics.gonefishin = data.gonefishin;
@@ -262,7 +262,6 @@ export function useStreamingDashboard(
       if (data.mintCount) metrics.mintCount = data.mintCount;
       if (data.openseaSaleCount) metrics.openseaSaleCount = data.openseaSaleCount;
       if (data.templarsNftBalance) metrics.templarsNftBalance = data.templarsNftBalance;
-      if (data.cowswapSwaps) metrics.cowswapSwaps = data.cowswapSwaps;
       if (data.zenithNft) metrics.zenithNft = data.zenithNft;
       if (data.zenithStaking) metrics.zenithStaking = data.zenithStaking;
       if (data.inkBrokers) metrics.inkBrokers = data.inkBrokers;

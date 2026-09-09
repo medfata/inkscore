@@ -32,7 +32,7 @@ const ENDPOINTS = [
   { name: 'nft2me', path: `/api/wallet/${WALLET}/nft2me` },
   { name: 'score', path: `/api/wallet/${WALLET}/score` },
   { name: 'nado', path: `/api/nado/${WALLET}` },
-  { name: 'copink', path: `/api/copink/${WALLET}` },
+  { name: 'otomate', path: `/api/otomate/${WALLET}` },
   { name: 'cards', path: `/api/dashboard/cards/${WALLET}` },
   { name: 'gm_count', path: `/api/analytics/${WALLET}/gm_count` },
   { name: 'inkypump_created_tokens', path: `/api/analytics/${WALLET}/inkypump_created_tokens` },
@@ -46,7 +46,6 @@ const ENDPOINTS = [
   { name: 'mint_count', path: `/api/analytics/${WALLET}/mint_count` },
   { name: 'opensea_buy_count', path: `/api/analytics/${WALLET}/opensea_buy_count` },
   { name: 'opensea_sale_count', path: `/api/analytics/${WALLET}/opensea_sale_count` },
-  { name: 'cowswap_swaps', path: `/api/analytics/${WALLET}/cowswap_swaps` },
   { name: 'sweep', path: `/api/analytics/${WALLET}/sweep` },
 ];
 

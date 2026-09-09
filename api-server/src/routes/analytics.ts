@@ -10,7 +10,6 @@ import {
   getInkypumpCreatedTokens,
   getInkypumpBuyVolume,
   getInkypumpSellVolume,
-  getCowswapSwaps,
 } from '../services/analytics-metrics-service';
 import {
   getZnsMetrics,
@@ -361,15 +360,6 @@ router.get('/:wallet/:metric', async (req: Request, res: Response) => {
     // legacy 0x1e332260 selector resolves to its decoded name on-chain)
     if (metric === 'shellies_staking') {
       const result = await getShelliesStaking(walletLower);
-
-      responseCache.set(cacheKey, result);
-      return res.json(result);
-    }
-
-    // Special handling for cowswap_swaps (computation in
-    // services/analytics-metrics-service.ts)
-    if (metric === 'cowswap_swaps') {
-      const result = await getCowswapSwaps(walletLower);
 
       responseCache.set(cacheKey, result);
       return res.json(result);

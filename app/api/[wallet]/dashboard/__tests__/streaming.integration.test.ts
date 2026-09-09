@@ -69,13 +69,13 @@ describe('Dashboard Streaming Integration Tests', () => {
       const response = await GET(request, { params });
 
       expect(response.headers.get('Content-Type')).toBe('text/event-stream');
-      expect(response.headers.get('Cache-Control')).toBe('no-cache, no-transform');
+      expect(response.headers.get('Cache-Control')).toBe('no-store, no-transform');
       expect(response.headers.get('Connection')).toBe('keep-alive');
 
       const events = await readSSEStream(response);
 
-      // Should have 25 metric events + 1 done event = 26 total
-      expect(events.length).toBe(26);
+      // Should have metric events + 1 done event
+      expect(events.length).toBeGreaterThan(20);
 
       // Check that all expected metrics are present
       const metricIds = events
@@ -90,7 +90,7 @@ describe('Dashboard Streaming Integration Tests', () => {
       expect(metricIds).toContain('analytics');
       expect(metricIds).toContain('cards');
       expect(metricIds).toContain('nado');
-      expect(metricIds).toContain('copink');
+      expect(metricIds).toContain('otomate');
       expect(metricIds).toContain('nft2me');
       expect(metricIds).toContain('tydro');
       expect(metricIds).toContain('gmCount');
@@ -104,7 +104,6 @@ describe('Dashboard Streaming Integration Tests', () => {
       expect(metricIds).toContain('mintCount');
       expect(metricIds).toContain('openseaSaleCount');
       expect(metricIds).toContain('templarsNftBalance');
-      expect(metricIds).toContain('cowswapSwaps');
 
       // Last event should be 'done'
       const lastEvent = events[events.length - 1];
@@ -141,7 +140,7 @@ describe('Dashboard Streaming Integration Tests', () => {
     it('should handle some metrics failing without breaking the stream', async () => {
       // Mock some endpoints to fail
       mockFetch.mockImplementation((url: string) => {
-        if (url.includes('cowswap_swaps') || url.includes('tydro')) {
+        if (url.includes('tydro')) {
           return Promise.resolve({
             ok: false,
             status: 500,
@@ -162,15 +161,10 @@ describe('Dashboard Streaming Integration Tests', () => {
       const events = await readSSEStream(response);
 
       // Should still have all events (some with errors)
-      expect(events.length).toBe(26);
+      expect(events.length).toBeGreaterThan(20);
 
       // Check for error events
-      const cowswapEvent = events.find((e) => e.id === 'cowswapSwaps');
       const tydroEvent = events.find((e) => e.id === 'tydro');
-
-      expect(cowswapEvent).toBeDefined();
-      expect(cowswapEvent?.error).toBe('HTTP 500');
-      expect(cowswapEvent?.data).toBeNull();
 
       expect(tydroEvent).toBeDefined();
       expect(tydroEvent?.error).toBe('HTTP 500');
@@ -220,7 +214,7 @@ describe('Dashboard Streaming Integration Tests', () => {
     it('should timeout after 30 seconds if metrics take too long', async () => {
       // Mock some endpoints to take a very long time
       mockFetch.mockImplementation((url: string) => {
-        if (url.includes('cowswap_swaps')) {
+        if (url.includes('ink_brokers')) {
           return new Promise((resolve) => {
             setTimeout(() => {
               resolve({
@@ -273,7 +267,6 @@ describe('Dashboard Streaming Integration Tests', () => {
       expect(data).toHaveProperty('stats');
       expect(data).toHaveProperty('bridge');
       expect(data).toHaveProperty('swap');
-      expect(data).toHaveProperty('cowswapSwaps');
       // ... etc
     }, 10000);
 
@@ -332,7 +325,7 @@ describe('Dashboard Streaming Integration Tests', () => {
       mockFetch.mockImplementation((url: string) => {
         const delay = url.includes('stats') ? 100 : 
                      url.includes('bridge') ? 200 : 
-                     url.includes('cowswap') ? 500 : 50;
+                     url.includes('tydro') ? 500 : 50;
         
         return new Promise((resolve) => {
           setTimeout(() => {

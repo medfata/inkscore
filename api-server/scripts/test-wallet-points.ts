@@ -70,10 +70,9 @@ const METRIC_MAX: Record<string, number> = {
   zns: 300,
   nft2me: 300,
   nado: 2500,
-  copink: 400,
+  otomate: 400,
   templars: 2700,
   tydro: 2500,
-  cowswap: 2000,
   sweep: 800,
 };
 
@@ -94,10 +93,9 @@ const METRIC_LABEL: Record<string, string> = {
   zns: 'ZNS Connect',
   nft2me: 'NFT2Me',
   nado: 'Nado Finance',
-  copink: 'Otomate',
+  otomate: 'Otomate',
   templars: 'Templars of the Storm',
   tydro: 'Tydro (Lending)',
-  cowswap: 'CowSwap',
   sweep: 'Sweep',
 };
 

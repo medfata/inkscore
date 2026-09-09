@@ -65,7 +65,7 @@ const expNft2me = (coll: number, mints: number) =>
   t(coll, [3, 100], [1, 50]) + t(mints, [100, 200], [10, 100], [1, 50]);
 const expNadoDeposits = (usd: number) => t(usd, [50000, 2500], [10000, 2000], [1000, 1200], [100, 500], [1, 100]);
 const expNadoVolume = (usd: number) => (usd >= 0 ? t(usd, [25000000, 2500], [10000000, 2300], [5000000, 2000], [1000000, 1600], [500000, 1100], [100000, 600], [0, 100]) : 0);
-const expCopink = (subs: number, vol: number) =>
+const expOtomate = (subs: number, vol: number) =>
   t(vol, [10000, 300], [5000, 250], [1000, 150], [1, 50]) + (subs >= 3 ? 100 : subs >= 1 ? 50 : 0);
 const expTemplars = (n: number) => (n >= 3 ? 5400 : n >= 2 ? 4200 : n >= 1 ? 3000 : 0);
 const expOpensea = (buys: number, sells: number, mints: number) => {
@@ -75,12 +75,11 @@ const expOpensea = (buys: number, sells: number, mints: number) => {
   const p = (cnt: number, g: number, s: number, b: number) => (cnt > 0 ? (tier === 'gold' ? g : tier === 'silver' ? s : b) : 0);
   return p(buys, 2400, 1600, 600) + p(sells, 1600, 1000, 400) + p(mints, 1000, 600, 200);
 };
-const expCowswap = (usd: number) => (usd > 1000 ? 2000 : usd >= 101 ? 1200 : usd >= 10 ? 400 : 0);
 const expSweep = (coll: number, badges: number, streak: number) =>
   t(coll, [6, 350], [2, 250], [1, 100]) + t(badges, [3, 250], [2, 150], [1, 100]) + t(streak, [6, 200], [2, 100], [1, 50]);
 const expZenithNft = (n: number) => (n > 8 ? 5000 : n >= 2 ? 2500 : n >= 1 ? 1000 : 0);
 const expZenithStaking = (n: number) => (n > 8 ? 6000 : n >= 2 ? 4000 : n >= 1 ? 2000 : 0);
-const expSwapVenue = (usd: number) => (usd > 1000 ? 5000 : usd > 100 ? 2500 : usd >= 1 ? 1000 : 0);
+const expSwapVenue = (usd: number) => (usd > 1000 ? 5000 : usd >= 100 ? 2500 : usd >= 1 ? 1000 : 0);
 const expGonefishin = (games: number) => Math.min(Math.floor(games) || 0, 3) * 500;
 
 // ---------------------------------------------------------------------------
@@ -103,10 +102,9 @@ interface RawInputs {
   znsData?: { deploy_count?: number; say_gm_count?: number; register_domain_count?: number };
   nft2meData?: { collectionsCreated?: number; nftsMinted?: number };
   nadoData?: { totalDeposits?: number; nadoVolumeUSD?: number };
-  copinkData?: { subaccountsFound?: number; totalVolume?: number };
+  otomateData?: { subaccountsFound?: number; totalVolume?: number };
   templarsData?: { value?: number };
   mintData?: { total_count?: number };
-  cowSwapData?: { total_value?: string };
   sweepData?: { totalCollections?: number; sweepBadgeBalance?: number; totalStreak?: number };
   zenithNftData?: { total_count?: number };
   zenithStakingData?: { total_count?: number };
@@ -188,7 +186,6 @@ async function main() {
     const memeUsd = tokenHoldings.filter(h => memeTokens.has((h.address || '').toLowerCase())).reduce((a, b) => a + (Number(b.usdValue) || 0), 0);
     const pumpBuy = parseFloat(s.inkyPumpBuy?.total_value || '0') || 0;
     const pumpSell = parseFloat(s.inkyPumpSell?.total_value || '0') || 0;
-    const cowUsd = parseFloat(s.cowSwapData?.total_value || '0') || 0;
 
     const expNative: Record<string, number> = {
       nft_collections: expNftCollections((st.nftCollections ?? []).reduce((a, c) => a + (c.count || 0), 0)),
@@ -208,10 +205,9 @@ async function main() {
       zns: expZns(s.znsData?.deploy_count || 0, s.znsData?.say_gm_count || 0, s.znsData?.register_domain_count || 0),
       nft2me: expNft2me(s.nft2meData?.collectionsCreated || 0, s.nft2meData?.nftsMinted || 0),
       nado: expNadoDeposits(s.nadoData?.totalDeposits || 0) + expNadoVolume(s.nadoData?.nadoVolumeUSD ?? -1),
-      copink: expCopink(s.copinkData?.subaccountsFound || 0, s.copinkData?.totalVolume || 0),
+      otomate: expOtomate((s.otomateData as { subaccountsFound?: number; totalVolume?: number } | undefined)?.subaccountsFound || (s as unknown as { copinkData?: { subaccountsFound?: number } }).copinkData?.subaccountsFound || 0, (s.otomateData as { subaccountsFound?: number; totalVolume?: number } | undefined)?.totalVolume || (s as unknown as { copinkData?: { totalVolume?: number } }).copinkData?.totalVolume || 0),
       templars: expTemplars(s.templarsData?.value || 0),
       opensea: expOpensea(s.openSeaCounts?.buys || 0, s.openSeaCounts?.sales || 0, s.mintData?.total_count || 0),
-      cowswap: expCowswap(cowUsd),
       sweep: expSweep(s.sweepData?.totalCollections || 0, s.sweepData?.sweepBadgeBalance || 0, s.sweepData?.totalStreak || 0),
       zenith_nft: expZenithNft(s.zenithNftData?.total_count || 0),
       zenith_staking: expZenithStaking(s.zenithStakingData?.total_count || 0),
