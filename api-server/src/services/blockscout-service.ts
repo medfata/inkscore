@@ -630,7 +630,7 @@ async function walkProtocolTxHashes(
   since: string | null,
   maxPages: number,
   until: string | null = null
-): Promise<{ hashes: string[]; complete: boolean; newestSeen: string | null; oldestSeen: string | null }> {
+): Promise<{ hashes: string[]; entries: Array<{ hash: string; ts: string }>; complete: boolean; newestSeen: string | null; oldestSeen: string | null }> {
   const from = fromAddr.toLowerCase();
   const to = toAddr.toLowerCase();
   let base =
@@ -651,7 +651,9 @@ async function walkProtocolTxHashes(
     return parts.length > 0 ? `${base}&${parts.join('&')}` : base;
   };
   let url: string | null = joinQs('');
-  const seen = new Set<string>();
+  // hash -> newest timestamp seen for it (the same tx can appear on both
+  // directions of an 'either' walk).
+  const seen = new Map<string, string>();
   let newestSeen: string | null = sinceIso;
   let oldestSeen: string | null = untilIso;
   let pages = 0;
@@ -660,7 +662,10 @@ async function walkProtocolTxHashes(
     const data = await bsFetch(url);
     for (const item of data?.items || []) {
       if (item?.type === 'contract_interaction' && item?.hash) {
-        seen.add(String(item.hash).toLowerCase());
+        const hash = String(item.hash).toLowerCase();
+        const ts = item.timestamp ? String(item.timestamp) : '';
+        const prev = seen.get(hash);
+        if (prev === undefined || ts > prev) seen.set(hash, ts);
       }
       if (item?.timestamp && (!newestSeen || item.timestamp > newestSeen)) {
         newestSeen = item.timestamp;
@@ -676,7 +681,13 @@ async function walkProtocolTxHashes(
       .join('&');
     url = joinQs(qs);
   }
-  return { hashes: [...seen], complete: pages < maxPages, newestSeen, oldestSeen };
+  return {
+    hashes: [...seen.keys()],
+    entries: [...seen.entries()].map(([hash, ts]) => ({ hash, ts })),
+    complete: pages < maxPages,
+    newestSeen,
+    oldestSeen,
+  };
 }
 
 export type TxDirection = 'out' | 'in' | 'either';
@@ -734,17 +745,31 @@ export async function getProtocolCount(
     const results = await Promise.all(
       dirs.map(([f, t]) => walkProtocolTxHashes(f, t, methods, since, MAX_COUNT_PAGES))
     );
-    const hashes = [...new Set(results.flatMap((r) => r.hashes))];
+    // Merge both directions, keeping each hash's newest timestamp.
+    const byHash = new Map<string, string>();
+    for (const r of results) {
+      for (const e of r.entries) {
+        const prev = byHash.get(e.hash);
+        if (prev === undefined || e.ts > prev) byHash.set(e.hash, e.ts);
+      }
+    }
     const walkComplete = results.every((r) => r.complete);
     const newestSeen = results.reduce<string | null>(
       (acc, r) => (!acc || (r.newestSeen && r.newestSeen > acc) ? r.newestSeen || acc : acc),
       since
     );
 
-    let matched = hashes;
+    // age_from is INCLUSIVE: the boundary tx itself (timestamp == last_seen)
+    // comes back on every refresh pass. Counting it would re-add +1 on every
+    // cycle while last_seen never advances — only txs STRICTLY newer than
+    // last_seen are new activity.
+    const sinceIso = toAgeParam(since);
+    let matched = [...byHash.entries()]
+      .filter(([hash, ts]) => !sinceIso || ts > sinceIso)
+      .map(([hash]) => hash);
     let namesComplete = true;
-    if (names.length > 0 && hashes.length > 0) {
-      const filtered = await filterByMethodNames(hashes, methods, names);
+    if (names.length > 0 && matched.length > 0) {
+      const filtered = await filterByMethodNames(matched, methods, names);
       matched = filtered.matched;
       namesComplete = filtered.complete;
     }
