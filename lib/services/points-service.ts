@@ -73,7 +73,7 @@ export class PointsService {
     const [rules, nativeMetrics, ranks, platformContractsRows] = await Promise.all([
       this.fetchAllPointsRules(true),
       query<NativeMetric>(`SELECT * FROM native_metrics WHERE is_active = true ORDER BY display_order ASC`),
-      query<Rank>(`SELECT * FROM ranks WHERE is_active = true ORDER BY min_points ASC`),
+      query<Rank>(`SELECT * FROM ranks WHERE is_active = true ORDER BY display_order NULLS LAST, min_points ASC`),
       query<{ platform_id: number; address: string }>(`
         SELECT pc.platform_id, c.address 
         FROM platform_contracts pc

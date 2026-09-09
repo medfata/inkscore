@@ -236,9 +236,9 @@ export class PointsServiceV2 {
         is_active: boolean;
       }>(`
         SELECT id, name, min_points, max_points, logo_url, color, description, display_order, is_active
-        FROM ranks 
-        WHERE is_active = true 
-        ORDER BY min_points ASC
+        FROM ranks
+        WHERE is_active = true
+        ORDER BY display_order NULLS LAST, min_points ASC
       `);
 
       // Parse numeric values (PostgreSQL may return them as strings)
