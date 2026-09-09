@@ -120,7 +120,11 @@ const PLATFORM_LOGOS: Record<string, string> = {
   dyorswap: 'https://dyorswap.finance/favicon.ico',
   velodrome: 'https://velodrome.finance/images/VELO/favicon.ico',
   curve: 'https://cdn.jsdelivr.net/gh/curvefi/curve-assets/branding/logo.png',
-  inkBrokers: 'https://inkbrokers.com/favicon.ico',
+  inkBrokers: '/icons/inkbrokers.png',
+  zenithStaking: '/inkscore_logo.png',
+  hypercall: '/icons/hypercall.svg',
+  sentry: '/icons/sentry.ico',
+  gonefishin: '/icons/gonefishin.svg',
 };
 
 interface PlatformRule {
@@ -335,6 +339,7 @@ const platformMetrics: PlatformRule[] = [
   },
   {
     name: 'InkScore Zenith (Staking)',
+    logo: PLATFORM_LOGOS.zenithStaking,
     description: 'Points for staking InkScore Zenith NFTs in the InkScore staking contract',
     formula: 'Tiered: 1 staked = 2,000pts, 2-8 staked = 4,000pts, 9+ staked = 6,000pts',
     details: [
@@ -348,6 +353,7 @@ const platformMetrics: PlatformRule[] = [
   },
   {
     name: 'Hypercall Earn',
+    logo: PLATFORM_LOGOS.hypercall,
     description: 'Points for swap volume on Hypercall Earn (xStock zaps + positions)',
     formula: 'Tiered: $1-$100 = 1,000pts, $100-$1K = 2,500pts, $1K+ = 5,000pts',
     details: [
@@ -361,6 +367,7 @@ const platformMetrics: PlatformRule[] = [
   },
   {
     name: 'Sentry',
+    logo: PLATFORM_LOGOS.sentry,
     description: 'Points for swap volume through the Sentry router',
     formula: 'Tiered: $1-$100 = 1,000pts, $100-$1K = 2,500pts, $1K+ = 5,000pts',
     details: [
@@ -374,6 +381,7 @@ const platformMetrics: PlatformRule[] = [
   },
   {
     name: 'Gone Fishin',
+    logo: PLATFORM_LOGOS.gonefishin,
     description: 'Points for playing Gone Fishin (game purchases on-chain)',
     formula: '500pts per game, capped at 3 games = Max 1,500pts',
     details: [
