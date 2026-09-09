@@ -1444,6 +1444,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
 
       // Add platform metrics
       const platformLabels: Record<string, string> = {
+        bonus: 'Welcome Bonus',
         zenith_nft: 'Zenith NFT',
         zenith_staking: 'Staking',
         hypercall: 'Hypercall',
@@ -1685,7 +1686,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Total INKSCORE Card - 50% width */}
           <div className="animated-border-glow glass-card relative overflow-hidden p-6 rounded-2xl animate-fade-in-up h-[260px] flex flex-col" style={{ animationDelay: '0.5s', '--glow-color': '#7c3aed', '--glow-border': 'rgba(124, 58, 237, 0.25)' } as React.CSSProperties}>
-            <div className="relative flex flex-col md:flex-row items-center justify-between gap-3 flex-1">
+            <div className="relative flex flex-col md:flex-row items-center justify-between gap-3 flex-1 min-h-0">
               <div className="text-center relative flex-shrink-0">
                 <div className="absolute -top-20 -left-20 w-40 h-40 bg-ink-purple/20 blur-3xl rounded-full"></div>
                 <h2 className="text-slate-400 mb-2 relative z-10">Total INKSCORE</h2>
@@ -1741,7 +1742,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
                 )}
               </div>
 
-              <div className="relative flex-1 w-full md:max-w-[300px] self-stretch flex flex-col justify-center min-w-0">
+              <div className="relative flex-1 w-full md:max-w-[300px] self-stretch flex flex-col justify-center min-w-0 min-h-0">
                 {!isDemo && !walletScore ? (
                   /* Loading skeleton — same rhythm as the breakdown bars */
                   <div className="flex flex-col gap-2.5">

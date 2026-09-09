@@ -179,6 +179,12 @@ const MEME_TOKENS_CACHE_TTL = 5 * 60 * 1000;
 const leaderboardFloorCache = new Map<string, { score: number | null; timestamp: number }>();
 const LEADERBOARD_SCORES_CACHE_TTL = 5 * 60 * 1000;
 
+// Admin-controlled signup bonus (app_settings.signup_bonus_points, managed at
+// /admin/points). Short TTL so admin changes land within ~a minute without a
+// DB hit per score computation.
+let signupBonusCache: { points: number; timestamp: number } | null = null;
+const SIGNUP_BONUS_CACHE_TTL = 60 * 1000;
+
 export class PointsServiceV2 {
   // Get meme token addresses from database
   private async getMemeTokenAddresses(): Promise<Set<string>> {
@@ -279,6 +285,32 @@ export class PointsServiceV2 {
     } catch (error) {
       console.error('[PointsServiceV2] Failed to read leaderboard score floor:', error);
       return null;
+    }
+  }
+
+  /**
+   * Admin-controlled signup bonus (app_settings.signup_bonus_points).
+   * Added to every wallet's total as its own breakdown entry so the dashboard
+   * bars keep reconciling with the headline number. 0 = disabled (default).
+   * A DB failure degrades to 0 rather than breaking scoring.
+   */
+  private async getSignupBonusPoints(): Promise<number> {
+    if (signupBonusCache && Date.now() - signupBonusCache.timestamp < SIGNUP_BONUS_CACHE_TTL) {
+      return signupBonusCache.points;
+    }
+
+    try {
+      const rows = await query<{ value: { points?: number } | null }>(
+        `SELECT value FROM app_settings WHERE key = 'signup_bonus_points' LIMIT 1`
+      );
+      const raw = rows[0]?.value;
+      const parsed = raw ? Number(raw.points) : NaN;
+      const points = Number.isFinite(parsed) ? Math.max(0, Math.floor(parsed)) : 0;
+      signupBonusCache = { points, timestamp: Date.now() };
+      return points;
+    } catch (error) {
+      console.error('[PointsServiceV2] Failed to read signup bonus setting:', error);
+      return 0;
     }
   }
 
@@ -1055,9 +1087,9 @@ export class PointsServiceV2 {
       native: {},
       platforms: {},
     };
-    // Total = the exact sum of the platform + native points below — no flat
-    // base, no hidden bonus, no leaderboard floor. The dashboard's bars must
-    // always reconcile with the headline number.
+    // Total = the exact sum of the platform + native points below, plus the
+    // admin-controlled signup bonus (0 = disabled, so usually a pure sum).
+    // The dashboard's bars must always reconcile with the headline number.
     let totalPoints = 0;
 
     // Scoring reference data (DB reads, not wallet metrics): start them
@@ -1249,8 +1281,13 @@ export class PointsServiceV2 {
       // Verification logs - check formula correctness
 
 
-      // (No flat bonus, no leaderboard floor — the total is exactly the sum
-      // of the platform bars, so the card reconciles with its breakdown.)
+      // Admin-controlled signup bonus (managed at /admin/points, default 0).
+      // Its own breakdown entry keeps the bars summing to the headline.
+      const signupBonus = await this.getSignupBonusPoints();
+      if (signupBonus > 0) {
+        breakdown.platforms['bonus'] = { tx_count: 0, usd_volume: 0, points: signupBonus };
+        totalPoints += signupBonus;
+      }
 
       const ranks = await ranksPromise;
       const rank = this.getRankForPoints(ranks, totalPoints);
