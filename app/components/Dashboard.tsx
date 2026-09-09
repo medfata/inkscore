@@ -1684,7 +1684,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
         {/* Row 2: Total INKSCORE (50%) + Tydro DeFi (50%) */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Total INKSCORE Card - 50% width */}
-          <div className="animated-border-glow glass-card relative overflow-hidden p-6 rounded-2xl animate-fade-in-up min-h-[260px] flex flex-col" style={{ animationDelay: '0.5s', '--glow-color': '#7c3aed', '--glow-border': 'rgba(124, 58, 237, 0.25)' } as React.CSSProperties}>
+          <div className="animated-border-glow glass-card relative overflow-hidden p-6 rounded-2xl animate-fade-in-up h-[260px] flex flex-col" style={{ animationDelay: '0.5s', '--glow-color': '#7c3aed', '--glow-border': 'rgba(124, 58, 237, 0.25)' } as React.CSSProperties}>
             <div className="relative flex flex-col md:flex-row items-center justify-between gap-3 flex-1">
               <div className="text-center relative flex-shrink-0">
                 <div className="absolute -top-20 -left-20 w-40 h-40 bg-ink-purple/20 blur-3xl rounded-full"></div>
@@ -1754,8 +1754,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
                     ))}
                   </div>
                 ) : (
-                  /* Score breakdown — one bar per category, scaled to the top earner. All rows render (no scroll cap) so the list always reconciles with the total. */
-                  <div className="flex flex-col justify-center gap-1.5">
+                  /* Score breakdown — one bar per category, scaled to the top earner. The list fills the remaining card space and scrolls internally; the card height never grows past its fixed size. */
+                  <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
                     {chartData.every((item) => !item.A) && (
                       <div className="text-[11px] text-slate-500 text-center py-4">
                         No category points earned yet
