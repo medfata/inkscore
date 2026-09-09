@@ -66,13 +66,13 @@ async function testTemplarsBugFix() {
   let tier = '';
 
   if (nftBalance >= 3) {
-    expectedPoints = 2700;
+    expectedPoints = 5400;
     tier = 'Gold/Whale Tier';
   } else if (nftBalance >= 2) {
-    expectedPoints = 2200;
+    expectedPoints = 4200;
     tier = 'Silver Tier';
   } else if (nftBalance >= 1) {
-    expectedPoints = 1500;
+    expectedPoints = 3000;
     tier = 'Base Tier';
   }
 

@@ -5,13 +5,13 @@
 
 // Simulate the calculation method
 function calculateTemplarsPoints(nftBalance: number): number {
-  // Templars of the Storm NFT Holding Points (Max: 2,700 points)
-  // 1 NFT: 1,500 pts (Base Tier - Unlocks core holder multiplier for Phase 2)
-  // 2 NFTs: 2,200 pts (Silver Tier - +700 loyalty bonus)
-  // 3+ NFTs: 2,700 pts (Gold/Whale Tier - Maximum points)
-  if (nftBalance >= 3) return 2700; // Gold/Whale Tier
-  if (nftBalance >= 2) return 2200; // Silver Tier
-  if (nftBalance >= 1) return 1500; // Base Tier
+  // Templars of the Storm NFT Holding Points (Max: 5,400 points)
+  // 1 NFT: 3,000 pts (Base Tier - Unlocks core holder multiplier for Phase 2)
+  // 2 NFTs: 4,200 pts (Silver Tier - +1,200 loyalty bonus)
+  // 3+ NFTs: 5,400 pts (Gold/Whale Tier - Maximum points)
+  if (nftBalance >= 3) return 5400; // Gold/Whale Tier
+  if (nftBalance >= 2) return 4200; // Silver Tier
+  if (nftBalance >= 1) return 3000; // Base Tier
   return 0;
 }
 
@@ -22,12 +22,12 @@ console.log();
 
 const testCases = [
   { nftBalance: 0, expectedPoints: 0, tier: 'None' },
-  { nftBalance: 1, expectedPoints: 1500, tier: 'Base Tier' },
-  { nftBalance: 2, expectedPoints: 2200, tier: 'Silver Tier' },
-  { nftBalance: 3, expectedPoints: 2700, tier: 'Gold/Whale Tier' },
-  { nftBalance: 4, expectedPoints: 2700, tier: 'Gold/Whale Tier' },
-  { nftBalance: 5, expectedPoints: 2700, tier: 'Gold/Whale Tier' },
-  { nftBalance: 10, expectedPoints: 2700, tier: 'Gold/Whale Tier' },
+  { nftBalance: 1, expectedPoints: 3000, tier: 'Base Tier' },
+  { nftBalance: 2, expectedPoints: 4200, tier: 'Silver Tier' },
+  { nftBalance: 3, expectedPoints: 5400, tier: 'Gold/Whale Tier' },
+  { nftBalance: 4, expectedPoints: 5400, tier: 'Gold/Whale Tier' },
+  { nftBalance: 5, expectedPoints: 5400, tier: 'Gold/Whale Tier' },
+  { nftBalance: 10, expectedPoints: 5400, tier: 'Gold/Whale Tier' },
 ];
 
 let passCount = 0;
@@ -62,9 +62,9 @@ if (failCount === 0) {
   console.log();
   console.log('Points Tier Breakdown:');
   console.log('  • 0 NFTs:  0 points (None)');
-  console.log('  • 1 NFT:   1,500 points (Base Tier - Unlocks core holder multiplier)');
-  console.log('  • 2 NFTs:  2,200 points (Silver Tier - +700 loyalty bonus)');
-  console.log('  • 3+ NFTs: 2,700 points (Gold/Whale Tier - Maximum points)');
+  console.log('  • 1 NFT:   3,000 points (Base Tier - Unlocks core holder multiplier)');
+  console.log('  • 2 NFTs:  4,200 points (Silver Tier - +1,200 loyalty bonus)');
+  console.log('  • 3+ NFTs: 5,400 points (Gold/Whale Tier - Maximum points)');
   process.exit(0);
 } else {
   console.log('❌ Some tests failed. Please review the calculation logic.');

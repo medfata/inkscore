@@ -94,7 +94,7 @@ const METRIC_LABEL: Record<string, string> = {
   zns: 'ZNS Connect',
   nft2me: 'NFT2Me',
   nado: 'Nado Finance',
-  copink: 'Copink',
+  copink: 'Otomate',
   templars: 'Templars of the Storm',
   tydro: 'Tydro (Lending)',
   cowswap: 'CowSwap',

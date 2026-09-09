@@ -5,7 +5,7 @@
 
 // Simulate the calculation method
 function calculateOpenSeaPoints(buyCount: number, sellCount: number, mintCount: number): number {
-  // OpenSea NFT Activity Points (Max: 2,500 points)
+  // OpenSea NFT Activity Points (Max: 5,000 points)
   // Tiered system based on total NFT transaction count
   
   const totalNftTxs = buyCount + sellCount + mintCount;
@@ -25,23 +25,23 @@ function calculateOpenSeaPoints(buyCount: number, sellCount: number, mintCount: 
   // Calculate points for each action type based on tier
   let buyPoints = 0;
   if (buyCount > 0) {
-    if (tier === 'gold') buyPoints = 1200;
-    else if (tier === 'silver') buyPoints = 800;
-    else buyPoints = 300; // bronze
+    if (tier === 'gold') buyPoints = 2400;
+    else if (tier === 'silver') buyPoints = 1600;
+    else buyPoints = 600; // bronze
   }
   
   let sellPoints = 0;
   if (sellCount > 0) {
-    if (tier === 'gold') sellPoints = 800;
-    else if (tier === 'silver') sellPoints = 500;
-    else sellPoints = 200; // bronze
+    if (tier === 'gold') sellPoints = 1600;
+    else if (tier === 'silver') sellPoints = 1000;
+    else sellPoints = 400; // bronze
   }
   
   let mintPoints = 0;
   if (mintCount > 0) {
-    if (tier === 'gold') mintPoints = 500;
-    else if (tier === 'silver') mintPoints = 300;
-    else mintPoints = 100; // bronze
+    if (tier === 'gold') mintPoints = 1000;
+    else if (tier === 'silver') mintPoints = 600;
+    else mintPoints = 200; // bronze
   }
   
   return buyPoints + sellPoints + mintPoints;
@@ -57,25 +57,25 @@ const testCases = [
   { buy: 0, sell: 0, mint: 0, expectedPoints: 0, tier: 'None', description: 'No activity' },
   
   // Bronze Tier (1 NFT total)
-  { buy: 1, sell: 0, mint: 0, expectedPoints: 300, tier: 'Bronze', description: '1 Buy only' },
-  { buy: 0, sell: 1, mint: 0, expectedPoints: 200, tier: 'Bronze', description: '1 Sell only' },
-  { buy: 0, sell: 0, mint: 1, expectedPoints: 100, tier: 'Bronze', description: '1 Mint only' },
+  { buy: 1, sell: 0, mint: 0, expectedPoints: 600, tier: 'Bronze', description: '1 Buy only' },
+  { buy: 0, sell: 1, mint: 0, expectedPoints: 400, tier: 'Bronze', description: '1 Sell only' },
+  { buy: 0, sell: 0, mint: 1, expectedPoints: 200, tier: 'Bronze', description: '1 Mint only' },
   
   // Silver Tier (2-5 NFTs total)
-  { buy: 1, sell: 1, mint: 0, expectedPoints: 1300, tier: 'Silver', description: '1 Buy + 1 Sell' },
-  { buy: 1, sell: 0, mint: 1, expectedPoints: 1100, tier: 'Silver', description: '1 Buy + 1 Mint' },
-  { buy: 0, sell: 1, mint: 1, expectedPoints: 800, tier: 'Silver', description: '1 Sell + 1 Mint' },
-  { buy: 2, sell: 1, mint: 0, expectedPoints: 1300, tier: 'Silver', description: '2 Buys + 1 Sell' },
-  { buy: 1, sell: 1, mint: 1, expectedPoints: 1600, tier: 'Silver', description: '1 Buy + 1 Sell + 1 Mint' },
-  { buy: 2, sell: 2, mint: 1, expectedPoints: 1600, tier: 'Silver', description: '2 Buys + 2 Sells + 1 Mint (5 total)' },
+  { buy: 1, sell: 1, mint: 0, expectedPoints: 2600, tier: 'Silver', description: '1 Buy + 1 Sell' },
+  { buy: 1, sell: 0, mint: 1, expectedPoints: 2200, tier: 'Silver', description: '1 Buy + 1 Mint' },
+  { buy: 0, sell: 1, mint: 1, expectedPoints: 1600, tier: 'Silver', description: '1 Sell + 1 Mint' },
+  { buy: 2, sell: 1, mint: 0, expectedPoints: 2600, tier: 'Silver', description: '2 Buys + 1 Sell' },
+  { buy: 1, sell: 1, mint: 1, expectedPoints: 3200, tier: 'Silver', description: '1 Buy + 1 Sell + 1 Mint' },
+  { buy: 2, sell: 2, mint: 1, expectedPoints: 3200, tier: 'Silver', description: '2 Buys + 2 Sells + 1 Mint (5 total)' },
   
   // Gold Tier (6+ NFTs total)
-  { buy: 3, sell: 2, mint: 1, expectedPoints: 2500, tier: 'Gold', description: '3 Buys + 2 Sells + 1 Mint (6 total)' },
-  { buy: 5, sell: 3, mint: 2, expectedPoints: 2500, tier: 'Gold', description: '5 Buys + 3 Sells + 2 Mints (10 total)' },
-  { buy: 10, sell: 0, mint: 0, expectedPoints: 1200, tier: 'Gold', description: '10 Buys only' },
-  { buy: 0, sell: 10, mint: 0, expectedPoints: 800, tier: 'Gold', description: '10 Sells only' },
-  { buy: 0, sell: 0, mint: 10, expectedPoints: 500, tier: 'Gold', description: '10 Mints only' },
-  { buy: 10, sell: 10, mint: 10, expectedPoints: 2500, tier: 'Gold', description: 'Max activity (30 total)' },
+  { buy: 3, sell: 2, mint: 1, expectedPoints: 5000, tier: 'Gold', description: '3 Buys + 2 Sells + 1 Mint (6 total)' },
+  { buy: 5, sell: 3, mint: 2, expectedPoints: 5000, tier: 'Gold', description: '5 Buys + 3 Sells + 2 Mints (10 total)' },
+  { buy: 10, sell: 0, mint: 0, expectedPoints: 2400, tier: 'Gold', description: '10 Buys only' },
+  { buy: 0, sell: 10, mint: 0, expectedPoints: 1600, tier: 'Gold', description: '10 Sells only' },
+  { buy: 0, sell: 0, mint: 10, expectedPoints: 1000, tier: 'Gold', description: '10 Mints only' },
+  { buy: 10, sell: 10, mint: 10, expectedPoints: 5000, tier: 'Gold', description: 'Max activity (30 total)' },
 ];
 
 let passCount = 0;
@@ -117,9 +117,9 @@ if (failCount === 0) {
   console.log('┌─────────────┬──────────────┬──────────┬──────────┬──────────┬──────────┐');
   console.log('│ Tier        │ NFT Count    │ Buy Pts  │ Sell Pts │ Mint Pts │ Max Pts  │');
   console.log('├─────────────┼──────────────┼──────────┼──────────┼──────────┼──────────┤');
-  console.log('│ Bronze      │ 1 NFT        │ 300      │ 200      │ 100      │ 600      │');
-  console.log('│ Silver      │ 2-5 NFTs     │ 800      │ 500      │ 300      │ 1,600    │');
-  console.log('│ Gold        │ 6+ NFTs      │ 1,200    │ 800      │ 500      │ 2,500    │');
+  console.log('│ Bronze      │ 1 NFT        │ 600      │ 400      │ 200      │ 1,200    │');
+  console.log('│ Silver      │ 2-5 NFTs     │ 1,600    │ 1,000    │ 600      │ 3,200    │');
+  console.log('│ Gold        │ 6+ NFTs      │ 2,400    │ 1,600    │ 1,000    │ 5,000    │');
   console.log('└─────────────┴──────────────┴──────────┴──────────┴──────────┴──────────┘');
   console.log();
   console.log('Note: Points are awarded based on the tier determined by TOTAL NFT transactions.');

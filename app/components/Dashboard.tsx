@@ -1453,7 +1453,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
         gonefishin: 'Gone Fishin',
         gm: 'GM',
         zns: 'ZNS',
-        copink: 'Copink',
+        copink: 'Otomate',
         shellies: 'Shellies',
         tydro: 'Tydro',
         templars: 'Templars',
@@ -1465,9 +1465,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
         nft2me: 'NFT2Me',
         inkypump: 'InkyPump',
       };
-      // bridge_in + bridge_out render as ONE combined 'Bridge' bar
+      // bridge_in + bridge_out render as ONE combined 'Bridge' bar.
+      // 'bonus' (Welcome Bonus) is deliberately skipped — it still counts toward
+      // total_points but must never render as a bar on the user's dashboard.
       let bridgePoints = 0;
       Object.entries(walletScore.breakdown.platforms).forEach(([slug, data]) => {
+        if (slug === 'bonus') {
+          return;
+        }
         if (slug === 'bridge_in' || slug === 'bridge_out') {
           bridgePoints += data.points || 0;
           return;
@@ -1750,7 +1755,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
                       <div key={label} className="flex items-center gap-2">
                         <div className="h-2 w-[76px] bg-slate-700/40 rounded animate-pulse shrink-0"></div>
                         <div className="flex-1 h-1.5 bg-slate-700/40 rounded animate-pulse"></div>
-                        <div className="h-2 w-12 bg-slate-700/40 rounded animate-pulse shrink-0"></div>
                       </div>
                     ))}
                   </div>
@@ -1775,9 +1779,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
                               style={{ width: `${pct}%` }}
                             />
                           </div>
-                          <span className="text-[11px] font-mono text-white w-14 shrink-0 text-right">
-                            {(item.A || 0).toLocaleString()}
-                          </span>
                         </div>
                       );
                     })}

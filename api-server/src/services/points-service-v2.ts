@@ -185,6 +185,13 @@ const LEADERBOARD_SCORES_CACHE_TTL = 5 * 60 * 1000;
 let signupBonusCache: { points: number; timestamp: number } | null = null;
 const SIGNUP_BONUS_CACHE_TTL = 60 * 1000;
 
+// Per-wallet bonus overrides (app_settings.wallet_bonus_points, managed at
+// /admin/points). Stacked on top of the global signup bonus. Cached as a
+// lookup map so scoring stays a single DB read per TTL window.
+let walletBonusCache: { map: Map<string, number>; timestamp: number } | null = null;
+const WALLET_BONUS_CACHE_TTL = 60 * 1000;
+const WALLET_ADDRESS_RE = /^0x[a-f0-9]{40}$/;
+
 export class PointsServiceV2 {
   // Get meme token addresses from database
   private async getMemeTokenAddresses(): Promise<Set<string>> {
@@ -314,6 +321,34 @@ export class PointsServiceV2 {
     }
   }
 
+  private async getWalletBonusMap(): Promise<Map<string, number>> {
+    if (walletBonusCache && Date.now() - walletBonusCache.timestamp < WALLET_BONUS_CACHE_TTL) {
+      return walletBonusCache.map;
+    }
+
+    try {
+      const rows = await query<{ value: { wallets?: unknown } | null }>(
+        `SELECT value FROM app_settings WHERE key = 'wallet_bonus_points' LIMIT 1`
+      );
+      const raw = rows[0]?.value;
+      const map = new Map<string, number>();
+      if (raw && Array.isArray(raw.wallets)) {
+        for (const entry of raw.wallets as Array<{ address?: unknown; points?: unknown }>) {
+          const address = typeof entry?.address === 'string' ? entry.address.toLowerCase() : '';
+          const points = Number(entry?.points);
+          if (!WALLET_ADDRESS_RE.test(address)) continue;
+          if (!Number.isFinite(points)) continue;
+          map.set(address, Math.max(0, Math.floor(points)));
+        }
+      }
+      walletBonusCache = { map, timestamp: Date.now() };
+      return map;
+    } catch (error) {
+      console.error('[PointsServiceV2] Failed to read wallet bonus setting:', error);
+      return new Map();
+    }
+  }
+
   private async getTop10LeaderboardWallets(): Promise<Set<string>> {
     try {
       const rows = await query<{ wallet_address: string }>(
@@ -412,12 +447,12 @@ export class PointsServiceV2 {
   }
 
   private getBridgeVolumeTierPoints(volumeUsd: number): number {
-    // New tiered system for Bridge Volume (Max: 500 points)
-    if (volumeUsd >= 10000) return 500; // Tier 5: Bridge Whale
-    if (volumeUsd >= 5000) return 400;  // Tier 4: Connector
-    if (volumeUsd >= 1000) return 250;  // Tier 3: Settler
-    if (volumeUsd >= 100) return 100;   // Tier 2: Explorer
-    if (volumeUsd >= 1) return 25;      // Tier 1: Tourist
+    // New tiered system for Bridge Volume (Max: 1,000 points)
+    if (volumeUsd >= 10000) return 1000; // Tier 5: Bridge Whale
+    if (volumeUsd >= 5000) return 800;   // Tier 4: Connector
+    if (volumeUsd >= 1000) return 500;   // Tier 3: Settler
+    if (volumeUsd >= 100) return 200;    // Tier 2: Explorer
+    if (volumeUsd >= 1) return 50;       // Tier 1: Tourist
     return 0;
   }
 
@@ -459,36 +494,36 @@ export class PointsServiceV2 {
     // New tiered system for Tydro
     const supplyPoints = this.getTydroSupplyTierPoints(supplyUsd);
     const borrowPoints = this.getTydroBorrowTierPoints(borrowUsd);
-    return supplyPoints + borrowPoints; // Max: 2,500 points
+    return supplyPoints + borrowPoints; // Max: 5,000 points
   }
 
   private getTydroSupplyTierPoints(supplyUsd: number): number {
-    // Max: 1,250 points
-    if (supplyUsd >= 50000) return 1250; // Tier 5: Whale
-    if (supplyUsd >= 10000) return 1000; // Tier 4: Shark
-    if (supplyUsd >= 1000) return 600;   // Tier 3: Liquidity Provider
-    if (supplyUsd >= 100) return 250;    // Tier 2: Supplier
-    if (supplyUsd >= 1) return 50;       // Tier 1: Saver
+    // Max: 2,500 points
+    if (supplyUsd >= 50000) return 2500; // Tier 5: Whale
+    if (supplyUsd >= 10000) return 2000; // Tier 4: Shark
+    if (supplyUsd >= 1000) return 1200;  // Tier 3: Liquidity Provider
+    if (supplyUsd >= 100) return 500;    // Tier 2: Supplier
+    if (supplyUsd >= 1) return 100;      // Tier 1: Saver
     return 0;
   }
 
   private getTydroBorrowTierPoints(borrowUsd: number): number {
-    // Max: 1,250 points
-    if (borrowUsd >= 25000) return 1250; // Tier 5: Degen
-    if (borrowUsd >= 5000) return 1000;  // Tier 4: Pro Borrower
-    if (borrowUsd >= 500) return 600;    // Tier 3: Active User
-    if (borrowUsd >= 50) return 250;     // Tier 2: Borrower
-    if (borrowUsd >= 1) return 50;       // Tier 1: Tester
+    // Max: 2,500 points
+    if (borrowUsd >= 25000) return 2500; // Tier 5: Degen
+    if (borrowUsd >= 5000) return 2000;  // Tier 4: Pro Borrower
+    if (borrowUsd >= 500) return 1200;   // Tier 3: Active User
+    if (borrowUsd >= 50) return 500;     // Tier 2: Borrower
+    if (borrowUsd >= 1) return 100;      // Tier 1: Tester
     return 0;
   }
 
   private calculateSwapVolumePoints(swapAmountUsd: number): number {
-    // New tiered system for Swap Volume (Max: 500 points)
-    if (swapAmountUsd >= 25000) return 500; // Tier 5: DEX Master
-    if (swapAmountUsd >= 10000) return 400; // Tier 4: Swap Whale
-    if (swapAmountUsd >= 5000) return 250;  // Tier 3: Active Trader
-    if (swapAmountUsd >= 1000) return 100;  // Tier 2: Flipper
-    if (swapAmountUsd >= 1) return 25;      // Tier 1: Shopper
+    // New tiered system for Swap Volume (Max: 1,000 points)
+    if (swapAmountUsd >= 25000) return 1000; // Tier 5: DEX Master
+    if (swapAmountUsd >= 10000) return 800;  // Tier 4: Swap Whale
+    if (swapAmountUsd >= 5000) return 500;   // Tier 3: Active Trader
+    if (swapAmountUsd >= 1000) return 200;   // Tier 2: Flipper
+    if (swapAmountUsd >= 1) return 50;       // Tier 1: Shopper
     return 0;
   }
 
@@ -530,24 +565,24 @@ export class PointsServiceV2 {
   }
 
   private calculateNadoPoints(totalDeposits: number, totalVolume: number): number {
-    // New tiered system for Nado (Max: 2,500 points)
-    // 1. Deposits (Max: 1,250 points)
+    // New tiered system for Nado (Max: 5,000 points)
+    // 1. Deposits (Max: 2,500 points)
     let depositPoints = 0;
-    if (totalDeposits >= 50000) depositPoints = 1250; // Tier 5: Whale
-    else if (totalDeposits >= 10000) depositPoints = 1000; // Tier 4: Shark
-    else if (totalDeposits >= 1000) depositPoints = 600; // Tier 3: Dolphin
-    else if (totalDeposits >= 100) depositPoints = 250; // Tier 2: Shrimp
-    else if (totalDeposits >= 1) depositPoints = 50; // Tier 1: Beginner
+    if (totalDeposits >= 50000) depositPoints = 2500; // Tier 5: Whale
+    else if (totalDeposits >= 10000) depositPoints = 2000; // Tier 4: Shark
+    else if (totalDeposits >= 1000) depositPoints = 1200; // Tier 3: Dolphin
+    else if (totalDeposits >= 100) depositPoints = 500; // Tier 2: Shrimp
+    else if (totalDeposits >= 1) depositPoints = 100; // Tier 1: Beginner
     
-    // 2. Volume (Max: 1,250 points)
+    // 2. Volume (Max: 2,500 points)
     let volumePoints = 0;
-    if (totalVolume >= 25000000) volumePoints = 1250; // Tier 6: Legend
-    else if (totalVolume >= 10000000) volumePoints = 1150; // Tier 5: Market Maker
-    else if (totalVolume >= 5000000) volumePoints = 1000; // Tier 4: Big Shark
-    else if (totalVolume >= 1000000) volumePoints = 800; // Tier 3: Ape
-    else if (totalVolume >= 500000) volumePoints = 550; // Tier 2: Active Trader
-    else if (totalVolume >= 100000) volumePoints = 300; // Tier 1: Standard
-    else if (totalVolume >= 0) volumePoints = 50; // Tier 0: Testing
+    if (totalVolume >= 25000000) volumePoints = 2500; // Tier 6: Legend
+    else if (totalVolume >= 10000000) volumePoints = 2300; // Tier 5: Market Maker
+    else if (totalVolume >= 5000000) volumePoints = 2000; // Tier 4: Big Shark
+    else if (totalVolume >= 1000000) volumePoints = 1600; // Tier 3: Ape
+    else if (totalVolume >= 500000) volumePoints = 1100; // Tier 2: Active Trader
+    else if (totalVolume >= 100000) volumePoints = 600; // Tier 1: Standard
+    else if (totalVolume >= 0) volumePoints = 100; // Tier 0: Testing
     
     return depositPoints + volumePoints;
   }
@@ -568,18 +603,18 @@ export class PointsServiceV2 {
   }
 
   private calculateTemplarsPoints(nftBalance: number): number {
-    // Templars of the Storm NFT Holding Points (Max: 2,700 points)
-    // 1 NFT: 1,500 pts (Base Tier - Unlocks core holder multiplier for Phase 2)
-    // 2 NFTs: 2,200 pts (Silver Tier - +700 loyalty bonus)
-    // 3+ NFTs: 2,700 pts (Gold/Whale Tier - Maximum points)
-    if (nftBalance >= 3) return 2700; // Gold/Whale Tier
-    if (nftBalance >= 2) return 2200; // Silver Tier
-    if (nftBalance >= 1) return 1500; // Base Tier
+    // Templars of the Storm NFT Holding Points (Max: 5,400 points)
+    // 1 NFT: 3,000 pts (Base Tier - Unlocks core holder multiplier for Phase 2)
+    // 2 NFTs: 4,200 pts (Silver Tier - +1,200 loyalty bonus)
+    // 3+ NFTs: 5,400 pts (Gold/Whale Tier - Maximum points)
+    if (nftBalance >= 3) return 5400; // Gold/Whale Tier
+    if (nftBalance >= 2) return 4200; // Silver Tier
+    if (nftBalance >= 1) return 3000; // Base Tier
     return 0;
   }
 
   private calculateOpenSeaPoints(buyCount: number, sellCount: number, mintCount: number): number {
-    // OpenSea NFT Activity Points (Max: 2,500 points)
+    // OpenSea NFT Activity Points (Max: 5,000 points)
     // Tiered system based on total NFT transaction count
     
     const totalNftTxs = buyCount + sellCount + mintCount;
@@ -599,23 +634,23 @@ export class PointsServiceV2 {
     // Calculate points for each action type based on tier
     let buyPoints = 0;
     if (buyCount > 0) {
-      if (tier === 'gold') buyPoints = 1200;
-      else if (tier === 'silver') buyPoints = 800;
-      else buyPoints = 300; // bronze
+      if (tier === 'gold') buyPoints = 2400;
+      else if (tier === 'silver') buyPoints = 1600;
+      else buyPoints = 600; // bronze
     }
     
     let sellPoints = 0;
     if (sellCount > 0) {
-      if (tier === 'gold') sellPoints = 800;
-      else if (tier === 'silver') sellPoints = 500;
-      else sellPoints = 200; // bronze
+      if (tier === 'gold') sellPoints = 1600;
+      else if (tier === 'silver') sellPoints = 1000;
+      else sellPoints = 400; // bronze
     }
     
     let mintPoints = 0;
     if (mintCount > 0) {
-      if (tier === 'gold') mintPoints = 500;
-      else if (tier === 'silver') mintPoints = 300;
-      else mintPoints = 100; // bronze
+      if (tier === 'gold') mintPoints = 1000;
+      else if (tier === 'silver') mintPoints = 600;
+      else mintPoints = 200; // bronze
     }
     
     return buyPoints + sellPoints + mintPoints;
@@ -1281,12 +1316,15 @@ export class PointsServiceV2 {
       // Verification logs - check formula correctness
 
 
-      // Admin-controlled signup bonus (managed at /admin/points, default 0).
-      // Its own breakdown entry keeps the bars summing to the headline.
+      // Admin-controlled signup bonus (managed at /admin/points, default 0),
+      // plus any per-wallet bonus for this wallet. Merged into the single
+      // hidden 'bonus' breakdown entry so dashboards keep reconciling.
       const signupBonus = await this.getSignupBonusPoints();
-      if (signupBonus > 0) {
-        breakdown.platforms['bonus'] = { tx_count: 0, usd_volume: 0, points: signupBonus };
-        totalPoints += signupBonus;
+      const walletBonusMap = await this.getWalletBonusMap();
+      const totalBonus = signupBonus + (walletBonusMap.get(wallet) ?? 0);
+      if (totalBonus > 0) {
+        breakdown.platforms['bonus'] = { tx_count: 0, usd_volume: 0, points: totalBonus };
+        totalPoints += totalBonus;
       }
 
       const ranks = await ranksPromise;

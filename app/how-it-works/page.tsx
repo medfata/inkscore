@@ -217,13 +217,13 @@ const platformMetrics: PlatformRule[] = [
       { name: 'USDT0', logo: PLATFORM_LOGOS.usdt0, url: 'https://usdt0.to' },
     ],
     description: 'Points for bridging assets INTO InkChain',
-    formula: 'Tiered: $1-$99 = 25pts, $100-$999 = 100pts, $1K-$5K = 250pts, $5K-$10K = 400pts, $10K+ = 500pts',
+    formula: 'Tiered: $1-$99 = 50pts, $100-$999 = 200pts, $1K-$5K = 500pts, $5K-$10K = 800pts, $10K+ = 1,000pts',
     details: [
-      'Tier 1: $1-$99 = 25 points (🧳 Tourist)',
-      'Tier 2: $100-$999 = 100 points (🧭 Explorer)',
-      'Tier 3: $1,000-$4,999 = 250 points (🏗️ Settler)',
-      'Tier 4: $5,000-$9,999 = 400 points (🌉 Connector)',
-      'Tier 5: $10,000+ = 500 points (🚢 Bridge Whale)',
+      'Tier 1: $1-$99 = 50 points (🧳 Tourist)',
+      'Tier 2: $100-$999 = 200 points (🧭 Explorer)',
+      'Tier 3: $1,000-$4,999 = 500 points (🏗️ Settler)',
+      'Tier 4: $5,000-$9,999 = 800 points (🌉 Connector)',
+      'Tier 5: $10,000+ = 1,000 points (🚢 Bridge Whale)',
     ],
     color: 'from-blue-500 to-indigo-500',
     url: 'https://inkonchain.com/bridge',
@@ -237,13 +237,13 @@ const platformMetrics: PlatformRule[] = [
       { name: 'USDT0', logo: PLATFORM_LOGOS.usdt0, url: 'https://usdt0.to' },
     ],
     description: 'Points for bridging assets OUT of InkChain',
-    formula: 'Tiered: $1-$99 = 25pts, $100-$999 = 100pts, $1K-$5K = 250pts, $5K-$10K = 400pts, $10K+ = 500pts',
+    formula: 'Tiered: $1-$99 = 50pts, $100-$999 = 200pts, $1K-$5K = 500pts, $5K-$10K = 800pts, $10K+ = 1,000pts',
     details: [
-      'Tier 1: $1-$99 = 25 points (🧳 Tourist)',
-      'Tier 2: $100-$999 = 100 points (🧭 Explorer)',
-      'Tier 3: $1,000-$4,999 = 250 points (🏗️ Settler)',
-      'Tier 4: $5,000-$9,999 = 400 points (🌉 Connector)',
-      'Tier 5: $10,000+ = 500 points (🚢 Bridge Whale)',
+      'Tier 1: $1-$99 = 50 points (🧳 Tourist)',
+      'Tier 2: $100-$999 = 200 points (🧭 Explorer)',
+      'Tier 3: $1,000-$4,999 = 500 points (🏗️ Settler)',
+      'Tier 4: $5,000-$9,999 = 800 points (🌉 Connector)',
+      'Tier 5: $10,000+ = 1,000 points (🚢 Bridge Whale)',
     ],
     color: 'from-indigo-500 to-purple-500',
     url: 'https://inkonchain.com/bridge',
@@ -271,13 +271,13 @@ const platformMetrics: PlatformRule[] = [
       { name: 'Curve', logo: PLATFORM_LOGOS.curve, url: 'https://curve.fi' },
     ],
     description: 'Points for trading on InkChain DEXes',
-    formula: 'Tiered: $1-$999 = 25pts, $1K-$5K = 100pts, $5K-$10K = 250pts, $10K-$25K = 400pts, $25K+ = 500pts',
+    formula: 'Tiered: $1-$999 = 50pts, $1K-$5K = 200pts, $5K-$10K = 500pts, $10K-$25K = 800pts, $25K+ = 1,000pts',
     details: [
-      'Tier 1: $1-$999 = 25 points (🛍️ Shopper)',
-      'Tier 2: $1,000-$4,999 = 100 points (🔄 Flipper)',
-      'Tier 3: $5,000-$9,999 = 250 points (📈 Active Trader)',
-      'Tier 4: $10,000-$24,999 = 400 points (🐋 Swap Whale)',
-      'Tier 5: $25,000+ = 500 points (🦄 DEX Master)',
+      'Tier 1: $1-$999 = 50 points (🛍️ Shopper)',
+      'Tier 2: $1,000-$4,999 = 200 points (🔄 Flipper)',
+      'Tier 3: $5,000-$9,999 = 500 points (📈 Active Trader)',
+      'Tier 4: $10,000-$24,999 = 800 points (🐋 Swap Whale)',
+      'Tier 5: $25,000+ = 1,000 points (🦄 DEX Master)',
     ],
     color: 'from-green-500 to-teal-500',
     url: 'https://inkyswap.com',
@@ -286,12 +286,13 @@ const platformMetrics: PlatformRule[] = [
     name: 'OpenSea',
     logo: 'https://opensea.io/favicon.ico',
     description: 'Points for NFT activities on OpenSea',
-    formula: 'Buy (max 1,000) + Sell (max 1,000) + Mint (max 500) = Max 2,500pts',
+    formula: 'Buy (max 2,400) + Sell (max 1,600) + Mint (max 1,000) = Max 5,000pts',
     details: [
-      'Buy: 1 NFT = 100, 5 NFTs = 300, 10 NFTs = 500, 25+ NFTs = 1,000',
-      'Sell: 1 NFT = 100, 5 NFTs = 300, 10 NFTs = 500, 25+ NFTs = 1,000',
-      'Mint: 1 NFT = 50, 5 NFTs = 150, 10 NFTs = 300, 25+ NFTs = 500',
-      'Maximum possible: 2,500 points',
+      'Tier by total NFT transactions: Bronze = 1 tx, Silver = 2-5 txs, Gold = 6+ txs',
+      'Buy: Bronze 600, Silver 1,600, Gold 2,400',
+      'Sell: Bronze 400, Silver 1,000, Gold 1,600',
+      'Mint: Bronze 200, Silver 600, Gold 1,000',
+      'Maximum possible: 5,000 points (Gold across all three actions)',
     ],
     color: 'from-blue-500 to-cyan-500',
     url: 'https://opensea.io',
@@ -437,19 +438,19 @@ const platformMetrics: PlatformRule[] = [
     name: 'Nado Finance',
     logo: 'https://pbs.twimg.com/profile_images/2010908038514032641/5E7RkPLF_400x400.jpg',
     description: 'Points for deposits and trading volume on Nado',
-    formula: 'Deposits (max 1,250) + Volume (max 1,250) = Max 2,500pts',
+    formula: 'Deposits (max 2,500) + Volume (max 2,500) = Max 5,000pts',
     details: [
-      'Deposits: $1-$99 = 50, $100-$999 = 250, $1K-$10K = 600, $10K-$50K = 1,000, $50K+ = 1,250',
-      'Volume: $0-$100K = 50, $100K-$500K = 300, $500K-$1M = 550, $1M-$5M = 800, $5M-$10M = 1,000, $10M-$25M = 1,150, $25M+ = 1,250',
-      'Maximum possible: 2,500 points',
+      'Deposits: $1-$99 = 100, $100-$999 = 500, $1K-$10K = 1,200, $10K-$50K = 2,000, $50K+ = 2,500',
+      'Volume: $0-$100K = 100, $100K-$500K = 600, $500K-$1M = 1,100, $1M-$5M = 1,600, $5M-$10M = 2,000, $10M-$25M = 2,300, $25M+ = 2,500',
+      'Maximum possible: 5,000 points',
     ],
     color: 'from-indigo-500 to-blue-500',
     url: 'https://app.nado.xyz',
   },
   {
-    name: 'Copink',
-    logo: 'https://www.copink.xyz/favicon.ico',
-    description: 'Points for subaccounts and trading volume on Copink',
+    name: 'Otomate',
+    logo: 'https://www.otomate.trade/favicon.ico',
+    description: 'Points for subaccounts and trading volume on Otomate',
     formula: 'Volume (max 300) + Subaccounts (max 100) = Max 400pts',
     details: [
       'Volume: $1-$999 = 50, $1K-$5K = 150, $5K-$10K = 250, $10K+ = 300',
@@ -457,19 +458,19 @@ const platformMetrics: PlatformRule[] = [
       'Maximum possible: 400 points',
     ],
     color: 'from-pink-500 to-fuchsia-500',
-    url: 'https://www.copink.xyz',
+    url: 'https://www.otomate.trade',
   },
   {
     name: 'Templars of the Storm',
     logo: 'https://i2c.seadn.io/admin-uploads/f189f573f43d0fa8eab11049be7133/aaf189f573f43d0fa8eab11049be7133.png?h=250&w=250',
     description: 'Points for holding Templars NFTs',
-    formula: 'Tiered: 1 NFT = 1,500pts, 2 NFTs = 2,100pts, 3+ NFTs = 2,700pts',
+    formula: 'Tiered: 1 NFT = 3,000pts, 2 NFTs = 4,200pts, 3+ NFTs = 5,400pts',
     details: [
-      'Tier 1: 1 NFT = 1,500 points (⚔️ Templar)',
-      'Tier 2: 2 NFTs = 2,100 points (🛡️ Knight)',
-      'Tier 3: 3+ NFTs = 2,700 points (👑 Commander)',
+      'Tier 1: 1 NFT = 3,000 points (⚔️ Templar)',
+      'Tier 2: 2 NFTs = 4,200 points (🛡️ Knight)',
+      'Tier 3: 3+ NFTs = 5,400 points (👑 Commander)',
       'Unlocks core holder multiplier for Phase 2',
-      'Maximum possible: 2,700 points',
+      'Maximum possible: 5,400 points',
     ],
     color: 'from-red-500 to-orange-500',
     url: 'https://opensea.io/collection/templars-of-the-storm',
@@ -478,29 +479,15 @@ const platformMetrics: PlatformRule[] = [
     name: 'Tydro (Lending)',
     logo: PLATFORM_LOGOS.tydro,
     description: 'Points for lending and borrowing on Tydro',
-    formula: 'Supply Tiers (max 1,250) + Borrow Tiers (max 1,250) = Max 2,500pts',
+    formula: 'Supply Tiers (max 2,500) + Borrow Tiers (max 2,500) = Max 5,000pts',
     details: [
-      'Supply: $1-$99 = 50, $100-$999 = 250, $1K-$10K = 600, $10K-$50K = 1,000, $50K+ = 1,250',
-      'Borrow: $1-$49 = 50, $50-$499 = 250, $500-$5K = 600, $5K-$25K = 1,000, $25K+ = 1,250',
+      'Supply: $1-$99 = 100, $100-$999 = 500, $1K-$10K = 1,200, $10K-$50K = 2,000, $50K+ = 2,500',
+      'Borrow: $1-$49 = 100, $50-$499 = 500, $500-$5K = 1,200, $5K-$25K = 2,000, $25K+ = 2,500',
       'Both supply and borrow positions earn points independently',
-      'Maximum possible: 2,500 points',
+      'Maximum possible: 5,000 points',
     ],
     color: 'from-cyan-500 to-blue-500',
     url: 'https://app.tydro.com',
-  },
-  {
-    name: 'CowSwap',
-    logo: 'https://swap.cow.fi/favicon-dark-mode.png',
-    description: 'Points for swap volume on CowSwap',
-    formula: 'Tiered: $10-$100 = 400pts, $101-$1K = 1,200pts, $1K+ = 2,000pts',
-    details: [
-      'Tier 1: $10-$100 = 400 points (🐮 Starter)',
-      'Tier 2: $101-$1,000 = 1,200 points (🐂 Trader)',
-      'Tier 3: $1,000+ = 2,000 points (🦬 Whale)',
-      'Maximum possible: 2,000 points',
-    ],
-    color: 'from-blue-600 to-indigo-600',
-    url: 'https://swap.cow.fi',
   },
   {
     name: 'Sweep',
@@ -771,7 +758,7 @@ export default function HowItWorksPage() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-2xl font-bold text-yellow-400">7,700</div>
+                      <div className="text-2xl font-bold text-yellow-400">15,400</div>
                       <div className="text-xs text-slate-500">Total Points</div>
                     </div>
                   </div>
@@ -779,15 +766,81 @@ export default function HowItWorksPage() {
                 <div className="p-4 space-y-3">
                   <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
                     <span className="text-slate-200">Templars of the Storm</span>
-                    <span className="font-semibold text-yellow-400">2,700 pts</span>
+                    <span className="font-semibold text-yellow-400">5,400 pts</span>
                   </div>
                   <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
                     <span className="text-slate-200">Nado Finance</span>
-                    <span className="font-semibold text-yellow-400">2,500 pts</span>
+                    <span className="font-semibold text-yellow-400">5,000 pts</span>
                   </div>
                   <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
                     <span className="text-slate-200">OpenSea</span>
-                    <span className="font-semibold text-yellow-400">2,500 pts</span>
+                    <span className="font-semibold text-yellow-400">5,000 pts</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* SWAP VENUES */}
+              <div className="glass-card rounded-xl overflow-hidden border-l-4 border-green-500">
+                <div className="bg-gradient-to-r from-green-500/10 to-transparent p-4 border-b border-slate-700/50">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">🔄</span>
+                      <div>
+                        <h3 className="font-bold text-white text-lg">SWAP VENUES</h3>
+                        <p className="text-xs text-slate-400">27% of Total Score</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-2xl font-bold text-green-400">15,000</div>
+                      <div className="text-xs text-slate-500">Total Points</div>
+                    </div>
+                  </div>
+                </div>
+                <div className="p-4 space-y-3">
+                  <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
+                    <span className="text-slate-200">Hypercall Earn</span>
+                    <span className="font-semibold text-green-400">5,000 pts</span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
+                    <span className="text-slate-200">Sentry</span>
+                    <span className="font-semibold text-green-400">5,000 pts</span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
+                    <span className="text-slate-200">Ink Brokers</span>
+                    <span className="font-semibold text-green-400">5,000 pts</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* INKSCORE ECOSYSTEM */}
+              <div className="glass-card rounded-xl overflow-hidden border-l-4 border-violet-500">
+                <div className="bg-gradient-to-r from-violet-500/10 to-transparent p-4 border-b border-slate-700/50">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">🌌</span>
+                      <div>
+                        <h3 className="font-bold text-white text-lg">INKSCORE ECOSYSTEM</h3>
+                        <p className="text-xs text-slate-400">22% of Total Score</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-2xl font-bold text-violet-400">12,500</div>
+                      <div className="text-xs text-slate-500">Total Points</div>
+                    </div>
+                  </div>
+                </div>
+                <div className="p-4 space-y-3">
+                  <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
+                    <span className="text-slate-200">InkScore Zenith (Staking)</span>
+                    <span className="font-semibold text-violet-400">6,000 pts</span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
+                    <span className="text-slate-200">InkScore Zenith (NFTs)</span>
+                    <span className="font-semibold text-violet-400">5,000 pts</span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
+                    <span className="text-slate-200">Gone Fishin</span>
+                    <span className="font-semibold text-violet-400">1,500 pts</span>
                   </div>
                 </div>
               </div>
@@ -800,11 +853,11 @@ export default function HowItWorksPage() {
                       <span className="text-2xl">💪</span>
                       <div>
                         <h3 className="font-bold text-white text-lg">HEAVY HITTERS</h3>
-                        <p className="text-xs text-slate-400">17% of Total Score</p>
+                        <p className="text-xs text-slate-400">9% of Total Score</p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-2xl font-bold text-red-400">4,500</div>
+                      <div className="text-2xl font-bold text-red-400">5,000</div>
                       <div className="text-xs text-slate-500">Total Points</div>
                     </div>
                   </div>
@@ -812,11 +865,7 @@ export default function HowItWorksPage() {
                 <div className="p-4 space-y-3">
                   <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
                     <span className="text-slate-200">Tydro DeFi</span>
-                    <span className="font-semibold text-red-400">2,500 pts</span>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
-                    <span className="text-slate-200">CowSwap</span>
-                    <span className="font-semibold text-red-400">2,000 pts</span>
+                    <span className="font-semibold text-red-400">5,000 pts</span>
                   </div>
                 </div>
               </div>
@@ -829,16 +878,28 @@ export default function HowItWorksPage() {
                       <span className="text-2xl">⚔️</span>
                       <div>
                         <h3 className="font-bold text-white text-lg">CORE</h3>
-                        <p className="text-xs text-slate-400">10% of Total Score</p>
+                        <p className="text-xs text-slate-400">7% of Total Score</p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-2xl font-bold text-blue-400">2,700</div>
+                      <div className="text-2xl font-bold text-blue-400">4,200</div>
                       <div className="text-xs text-slate-500">Total Points</div>
                     </div>
                   </div>
                 </div>
                 <div className="p-4 space-y-3">
+                  <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
+                    <span className="text-slate-200">Bridge IN</span>
+                    <span className="font-semibold text-blue-400">1,000 pts</span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
+                    <span className="text-slate-200">Bridge OUT</span>
+                    <span className="font-semibold text-blue-400">1,000 pts</span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
+                    <span className="text-slate-200">Swap Volume</span>
+                    <span className="font-semibold text-blue-400">1,000 pts</span>
+                  </div>
                   <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
                     <span className="text-slate-200">Wallet Age</span>
                     <span className="font-semibold text-blue-400">600 pts</span>
@@ -846,18 +907,6 @@ export default function HowItWorksPage() {
                   <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
                     <span className="text-slate-200">Total Transactions</span>
                     <span className="font-semibold text-blue-400">600 pts</span>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
-                    <span className="text-slate-200">Bridge IN</span>
-                    <span className="font-semibold text-blue-400">500 pts</span>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
-                    <span className="text-slate-200">Bridge OUT</span>
-                    <span className="font-semibold text-blue-400">500 pts</span>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
-                    <span className="text-slate-200">Swap Volume</span>
-                    <span className="font-semibold text-blue-400">500 pts</span>
                   </div>
                 </div>
               </div>
@@ -870,7 +919,7 @@ export default function HowItWorksPage() {
                       <span className="text-2xl">🔥</span>
                       <div>
                         <h3 className="font-bold text-white text-lg">GROUP A</h3>
-                        <p className="text-xs text-slate-400">20% of Total Score • 6 Items × 400 pts</p>
+                        <p className="text-xs text-slate-400">4% of Total Score • 6 Items × 400 pts</p>
                       </div>
                     </div>
                     <div className="text-right">
@@ -885,7 +934,7 @@ export default function HowItWorksPage() {
                     <span className="font-semibold text-orange-400">400</span>
                   </div>
                   <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
-                    <span className="text-slate-200">Copink</span>
+                    <span className="text-slate-200">Otomate</span>
                     <span className="font-semibold text-orange-400">400</span>
                   </div>
                   <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg">
@@ -915,7 +964,7 @@ export default function HowItWorksPage() {
                       <span className="text-2xl">🛡️</span>
                       <div>
                         <h3 className="font-bold text-white text-lg">GROUP B</h3>
-                        <p className="text-xs text-slate-400">9% of Total Score • 4 Items × 300-800 pts</p>
+                        <p className="text-xs text-slate-400">3% of Total Score • 4 Items × 300-800 pts</p>
                       </div>
                     </div>
                     <div className="text-right">
@@ -956,12 +1005,15 @@ export default function HowItWorksPage() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-4xl font-bold text-gradient">18,800</div>
+                      <div className="text-4xl font-bold text-gradient">56,200</div>
                       <div className="text-sm text-slate-400">Maximum Points</div>
                     </div>
                   </div>
                 </div>
               </div>
+              <p className="text-xs text-slate-500 mt-2">
+                Note: an optional admin-controlled signup bonus may add extra points on top of the maximum above (default: disabled).
+              </p>
             </div>
           </section>
 

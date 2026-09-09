@@ -50,30 +50,30 @@ const expMemeCoins = (usd: number) => t(usd, [1000, 300], [500, 200], [100, 100]
 const expWalletAge = (d: number) => (d <= 0 ? 0 : t(d, [731, 600], [366, 500], [181, 400], [91, 300], [31, 200], [1, 100]));
 const expTotalTx = (n: number) => (n <= 0 ? 0 : t(n, [901, 600], [701, 500], [401, 400], [201, 300], [101, 200], [1, 100]));
 // Platforms
-const expBridge = (usd: number) => t(usd, [10000, 500], [5000, 400], [1000, 250], [100, 100], [1, 25]);
+const expBridge = (usd: number) => t(usd, [10000, 1000], [5000, 800], [1000, 500], [100, 200], [1, 50]);
 const expGm = (n: number) => t(n, [150, 400], [50, 250], [10, 150], [1, 50]);
 const expInkyPump = (created: number, vol: number) =>
   (created >= 3 ? 50 : created >= 1 ? 25 : 0) + t(vol, [10000, 350], [1000, 250], [100, 150], [1, 50]);
-const expTydroSupply = (usd: number) => t(usd, [50000, 1250], [10000, 1000], [1000, 600], [100, 250], [1, 50]);
-const expTydroBorrow = (usd: number) => t(usd, [25000, 1250], [5000, 1000], [500, 600], [50, 250], [1, 50]);
-const expSwap = (usd: number) => t(usd, [25000, 500], [10000, 400], [5000, 250], [1000, 100], [1, 25]);
+const expTydroSupply = (usd: number) => t(usd, [50000, 2500], [10000, 2000], [1000, 1200], [100, 500], [1, 100]);
+const expTydroBorrow = (usd: number) => t(usd, [25000, 2500], [5000, 2000], [500, 1200], [50, 500], [1, 100]);
+const expSwap = (usd: number) => t(usd, [25000, 1000], [10000, 800], [5000, 500], [1000, 200], [1, 50]);
 const expShellies = (play: number, stake: number, raffle: number) =>
   t(play, [50, 150], [10, 75], [1, 25]) + t(stake, [5, 150], [3, 100], [1, 50]) + t(raffle, [10, 100], [5, 50], [1, 25]);
 const expZns = (deploy: number, gm: number, reg: number) =>
   t(reg, [3, 200], [1, 100]) + t(deploy, [3, 50], [1, 20]) + t(gm, [10, 50], [1, 20]);
 const expNft2me = (coll: number, mints: number) =>
   t(coll, [3, 100], [1, 50]) + t(mints, [100, 200], [10, 100], [1, 50]);
-const expNadoDeposits = (usd: number) => t(usd, [50000, 1250], [10000, 1000], [1000, 600], [100, 250], [1, 50]);
-const expNadoVolume = (usd: number) => (usd >= 0 ? t(usd, [25000000, 1250], [10000000, 1150], [5000000, 1000], [1000000, 800], [500000, 550], [100000, 300], [0, 50]) : 0);
+const expNadoDeposits = (usd: number) => t(usd, [50000, 2500], [10000, 2000], [1000, 1200], [100, 500], [1, 100]);
+const expNadoVolume = (usd: number) => (usd >= 0 ? t(usd, [25000000, 2500], [10000000, 2300], [5000000, 2000], [1000000, 1600], [500000, 1100], [100000, 600], [0, 100]) : 0);
 const expCopink = (subs: number, vol: number) =>
   t(vol, [10000, 300], [5000, 250], [1000, 150], [1, 50]) + (subs >= 3 ? 100 : subs >= 1 ? 50 : 0);
-const expTemplars = (n: number) => (n >= 3 ? 2700 : n >= 2 ? 2200 : n >= 1 ? 1500 : 0);
+const expTemplars = (n: number) => (n >= 3 ? 5400 : n >= 2 ? 4200 : n >= 1 ? 3000 : 0);
 const expOpensea = (buys: number, sells: number, mints: number) => {
   const total = buys + sells + mints;
   if (total <= 0) return 0;
   const tier = total >= 6 ? 'gold' : total >= 2 ? 'silver' : 'bronze';
   const p = (cnt: number, g: number, s: number, b: number) => (cnt > 0 ? (tier === 'gold' ? g : tier === 'silver' ? s : b) : 0);
-  return p(buys, 1200, 800, 300) + p(sells, 800, 500, 200) + p(mints, 500, 300, 100);
+  return p(buys, 2400, 1600, 600) + p(sells, 1600, 1000, 400) + p(mints, 1000, 600, 200);
 };
 const expCowswap = (usd: number) => (usd > 1000 ? 2000 : usd >= 101 ? 1200 : usd >= 10 ? 400 : 0);
 const expSweep = (coll: number, badges: number, streak: number) =>
