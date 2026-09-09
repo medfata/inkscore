@@ -1055,14 +1055,14 @@ export class PointsServiceV2 {
       native: {},
       platforms: {},
     };
-    let totalPoints = 900;
+    // Total = the exact sum of the platform + native points below — no flat
+    // base, no hidden bonus, no leaderboard floor. The dashboard's bars must
+    // always reconcile with the headline number.
+    let totalPoints = 0;
 
     // Scoring reference data (DB reads, not wallet metrics): start them
     // immediately so they overlap with each other.
     const ranksPromise = this.getCachedRanks();
-    const leaderboardFloorPromise = KNOWN_STALE_WALLETS.has(wallet)
-      ? Promise.resolve(null)
-      : this.getLeaderboardScoreFloor(wallet);
 
     try {
 
@@ -1249,30 +1249,8 @@ export class PointsServiceV2 {
       // Verification logs - check formula correctness
 
 
-      // ADDITIONAL 1000-POINT BONUS — excluded from the top 10 leaderboard wallets
-      const top10 = await this.getTop10LeaderboardWallets();
-      if (!top10.has(wallet)) {
-        totalPoints += 2000;
-        breakdown.platforms['bonus_1000'] = { tx_count: 0, usd_volume: 0, points: 2000 };
-      }
-
-      // TEMPORARY: floor total_points to the wallet's stored leaderboard score
-      // when the realtime computation comes back lower. Some third-party
-      // platforms are reporting degraded data and pushing scores down; remove
-      // this clamp once the upstream source is fixed.
-      if (!KNOWN_STALE_WALLETS.has(wallet)) {
-        const leaderboardFloor = await leaderboardFloorPromise;
-        if (leaderboardFloor !== null && totalPoints < leaderboardFloor) {
-          console.log(
-            `[PointsServiceV2] Wallet ${wallet}: clamped ${totalPoints} -> ${leaderboardFloor} (leaderboard floor)`
-          );
-          totalPoints = leaderboardFloor;
-        }
-      } else {
-        console.log(
-          `[PointsServiceV2] Wallet ${wallet}: skipped stale leaderboard floor clamp, using real-time score ${totalPoints}`
-        );
-      }
+      // (No flat bonus, no leaderboard floor — the total is exactly the sum
+      // of the platform bars, so the card reconciles with its breakdown.)
 
       const ranks = await ranksPromise;
       const rank = this.getRankForPoints(ranks, totalPoints);

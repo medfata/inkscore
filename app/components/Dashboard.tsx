@@ -1428,7 +1428,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
         total_tx: 'TXs',
         nft_collections: 'NFTs',
         erc20_tokens: 'Tokens',
-        total_volume: 'Volume'
+        total_volume: 'Volume',
+        meme_coins: 'Meme Coins',
       };
 
       Object.entries(walletScore.breakdown.native).forEach(([key, data]) => {
@@ -1447,18 +1448,39 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
         zenith_staking: 'Staking',
         hypercall: 'Hypercall',
         sentry: 'Sentry',
-        ink_brokers: 'Brokers',
-        gonefishin: 'Fishin',
+        ink_brokers: 'Ink Brokers',
+        gonefishin: 'Gone Fishin',
+        gm: 'GM',
+        zns: 'ZNS',
+        copink: 'Copink',
+        shellies: 'Shellies',
+        tydro: 'Tydro',
+        templars: 'Templars',
+        opensea: 'OpenSea',
+        nado: 'Nado',
+        cowswap: 'CowSwap',
+        swap: 'Swap',
+        sweep: 'Sweep',
+        nft2me: 'NFT2Me',
+        inkypump: 'InkyPump',
       };
+      // bridge_in + bridge_out render as ONE combined 'Bridge' bar
+      let bridgePoints = 0;
       Object.entries(walletScore.breakdown.platforms).forEach(([slug, data]) => {
-        // Shorten platform names for radar chart
-        const shortName = platformLabels[slug] || (slug.length > 8 ? slug.substring(0, 7) + '.' : slug);
+        if (slug === 'bridge_in' || slug === 'bridge_out') {
+          bridgePoints += data.points || 0;
+          return;
+        }
+        const shortName = platformLabels[slug] || slug;
         items.push({
           subject: shortName.charAt(0).toUpperCase() + shortName.slice(1),
           A: data.points || 0,
           fullMark: Math.max(data.points || 0, 100)
         });
       });
+      if (bridgePoints > 0) {
+        items.push({ subject: 'Bridge', A: bridgePoints, fullMark: Math.max(bridgePoints, 100) });
+      }
 
       // If no data, return default empty chart
       if (items.length === 0) {
@@ -1662,7 +1684,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
         {/* Row 2: Total INKSCORE (50%) + Tydro DeFi (50%) */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Total INKSCORE Card - 50% width */}
-          <div className="animated-border-glow glass-card relative overflow-hidden p-6 rounded-2xl animate-fade-in-up h-[260px] flex flex-col" style={{ animationDelay: '0.5s', '--glow-color': '#7c3aed', '--glow-border': 'rgba(124, 58, 237, 0.25)' } as React.CSSProperties}>
+          <div className="animated-border-glow glass-card relative overflow-hidden p-6 rounded-2xl animate-fade-in-up min-h-[260px] flex flex-col" style={{ animationDelay: '0.5s', '--glow-color': '#7c3aed', '--glow-border': 'rgba(124, 58, 237, 0.25)' } as React.CSSProperties}>
             <div className="relative flex flex-col md:flex-row items-center justify-between gap-3 flex-1">
               <div className="text-center relative flex-shrink-0">
                 <div className="absolute -top-20 -left-20 w-40 h-40 bg-ink-purple/20 blur-3xl rounded-full"></div>
@@ -1732,8 +1754,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, isDemo, isA
                     ))}
                   </div>
                 ) : (
-                  /* Score breakdown — one bar per category, scaled to the top earner */
-                  <div className="flex flex-col justify-center gap-1.5 max-h-[200px] overflow-y-auto custom-scrollbar">
+                  /* Score breakdown — one bar per category, scaled to the top earner. All rows render (no scroll cap) so the list always reconciles with the total. */
+                  <div className="flex flex-col justify-center gap-1.5">
                     {chartData.every((item) => !item.A) && (
                       <div className="text-[11px] text-slate-500 text-center py-4">
                         No category points earned yet
