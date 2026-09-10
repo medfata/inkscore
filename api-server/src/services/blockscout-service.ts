@@ -744,7 +744,12 @@ export async function getProtocolCount(
     [wallet, protocol]
   );
 
-  const fresh = cached && Date.now() - new Date(cached.updated_at).getTime() < COUNTS_TTL_MS;
+  // Version gate BEFORE the TTL shortcut: a row built under an older
+  // registry is never "fresh", no matter its updated_at — otherwise legacy
+  // inflated rows keep serving (and never rebuild) for a full TTL window
+  // after every deploy.
+  const cachedStaleRegistry = !!cached && (cached.methods_hash || '') !== methodsHash;
+  const fresh = cached && !cachedStaleRegistry && Date.now() - new Date(cached.updated_at).getTime() < COUNTS_TTL_MS;
   if (fresh && cached!.complete) {
     return { count: cached!.count, complete: true };
   }
@@ -760,7 +765,10 @@ export async function getProtocolCount(
       'SELECT count, last_seen, methods_hash, boundary_hashes, complete, updated_at FROM bs_protocol_counts WHERE wallet_address = $1 AND protocol = $2',
       [wallet, protocol]
     );
-    const freshNow = cachedNow && Date.now() - new Date(cachedNow.updated_at).getTime() < COUNTS_TTL_MS;
+    const freshNow =
+      cachedNow &&
+      (cachedNow.methods_hash || '') === methodsHash &&
+      Date.now() - new Date(cachedNow.updated_at).getTime() < COUNTS_TTL_MS;
     if (freshNow && cachedNow!.complete) {
       return { count: cachedNow!.count, complete: true };
     }

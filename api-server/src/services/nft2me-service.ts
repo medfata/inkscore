@@ -34,13 +34,15 @@ export async function getNft2meData(walletAddress: string): Promise<Nft2MeRespon
         const minterLower = NFT2ME_CONTRACTS.MINTER.toLowerCase();
 
         // Counts via Blockscout (method names resolved per tx; sets are tiny).
+        // Mint selector pinned (verified live: unanimous mint(...) selector) so
+        // counts don't depend on Blockscout's method decoder backfill lag.
         const [createdRes, mintedRes] = await Promise.all([
             getProtocolCount(
                 walletAddress, 'nft2me-created', factoryLower, null,
                 [TRACKED_FUNCTIONS.CREATE_COLLECTION]
             ),
             getProtocolCount(
-                walletAddress, 'nft2me-minted', minterLower, null,
+                walletAddress, 'nft2me-minted', minterLower, ['0xb510391f'],
                 [TRACKED_FUNCTIONS.MINT]
             ),
         ]);

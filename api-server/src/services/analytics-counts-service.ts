@@ -31,6 +31,22 @@ const ZNS_CONFIG = {
 // Historical SayGMs live under the old key; both are summed.
 const ZNS_SAYGM_V2_CONTRACT = '0xc3aa977fa6a937fde1c7cc61a3c0ef9b6baf43f9';
 
+// Pinned 4-byte selectors (verified live 2026-09-10 against /transactions
+// details, unanimous per action — see scripts history). Selector matching
+// does NOT depend on Blockscout's method decoder, which lags on fresh/
+// unverified contracts (the decoder gap behind several false FAILs).
+// Each entry is scoped to its dedicated contract, so a selector here can
+// only ever match its own action.
+const PINNED_SELECTORS = {
+  nft2meMint: ['0xb510391f'], // mint(...)
+  shelliesPay: ['0x3e5edbd3'], // PayToPlay
+  shelliesRaffle: ['0xa1dcf673'], // joinRaffle (raffle-1; raffle-2 untested)
+  znsSayGmV2: ['0x779a220b'], // sayGMGN on the 0xC3Aa… dispatcher
+  znsDeploy: ['0x4c96a389'], // Deploy
+  znsRegister: ['0x3a99d4eb'], // RegisterDomains
+  brokersClockIn: ['0xfc03c14b'], // clockIn
+};
+
 // Define Ink Chain for viem (Mainnet)
 const inkChain = defineChain({
   id: 57073,
@@ -137,10 +153,10 @@ export async function getZnsMetrics(walletLower: string) {
   // Counts via Blockscout (single batched query per action, no method
   // selectors needed — resolved by decoded method name).
   const [deployRes, sayGmRes, sayGmV2Res, registerRes] = await Promise.all([
-    getProtocolCount(walletLower, 'zns-deploy', ZNS_CONFIG.deploy.contract, null, ZNS_CONFIG.deploy.functions),
+    getProtocolCount(walletLower, 'zns-deploy', ZNS_CONFIG.deploy.contract, PINNED_SELECTORS.znsDeploy, ZNS_CONFIG.deploy.functions),
     getProtocolCount(walletLower, 'zns-saygm', ZNS_CONFIG.sayGm.contract, null, ZNS_CONFIG.sayGm.functions),
-    getProtocolCount(walletLower, 'zns-saygm-v2', ZNS_SAYGM_V2_CONTRACT, null, ZNS_CONFIG.sayGm.functions),
-    getProtocolCount(walletLower, 'zns-register', ZNS_CONFIG.register.contract, null, ZNS_CONFIG.register.functions),
+    getProtocolCount(walletLower, 'zns-saygm-v2', ZNS_SAYGM_V2_CONTRACT, PINNED_SELECTORS.znsSayGmV2, [...ZNS_CONFIG.sayGm.functions, 'sayGMGN']),
+    getProtocolCount(walletLower, 'zns-register', ZNS_CONFIG.register.contract, PINNED_SELECTORS.znsRegister, ZNS_CONFIG.register.functions),
   ]);
 
   const deployCount = deployRes.count;
@@ -166,7 +182,7 @@ export async function getZnsMetrics(walletLower: string) {
 // ============================================
 export async function getShelliesJoinedRaffles(walletLower: string) {
   const [r1, r2] = await Promise.all([
-    getProtocolCount(walletLower, 'shellies-raffle-1', SHELLIES_RAFFLE_CONTRACTS[0], null, ['JoinRaffle', 'joinRaffle']),
+    getProtocolCount(walletLower, 'shellies-raffle-1', SHELLIES_RAFFLE_CONTRACTS[0], PINNED_SELECTORS.shelliesRaffle, ['JoinRaffle', 'joinRaffle']),
     getProtocolCount(walletLower, 'shellies-raffle-2', SHELLIES_RAFFLE_CONTRACTS[1], null, ['JoinRaffle', 'joinRaffle']),
   ]);
   const count = r1.count + r2.count;
@@ -189,7 +205,7 @@ export async function getShelliesJoinedRaffles(walletLower: string) {
 // shellies_pay_to_play (counts via Blockscout)
 // ============================================
 export async function getShelliesPayToPlay(walletLower: string) {
-  const pc = await getProtocolCount(walletLower, 'shellies-pay', SHELLIES_PAY_TO_PLAY_CONTRACT, null, ['PayToPlay', 'payToPlay']);
+  const pc = await getProtocolCount(walletLower, 'shellies-pay', SHELLIES_PAY_TO_PLAY_CONTRACT, PINNED_SELECTORS.shelliesPay, ['PayToPlay', 'payToPlay']);
   const count = pc.count;
 
   const result = {
@@ -626,7 +642,7 @@ export async function getInkBrokersMetrics(walletLower: string): Promise<InkBrok
     try {
       // Desk tx counts via Blockscout (cursor-cached; incremental after first visit)
       const [clockInRes, claimRes, tokenIds, clockedInIds, floorSwaps] = await Promise.all([
-        getProtocolCount(walletLower, 'inkbrokers-clockin', INK_BROKERS_CONFIG.clockIn.contract, null, INK_BROKERS_CONFIG.clockIn.functions),
+        getProtocolCount(walletLower, 'inkbrokers-clockin', INK_BROKERS_CONFIG.clockIn.contract, PINNED_SELECTORS.brokersClockIn, INK_BROKERS_CONFIG.clockIn.functions),
         getProtocolCount(walletLower, 'inkbrokers-claim', INK_BROKERS_CONFIG.claim.contract, null, INK_BROKERS_CONFIG.claim.functions),
         getInkBrokersTokenIds(walletLower),
         getInkBrokersClockedInTokenIds(walletLower).catch(() => [] as string[]),

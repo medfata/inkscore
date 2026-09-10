@@ -102,6 +102,7 @@ const R = {
   shelliesStakingSelector: '0x1e332260',
   znsDeploy: '0x63c489d31a2c3de0638360931f47ff066282473f',
   znsSayGm: '0x3033d7ded400547d6442c55159da5c61f2721633',
+  znsSayGmV2: '0xc3aa977fa6a937fde1c7cc61a3c0ef9b6baf43f9',
   znsRegister: '0xfb2cd41a8aec89efbb19575c6c48d872ce97a0a5',
   inkypump: '0x1d74317d760f2c72a94386f50e8d10f2c902b899',
   inkypumpCreate: '0xa07849e6',
@@ -426,14 +427,15 @@ function classify(txs, wallet) {
       if (R.tydroBorrow.has(sel)) exact.tydro_borrow++;
     }
     if (to === R.nft2meFactory) { max.nft2me_collections++; if (methodMatches(t.method, ['createCollectionN2M_000oEFvt'])) exact.nft2me_collections++; }
-    if (to === R.nft2meMinter) { max.nft2me_mints++; if (methodMatches(t.method, ['mint'])) exact.nft2me_mints++; }
-    if (shelliesRaffleSet.has(to)) { max.shellies_raffles++; if (methodMatches(t.method, ['JoinRaffle', 'joinRaffle'])) exact.shellies_raffles++; }
-    if (to === R.shelliesPay) { max.shellies_pay++; if (methodMatches(t.method, ['PayToPlay', 'payToPlay'])) exact.shellies_pay++; }
+    if (to === R.nft2meMinter) { max.nft2me_mints++; if (sel === '0xb510391f' || methodMatches(t.method, ['mint'])) exact.nft2me_mints++; }
+    if (shelliesRaffleSet.has(to)) { max.shellies_raffles++; if (sel === '0xa1dcf673' || methodMatches(t.method, ['JoinRaffle', 'joinRaffle'])) exact.shellies_raffles++; }
+    if (to === R.shelliesPay) { max.shellies_pay++; if (sel === '0x3e5edbd3' || methodMatches(t.method, ['PayToPlay', 'payToPlay'])) exact.shellies_pay++; }
     if (to === R.shelliesStaking) { max.shellies_staking++; if (sel === R.shelliesStakingSelector || methodMatches(t.method, ['StakeBatch', 'stakeBatch'])) exact.shellies_staking++; }
-    if (to === R.znsDeploy || to === R.znsSayGm || to === R.znsRegister) max.zns_total++;
-    if (to === R.znsDeploy && methodMatches(t.method, ['Deploy', 'deploy'])) exact.zns_total++;
+    if (to === R.znsDeploy || to === R.znsSayGm || to === R.znsSayGmV2 || to === R.znsRegister) max.zns_total++;
+    if (to === R.znsDeploy && (sel === '0x4c96a389' || methodMatches(t.method, ['Deploy', 'deploy']))) exact.zns_total++;
     if (to === R.znsSayGm && methodMatches(t.method, ['SayGM', 'sayGM'])) exact.zns_total++;
-    if (to === R.znsRegister && methodMatches(t.method, ['RegisterDomains', 'registerDomains'])) exact.zns_total++;
+    if (to === R.znsSayGmV2 && (sel === '0x779a220b' || methodMatches(t.method, ['SayGM', 'sayGM', 'sayGMGN']))) exact.zns_total++;
+    if (to === R.znsRegister && (sel === '0x3a99d4eb' || methodMatches(t.method, ['RegisterDomains', 'registerDomains']))) exact.zns_total++;
     if (to === R.inkypump) { max.inkypump_created++; if (sel === R.inkypumpCreate) exact.inkypump_created++; }
     if (to === R.inkyswapRouter) {
       max.inkypump_buy_tx++; max.inkypump_sell_tx++;
@@ -453,7 +455,7 @@ function classify(txs, wallet) {
     if (to === R.getAssetsZapper && R.zapSelectors.has(sel)) exact.hypercall_swaps++;
     if (to === R.earnFactory) { max.hypercall_positions++; if (sel === R.fundSelector) exact.hypercall_positions++; }
     if (to === R.brokersDesk) { max.inkbrokers_clockin++; max.inkbrokers_claim++; }
-    if (to === R.brokersDesk && methodMatches(t.method, ['ClockIn', 'clockIn'])) exact.inkbrokers_clockin++;
+    if (to === R.brokersDesk && (sel === '0xfc03c14b' || methodMatches(t.method, ['ClockIn', 'clockIn']))) exact.inkbrokers_clockin++;
     if (to === R.brokersDesk && methodMatches(t.method, ['Claim', 'claim'])) exact.inkbrokers_claim++;
     if (to === R.brokersFloorRouter) { max.inkbrokers_swaps++; if (R.brokersFloorSelectors.has(sel)) exact.inkbrokers_swaps++; }
     if (bridgeSet.has(to)) { exact.bridge_out_tx++; max.bridge_out_tx++; }
