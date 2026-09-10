@@ -50,6 +50,11 @@ next-env.d.ts
 # session artifacts (do not commit)
 .codex-logs/
 api-server/dev-server.log
+api-server/dev-server-*.log
+# proxy credentials + local validation output (do not commit)
+api-server/scripts/proxyscrape-list.txt
+api-server/scripts/validation-results*.csv
+api-server/scripts/validation-results*.json
 /nul
 nul
 scripts/admin-mint.zip

@@ -26,6 +26,11 @@ const ZNS_CONFIG = {
   register: { contract: '0xfb2cd41a8aec89efbb19575c6c48d872ce97a0a5', functions: ['RegisterDomains', 'registerDomains'] },
 };
 
+// ZNS SayGM dispatcher moved 0x3033… → 0xC3Aa… (verified live 2026-09-10:
+// 66/66 on-chain SayGMs go to the new dispatcher, 0 to the old one).
+// Historical SayGMs live under the old key; both are summed.
+const ZNS_SAYGM_V2_CONTRACT = '0xc3aa977fa6a937fde1c7cc61a3c0ef9b6baf43f9';
+
 // Define Ink Chain for viem (Mainnet)
 const inkChain = defineChain({
   id: 57073,
@@ -131,14 +136,15 @@ interface ZenithStakingResult {
 export async function getZnsMetrics(walletLower: string) {
   // Counts via Blockscout (single batched query per action, no method
   // selectors needed — resolved by decoded method name).
-  const [deployRes, sayGmRes, registerRes] = await Promise.all([
+  const [deployRes, sayGmRes, sayGmV2Res, registerRes] = await Promise.all([
     getProtocolCount(walletLower, 'zns-deploy', ZNS_CONFIG.deploy.contract, null, ZNS_CONFIG.deploy.functions),
     getProtocolCount(walletLower, 'zns-saygm', ZNS_CONFIG.sayGm.contract, null, ZNS_CONFIG.sayGm.functions),
+    getProtocolCount(walletLower, 'zns-saygm-v2', ZNS_SAYGM_V2_CONTRACT, null, ZNS_CONFIG.sayGm.functions),
     getProtocolCount(walletLower, 'zns-register', ZNS_CONFIG.register.contract, null, ZNS_CONFIG.register.functions),
   ]);
 
   const deployCount = deployRes.count;
-  const sayGmCount = sayGmRes.count;
+  const sayGmCount = sayGmRes.count + sayGmV2Res.count;
   const registerCount = registerRes.count;
 
   const result = {

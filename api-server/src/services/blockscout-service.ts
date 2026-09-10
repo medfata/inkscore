@@ -292,6 +292,10 @@ function ensureTables(): Promise<void> {
         updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
         PRIMARY KEY (wallet_address, protocol)
       )`);
+      // Exact-count cursor memory: hashes already counted AT exactly
+      // last_seen (same-instant collisions). Replaced — never appended —
+      // every cycle, so storage stays O(same-instant txs).
+      await query(`ALTER TABLE bs_protocol_counts ADD COLUMN IF NOT EXISTS boundary_hashes TEXT[] NOT NULL DEFAULT '{}'`);
       await query(`CREATE TABLE IF NOT EXISTS bs_tx_legs (
         tx_hash TEXT PRIMARY KEY,
         transfers JSONB NOT NULL,
@@ -556,6 +560,17 @@ const COUNTS_TTL_MS = 60 * 60 * 1000;
 // Page caps are safety valves per request; walks marked incomplete converge
 // over successive loads (background refresh + permanent per-tx caches).
 const MAX_COUNT_PAGES = 100;
+// Finality lag for count cursors: never count or cursor into the unfinalized
+// head. Items newer than this stay invisible until mature — a small reorg can
+// otherwise mint phantom counts that no later refresh would remove (history
+// is only append-mostly at the head).
+const COUNT_LAG_CUTOFF_MS = 5 * 60_000;
+// Registry version for count queries. Bump when tracked-contract/selector
+// semantics change: every stored row then mismatches on next touch and takes
+// the FULL rebuild path (count replaced with the exact total), so legacy
+// accumulated counts self-correct gradually with zero manual deletes and no
+// big-bang migration.
+const COUNT_REGISTRY_VERSION = 'cnt-v2';
 
 function hashQuery(methods: string[] | null, methodNames: string[], direction = 'out'): string {
   const parts: string[] = [`dir:${direction}`];
@@ -629,7 +644,12 @@ async function walkProtocolTxHashes(
   methods: string[] | null,
   since: string | null,
   maxPages: number,
-  until: string | null = null
+  until: string | null = null,
+  // Exact-count stop: end paging at the first item strictly OLDER than this
+  // (numeric millis). Walks are newest-first, so everything below was already
+  // counted — refreshes cost new pages only, never a full re-walk. Null =
+  // legacy full walk (used by hash-set discovery, which dedupes by hash).
+  stopBelowMs: number | null = null
 ): Promise<{ hashes: string[]; entries: Array<{ hash: string; ts: string }>; complete: boolean; newestSeen: string | null; oldestSeen: string | null }> {
   const from = fromAddr.toLowerCase();
   const to = toAddr.toLowerCase();
@@ -657,10 +677,20 @@ async function walkProtocolTxHashes(
   let newestSeen: string | null = sinceIso;
   let oldestSeen: string | null = untilIso;
   let pages = 0;
+  let stoppedAtCursor = false;
   while (url && pages < maxPages) {
     pages++;
     const data = await bsFetch(url);
     for (const item of data?.items || []) {
+      // Cursor stop (count path only): first item older than the cursor ends
+      // the walk — everything below was counted by an earlier cycle.
+      if (stopBelowMs !== null && item?.timestamp) {
+        const t = Date.parse(String(item.timestamp));
+        if (!Number.isNaN(t) && t < stopBelowMs) {
+          stoppedAtCursor = true;
+          break;
+        }
+      }
       if (item?.type === 'contract_interaction' && item?.hash) {
         const hash = String(item.hash).toLowerCase();
         const ts = item.timestamp ? String(item.timestamp) : '';
@@ -674,6 +704,7 @@ async function walkProtocolTxHashes(
         oldestSeen = item.timestamp;
       }
     }
+    if (stoppedAtCursor) break; // cursor covered everything below; walk done
     const np = data?.next_page_params;
     if (!np) break;
     const qs = Object.entries(np)
@@ -704,9 +735,12 @@ export async function getProtocolCount(
   const wallet = walletAddress.toLowerCase();
   const to = toAddress.toLowerCase();
   const names = normalizeMethodNames(methodNames);
-  const methodsHash = hashQuery(methods, names, direction);
-  const cached = await dbGet<{ count: number; last_seen: string | null; complete: boolean; updated_at: string }>(
-    'SELECT count, last_seen, complete, updated_at FROM bs_protocol_counts WHERE wallet_address = $1 AND protocol = $2',
+  // Versioned: any row built under an older registry (or predating the
+  // methods_hash column) rebuilds exactly on next touch — see registryChanged.
+  // hashQuery itself is shared with hash-set discovery and stays unversioned.
+  const methodsHash = `${COUNT_REGISTRY_VERSION}|${hashQuery(methods, names, direction)}`;
+  const cached = await dbGet<{ count: number; last_seen: string | null; methods_hash: string | null; boundary_hashes: string[] | null; complete: boolean; updated_at: string }>(
+    'SELECT count, last_seen, methods_hash, boundary_hashes, complete, updated_at FROM bs_protocol_counts WHERE wallet_address = $1 AND protocol = $2',
     [wallet, protocol]
   );
 
@@ -722,8 +756,8 @@ export async function getProtocolCount(
   return withInflight(`proto-count:${wallet}:${protocol}:${methodsHash}`, async () => {
     // Re-check: a concurrent run may have completed while we waited on the
     // in-flight slot.
-    const cachedNow = await dbGet<{ count: number; last_seen: string | null; complete: boolean; updated_at: string }>(
-      'SELECT count, last_seen, complete, updated_at FROM bs_protocol_counts WHERE wallet_address = $1 AND protocol = $2',
+    const cachedNow = await dbGet<{ count: number; last_seen: string | null; methods_hash: string | null; boundary_hashes: string[] | null; complete: boolean; updated_at: string }>(
+      'SELECT count, last_seen, methods_hash, boundary_hashes, complete, updated_at FROM bs_protocol_counts WHERE wallet_address = $1 AND protocol = $2',
       [wallet, protocol]
     );
     const freshNow = cachedNow && Date.now() - new Date(cachedNow.updated_at).getTime() < COUNTS_TTL_MS;
@@ -732,10 +766,28 @@ export async function getProtocolCount(
     }
     const row = cachedNow ?? cached;
 
+    // Registry drift guard: the tracked query for this protocol key changed
+    // (contracts/selectors edited in a deploy, or a legacy row predating the
+    // methods_hash column) since this row was built. Continuing incrementally
+    // would mix two different queries' counts — do a FULL rebuild instead
+    // (count is replaced, never accumulated).
+    const registryChanged = !!row && (row.methods_hash || '') !== methodsHash;
+
+    // Exact-count cursor (numeric — never lexicographic: PG round-trips
+    // TIMESTAMPTZ at millis precision while Blockscout serves micros, so
+    // string compares both miss sub-second-newer txs and re-add the seam).
+    // Boundary hashes remember what was counted AT exactly the cursor, so a
+    // same-instant newcomer counts once and a re-walked seam counts zero.
+    const since = registryChanged ? null : row?.last_seen || null;
+    let sinceMs = since ? new Date(since).getTime() : -1;
+    if (Number.isNaN(sinceMs)) sinceMs = -1; // corrupt cursor: rebuild, don't accumulate
+    const boundary = new Set((!registryChanged && row?.boundary_hashes ? row.boundary_hashes : []).map((h) => String(h).toLowerCase()));
+    // Finality cutoff: the unfinalized head stays invisible this cycle (a
+    // small reorg could otherwise mint phantom counts no refresh removes).
+    const lagIso = new Date(Date.now() - COUNT_LAG_CUTOFF_MS).toISOString();
     // Incremental refresh: only activity since last_seen (cheap + exact).
     // direction=either unions both directions (needed for fill/claim flows
     // that may not originate from the wallet).
-    const since = row?.last_seen || null;
     const dirs: Array<[string, string]> =
       direction === 'either'
         ? [[wallet, to], [to, wallet]]
@@ -743,29 +795,35 @@ export async function getProtocolCount(
           ? [[to, wallet]]
           : [[wallet, to]];
     const results = await Promise.all(
-      dirs.map(([f, t]) => walkProtocolTxHashes(f, t, methods, since, MAX_COUNT_PAGES))
+      dirs.map(([f, t]) => walkProtocolTxHashes(f, t, methods, since, MAX_COUNT_PAGES, lagIso, sinceMs >= 0 ? sinceMs : null))
     );
-    // Merge both directions, keeping each hash's newest timestamp.
+    // Merge both directions, keeping each hash's newest timestamp (numeric).
     const byHash = new Map<string, string>();
     for (const r of results) {
       for (const e of r.entries) {
         const prev = byHash.get(e.hash);
-        if (prev === undefined || e.ts > prev) byHash.set(e.hash, e.ts);
+        if (prev === undefined || Date.parse(e.ts) > Date.parse(prev || '')) byHash.set(e.hash, e.ts);
       }
     }
     const walkComplete = results.every((r) => r.complete);
-    const newestSeen = results.reduce<string | null>(
-      (acc, r) => (!acc || (r.newestSeen && r.newestSeen > acc) ? r.newestSeen || acc : acc),
-      since
-    );
+    let newestMs = sinceMs;
+    for (const [, ts] of byHash) {
+      const t = Date.parse(ts);
+      if (!Number.isNaN(t) && t > newestMs) newestMs = t;
+    }
 
-    // age_from is INCLUSIVE: the boundary tx itself (timestamp == last_seen)
-    // comes back on every refresh pass. Counting it would re-add +1 on every
-    // cycle while last_seen never advances — only txs STRICTLY newer than
-    // last_seen are new activity.
-    const sinceIso = toAgeParam(since);
+    // age_from is INCLUSIVE: the boundary txs come back on every refresh
+    // pass. Only txs strictly newer than the cursor — or same-instant but
+    // unseen hashes — are new activity. Timestamp-less entries can never be
+    // proven new on a refresh, so they count exactly once (first sighting).
     let matched = [...byHash.entries()]
-      .filter(([hash, ts]) => !sinceIso || ts > sinceIso)
+      .filter(([hash, ts]) => {
+        const t = Date.parse(ts);
+        if (Number.isNaN(t)) return sinceMs < 0 || !boundary.has(hash);
+        if (sinceMs < 0) return true;
+        if (t > sinceMs) return true;
+        return t === sinceMs && !boundary.has(hash);
+      })
       .map(([hash]) => hash);
     let namesComplete = true;
     if (names.length > 0 && matched.length > 0) {
@@ -773,16 +831,38 @@ export async function getProtocolCount(
       matched = filtered.matched;
       namesComplete = filtered.complete;
     }
-    const count = (row?.count || 0) + matched.length;
+    const count = registryChanged ? matched.length : (row?.count || 0) + matched.length;
     const complete = walkComplete && namesComplete;
 
+    // New seam = every walked hash at the newest instant (plus any
+    // timestamp-less ones): unioned when the seam didn't move, replaced when
+    // it advanced. Bounded by same-instant volume, never history size.
+    let newBoundary: string[];
+    if (newestMs === sinceMs && sinceMs >= 0) {
+      // Seam didn't move: union keeps every hash ever counted at this
+      // instant (plus timestamp-less ones, which no cursor position covers).
+      const seam = [...byHash.entries()]
+        .filter(([h, ts]) => Date.parse(ts) === newestMs || Number.isNaN(Date.parse(ts)))
+        .map(([h]) => h);
+      newBoundary = [...new Set([...boundary, ...seam])];
+    } else if (newestMs > sinceMs) {
+      newBoundary = [...byHash.entries()]
+        .filter(([h, ts]) => Date.parse(ts) === newestMs || Number.isNaN(Date.parse(ts)))
+        .map(([h]) => h);
+    } else {
+      newBoundary = [...boundary];
+    }
+    // The cursor only ever moves forward: a walk that saw nothing newer
+    // keeps the old instant (COALESCE below), never rewinds into history.
+    const newLastSeen = newestMs > sinceMs ? new Date(newestMs).toISOString() : null;
+
     await dbWrite(
-      `INSERT INTO bs_protocol_counts (wallet_address, protocol, methods_hash, count, last_seen, complete, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, now())
+      `INSERT INTO bs_protocol_counts (wallet_address, protocol, methods_hash, count, last_seen, boundary_hashes, complete, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, now())
        ON CONFLICT (wallet_address, protocol)
-       DO UPDATE SET count = $4, last_seen = COALESCE($5, bs_protocol_counts.last_seen),
-         complete = $6, methods_hash = $3, updated_at = now()`,
-      [wallet, protocol, methodsHash, count, newestSeen, complete]
+       DO UPDATE SET count = $4, last_seen = COALESCE($5, bs_protocol_counts.last_seen), boundary_hashes = $6,
+         complete = $7, methods_hash = $3, updated_at = now()`,
+      [wallet, protocol, methodsHash, count, newLastSeen, newBoundary, complete]
     );
     if (!complete) {
       await queueRefresh(wallet, 10, { protocol, toAddress: to, methods: methods || [], methodNames: names, direction });
