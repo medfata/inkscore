@@ -18,8 +18,9 @@ import {
 import { DashboardCardsTab } from './DashboardCardsTab';
 import { AssetsTab } from './AssetsTab';
 import { BackfillTab } from './BackfillTab';
+import { ProxiesTab } from './ProxiesTab';
 
-type TabType = 'metrics' | 'platforms' | 'contracts' | 'rules' | 'ranks' | 'dashboard' | 'assets' | 'backfill';
+type TabType = 'metrics' | 'platforms' | 'contracts' | 'rules' | 'ranks' | 'dashboard' | 'assets' | 'backfill' | 'proxies';
 
 export default function AdminPage() {
   const { address, isConnected } = useAccount();
@@ -237,6 +238,7 @@ export default function AdminPage() {
     { id: 'rules', label: 'Points Rules', count: rules.length },
     { id: 'ranks', label: 'Ranks', count: ranks.length },
     { id: 'dashboard', label: 'Dashboard Cards' },
+    { id: 'proxies', label: 'Proxies' },
   ];
 
   // 1. Not connected? Show connect message
@@ -416,6 +418,10 @@ export default function AdminPage() {
 
         {activeTab === 'backfill' && (
           <BackfillTab contracts={contracts.map(c => ({ id: c.id, address: c.address, name: c.name }))} />
+        )}
+
+        {activeTab === 'proxies' && (
+          <ProxiesTab adminFetch={adminFetch} />
         )}
       </div>
 

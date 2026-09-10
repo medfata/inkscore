@@ -8,11 +8,12 @@ import dashboardRoutes from './routes/dashboard';
 import nadoRoutes from './routes/nado';
 import otomateRoutes from './routes/otomate';
 import ranksRoutes from './routes/ranks';
+import adminProxiesRoutes from './routes/admin-proxies';
 import cryptoclashRoutes from './routes/cryptoclash';
 import sweepRoutes from './routes/sweep';
 import { startRefreshWorker } from './services/refresh-worker';
 import { startCatchupWorker } from './services/catchup-worker';
-import { logProxyStatus } from './services/proxy-agent';
+import { initProxyPool, logProxyStatus } from './services/proxy-agent';
 import { bypassWalletCache } from './cache';
 
 const app = express();
@@ -54,6 +55,7 @@ app.use('/api/otomate', otomateRoutes);
 // cached clients and old snapshots don't 404 during the transition.
 app.use('/api/copink', otomateRoutes);
 app.use('/api/ranks', ranksRoutes);
+app.use('/api/admin/proxies', adminProxiesRoutes);
 app.use('/api/cryptoclash', cryptoclashRoutes);
 app.use('/api/sweep', sweepRoutes);
 
@@ -67,8 +69,10 @@ async function startServer() {
     process.exit(1);
   }
 
-  const server = app.listen(PORT, () => {
+  const server = app.listen(PORT, async () => {
     console.log(`API server running on port ${PORT}`);
+    // Proxy pool (DB keys, else legacy file/template) + quota schedulers.
+    await initProxyPool();
     // Residential proxy pool for Blockscout egress (per-IP rate limits).
     logProxyStatus();
     // Background worker: completes truncated Blockscout fills + refreshes
