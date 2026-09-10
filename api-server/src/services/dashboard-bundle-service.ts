@@ -300,13 +300,26 @@ export async function gatherDashboardBundle(
   // or snapshot-served either, or one cold-burst timeout would freeze that
   // metric as missing for the whole TTL. The bundle is still returned live
   // (the UI shows what we have) and snapshotted with partial=true for audit.
+  //
+  // PARTIAL RULE: a metric that returns a NON-NULL subset (discovery page cap,
+  // pricing cap) is just as incomplete for accuracy — it under-reports vs
+  // reality. Those payloads carry `partial: true` and must also keep the
+  // bundle out of the caches and hand the wallet to the background completion
+  // loop (route enqueues a 'bundle' refill job), otherwise a whale's first
+  // truncated load would stay truncated until the next unrelated visit.
   const missing = Object.entries(metrics)
     .filter(([, v]) => v == null)
     .map(([k]) => k);
-  const partial = inputs.walletStats === null || missing.length > 0;
+  const metricIsPartial = (v: unknown): boolean =>
+    !!v && typeof v === 'object' && (v as { partial?: unknown }).partial === true;
+  const partialMetrics = Object.entries(metrics)
+    .filter(([, v]) => metricIsPartial(v))
+    .map(([k]) => k);
+  const partial = inputs.walletStats === null || missing.length > 0 || partialMetrics.length > 0;
   if (partial) {
     console.warn(
-      `[Bundle] ${wallet.slice(0, 10)}: incomplete bundle — missing: ${missing.join(', ') || 'wallet stats'} (will not be cached)`
+      `[Bundle] ${wallet.slice(0, 10)}: incomplete bundle — missing: ${missing.join(', ') || 'wallet stats'}` +
+        `${partialMetrics.length ? ` — partial: ${partialMetrics.join(', ')}` : ''} (will not be cached)`
     );
   }
 

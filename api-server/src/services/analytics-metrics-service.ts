@@ -225,6 +225,7 @@ export async function getOpenseaBuyCount(wallet: string) {
     total_value: counts.buys.toString(),
     sub_aggregates: [],
     last_updated: new Date(),
+    ...(counts.partial ? { partial: true } : {}),
   };
 
   return result;
@@ -245,6 +246,7 @@ export async function getMintCount(wallet: string) {
     total_value: counts.mints.toString(),
     sub_aggregates: [],
     last_updated: new Date(),
+    ...(counts.partial ? { partial: true } : {}),
   };
 
   return result;
@@ -263,6 +265,7 @@ export async function getOpenseaSaleCount(wallet: string) {
     total_value: counts.sales.toString(),
     sub_aggregates: [],
     last_updated: new Date(),
+    ...(counts.partial ? { partial: true } : {}),
   };
 
   return result;
@@ -294,11 +297,11 @@ export async function getInkypumpBuyVolume(walletLower: string) {
   const buyMethodIds = ['0x7ff36ab5', '0xfb3bdb41'];
   const WETH_ADDRESS = '0x4200000000000000000000000000000000000006';
 
-  const { hashes } = await getProtocolTxHashes(walletLower, INKYSWAP_ROUTER_ADDRESS, buyMethodIds);
+  const { hashes, complete } = await getProtocolTxHashes(walletLower, INKYSWAP_ROUTER_ADDRESS, buyMethodIds);
   // Price ALL cached + a capped slice of uncached so USD converges over loads.
   const { cached, uncached } = await partitionTxHashes(hashes);
   const priced = [...cached, ...uncached.slice(0, 300)];
-  const partial = cached.length + Math.min(uncached.length, 100) < hashes.length;
+  const partial = !complete || cached.length + Math.min(uncached.length, 100) < hashes.length;
   const txData = await getTxData(priced);
   const ethPrice = await priceService.getCurrentPrice().catch(() => 3500);
 
@@ -358,11 +361,11 @@ export async function getInkypumpSellVolume(walletLower: string) {
   const sellMethodIds = ['0x18cbafe5', '0x4a25d94a', '0x791ac947'];
   const WETH_ADDRESS = '0x4200000000000000000000000000000000000006';
 
-  const { hashes } = await getProtocolTxHashes(walletLower, INKYSWAP_ROUTER_ADDRESS, sellMethodIds);
+  const { hashes, complete } = await getProtocolTxHashes(walletLower, INKYSWAP_ROUTER_ADDRESS, sellMethodIds);
   // Price ALL cached + a capped slice of uncached so USD converges over loads.
   const { cached, uncached } = await partitionTxHashes(hashes);
   const priced = [...cached, ...uncached.slice(0, 300)];
-  const partial = cached.length + Math.min(uncached.length, 100) < hashes.length;
+  const partial = !complete || cached.length + Math.min(uncached.length, 100) < hashes.length;
   const txData = await getTxData(priced);
   const ethPrice = await priceService.getCurrentPrice().catch(() => 3500);
 

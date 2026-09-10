@@ -19,6 +19,8 @@ export interface Nft2MeResponse {
     collectionsCreated: number;
     nftsMinted: number;
     totalTransactions: number;
+    /** Any count walk truncated (page cap) — under-reported until completed. */
+    partial?: boolean;
 }
 
 export async function getNft2meData(walletAddress: string): Promise<Nft2MeResponse> {
@@ -33,9 +35,9 @@ export async function getNft2meData(walletAddress: string): Promise<Nft2MeRespon
         const factoryLower = NFT2ME_CONTRACTS.FACTORY.toLowerCase();
         const minterLower = NFT2ME_CONTRACTS.MINTER.toLowerCase();
 
-        // Counts via Blockscout (method names resolved per tx; sets are tiny).
-        // Mint selector pinned (verified live: unanimous mint(...) selector) so
-        // counts don't depend on Blockscout's method decoder backfill lag.
+        // Counts via Blockscout. Mint is selector-pinned (verified live) so
+        // no per-tx metadata resolution is needed; collection creation stays
+        // name-based (its selector decodes as 0x00000000 — not safely pinnable).
         const [createdRes, mintedRes] = await Promise.all([
             getProtocolCount(
                 walletAddress, 'nft2me-created', factoryLower, null,
@@ -43,19 +45,23 @@ export async function getNft2meData(walletAddress: string): Promise<Nft2MeRespon
             ),
             getProtocolCount(
                 walletAddress, 'nft2me-minted', minterLower, ['0xb510391f'],
-                [TRACKED_FUNCTIONS.MINT]
+                null
             ),
         ]);
         const collectionsCreated = createdRes.count;
         const nftsMinted = mintedRes.count;
+        const partial = !createdRes.complete || !mintedRes.complete;
 
         const response: Nft2MeResponse = {
             collectionsCreated,
             nftsMinted,
             totalTransactions: collectionsCreated + nftsMinted,
+            ...(partial ? { partial: true } : {}),
         };
 
-        setLongCache(lcKey, response);
+        // Partial payloads skip the long cache so the next call resumes the
+        // truncated walks instead of serving a subset for the whole TTL.
+        if (!partial) setLongCache(lcKey, response);
 
         return response;
     });

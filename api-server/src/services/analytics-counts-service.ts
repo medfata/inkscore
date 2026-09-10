@@ -40,11 +40,13 @@ const ZNS_SAYGM_V2_CONTRACT = '0xc3aa977fa6a937fde1c7cc61a3c0ef9b6baf43f9';
 const PINNED_SELECTORS = {
   nft2meMint: ['0xb510391f'], // mint(...)
   shelliesPay: ['0x3e5edbd3'], // PayToPlay
-  shelliesRaffle: ['0xa1dcf673'], // joinRaffle (raffle-1; raffle-2 untested)
-  znsSayGmV2: ['0x779a220b'], // sayGMGN on the 0xC3Aa… dispatcher
+  shelliesRaffle: ['0xa1dcf673'], // joinRaffle — verified on BOTH raffle contracts
+  znsSayGmV2: ['0x779a220b', '0xd371cd50'], // sayGMGN + sayGM — both live on the new dispatcher (audit-found)
+  znsSaygmOld: ['0xd371cd50'], // sayGM on the legacy 0x3033… dispatcher (stable Dec25–Mar26)
   znsDeploy: ['0x4c96a389'], // Deploy
   znsRegister: ['0x3a99d4eb'], // RegisterDomains
   brokersClockIn: ['0xfc03c14b'], // clockIn
+  brokersClaim: ['0xddd5e1b2'], // claim (distinct from sweepIntoRound 0x40dfb773)
 };
 
 // Define Ink Chain for viem (Mainnet)
@@ -150,18 +152,24 @@ interface ZenithStakingResult {
 // GET /api/analytics/:wallet/zns
 // ============================================
 export async function getZnsMetrics(walletLower: string) {
-  // Counts via Blockscout (single batched query per action, no method
-  // selectors needed — resolved by decoded method name).
+  // Counts via Blockscout. Every query is selector-pinned (verified live):
+  // selector-only walks need NO per-tx metadata resolution, and the
+  // methods_hash change self-migrates legacy rows to exact counts. Name
+  // matching is intentionally omitted when a pinned selector is present —
+  // the walk is server-filtered by selector, so a names re-check could only
+  // re-validate the same rows at the cost of one Blockscout request each.
   const [deployRes, sayGmRes, sayGmV2Res, registerRes] = await Promise.all([
-    getProtocolCount(walletLower, 'zns-deploy', ZNS_CONFIG.deploy.contract, PINNED_SELECTORS.znsDeploy, ZNS_CONFIG.deploy.functions),
-    getProtocolCount(walletLower, 'zns-saygm', ZNS_CONFIG.sayGm.contract, null, ZNS_CONFIG.sayGm.functions),
-    getProtocolCount(walletLower, 'zns-saygm-v2', ZNS_SAYGM_V2_CONTRACT, PINNED_SELECTORS.znsSayGmV2, [...ZNS_CONFIG.sayGm.functions, 'sayGMGN']),
-    getProtocolCount(walletLower, 'zns-register', ZNS_CONFIG.register.contract, PINNED_SELECTORS.znsRegister, ZNS_CONFIG.register.functions),
+    getProtocolCount(walletLower, 'zns-deploy', ZNS_CONFIG.deploy.contract, PINNED_SELECTORS.znsDeploy, null),
+    getProtocolCount(walletLower, 'zns-saygm', ZNS_CONFIG.sayGm.contract, PINNED_SELECTORS.znsSaygmOld, null),
+    getProtocolCount(walletLower, 'zns-saygm-v2', ZNS_SAYGM_V2_CONTRACT, PINNED_SELECTORS.znsSayGmV2, null),
+    getProtocolCount(walletLower, 'zns-register', ZNS_CONFIG.register.contract, PINNED_SELECTORS.znsRegister, null),
   ]);
 
   const deployCount = deployRes.count;
   const sayGmCount = sayGmRes.count + sayGmV2Res.count;
   const registerCount = registerRes.count;
+  const partial =
+    !deployRes.complete || !sayGmRes.complete || !sayGmV2Res.complete || !registerRes.complete;
 
   const result = {
     slug: 'zns',
@@ -172,6 +180,7 @@ export async function getZnsMetrics(walletLower: string) {
     say_gm_count: sayGmCount,
     register_domain_count: registerCount,
     last_updated: new Date(),
+    ...(partial ? { partial: true } : {}),
   };
 
   return result;
@@ -181,9 +190,10 @@ export async function getZnsMetrics(walletLower: string) {
 // shellies_joined_raffles (counts via Blockscout)
 // ============================================
 export async function getShelliesJoinedRaffles(walletLower: string) {
+  // Both raffle contracts share the verified joinRaffle selector — selector-only.
   const [r1, r2] = await Promise.all([
-    getProtocolCount(walletLower, 'shellies-raffle-1', SHELLIES_RAFFLE_CONTRACTS[0], PINNED_SELECTORS.shelliesRaffle, ['JoinRaffle', 'joinRaffle']),
-    getProtocolCount(walletLower, 'shellies-raffle-2', SHELLIES_RAFFLE_CONTRACTS[1], null, ['JoinRaffle', 'joinRaffle']),
+    getProtocolCount(walletLower, 'shellies-raffle-1', SHELLIES_RAFFLE_CONTRACTS[0], PINNED_SELECTORS.shelliesRaffle, null),
+    getProtocolCount(walletLower, 'shellies-raffle-2', SHELLIES_RAFFLE_CONTRACTS[1], PINNED_SELECTORS.shelliesRaffle, null),
   ]);
   const count = r1.count + r2.count;
 
@@ -196,6 +206,7 @@ export async function getShelliesJoinedRaffles(walletLower: string) {
     total_value: count.toString(),
     sub_aggregates: [],
     last_updated: new Date(),
+    ...((!r1.complete || !r2.complete) ? { partial: true } : {}),
   };
 
   return result;
@@ -205,7 +216,7 @@ export async function getShelliesJoinedRaffles(walletLower: string) {
 // shellies_pay_to_play (counts via Blockscout)
 // ============================================
 export async function getShelliesPayToPlay(walletLower: string) {
-  const pc = await getProtocolCount(walletLower, 'shellies-pay', SHELLIES_PAY_TO_PLAY_CONTRACT, PINNED_SELECTORS.shelliesPay, ['PayToPlay', 'payToPlay']);
+  const pc = await getProtocolCount(walletLower, 'shellies-pay', SHELLIES_PAY_TO_PLAY_CONTRACT, PINNED_SELECTORS.shelliesPay, null);
   const count = pc.count;
 
   const result = {
@@ -217,6 +228,7 @@ export async function getShelliesPayToPlay(walletLower: string) {
     total_value: count.toString(),
     sub_aggregates: [],
     last_updated: new Date(),
+    ...(pc.complete ? {} : { partial: true }),
   };
 
   return result;
@@ -227,8 +239,8 @@ export async function getShelliesPayToPlay(walletLower: string) {
 // legacy 0x1e332260 selector resolves to its decoded name on-chain)
 // ============================================
 export async function getShelliesStaking(walletLower: string) {
-  // Fallback to transaction count (contract read not available in Express server)
-  const pc = await getProtocolCount(walletLower, 'shellies-staking', SHELLIES_STAKING_CONTRACT, ['0x1e332260'], ['StakeBatch', 'stakeBatch']);
+  // Selector-pinned (verified live: StakeBatch dispatcher) — selector-only.
+  const pc = await getProtocolCount(walletLower, 'shellies-staking', SHELLIES_STAKING_CONTRACT, ['0x1e332260'], null);
   const count = pc.count;
 
   const result = {
@@ -240,6 +252,7 @@ export async function getShelliesStaking(walletLower: string) {
     total_value: count.toString(),
     sub_aggregates: [],
     last_updated: new Date(),
+    ...(pc.complete ? {} : { partial: true }),
   };
 
   return result;
@@ -552,6 +565,8 @@ interface InkBrokersResult {
   seat_tiers: Array<{ label: string; value: string }>;
   sub_aggregates: Array<{ label: string; value: string }>;
   last_updated: Date;
+  /** Any desk-count or FloorRouter discovery walk truncated (page cap). */
+  partial?: boolean;
 }
 
 // Fetch the wallet's Ink Brokers token ids from Blockscout NFT holdings.
@@ -640,10 +655,11 @@ export async function getInkBrokersMetrics(walletLower: string): Promise<InkBrok
     });
 
     try {
-      // Desk tx counts via Blockscout (cursor-cached; incremental after first visit)
+      // Desk tx counts via Blockscout (cursor-cached; incremental after first
+      // visit). Both pinned selector-only — no metadata resolution needed.
       const [clockInRes, claimRes, tokenIds, clockedInIds, floorSwaps] = await Promise.all([
-        getProtocolCount(walletLower, 'inkbrokers-clockin', INK_BROKERS_CONFIG.clockIn.contract, PINNED_SELECTORS.brokersClockIn, INK_BROKERS_CONFIG.clockIn.functions),
-        getProtocolCount(walletLower, 'inkbrokers-claim', INK_BROKERS_CONFIG.claim.contract, null, INK_BROKERS_CONFIG.claim.functions),
+        getProtocolCount(walletLower, 'inkbrokers-clockin', INK_BROKERS_CONFIG.clockIn.contract, PINNED_SELECTORS.brokersClockIn, null),
+        getProtocolCount(walletLower, 'inkbrokers-claim', INK_BROKERS_CONFIG.claim.contract, PINNED_SELECTORS.brokersClaim, null),
         getInkBrokersTokenIds(walletLower),
         getInkBrokersClockedInTokenIds(walletLower).catch(() => [] as string[]),
         getProtocolTxHashes(walletLower, INK_BROKERS_FLOOR_ROUTER, INK_BROKERS_FLOOR_SELECTORS).catch((err: unknown) => {
@@ -722,6 +738,10 @@ export async function getInkBrokersMetrics(walletLower: string): Promise<InkBrok
 
       const seatTiers = Object.entries(tierCounts).map(([label, value]) => ({ label, value: String(value) }));
 
+      // Partial when any count walk or the FloorRouter discovery is truncated
+      // (under-reported count/volume until the background loop completes).
+      const brokersPartial = !clockInRes.complete || !claimRes.complete || !floorSwaps.complete;
+
       const result: InkBrokersResult = {
         slug: 'ink_brokers',
         name: 'Ink Brokers',
@@ -743,9 +763,10 @@ export async function getInkBrokersMetrics(walletLower: string): Promise<InkBrok
           ...seatTiers.map((t) => ({ label: `${t.label} Seats`, value: t.value })),
         ],
         last_updated: new Date(),
+        ...(brokersPartial ? { partial: true } : {}),
       };
 
-      setLongCache(lcKey, result);
+      if (!brokersPartial) setLongCache(lcKey, result);
       return result;
     } catch (error) {
       console.error('Error fetching Ink Brokers metrics:', error);

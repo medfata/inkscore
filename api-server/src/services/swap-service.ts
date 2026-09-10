@@ -70,7 +70,11 @@ export async function getSwapVolume(walletAddress: string): Promise<SwapVolumeRe
 
         await Promise.all(ALLOWED_DEX_CONTRACTS.map(async (contractAddr) => {
             const platformName = SWAP_CONTRACTS[contractAddr] || 'Unknown DEX';
-            const { hashes } = await getProtocolTxHashes(walletAddress, contractAddr, SWAP_METHOD_IDS);
+            const { hashes, complete } = await getProtocolTxHashes(walletAddress, contractAddr, SWAP_METHOD_IDS);
+            // Discovery truncation (page cap not yet walked): the returned set
+            // is a subset of history. Never silent — partial drives the
+            // background completion loop (bundle job resumes below the floor).
+            if (!complete) swapPartial = true;
             const { cached, uncached } = await partitionTxHashes(hashes);
             const priced = [...cached, ...uncached.slice(0, 1000)];
             if (cached.length + Math.min(uncached.length, 1000) < hashes.length) {

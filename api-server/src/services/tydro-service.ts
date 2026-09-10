@@ -137,7 +137,11 @@ export async function getTydroData(walletAddress: string): Promise<TydroResponse
 
         const { cached: cachedHashes, uncached: uncachedHashes } = await partitionTxHashes(allHashes);
         const priced = [...cachedHashes, ...uncachedHashes.slice(0, 500)];
-        const partial = cachedHashes.length + Math.min(uncachedHashes.length, 500) < allHashes.length;
+        // Partial = pricing cap OR discovery truncation on either contract
+        // (an incomplete discovery set understates counts/volume until the
+        // background completion loop resumes below its floor).
+        const discoveryPartial = !gwHashes.complete || !poolHashes.complete;
+        const partial = discoveryPartial || cachedHashes.length + Math.min(uncachedHashes.length, 500) < allHashes.length;
         const txData = await getTxData(priced);
         // Oldest-first for the running-balance clamps below.
         priced.sort((a, b) => String(txData.get(a)?.meta.timestamp || '').localeCompare(String(txData.get(b)?.meta.timestamp || '')));

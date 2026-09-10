@@ -38,6 +38,8 @@ interface ActivityCounts {
   buyTransactions: string[];
   saleTransactions: string[];
   mintTransactions: string[];
+  /** The latest fetch hit the page/time budget — counts are a subset. */
+  partial?: boolean;
 }
 
 interface CountsRow {
@@ -99,32 +101,37 @@ export class OpenSeaService {
    * Returns `ok: false` when no page could be fetched successfully (missing API
    * key, HTTP errors, timeouts) so callers can avoid caching garbage results.
    */
-  async fetchV2Events(walletAddress: string): Promise<{ events: V2AssetEvent[]; ok: boolean }> {
+  async fetchV2Events(walletAddress: string): Promise<{ events: V2AssetEvent[]; ok: boolean; truncated: boolean }> {
     const walletLabel = walletAddress.slice(0, 10);
     const events: V2AssetEvent[] = [];
     let next: string | null = null;
     let page = 0;
     let retries = 0;
     let anySuccess = false;
-    const MAX_PAGES = 30; // 30 * 50 = 1500 events max
+    let truncated = false;
+    // Env-tunable so background completion (worker) can afford a deeper walk
+    // than the request path. Defaults: 30 pages (1500 events) / 20s.
+    const MAX_PAGES = Math.max(1, parseInt(process.env.OPENSEA_MAX_PAGES || '30', 10));
     const MAX_RETRIES = 4;
     const PER_PAGE_TIMEOUT_MS = 10000;
-    const OVERALL_TIMEOUT_MS = 20000; // must stay under the 30s score fetch timeout
+    const OVERALL_TIMEOUT_MS = Math.max(5000, parseInt(process.env.OPENSEA_OVERALL_TIMEOUT_MS || '20000', 10));
     const start = Date.now();
 
     if (!this.apiKey) {
       console.warn('[OpenSea] OPENSEA_API_KEY not set, skipping fetch');
-      return { events, ok: false };
+      return { events, ok: false, truncated: false };
     }
 
     do {
       page++;
       if (page > MAX_PAGES) {
         console.warn(`[OpenSea] ${walletLabel} hit max pages (${MAX_PAGES}), returning ${events.length} partial events`);
+        truncated = true;
         break;
       }
       if (Date.now() - start > OVERALL_TIMEOUT_MS) {
         console.warn(`[OpenSea] ${walletLabel} overall timeout (${OVERALL_TIMEOUT_MS}ms) after ${page - 1} pages, returning ${events.length} partial events`);
+        truncated = true;
         break;
       }
 
@@ -149,6 +156,7 @@ export class OpenSeaService {
           retries++;
           if (retries > MAX_RETRIES) {
             console.warn(`[OpenSea] ${walletLabel} giving up after ${MAX_RETRIES} retries (HTTP ${res.status}), returning ${events.length} partial events`);
+            truncated = true;
             break;
           }
           const retryAfter = res.headers.get('Retry-After');
@@ -161,6 +169,7 @@ export class OpenSeaService {
 
         if (!res.ok) {
           console.error(`[OpenSea] ${walletLabel} page ${page} API error: ${res.status} ${res.statusText}`);
+          truncated = true;
           break;
         }
 
@@ -176,12 +185,13 @@ export class OpenSeaService {
         } else {
           console.error(`[OpenSea] ${walletLabel} page ${page} error:`, error.message || error);
         }
+        truncated = true;
         break;
       }
     } while (next);
 
-    console.log(`[OpenSea] ${walletLabel} done: ${events.length} events in ${((Date.now() - start) / 1000).toFixed(2)}s`);
-    return { events, ok: anySuccess };
+    console.log(`[OpenSea] ${walletLabel} done: ${events.length} events in ${((Date.now() - start) / 1000).toFixed(2)}s${truncated ? ' (TRUNCATED)' : ''}`);
+    return { events, ok: anySuccess, truncated };
   }
 
   /**
@@ -262,13 +272,21 @@ export class OpenSeaService {
 
     const fetchPromise = (async (): Promise<ActivityCounts> => {
       try {
-        const { events, ok } = await this.fetchV2Events(wallet);
+        const { events, ok, truncated } = await this.fetchV2Events(wallet);
         if (!ok) {
           // Never cache a failed fetch — partial/zero results would poison the
           // memory + DB caches with wrong counts for up to 24h.
           throw new Error('OpenSea v2 fetch failed (no successful page)');
         }
         const counts = this.calculateActivityCounts(events, wallet);
+        if (truncated) {
+          // ACCURACY: a budget-capped fetch is a SUBSET (probably missing the
+          // oldest events). Caching it as complete under-reports mints/buys/
+          // sales for up to 24h. Return it marked partial for this call, but
+          // leave the previous (complete) caches untouched.
+          console.warn(`[OpenSea] ${wallet.slice(0, 10)} truncated at ${counts.buys + counts.sales} activities — not cached, marked partial`);
+          return { ...counts, partial: true };
+        }
         this.countsCache.set(wallet, { counts, timestamp: Date.now() });
         await this.writeDbCounts(wallet, counts).catch((err) =>
           console.warn(`[OpenSea] DB cache write failed for ${wallet.slice(0, 10)}:`, err.message || err)

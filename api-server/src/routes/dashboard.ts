@@ -79,6 +79,14 @@ router.get('/bundle/:wallet', async (req: Request, res: Response) => {
           void queueRefresh(walletAddress, 5, { protocol, toAddress: '', methods: [] }).catch(() => undefined);
         }
       }
+
+      // FULL REFILL (accuracy): any null OR partial metric — count/discovery
+      // page caps, pricing caps, truncated walks — gets ONE background bundle
+      // pass that resumes every cursor and persists a complete snapshot. The
+      // queue upsert dedupes per wallet; the worker retries with backoff (and
+      // parks to a 6h cadence) until nothing is partial, so a whale's first
+      // truncated load can never stay truncated just because nobody revisited.
+      void queueRefresh(walletAddress, 1, { protocol: 'bundle', toAddress: '', methods: [] }).catch(() => undefined);
     }
 
     // Cache ONLY complete bundles: an incomplete one (any null metric) must

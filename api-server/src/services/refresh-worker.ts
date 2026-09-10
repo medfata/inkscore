@@ -27,7 +27,7 @@ import {
   saveBundleSnapshot,
   SNAPSHOT_MAX_AGE_MS,
 } from './metrics-snapshot-service';
-import { getRecentBlockscoutUsagePerMin, getBlockscoutRateLimit } from './blockscout-service';
+import { getRecentBlockscoutUsagePerMin, getBlockscoutRateLimit, auditPinnedRegistryDrift } from './blockscout-service';
 
 // Score-snapshot refresh: only bother when a snapshot is older than 45 min,
 // comfortably under SNAPSHOT_MAX_AGE_MS (60 min) — no point re-gathering
@@ -50,6 +50,19 @@ function throttleSaturated(): boolean {
 const WORKER_INTERVAL_MS = 60_000;
 const WORKER_BATCH = 20;
 const WORKER_CONCURRENCY = 2;
+// Bundle refill jobs (accuracy completion loop): past this attempt count the
+// job parks to a 6h cadence instead of the standard 60min backoff, so a
+// genuinely unreachable source can never retry-storm.
+const BUNDLE_PARK_ATTEMPTS = parseInt(process.env.BUNDLE_PARK_ATTEMPTS || '8', 10);
+// Incomplete-cursor sweep: finds wallets whose discovery/count/volume walks
+// are still truncated and enqueues bundle refills — guarantees convergence
+// even when nobody ever revisits the wallet.
+const INCOMPLETE_SWEEP_INTERVAL_MS = 10 * 60_000;
+const INCOMPLETE_SWEEP_LIMIT = Math.max(0, parseInt(process.env.INCOMPLETE_SWEEP_LIMIT || '40', 10));
+let incompleteSweepWarned = false;
+// Registry drift audit cadence (see auditPinnedRegistryDrift): cheap, bounded,
+// catches tracked actions that move to a new selector before counts drop.
+const REGISTRY_AUDIT_INTERVAL_MS = 6 * 60 * 60_000;
 
 // System/junk wallets that must never be walked: the burn address has 55M
 // txs — every Blockscout query for it times out and poisons the shared
@@ -123,6 +136,18 @@ async function runJob(row: QueueRow): Promise<void> {
     // with cursor-resume (delta only) and the complete bundle persists to the
     // snapshot store, so the next visit serves instantly.
     if (row.protocol === 'bundle') {
+      if (row.attempts >= BUNDLE_PARK_ATTEMPTS) {
+        // Still partial after N passes (usually a dead upstream): park to a
+        // 6h cadence instead of tight retries. A later visit/sweep can still
+        // complete it earlier; the row is deleted on success.
+        await query(
+          `UPDATE bs_refresh_queue SET next_run = now() + interval '6 hours'
+            WHERE wallet_address = $1 AND protocol = 'bundle'`,
+          [row.wallet_address] as never[]
+        );
+        console.warn(`[RefreshWorker] parked bundle refill for ${row.wallet_address.slice(0, 10)} (attempts=${row.attempts})`);
+        return;
+      }
       const bundle = await gatherDashboardBundle(row.wallet_address, { fresh: true });
       if (bundle.partial) throw new Error('bundle refresh ended partial — will retry with backoff');
       return;
@@ -209,6 +234,64 @@ export function startRefreshWorker(): void {
   };
   setTimeout(warmActiveWallets, 60_000);
   setInterval(warmActiveWallets, 15 * 60_000);
+
+  // Completeness backstop: wallets whose cursor rows are still truncated get a
+  // bundle refill without any user visit. Bounded per sweep and throttle-aware;
+  // harmless before the cursor tables exist (warned once, then skipped).
+  const sweepIncompleteCursors = async (): Promise<void> => {
+    if (throttleSaturated()) return;
+    if (INCOMPLETE_SWEEP_LIMIT === 0) return;
+    try {
+      const rows = await query<{ wallet_address: string }>(
+        `SELECT DISTINCT wallet_address FROM (
+           SELECT wallet_address FROM bs_tx_discovery WHERE complete = false
+           UNION SELECT wallet_address FROM bs_protocol_counts WHERE complete = false
+           UNION SELECT wallet_address FROM bs_bridge_inflows WHERE complete = false
+           UNION SELECT wallet_address FROM bs_native_volume WHERE done = false
+           UNION SELECT wallet_address FROM bs_token_inflow_cursors WHERE complete = false
+         ) incomplete
+         LIMIT $1`,
+        [INCOMPLETE_SWEEP_LIMIT] as never[]
+      );
+      let enqueued = 0;
+      for (const r of rows) {
+        const w = (r.wallet_address || '').toLowerCase();
+        if (!w || JUNK_WALLETS.has(w)) continue;
+        await query(
+          `INSERT INTO bs_refresh_queue (wallet_address, protocol, to_address, methods, method_names, direction, priority, next_run, attempts)
+           VALUES ($1, 'bundle', '', '', '', 'out', 0, now(), 0)
+           ON CONFLICT (wallet_address, protocol) DO NOTHING`,
+          [w] as never[]
+        );
+        enqueued++;
+      }
+      if (enqueued > 0) console.log(`[RefreshWorker] incomplete sweep: enqueued ${enqueued} bundle refills`);
+    } catch (err: any) {
+      const msg = String(err?.message || err);
+      if (/\bdoes not exist\b/i.test(msg)) {
+        if (!incompleteSweepWarned) {
+          incompleteSweepWarned = true;
+          console.warn('[RefreshWorker] incomplete sweep idle (cursor tables not created yet)');
+        }
+      } else {
+        console.warn('[RefreshWorker] incomplete sweep failed:', msg);
+      }
+    }
+  };
+  setTimeout(sweepIncompleteCursors, 180_000);
+  setInterval(sweepIncompleteCursors, INCOMPLETE_SWEEP_INTERVAL_MS);
+
+  // Drift audit: verifies pinned selectors still cover the tracked actions.
+  const runRegistryAudit = async (): Promise<void> => {
+    if (throttleSaturated()) return;
+    try {
+      await auditPinnedRegistryDrift();
+    } catch (err: any) {
+      console.warn('[RefreshWorker] registry audit failed:', err?.message || err);
+    }
+  };
+  setTimeout(runRegistryAudit, 5 * 60_000);
+  setInterval(runRegistryAudit, REGISTRY_AUDIT_INTERVAL_MS);
 
   // Sprint 2: keep the top leaderboard wallets' score snapshots fresh so a
   // cold restart serves their score instantly from wallet_metrics_snapshots

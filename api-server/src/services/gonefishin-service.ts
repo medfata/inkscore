@@ -46,6 +46,9 @@ export interface GoneFishinResponse {
   prizesWonCount: number; // total prize payouts received
   prizesWonUsd: number;
   prizesWon: GoneFishinPrize[];
+  // True when a discovery/inflow walk was truncated (page cap not yet fully
+  // walked): the payload shows a subset until the background loop completes.
+  partial?: boolean;
 }
 
 function emptyResponse(): GoneFishinResponse {
@@ -204,9 +207,12 @@ export async function getGoneFishinData(walletAddress: string): Promise<GoneFish
       prizesWonCount: prizesWon.reduce((sum, p) => sum + p.count, 0),
       prizesWonUsd: Math.round(prizesWon.reduce((sum, p) => sum + p.usdValue, 0) * 100) / 100,
       prizesWon,
+      ...((!buys.complete || !inflow.complete) ? { partial: true } : {}),
     };
 
-    setLongCache(lcKey, response);
+    // Partial payloads are never long-cached — the next call resumes the
+    // truncated walks instead of serving a subset for the full TTL.
+    if (!response.partial) setLongCache(lcKey, response);
     return response;
   });
 }

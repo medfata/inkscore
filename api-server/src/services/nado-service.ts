@@ -250,6 +250,10 @@ export async function getNadoMetrics(walletAddress: string): Promise<NadoMetrics
       getProtocolTxHashes(walletAddress, NADO_CONTRACT, ['0x8e5d588c']),
     ]);
     const totalTransactions = allTx.count;
+    // Count truncation (capped build not yet fully walked) and deposit
+    // discovery truncation both mean "less than reality until completed" —
+    // surface as partial so the background loop converges them.
+    const discoveryPartial = !allTx.complete || !depositHashes.complete;
 
     // Deposit USD from transfer legs (first wallet->Nado leg per tx, as before).
     // Live volatile-asset prices (single fetch per request, cached 5 minutes).
@@ -258,7 +262,7 @@ export async function getNadoMetrics(walletAddress: string): Promise<NadoMetrics
       partitionTxHashes(depositHashes.hashes),
     ]);
     const priced = [...cachedHashes, ...uncachedHashes.slice(0, 300)];
-    const partial = cachedHashes.length + Math.min(uncachedHashes.length, 100) < depositHashes.hashes.length;
+    const partial = discoveryPartial || cachedHashes.length + Math.min(uncachedHashes.length, 100) < depositHashes.hashes.length;
     const txData = await getTxData(priced);
 
     let totalDeposits = 0;
