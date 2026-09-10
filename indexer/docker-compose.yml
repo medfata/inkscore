@@ -116,6 +116,11 @@ services:
       BLOCKSCOUT_PROXY: ${BLOCKSCOUT_PROXY:-hybrid}
       BLOCKSCOUT_RATE_LIMIT: ${BLOCKSCOUT_RATE_LIMIT:-120}
       BLOCKSCOUT_MAX_CONCURRENT: ${BLOCKSCOUT_MAX_CONCURRENT:-10}
+      # Fraction of the Blockscout budget background workers may consume on
+      # top of their guaranteed slice (users keep the rest under contention).
+      BLOCKSCOUT_BG_SHARE: ${BLOCKSCOUT_BG_SHARE:-0.4}
+      # Hard gather deadline for never-seen wallets (instant first loads).
+      COLD_BOOTSTRAP_MS: ${COLD_BOOTSTRAP_MS:-8000}
       PROXY_URL_LIST_FILE: ${PROXY_URL_LIST_FILE:-}
       NODE_OPTIONS: ${NODE_OPTIONS:---max-old-space-size=2048}
       REFRESH_WORKER: ${REFRESH_WORKER:-on}

@@ -27,7 +27,7 @@ import {
   saveBundleSnapshot,
   SNAPSHOT_MAX_AGE_MS,
 } from './metrics-snapshot-service';
-import { getRecentBlockscoutUsagePerMin, getBlockscoutRateLimit, auditPinnedRegistryDrift } from './blockscout-service';
+import { getRecentBlockscoutUsagePerMin, getBlockscoutRateLimit, auditPinnedRegistryDrift, runAsBackground } from './blockscout-service';
 
 // Score-snapshot refresh: only bother when a snapshot is older than this,
 // comfortably under SNAPSHOT_MAX_AGE_MS (60 min) — no point re-gathering
@@ -50,6 +50,15 @@ const THROTTLE_YIELD_PER_MIN = Math.floor(getBlockscoutRateLimit() * 0.8);
 function throttleSaturated(): boolean {
   return getRecentBlockscoutUsagePerMin() >= THROTTLE_YIELD_PER_MIN;
 }
+
+// Background-class wrapper: every worker task runs inside the Blockscout 'bg'
+// reservation, so interactive dashboard loads always keep their share of the
+// throttle even when the queue is draining hard.
+const runBg = (fn: () => Promise<void>) => () => {
+  void runAsBackground(fn).catch((err: any) =>
+    console.warn('[RefreshWorker] background task failed:', err?.message || err)
+  );
+};
 
 const WORKER_INTERVAL_MS = 60_000;
 // Env-tunable for faster backlog drain on capable boxes (the throttle-yield
@@ -243,8 +252,8 @@ export function startRefreshWorker(): void {
       console.warn('[RefreshWorker] warm sweep failed:', err.message || err);
     }
   };
-  setTimeout(warmActiveWallets, 60_000);
-  setInterval(warmActiveWallets, 15 * 60_000);
+  setTimeout(runBg(warmActiveWallets), 60_000);
+  setInterval(runBg(warmActiveWallets), 15 * 60_000);
 
   // Completeness backstop: wallets whose cursor rows are still truncated get a
   // bundle refill without any user visit. Bounded per sweep and throttle-aware;
@@ -289,8 +298,8 @@ export function startRefreshWorker(): void {
       }
     }
   };
-  setTimeout(sweepIncompleteCursors, 180_000);
-  setInterval(sweepIncompleteCursors, INCOMPLETE_SWEEP_INTERVAL_MS);
+  setTimeout(runBg(sweepIncompleteCursors), 180_000);
+  setInterval(runBg(sweepIncompleteCursors), INCOMPLETE_SWEEP_INTERVAL_MS);
 
   // Drift audit: verifies pinned selectors still cover the tracked actions.
   const runRegistryAudit = async (): Promise<void> => {
@@ -301,8 +310,30 @@ export function startRefreshWorker(): void {
       console.warn('[RefreshWorker] registry audit failed:', err?.message || err);
     }
   };
-  setTimeout(runRegistryAudit, 5 * 60_000);
-  setInterval(runRegistryAudit, REGISTRY_AUDIT_INTERVAL_MS);
+  setTimeout(runBg(runRegistryAudit), 5 * 60_000);
+  setInterval(runBg(runRegistryAudit), REGISTRY_AUDIT_INTERVAL_MS);
+
+  // Backlog hygiene: overdue wallet-level warm-sweep rows are superseded by
+  // the next warm sweep (the same wallets re-enqueue every 15 min), so stale
+  // copies only consume background budget. Delete them hourly; bundle and
+  // count jobs are NEVER touched (they carry real completion work).
+  const queueHygiene = async (): Promise<void> => {
+    try {
+      const removed = await query<{ wallet_address: string }>(
+        `DELETE FROM bs_refresh_queue
+          WHERE protocol = ''
+            AND next_run < now() - interval '30 minutes'
+          RETURNING wallet_address`
+      );
+      if (removed.length > 0) {
+        console.log(`[RefreshWorker] queue hygiene: removed ${removed.length} superseded warm-sweep jobs`);
+      }
+    } catch (err: any) {
+      console.warn('[RefreshWorker] queue hygiene failed:', err?.message || err);
+    }
+  };
+  setTimeout(runBg(queueHygiene), 4 * 60_000);
+  setInterval(runBg(queueHygiene), 60 * 60_000);
 
   // Sprint 2: keep the top leaderboard wallets' score snapshots fresh so a
   // cold restart serves their score instantly from wallet_metrics_snapshots
@@ -390,12 +421,10 @@ export function startRefreshWorker(): void {
       bundleSweepRunning = false;
     }
   };
-  setTimeout(refreshBundleSnapshots, 120_000);
-  setInterval(refreshBundleSnapshots, 15 * 60_000);
-  setTimeout(refreshScoreSnapshots, 90_000);
-  setInterval(refreshScoreSnapshots, 15 * 60_000);
+  setTimeout(runBg(refreshBundleSnapshots), 120_000);
+  setInterval(runBg(refreshBundleSnapshots), 15 * 60_000);
+  setTimeout(runBg(refreshScoreSnapshots), 90_000);
+  setInterval(runBg(refreshScoreSnapshots), 15 * 60_000);
 
-  setInterval(() => {
-    drainOnce().catch((err) => console.error('[RefreshWorker] drain failed:', err.message || err));
-  }, WORKER_INTERVAL_MS);
+  setInterval(runBg(drainOnce), WORKER_INTERVAL_MS);
 }

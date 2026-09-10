@@ -13,6 +13,7 @@
 // - Hard caps per request (pages / tx hashes) + partial flags; a background
 //   worker completes truncated fills. Scoring must only use complete values.
 
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { query, queryOne } from '../db';
 import { withInflight } from '../cache';
 import { proxiedFetch, isProxyEnabled, logProxyStatus } from './proxy-agent';
@@ -21,9 +22,9 @@ const BLOCKSCOUT_BASE = 'https://explorer.inkonchain.com/api/v2';
 const INK_CHAIN_ID = 57073;
 
 // ---- throttle -------------------------------------------------------------
-// Env-tunable for ops: with the 15-IP residential pool the upstream per-IP
+// Env-tunable for ops: with the residential/DC proxy pool the upstream per-IP
 // budget no longer accumulates, so BLOCKSCOUT_RATE_LIMIT can be raised above
-// the direct-egress-safe 150 if cold walks feel slow (watch the usage logger).
+// the direct-egress-safe 150 (watch the usage logger + per-IP 429 stats).
 const RATE_LIMIT_PER_MIN = parseInt(process.env.BLOCKSCOUT_RATE_LIMIT || '150', 10);
 // Read by the refresh worker: it yields to user traffic at 80% of whatever
 // the throttle is configured for, so raising the limit scales the backoff
@@ -34,13 +35,29 @@ export function getBlockscoutRateLimit(): number {
 const MAX_CONCURRENT = parseInt(process.env.BLOCKSCOUT_MAX_CONCURRENT || '10', 10);
 const REQUEST_TIMEOUT_MS = 10_000;
 
+// ---- request classes --------------------------------------------------------
+// The shared Blockscout budget is split: interactive dashboard loads ('user')
+// must never queue behind background workers ('bg'). Workers wrap their work
+// in runAsBackground(); everything else defaults to 'user'. Background gets a
+// guaranteed slice (BG_SHARE) but may also use slack above the user reserve
+// during idle periods — full utilization when quiet, reservation when busy.
+const requestClass = new AsyncLocalStorage<'user' | 'bg'>();
+export function runAsBackground<T>(fn: () => Promise<T>): Promise<T> {
+  return requestClass.run('bg', fn);
+}
+const BG_SHARE = Math.min(0.8, Math.max(0.1, parseFloat(process.env.BLOCKSCOUT_BG_SHARE || '0.4')));
+const BG_RATE_PER_MIN = Math.max(1, Math.floor(RATE_LIMIT_PER_MIN * BG_SHARE));
+const USER_RESERVE = Math.max(1, RATE_LIMIT_PER_MIN - BG_RATE_PER_MIN);
+
 let tokensAvailable = RATE_LIMIT_PER_MIN;
 let lastRefill = Date.now();
+let bgTokensAvailable = BG_RATE_PER_MIN;
+let bgLastRefill = Date.now();
 let inFlight = 0;
-// Global 429 cooldown: while any request is backing off, pause ALL new
-// admissions so the upstream can actually recover. Without this, the bucket
-// keeps admitting fresh requests at full rate during other requests'
-// backoff windows and the 429s never stop.
+// Global 429 cooldown: DIRECT egress only. With a proxy pool a 429 is a
+// per-IP limit — the pool rotates to another IP, and pausing the whole fleet
+// for one throttled IP was exactly what made cold loads stall behind
+// background bursts. See the 429 branch in bsFetch.
 let cooldownUntil = 0;
 const waitQueue: Array<() => void> = [];
 
@@ -53,7 +70,16 @@ function refillTokens(): void {
   }
 }
 
-async function acquireSlot(): Promise<void> {
+function refillBgTokens(): void {
+  const now = Date.now();
+  const elapsedMin = (now - bgLastRefill) / 60_000;
+  if (elapsedMin > 0) {
+    bgTokensAvailable = Math.min(BG_RATE_PER_MIN, bgTokensAvailable + elapsedMin * BG_RATE_PER_MIN);
+    bgLastRefill = now;
+  }
+}
+
+async function acquireSlot(isBg: boolean): Promise<void> {
   for (;;) {
     const now = Date.now();
     if (now < cooldownUntil) {
@@ -61,8 +87,13 @@ async function acquireSlot(): Promise<void> {
       continue;
     }
     refillTokens();
-    if (tokensAvailable >= 1 && inFlight < MAX_CONCURRENT) {
+    if (isBg) refillBgTokens();
+    // bg is admitted when it still has its own slice OR when the global bucket
+    // has slack above the user reserve.
+    const bgOk = !isBg || bgTokensAvailable >= 1 || tokensAvailable > USER_RESERVE;
+    if (tokensAvailable >= 1 && bgOk && inFlight < MAX_CONCURRENT) {
       tokensAvailable -= 1;
+      if (isBg) bgTokensAvailable = Math.max(0, bgTokensAvailable - 1);
       inFlight += 1;
       return;
     }
@@ -132,7 +163,7 @@ async function bsFetch(path: string, retries = 3): Promise<any> {
   // the MAX_CONCURRENT cap silently stopped working, which is what turned
   // cold walks into 429 storms.
   for (let attempt = 0; ; attempt++) {
-    await acquireSlot();
+    await acquireSlot(requestClass.getStore() === 'bg');
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
@@ -161,12 +192,27 @@ async function bsFetch(path: string, retries = 3): Promise<any> {
       }
       if (res.status === 429 && attempt < retries) {
         const retryAfter = parseInt(res.headers.get('retry-after') || '', 10);
+        if (isProxyEnabled()) {
+          // PER-IP limit: the pool rotates the next attempt onto another IP
+          // (proxiedFetch already swaps/round-robins on 429). A GLOBAL cooldown
+          // here would stall every other walk for one throttled IP — the exact
+          // failure mode that made cold loads queue behind background bursts.
+          // Short jittered pause only; honor Retry-After but keep it bounded.
+          const pauseMs = Math.min(
+            2000,
+            Number.isFinite(retryAfter) ? Math.max(250, retryAfter * 1000) : 250 + Math.random() * 250
+          );
+          console.warn(`[Blockscout] 429 (per-IP, switching IP) for ${path.slice(0, 60)}, pause ${Math.round(pauseMs)}ms (${retries - attempt} retries left)`);
+          await new Promise<void>((r) => setTimeout(r, pauseMs));
+          continue; // finally releases the slot exactly once
+        }
+        // Direct egress: no pool to rotate to — keep the global cooldown.
         // Exponential backoff with Retry-After floor: 5s, 10s, 20s.
         const waitMs = Number.isFinite(retryAfter)
           ? Math.max(retryAfter * 1000, 5000 * Math.pow(2, attempt))
           : 5000 * Math.pow(2, attempt);
         cooldownUntil = Math.max(cooldownUntil, Date.now() + waitMs);
-        console.warn(`[Blockscout] 429 for ${path.slice(0, 60)}, waiting ${waitMs}ms (${retries - attempt} retries left)`);
+        console.warn(`[Blockscout] 429 (direct) for ${path.slice(0, 60)}, waiting ${waitMs}ms (${retries - attempt} retries left)`);
         continue; // finally releases the slot exactly once
       }
       if (!res.ok) {

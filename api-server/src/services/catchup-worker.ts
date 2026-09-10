@@ -24,7 +24,7 @@
 // user-triggered jobs (priority 1), so interactive refreshes always win.
 
 import { query } from '../db';
-import { getLatestTxTimestamp } from './blockscout-service';
+import { getLatestTxTimestamp, runAsBackground } from './blockscout-service';
 import { JUNK_WALLETS } from './refresh-worker';
 
 const ENABLED = process.env.CATCHUP_WORKER === 'on';
@@ -134,22 +134,29 @@ export function startCatchupWorker(): void {
   );
   // First top sweep shortly after boot (staggered so it never competes with
   // startup traffic); full-board sweep takes its own first pass right after.
+  // Probes walk the 'bg' reservation so catch-up traffic never eats the
+  // interactive share of the Blockscout throttle.
+  const runSweep = (topOnly: boolean) => {
+    void runAsBackground(() => sweep(topOnly)).catch((e: any) =>
+      console.warn('[Catchup] sweep failed:', e?.message || e)
+    );
+  };
   setTimeout(() => {
     lastTopSweep = Date.now();
-    void sweep(true);
+    runSweep(true);
   }, 90_000);
   setTimeout(() => {
     lastFullSweep = Date.now();
-    void sweep(false);
+    runSweep(false);
   }, 5 * 60_000);
   setInterval(() => {
     const now = Date.now();
     if (TOP_N > 0 && now - lastTopSweep >= TOP_CADENCE_MS) {
       lastTopSweep = now;
-      void sweep(true);
+      runSweep(true);
     } else if (now - lastFullSweep >= FULL_CADENCE_MS) {
       lastFullSweep = now;
-      void sweep(false);
+      runSweep(false);
     }
   }, TICK_MS).unref();
 }

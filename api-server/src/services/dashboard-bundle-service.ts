@@ -120,15 +120,25 @@ const EMPTY_OPENSEA_COUNTS = { buys: 0, sales: 0, mints: 0, buyTransactions: [],
  * unexpected failures; every metric entry is individually capped and null
  * on miss (the same "missing = null, never zero" rule the individual
  * endpoints follow).
+ *
+ * `coldDeadlineMs`: COLD-BOOTSTRAP CAP for wallets with no servable snapshot.
+ * Every metric budget is clamped to the remaining time so the whole gather
+ * returns within the deadline instead of waiting out 15-35s per-metric
+ * budgets. Already-running computations are NOT cancelled — they keep
+ * filling caches in the background, and the partial bundle triggers the
+ * refill loop, so completeness converges while the first load stays fast.
  */
 export async function gatherDashboardBundle(
   wallet: string,
-  opts?: { fresh?: boolean }
+  opts?: { fresh?: boolean; coldDeadlineMs?: number }
 ): Promise<DashboardBundle> {
   const fresh = opts?.fresh === true;
+  const deadlineAt = opts?.coldDeadlineMs ? Date.now() + opts.coldDeadlineMs : null;
+  const budget = (ms: number): number =>
+    deadlineAt ? Math.max(750, Math.min(ms, deadlineAt - Date.now())) : ms;
   // Bound read-through helper: threads the refresh flag into every metric.
   const vc = <T>(key: string, label: string, timeoutMs: number, compute: () => Promise<T | null>) =>
-    viaCache(key, label, timeoutMs, compute, fresh);
+    viaCache(key, label, budget(timeoutMs), compute, fresh);
   // Raw OpenSea counts for the score input (the service layers its own
   // memory + Postgres caches; no endpoint shell wraps this shape).
   const openSeaCounts = await withTimeout(
@@ -136,7 +146,7 @@ export async function gatherDashboardBundle(
       console.warn('[Bundle] OpenSea counts failed, treating as 0:', err);
       return EMPTY_OPENSEA_COUNTS;
     }),
-    15000,
+    budget(15000),
     EMPTY_OPENSEA_COUNTS,
     'OpenSea counts'
   );
@@ -211,7 +221,7 @@ export async function gatherDashboardBundle(
   // `sweep` entry above is what the dashboard card consumes).
   const sweepRaw = await withTimeout(
     sweepService.getDeployedCollections(wallet).catch(() => null),
-    20000,
+    budget(20000),
     null,
     'sweep-raw'
   );

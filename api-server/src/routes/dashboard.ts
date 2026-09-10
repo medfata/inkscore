@@ -15,6 +15,12 @@ import { queueRefresh } from '../services/blockscout-service';
 
 const router = Router();
 
+// Cold-bootstrap cap: wallets with no servable snapshot get a hard gather
+// deadline so a first-ever load is never stuck on 15-35s per-metric budgets.
+// Running computations continue in the background; the partial bundle
+// triggers the refill loop, so completeness converges after the fast load.
+const COLD_BOOTSTRAP_MS = Math.max(2000, parseInt(process.env.COLD_BOOTSTRAP_MS || '8000', 10));
+
 // GET /api/dashboard/config - Public runtime config (cache policy shown on
 // the dashboard so the banner always matches the server's actual TTL).
 router.get('/config', (_req: Request, res: Response) => {
@@ -78,7 +84,7 @@ router.get('/bundle/:wallet', async (req: Request, res: Response) => {
     }
 
     const started = Date.now();
-    const bundle = await gatherDashboardBundle(walletAddress, { fresh: forceRefresh });
+    const bundle = await gatherDashboardBundle(walletAddress, { fresh: forceRefresh, coldDeadlineMs: COLD_BOOTSTRAP_MS });
     console.log(`[Bundle] ${walletAddress.slice(0, 10)}: live gather completed in ${Date.now() - started}ms (partial=${bundle.partial})`);
 
     // Sprint 2 perf convergence: hand any HEAVY misses to the background

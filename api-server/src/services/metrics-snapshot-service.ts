@@ -72,11 +72,12 @@ export async function saveScoreSnapshot(
        SET inputs = EXCLUDED.inputs,
            partial = EXCLUDED.partial,
            captured_at = NOW()
-     -- DOWNGRADE GUARD: a partial gather (wallet stats timed out under
-     -- throttle pressure) must never overwrite a COMPLETE snapshot — the
-     -- stored complete inputs remain valid facts and the fast serve path
-     -- depends on them. Partials still upgrade partials; completes always
-     -- overwrite anything.`,
+     -- DOWNGRADE GUARD (was documented but not implemented): a partial gather
+     -- (wallet stats timed out under throttle pressure) must never overwrite a
+     -- COMPLETE snapshot — the stored complete inputs remain valid facts and
+     -- the fast serve path depends on them. Partials still upgrade partials;
+     -- completes always overwrite anything.
+       WHERE wallet_metrics_snapshots.partial = TRUE OR EXCLUDED.partial = FALSE`,
     [wallet, JSON.stringify(inputs), partial]
   );
 }
@@ -238,8 +239,12 @@ export async function saveBundleSnapshot(
        SET bundle = EXCLUDED.bundle,
            partial = EXCLUDED.partial,
            captured_at = NOW()
-     -- DOWNGRADE GUARD: a partial bundle must never overwrite a complete
-     -- dashboard snapshot (same rule as the score snapshot store).`,
+       -- DOWNGRADE GUARD (was documented but not implemented): a partial
+       -- bundle must never overwrite a COMPLETE dashboard snapshot. Partial
+       -- gathers happen routinely (cold-bootstrap deadline, upstream trims)
+       -- and overwriting a complete row with a partial one would turn an
+       -- instantly-servable snapshot into a permanently re-gathering one.
+       WHERE wallet_dashboard_snapshots.partial = TRUE OR EXCLUDED.partial = FALSE`,
     [wallet, JSON.stringify(bundle), partial]
   );
 }
