@@ -5,14 +5,24 @@ import Link from 'next/link';
 import { Logo } from '../components/Logo';
 import {
   ArrowLeft,
-  ExternalLink
+  ExternalLink,
+  Droplet,
+  Fish,
+  Compass,
+  Waves,
+  Anchor,
+  Medal,
+  Ghost,
+  Flame,
+  Crown
 } from '../components/Icons';
+import type { LucideIcon } from 'lucide-react';
 import { ConnectWalletButton } from '../components/ConnectWalletButton';
 
 interface Rank {
   id: number;
   name: string;
-  badge: string;
+  icon: LucideIcon;
   min_points: number;
   max_points: number | null;
   color: string;
@@ -24,7 +34,7 @@ const RANKS: Rank[] = [
   {
     id: 1,
     name: 'Ink Drop',
-    badge: '🧽',
+    icon: Droplet,
     min_points: 0,
     max_points: 499,
     color: '#6B7280',
@@ -33,7 +43,7 @@ const RANKS: Rank[] = [
   {
     id: 2,
     name: 'Little Squid',
-    badge: '🦑',
+    icon: Fish,
     min_points: 500,
     max_points: 999,
     color: '#10B981',
@@ -42,7 +52,7 @@ const RANKS: Rank[] = [
   {
     id: 3,
     name: 'Explorer',
-    badge: '🧭',
+    icon: Compass,
     min_points: 1000,
     max_points: 1999,
     color: '#3B82F6',
@@ -51,7 +61,7 @@ const RANKS: Rank[] = [
   {
     id: 4,
     name: 'Deep Diver',
-    badge: '🤿',
+    icon: Waves,
     min_points: 2000,
     max_points: 3499,
     color: '#06B6D4',
@@ -60,7 +70,7 @@ const RANKS: Rank[] = [
   {
     id: 5,
     name: 'Captain',
-    badge: '⚓',
+    icon: Anchor,
     min_points: 3500,
     max_points: 4999,
     color: '#8B5CF6',
@@ -69,7 +79,7 @@ const RANKS: Rank[] = [
   {
     id: 6,
     name: 'Commander',
-    badge: '🎖️',
+    icon: Medal,
     min_points: 5000,
     max_points: 6999,
     color: '#F59E0B',
@@ -78,7 +88,7 @@ const RANKS: Rank[] = [
   {
     id: 7,
     name: 'Abyss Lord',
-    badge: '🧙‍♂️',
+    icon: Ghost,
     min_points: 7000,
     max_points: 8499,
     color: '#A855F7',
@@ -87,7 +97,7 @@ const RANKS: Rank[] = [
   {
     id: 8,
     name: 'The Kraken',
-    badge: '🐙',
+    icon: Flame,
     min_points: 8500,
     max_points: 9999,
     color: '#EF4444',
@@ -96,7 +106,7 @@ const RANKS: Rank[] = [
   {
     id: 9,
     name: 'Ink God',
-    badge: '⚡',
+    icon: Crown,
     min_points: 10000,
     max_points: null,
     color: '#FFD700',
@@ -579,37 +589,42 @@ const PlatformCard = ({ platform }: { platform: PlatformRule }) => (
   </div>
 );
 
-const RankCard = ({ rank, index }: { rank: Rank; index: number }) => (
-  <div
-    className="glass-card p-4 rounded-xl flex items-center gap-4 hover:border-ink-purple/30 transition-all"
-    style={{ animationDelay: `${index * 0.1}s` }}
-  >
+const RankCard = ({ rank, index }: { rank: Rank; index: number }) => {
+  const RankIcon = rank.icon;
+  return (
     <div
-      className="w-12 h-12 rounded-full flex items-center justify-center text-2xl shrink-0"
-      style={{ backgroundColor: `${rank.color}20` }}
+      className="glass-card p-4 rounded-xl flex items-center gap-4 hover:border-ink-purple/30 transition-all"
+      style={{ animationDelay: `${index * 0.1}s` }}
     >
-      {rank.badge}
+      <div
+        className="w-12 h-12 rounded-full flex items-center justify-center shrink-0 border"
+        style={{
+          backgroundColor: `${rank.color}14`,
+          borderColor: `${rank.color}33`,
+          color: rank.color
+        }}
+      >
+        <RankIcon size={22} strokeWidth={1.75} />
+      </div>
+      <div className="flex-1">
+        <h4 className="font-semibold text-white">{rank.name}</h4>
+        <p className="text-sm text-slate-400">
+          {rank.min_points.toLocaleString()} - {rank.max_points ? rank.max_points.toLocaleString() : '∞'} PTS
+        </p>
+        <p className="text-xs text-slate-500 mt-1">{rank.description}</p>
+      </div>
+      <div
+        className="px-3 py-1 rounded-full text-xs font-medium"
+        style={{
+          backgroundColor: `${rank.color}20`,
+          color: rank.color
+        }}
+      >
+        Tier {index + 1}
+      </div>
     </div>
-    <div className="flex-1">
-      <h4 className="font-semibold text-white flex items-center gap-2">
-        {rank.badge} {rank.name}
-      </h4>
-      <p className="text-sm text-slate-400">
-        {rank.min_points.toLocaleString()} - {rank.max_points ? rank.max_points.toLocaleString() : '∞'} PTS
-      </p>
-      <p className="text-xs text-slate-500 mt-1">{rank.description}</p>
-    </div>
-    <div
-      className="px-3 py-1 rounded-full text-xs font-medium"
-      style={{
-        backgroundColor: `${rank.color}20`,
-        color: rank.color
-      }}
-    >
-      Tier {index + 1}
-    </div>
-  </div>
-);
+  );
+};
 
 export default function HowItWorksPage() {
   const [activeSection, setActiveSection] = useState('overview');

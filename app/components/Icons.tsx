@@ -43,7 +43,16 @@ import {
   Users,
   XCircle,
   Wifi,
-  WifiOff
+  WifiOff,
+  Droplet,
+  Fish,
+  Compass,
+  Waves,
+  Anchor,
+  Medal,
+  Ghost,
+  Flame,
+  Crown
 } from 'lucide-react';
 
 export {
@@ -88,5 +97,14 @@ export {
   Users,
   XCircle,
   Wifi,
-  WifiOff
+  WifiOff,
+  Droplet,
+  Fish,
+  Compass,
+  Waves,
+  Anchor,
+  Medal,
+  Ghost,
+  Flame,
+  Crown
 };
