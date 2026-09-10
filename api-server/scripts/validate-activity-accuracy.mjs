@@ -71,6 +71,7 @@ const WALLET_CONC = Math.max(1, Math.min(10, parseInt(getArg('wallet-conc', '4')
 const TX_CONC = Math.max(1, Math.min(25, parseInt(getArg('tx-conc', '12'), 10) || 12));
 const DRY_RUN = hasFlag('dry-run');
 const RESUME = hasFlag('resume');
+const FORCE_REFRESH = hasFlag('refresh');
 
 const MANDATORY_WALLET = '0x8655df35818f348ea4e371a613e73677d816f589';
 const BLOCKSCOUT_BASE = 'https://explorer.inkonchain.com/api/v2';
@@ -285,7 +286,7 @@ async function fetchBundle(wallet) {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), 45_000);
   try {
-    const res = await fetch(`${API_BASE}/api/dashboard/bundle/${wallet}`, { headers: { Accept: 'application/json' }, signal: ctrl.signal });
+    const res = await fetch(`${API_BASE}/api/dashboard/bundle/${wallet}${FORCE_REFRESH ? '?refresh=true' : ''}`, { headers: { Accept: 'application/json' }, signal: ctrl.signal });
     if (!res.ok) throw new Error(`bundle HTTP ${res.status}`);
     return await res.json();
   } finally { clearTimeout(t); }
@@ -523,7 +524,7 @@ async function readDoneWallets(file) {
 
 // ----------------------------- main ----------------------------------------
 async function main() {
-  log(`validator start: sample=${SAMPLE_SIZE} base=${API_BASE} walletConc=${WALLET_CONC} txConc=${TX_CONC}${DRY_RUN ? ' DRY-RUN' : ''}${RESUME ? ' RESUME' : ''}`);
+  log(`validator start: sample=${SAMPLE_SIZE} base=${API_BASE} walletConc=${WALLET_CONC} txConc=${TX_CONC}${DRY_RUN ? ' DRY-RUN' : ''}${RESUME ? ' RESUME' : ''}${FORCE_REFRESH ? ' REFRESH' : ''}`);
   const proxyUrls = loadProxyUrls();
   const pool = new ProxyPool(proxyUrls);
   if (process.env.BLOCKSCOUT_PROXY === 'off' && proxyUrls.length > 0) warn('BLOCKSCOUT_PROXY=off — pool loaded but bypassed; set =on to use the 100 IPs');
