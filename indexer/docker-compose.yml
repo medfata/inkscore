@@ -128,6 +128,17 @@ services:
       CATCHUP_TOP_N: ${CATCHUP_TOP_N:-200}
       CATCHUP_TOP_INTERVAL_HOURS: ${CATCHUP_TOP_INTERVAL_HOURS:-6}
       CATCHUP_INTERVAL_HOURS: ${CATCHUP_INTERVAL_HOURS:-24}
+      # Phase 2 (instant loads + warm sweep tuning). Quiet serving: a snapshot
+      # older than the freshness window may serve instantly when a probe proves
+      # no newer tx exists. QUIET_SERVE_SINCE gates it to snapshots captured at
+      # or after that instant (set it to the first accurate-code deploy).
+      QUIET_SERVE_SINCE: ${QUIET_SERVE_SINCE:-}
+      QUIET_PROBE_REUSE_MIN: ${QUIET_PROBE_REUSE_MIN:-5}
+      SNAPSHOT_REFRESH_MIN_AGE_MIN: ${SNAPSHOT_REFRESH_MIN_AGE_MIN:-45}
+      SNAPSHOT_SWEEP_WALLETS: ${SNAPSHOT_SWEEP_WALLETS:-50}
+      REFRESH_WORKER_BATCH: ${REFRESH_WORKER_BATCH:-20}
+      REFRESH_WORKER_CONCURRENCY: ${REFRESH_WORKER_CONCURRENCY:-2}
+      INCOMPLETE_SWEEP_LIMIT: ${INCOMPLETE_SWEEP_LIMIT:-40}
       # Shared secret gating the /api/admin/proxies endpoints (web forwards
       # after its own wallet-signature admin check). Empty = endpoints 503.
       ADMIN_API_SECRET: ${ADMIN_API_SECRET:-}
@@ -185,6 +196,9 @@ services:
       OPENSEA_API_KEY: ${OPENSEA_API_KEY}
       # points-service-v2 self-fetch base; default resolves inside the container
       NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+      # First-paint budget for the streaming dashboard's bundle fast path: a
+      # cold gather past this falls through to per-metric streaming.
+      STREAM_BUNDLE_TIMEOUT_MS: ${STREAM_BUNDLE_TIMEOUT_MS:-4000}
       # Shared secret for api-server /api/admin/proxies forwarding (server-side only)
       ADMIN_API_SECRET: ${ADMIN_API_SECRET:-}
     expose:

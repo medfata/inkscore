@@ -29,11 +29,15 @@ import {
 } from './metrics-snapshot-service';
 import { getRecentBlockscoutUsagePerMin, getBlockscoutRateLimit, auditPinnedRegistryDrift } from './blockscout-service';
 
-// Score-snapshot refresh: only bother when a snapshot is older than 45 min,
+// Score-snapshot refresh: only bother when a snapshot is older than this,
 // comfortably under SNAPSHOT_MAX_AGE_MS (60 min) — no point re-gathering
 // inputs the serve path would still use, and never letting a top wallet's
-// snapshot cross the staleness threshold in the first place.
-const SNAPSHOT_REFRESH_MIN_AGE_MS = 45 * 60_000;
+// snapshot cross the staleness threshold in the first place. Env-tunable but
+// clamped below the serve window (55 min) so warmth always stays servable.
+const SNAPSHOT_REFRESH_MIN_AGE_MS =
+  Math.min(55, Math.max(10, parseInt(process.env.SNAPSHOT_REFRESH_MIN_AGE_MIN || '45', 10))) * 60_000;
+// How many top wallets each snapshot sweep keeps warm (env for whale sets).
+const SNAPSHOT_SWEEP_WALLETS = Math.max(1, parseInt(process.env.SNAPSHOT_SWEEP_WALLETS || '50', 10));
 
 // USER-PRIORITY BACKOFF: the Blockscout throttle (BLOCKSCOUT_RATE_LIMIT
 // req/min through the residential proxy) is shared between interactive
@@ -48,8 +52,10 @@ function throttleSaturated(): boolean {
 }
 
 const WORKER_INTERVAL_MS = 60_000;
-const WORKER_BATCH = 20;
-const WORKER_CONCURRENCY = 2;
+// Env-tunable for faster backlog drain on capable boxes (the throttle-yield
+// guard stays in place, so higher values cannot starve interactive loads).
+const WORKER_BATCH = Math.max(1, parseInt(process.env.REFRESH_WORKER_BATCH || '20', 10));
+const WORKER_CONCURRENCY = Math.max(1, parseInt(process.env.REFRESH_WORKER_CONCURRENCY || '2', 10));
 // Bundle refill jobs (accuracy completion loop): past this attempt count the
 // job parks to a 6h cadence instead of the standard 60min backoff, so a
 // genuinely unreachable source can never retry-storm.
@@ -72,6 +78,11 @@ export const JUNK_WALLETS = new Set([
 ]);
 
 let started = false;
+// Re-entrancy guards for the warm sweeps: with larger SNAPSHOT_SWEEP_WALLETS a
+// sequential sweep can outlive its 15-min interval, and two overlapping sweeps
+// would double the upstream load for no benefit.
+let scoreSweepRunning = false;
+let bundleSweepRunning = false;
 const active = new Set<string>();
 
 interface QueueRow {
@@ -213,7 +224,7 @@ export function startRefreshWorker(): void {
            FROM cached_leaderboard, jsonb_array_elements(leaderboard_data) AS entry
           WHERE id = 1
           ORDER BY (entry->>'score')::numeric DESC
-          LIMIT 50`
+          LIMIT ${SNAPSHOT_SWEEP_WALLETS}`
       );
       let enqueued = 0;
       for (const r of rows) {
@@ -306,14 +317,15 @@ export function startRefreshWorker(): void {
   // - REFRESH_WORKER=off or SCORE_SNAPSHOT_WORKER=off disables it.
   const refreshScoreSnapshots = async (): Promise<void> => {
     if (process.env.SCORE_SNAPSHOT_WORKER === 'off') return;
-    if (throttleSaturated()) return;
+    if (scoreSweepRunning || throttleSaturated()) return;
+    scoreSweepRunning = true;
     try {
       const rows = await query<{ wallet_address: string }>(
         `SELECT entry->>'wallet_address' AS wallet_address
            FROM cached_leaderboard, jsonb_array_elements(leaderboard_data) AS entry
           WHERE id = 1
           ORDER BY (entry->>'score')::numeric DESC
-          LIMIT 50`
+          LIMIT ${SNAPSHOT_SWEEP_WALLETS}`
       );
       let refreshed = 0;
       for (const r of rows) {
@@ -333,6 +345,8 @@ export function startRefreshWorker(): void {
       if (refreshed > 0) console.log(`[RefreshWorker] score snapshots refreshed: ${refreshed}`);
     } catch (err: any) {
       console.warn('[RefreshWorker] score snapshot sweep failed:', err.message || err);
+    } finally {
+      scoreSweepRunning = false;
     }
   };
 
@@ -344,14 +358,15 @@ export function startRefreshWorker(): void {
   // are saved with partial=true (never served) and simply retried next sweep.
   const refreshBundleSnapshots = async (): Promise<void> => {
     if (process.env.SCORE_SNAPSHOT_WORKER === 'off') return;
-    if (throttleSaturated()) return;
+    if (bundleSweepRunning || throttleSaturated()) return;
+    bundleSweepRunning = true;
     try {
       const rows = await query<{ wallet_address: string }>(
         `SELECT entry->>'wallet_address' AS wallet_address
            FROM cached_leaderboard, jsonb_array_elements(leaderboard_data) AS entry
           WHERE id = 1
           ORDER BY (entry->>'score')::numeric DESC
-          LIMIT 50`
+          LIMIT ${SNAPSHOT_SWEEP_WALLETS}`
       );
       let refreshed = 0;
       for (const r of rows) {
@@ -371,6 +386,8 @@ export function startRefreshWorker(): void {
       if (refreshed > 0) console.log(`[RefreshWorker] bundle snapshots refreshed: ${refreshed}`);
     } catch (err: any) {
       console.warn('[RefreshWorker] bundle snapshot sweep failed:', err.message || err);
+    } finally {
+      bundleSweepRunning = false;
     }
   };
   setTimeout(refreshBundleSnapshots, 120_000);

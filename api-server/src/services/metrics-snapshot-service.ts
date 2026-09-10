@@ -26,6 +26,7 @@
 
 import { query, queryOne } from '../db';
 import type { ScoreInputs } from './points-service-v2';
+import { getLatestTxTimestamp } from './blockscout-service';
 
 // Default 60 min: exactly the score's responseCache TTL. A snapshot-served
 // score is therefore never staler than the warm-cache behavior it replaces.
@@ -183,6 +184,8 @@ export interface BundleSnapshot {
   bundle: Record<string, unknown>;
   capturedAt: Date;
   partial: boolean;
+  /** Served via a quiet probe (older than the freshness window but exact). */
+  quietVerified?: boolean;
 }
 
 let bundleEnsured = false;
@@ -197,8 +200,30 @@ async function ensureBundleTable(): Promise<void> {
       captured_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )`
   );
+  // Quiet-verification columns: a snapshot older than the freshness window may
+  // still be served INSTANTLY when a cheap probe proves the wallet has no tx
+  // newer than the capture (the snapshot is then exact, not stale).
+  await query(`ALTER TABLE wallet_dashboard_snapshots ADD COLUMN IF NOT EXISTS quiet_head TIMESTAMPTZ`);
+  await query(`ALTER TABLE wallet_dashboard_snapshots ADD COLUMN IF NOT EXISTS quiet_checked_at TIMESTAMPTZ`);
   bundleEnsured = true;
 }
+
+// How long a probe result is reused before probing again. Small on purpose:
+// it is the only window in which brand-new activity could be missed by a
+// quiet-served snapshot.
+const QUIET_PROBE_REUSE_MS = Math.max(
+  30_000,
+  parseInt(process.env.QUIET_PROBE_REUSE_MIN || '5', 10) * 60_000
+);
+
+// Quiet-serving is only allowed for snapshots captured at/after this instant.
+// Default: unrestricted. Set it (e.g. at a deploy that changed metric
+// semantics) so pre-fix snapshots still refresh through a live gather once.
+const QUIET_SERVE_SINCE_MS = (() => {
+  const raw = process.env.QUIET_SERVE_SINCE || '';
+  const ms = raw ? Date.parse(raw) : NaN;
+  return Number.isNaN(ms) ? 0 : ms;
+})();
 
 export async function saveBundleSnapshot(
   wallet: string,
@@ -238,6 +263,75 @@ export async function getFreshBundleSnapshot(wallet: string): Promise<BundleSnap
     capturedAt: new Date(row.captured_at),
     partial: row.partial,
   };
+}
+
+/**
+ * INSTANT SERVE with an accuracy proof.
+ *
+ * A snapshot older than the freshness window can still be served byte-for-byte
+ * when the wallet provably has no transaction newer than the capture: the
+ * snapshot is then EXACT, not stale. The proof is one cheap explorer probe
+ * (`getLatestTxTimestamp`, single page-1 request) evaluated on the serve path,
+ * reused for QUIET_PROBE_REUSE_MS so repeat loads don't re-probe.
+ *
+ * Safety rules:
+ * - partial or malformed snapshots are never candidates (caller re-checks
+ *   shape);
+ * - a probe failure/unknown answer falls through to the live gather (we never
+ *   guess "quiet");
+ * - quiet serving is disabled for snapshots captured before QUIET_SERVE_SINCE
+ *   (lets pre-fix snapshots refresh once through the normal path);
+ * - fresh snapshots (<= SNAPSHOT_MAX_AGE_MS) are returned by the caller's
+ *   existing rule; this function is only consulted when no fresh snapshot is
+ *   servable.
+ */
+export async function getQuietVerifiedBundleSnapshot(
+  wallet: string
+): Promise<BundleSnapshot | null> {
+  await ensureBundleTable();
+  const row = await queryOne<{
+    bundle: Record<string, unknown>;
+    partial: boolean;
+    captured_at: string;
+    quiet_head: string | null;
+    quiet_checked_at: string | null;
+  }>(
+    `SELECT bundle, partial, captured_at, quiet_head, quiet_checked_at
+       FROM wallet_dashboard_snapshots WHERE wallet = $1`,
+    [wallet]
+  );
+  if (!row || row.partial) return null;
+
+  const capturedMs = new Date(row.captured_at).getTime();
+  if (QUIET_SERVE_SINCE_MS && capturedMs < QUIET_SERVE_SINCE_MS) return null;
+
+  // Recent probe result: reuse it without another request.
+  const checkedMs = row.quiet_checked_at ? new Date(row.quiet_checked_at).getTime() : 0;
+  const headMs = row.quiet_head ? new Date(row.quiet_head).getTime() : NaN;
+  if (
+    checkedMs &&
+    Date.now() - checkedMs <= QUIET_PROBE_REUSE_MS &&
+    !Number.isNaN(headMs) &&
+    headMs <= capturedMs + 1000
+  ) {
+    return { bundle: row.bundle, capturedAt: new Date(row.captured_at), partial: false, quietVerified: true };
+  }
+
+  // Probe now. Unknown/failed probe => not quiet (fall through to live gather).
+  const latest = await getLatestTxTimestamp(wallet).catch(() => null);
+  const latestMs = latest ? Date.parse(latest) : NaN;
+  if (Number.isNaN(latestMs) || latestMs > capturedMs + 1000) {
+    await query(
+      `UPDATE wallet_dashboard_snapshots SET quiet_head = NULL, quiet_checked_at = NULL WHERE wallet = $1`,
+      [wallet]
+    ).catch(() => undefined);
+    return null;
+  }
+  await query(
+    `UPDATE wallet_dashboard_snapshots SET quiet_head = $2, quiet_checked_at = NOW() WHERE wallet = $1`,
+    [wallet, new Date(latestMs).toISOString()]
+  ).catch(() => undefined);
+  return { bundle: row.bundle, capturedAt: new Date(row.captured_at), partial: false, quietVerified: true };
 }
 
 /** Age of the wallet's latest BUNDLE snapshot in ms, or null if none exists. */

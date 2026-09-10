@@ -146,6 +146,19 @@ async function getStreamingDashboard(walletAddress: string, forceRefresh = false
       // snapshot is instant and on a live gather is ~5s — both faster than
       // the progressive per-endpoint fan-out below. On ANY bundle failure we
       // fall through to the original progressive fan-out, verbatim.
+      //
+      // FIRST-PAINT BUDGET: for genuinely cold wallets the full gather takes
+      // 15-30s; waiting for it before showing anything was the "30s white
+      // screen". The fast path now gives the bundle a SHORT budget (default
+      // 6s): warm/snapshot bundles land well inside it, and a cold gather
+      // falls through to per-metric streaming immediately — the Express
+      // gather keeps computing in the background (shared in-flight dedup
+      // means the fan-out does not duplicate upstream work), so cards fill
+      // in progressively instead of all at the 30s mark.
+      const bundleTimeoutMs = Math.max(
+        2000,
+        parseInt(process.env.STREAM_BUNDLE_TIMEOUT_MS || '4000', 10)
+      );
       const bundleStart = Date.now();
       try {
         const bundleResult = await fetchFromExpress<{
@@ -155,7 +168,7 @@ async function getStreamingDashboard(walletAddress: string, forceRefresh = false
           metrics: Record<string, unknown>;
         }>(
           `/api/dashboard/bundle/${walletAddress}${forceRefresh ? '?refresh=true' : ''}`,
-          45000
+          bundleTimeoutMs
         );
         if (bundleResult.data?.metrics) {
           const m = bundleResult.data.metrics;

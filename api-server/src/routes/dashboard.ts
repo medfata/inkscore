@@ -8,6 +8,7 @@ import {
 } from '../services/dashboard-bundle-service';
 import {
   getFreshBundleSnapshot,
+  getQuietVerifiedBundleSnapshot,
   saveBundleSnapshot,
 } from '../services/metrics-snapshot-service';
 import { queueRefresh } from '../services/blockscout-service';
@@ -57,6 +58,22 @@ router.get('/bundle/:wallet', async (req: Request, res: Response) => {
       if (snap && !snap.partial && isValidBundleShape(snap.bundle)) {
         console.log(`[Bundle] ${walletAddress.slice(0, 10)}: serving from dashboard snapshot (captured ${snap.capturedAt.toISOString()})`);
         return res.json({ ...snap.bundle, from_snapshot: true });
+      }
+
+      // INSTANT SERVE with proof: no fresh snapshot, but a one-request probe
+      // can prove the wallet has no tx newer than the stored capture — then
+      // the older snapshot is exact, not stale, and can be served instantly.
+      // Quiet serves are deliberately NOT put into responseCache: the next
+      // load must re-evaluate the proof (probe reuse is bounded upstream).
+      const quiet = await getQuietVerifiedBundleSnapshot(walletAddress).catch((err: unknown) => {
+        console.warn(`[Bundle] ${walletAddress.slice(0, 10)}: quiet check failed, computing live:`, err);
+        return null;
+      });
+      if (quiet && isValidBundleShape(quiet.bundle)) {
+        console.log(
+          `[Bundle] ${walletAddress.slice(0, 10)}: serving QUIET-VERIFIED snapshot (captured ${quiet.capturedAt.toISOString()})`
+        );
+        return res.json({ ...quiet.bundle, from_snapshot: true, quiet_verified: true });
       }
     }
 
